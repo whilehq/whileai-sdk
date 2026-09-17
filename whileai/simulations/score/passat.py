@@ -64,7 +64,20 @@ def _pass_pow_k_group(n: int, c: int, k: int) -> float:
     return _comb(c, k) / total
 
 
-CONFIG_KEYS = ("temperature", "max_tokens", "policy_version", "judge_version", "prompt_hash")
+CONFIG_KEYS = (
+    "temperature",
+    "max_tokens",
+    "policy_version",
+    "judge_version",
+    "prompt_hash",
+    # Who played the simulated user and who wrote the situations. In an
+    # agentic eval every layer moves the score (rlhf-book ch. 16), and these
+    # two are the layers that silently follow the policy: with no
+    # ``user_model=``/``simulator=`` they run on the agent's own model, so a
+    # before/after comparison changes the environment along with the weights.
+    "user_model",
+    "writer_model",
+)
 
 
 def _dict(value: Any) -> dict[str, Any]:
@@ -86,6 +99,8 @@ def _row_config_values(row: dict) -> dict[str, Any]:
         "prompt_hash": str(policy_version).split("@", 1)[1]
         if policy_version and "@" in str(policy_version)
         else None,
+        "user_model": str(row["user_model"]) if row.get("user_model") else None,
+        "writer_model": str(row["writer_model"]) if row.get("writer_model") else None,
     }
 
 
@@ -96,7 +111,9 @@ def run_config(
     a number without its sampling settings, prompt and judge is not
     comparable to another). ``temperature`` and ``max_tokens`` come from
     each row's ``sampling``, ``policy_version`` and ``prompt_hash`` from
-    its policy stamp, ``judge_version`` from its judge stamp. A field is
+    its policy stamp, ``judge_version`` from its judge stamp, and
+    ``user_model``/``writer_model`` from the row's record of who played the
+    simulated user and who wrote the situations. A field is
     the one value every row agrees on; rows that lack it are skipped, and
     a field the rows disagree on is ``None`` and listed in ``mixed``."""
     seen: dict[str, set[Any]] = {key: set() for key in CONFIG_KEYS}
@@ -122,7 +139,37 @@ def run_config(
     out["truncated_share"] = (
         round(sum(1 for x in known if x == "length") / len(known), 4) if known else None
     )
+    # The share of rows that actually carry a gradeable verdict. A row the
+    # judge could not grade leaves the denominator entirely, and the rows that
+    # fail to grade are not a random sample: long trajectories are both more
+    # likely to break a judge payload and more likely to have failed, so the
+    # surviving rate is biased upward. Two arms that lose different shares are
+    # not scored on comparable denominators, which is a selection effect no
+    # interval can see (rlhf-book ch. 16). ``delta_report`` warns when they
+    # differ; here it is only counted.
+    gradeable = [r for r in rows if isinstance(r, dict)]
+    out["graded_share"] = (
+        round(sum(1 for r in gradeable if _binary_reward(r) is not None) / len(gradeable), 4)
+        if gradeable
+        else None
+    )
     return out
+
+
+def _binary_reward(row: dict) -> float | None:
+    """The row's binary reward, or ``None`` when it carries no gradeable
+    verdict. Mirrors what ``group_signal`` and ``pass_at`` count."""
+    for key in ("reward", "qwen_reward"):
+        v = row.get(key)
+        if v is None or isinstance(v, bool):
+            continue
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if f in (0.0, 1.0):
+            return f
+    return None
 
 
 @dataclass(frozen=True)

@@ -123,8 +123,14 @@ def test_pass_at_config_reads_the_rows():
         "policy_version": "m@abc123",
         "judge_version": "judge@v1",
         "prompt_hash": "abc123",
+        # who played the user and who wrote the situations: absent on these
+        # rows, so None rather than mixed
+        "user_model": None,
+        "writer_model": None,
         "mixed": [],
         "truncated_share": None,
+        # every row here carries a binary reward, so nothing left the denominator
+        "graded_share": 1.0,
     }
     assert pass_at(rows).to_dict()["config"] == cfg
     # rows that disagree: the field is None and named
@@ -146,10 +152,10 @@ def test_delta_report_names_every_setting_that_differs():
     report = delta_report(before, same, target="pass_at_1")
     assert report["config"]["before"]["policy_version"] == "m@abc123"
     assert report["config"]["after"] == report["config"]["before"]
-    assert (
-        "Before and after are the same policy version; this compares a model to itself."
-        in report["warnings"]
-    )
+    same_policy = " ".join(report["warnings"])
+    assert "the same policy version; this compares a model to itself" in same_policy
+    # and it names the usual cause: base and adapter served under one name
+    assert '"model_version"' in same_policy
 
     after = [
         dict(

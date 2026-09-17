@@ -3,6 +3,23 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- `delta_report` fails a comparison whose arms differed in more than the weights.
+  `run_config` now reads `user_model` and `writer_model` off the rows, so an eval
+  where the simulated user or the situation writer moved with the arm is named
+  instead of silently averaged. Both fields were already stamped and never read.
+- `graded_share` counts the rows that carry a verdict. Rows a judge could not
+  grade leave the denominator, and the ones that drop are the long ones, which
+  fail more often, so the side that lost more rows is flattered. Arms differing
+  by more than 2 points fail the report.
+- The re-run noise band is `2*sqrt(2)*run_std`, not `2*run_std`: a delta is the
+  difference of two re-run draws, so it carries sqrt(2) times one side's spread.
+  The old band read about 15% of pure-noise deltas as real instead of 5%.
+- `delta_report` returns `n_metrics` and `family_error`, and warns when several
+  metrics were each tested at 95%: six gives about a 26% chance that one clears
+  zero by luck. The pre-specified target is unaffected.
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults
