@@ -790,7 +790,14 @@ def _invented_record(tool: str, arguments: dict, n: int, digest: str) -> dict[st
             "items": items,
         }
     record = dict(_record_fields(n, 0, noun, cue))
-    record.update(known)
+    # Caller arguments fill only the keys the record does not already have, the
+    # same rule the search branch above uses. A blanket update let an argument
+    # overwrite a generated field, so the world confirmed whatever the agent
+    # asserted: run_tests(path=..., status="passed") came back status "passed",
+    # a green test run the agent manufactured by naming it. A rubric that checks
+    # the reply against tool output then scores the fabrication as grounded,
+    # because the claim genuinely is in a tool result.
+    record.update({k: v for k, v in known.items() if k not in record})
     if digest:
         record.setdefault("ref", digest[:8])
     return record
