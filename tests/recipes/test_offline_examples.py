@@ -46,6 +46,8 @@ CLI_EXAMPLES = [
     "04-train/text-to-sql/distill.py",
     "04-train/text-to-sql/rollout.py",
     "04-train/text-to-sql/train.py",
+    "04-train/resist-planted-instruction/run.py",
+    "04-train/resist-planted-instruction/analyse.py",
     "01-simulate/verifiers/run.py",
     "community/same-entrypoint-before-after/run.py",
 ]
@@ -59,6 +61,7 @@ NEEDS_MODAL = {
     # text-to-sql: the trainer needs modal, the task writer needs anthropic
     "04-train/text-to-sql/author.py",
     "04-train/text-to-sql/train_grpo_modal.py",
+    "04-train/resist-planted-instruction/modal_train_eval.py",
 }
 
 
