@@ -95,6 +95,38 @@ def test_delta_report_refuses_a_verdict_inside_the_noise_band():
     assert "marker:polite" in lenient["within_noise"]
 
 
+def test_per_metric_run_std_does_not_apply_pass_at_1_noise_to_markers():
+    runs = []
+    marker_rates = (0.25, 0.5, 0.75)
+    for marker_rate in marker_rates:
+        rows = _rows({f"t{i}": 0.5 for i in range(8)})
+        for task_i in range(8):
+            value = 1.0 if task_i < round(marker_rate * 8) else 0.0
+            for row in rows[task_i * 4 : (task_i + 1) * 4]:
+                row["markers"]["honest"] = value
+        runs.append(rows)
+
+    variance = eval_variance(*runs)
+    floors = variance["run_std_by_metric"]
+    assert floors["pass_at_1"] == 0.0
+    assert floors["marker:honest"] > floors["pass_at_1"]
+
+    before = runs[0]
+    after = runs[1]
+    report = delta_report(before, after, must_not_regress=["honest"], run_std=floors, n_boot=200)
+    assert report["metrics"]["marker:honest"]["run_std"] == floors["marker:honest"]
+    assert report["metrics"]["pass_at_1"]["run_std"] == floors["pass_at_1"]
+
+
+def test_per_metric_run_std_does_not_fall_back_for_missing_marker_floor():
+    before = _rows({f"t{i}": 0.5 for i in range(8)})
+    after = _rows({f"t{i}": 0.5 for i in range(8)})
+    report = delta_report(before, after, run_std={"pass_at_1": 0.2}, n_boot=100)
+    marker = report["metrics"]["marker:honest"]
+    assert marker["run_std"] is None
+    assert marker["noise_note"] == "no_replicate_floor"
+
+
 def test_public_surface():
     assert "eval_variance" in wai.__all__ and callable(wai.eval_variance)
     with pytest.raises(ValueError, match="at least one"):

@@ -411,9 +411,12 @@ def eval_variance(
     ``by``. Each run's ``metric`` is a mean over tasks; the report is
     those means, their mean, the sample standard deviation ``run_std``,
     and ``noise_band`` = 2 x ``run_std``: a before/after delta inside it
-    is what re-running the eval does on its own. Hand ``run_std`` to
-    ``delta_report(run_std=)`` and it refuses to call such a delta a
-    change. ``stability`` places ``run_std`` on Olmo 3's bands in points.
+    is what re-running the eval does on its own. ``run_std_by_metric``
+    reports the same floor for pass@1 and every marker shared by all runs;
+    hand that mapping to ``delta_report(run_std=)`` so each metric uses its
+    own re-run variance. The scalar ``run_std`` remains the selected
+    ``metric``'s value for callers comparing only one metric. ``stability``
+    places ``run_std`` on Olmo 3's bands in points.
     Fewer than three runs is a difference, not a distribution; the report
     says so and ``run_std`` is ``None`` below two.
     """
@@ -450,6 +453,26 @@ def eval_variance(
         else None
     )
     common = set.intersection(*task_sets) if task_sets else set()
+    shared_markers = (
+        set.intersection(*(set(marker_names(rows)) for rows in groups)) if groups else set()
+    )
+    run_std_by_metric: dict[str, float | None] = {}
+    for variance_metric in ["pass_at_1", *[f"marker:{name}" for name in sorted(shared_markers)]]:
+        metric_values: list[float] = []
+        for rows in groups:
+            per_task = task_means(rows, variance_metric)
+            if per_task:
+                metric_values.append(_mean(list(per_task.values())))
+        metric_mean = _mean(metric_values) if metric_values else None
+        metric_std = (
+            (sum((value - metric_mean) ** 2 for value in metric_values) / (len(metric_values) - 1))
+            ** 0.5
+            if len(metric_values) >= 2 and metric_mean is not None
+            else None
+        )
+        run_std_by_metric[variance_metric] = (
+            round(metric_std, 4) if metric_std is not None else None
+        )
     stability = None
     if std is not None:
         points = std * 100
@@ -460,6 +483,7 @@ def eval_variance(
         "means": means,
         "mean": round(mean, 4) if mean is not None else None,
         "run_std": round(std, 4) if std is not None else None,
+        "run_std_by_metric": run_std_by_metric,
         "run_std_points": round(std * 100, 2) if std is not None else None,
         "noise_band": round(2 * std, 4) if std is not None else None,
         "stability": stability,

@@ -22,7 +22,7 @@ entirely above the target's. The report says so and fails.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from .passat import pass_at
@@ -143,7 +143,7 @@ def delta_report(
     must_not_regress: Sequence[str] = (),
     markers: Sequence[str] | None = None,
     by: str | Callable[[dict], Any] | None = None,
-    run_std: float | None = None,
+    run_std: float | Mapping[str, float | None] | None = None,
     proxy: str | None = None,
     n_boot: int = DEFAULT_BOOT,
     seed: int = 0,
@@ -173,9 +173,12 @@ def delta_report(
     should).
 
     ``run_std`` is the evaluation's own re-run standard deviation
-    (``eval_variance(...)["run_std"]``, rlhf-book ch. 16). A metric
-    whose delta is smaller than twice it is ``within_noise``: not
-    improved, not slipped, not a regression, and a target there reads
+    (rlhf-book ch. 16). Pass ``eval_variance(...)["run_std_by_metric"]``
+    so pass@1 and each marker use their own floor, or pass a scalar to keep
+    the legacy one-floor-for-all-metrics behavior. A mapping never falls
+    back to another metric's floor when a metric is missing. A metric whose
+    delta is smaller than twice its floor is ``within_noise``: not improved,
+    not slipped, not a regression, and a target there reads
     ``within_eval_noise`` rather than moved, because re-running the eval
     moves it that much on its own. When both row sets carry two or more
     ``lineage.eval_run`` values (``simulate(tasks=..., runs=3)``) the
@@ -224,16 +227,38 @@ def delta_report(
             degenerate_guards.append(m)
     eval_runs = {"before": len(_eval_runs(before)), "after": len(_eval_runs(after))}
     run_std_source = "given" if run_std is not None else None
-    if run_std is None and min(eval_runs.values()) >= 2:
-        run_std = _pooled_run_std(
-            before, after, target_key if target_key in results else "pass_at_1"
+
+    def _normalize_floor_key(name: str) -> str:
+        return name if name == "pass_at_1" or name.startswith("marker:") else f"marker:{name}"
+
+    run_std_by_metric: dict[str, float | None]
+    if isinstance(run_std, Mapping):
+        run_std_by_metric = {
+            _normalize_floor_key(str(name)): (float(value) if value is not None else None)
+            for name, value in run_std.items()
+        }
+    elif run_std is not None:
+        scalar_floor = float(run_std)
+        run_std_by_metric = {m: scalar_floor for m in metrics}
+    elif min(eval_runs.values()) >= 2:
+        run_std_by_metric = {m: _pooled_run_std(before, after, m) for m in metrics}
+        run_std_source = (
+            "eval_run" if any(value is not None for value in run_std_by_metric.values()) else None
         )
-        run_std_source = "eval_run" if run_std is not None else None
-    replicated = run_std is not None
-    noise = 2.0 * float(run_std) if run_std is not None else None
+    else:
+        run_std_by_metric = {}
+
+    headline_metric = target_key if target_key in results else "pass_at_1"
+    headline_run_std = run_std_by_metric.get(headline_metric)
+    replicated = headline_run_std is not None
     within_noise: list[str] = []
     for m in metrics:
         r = results[m]
+        metric_run_std = run_std_by_metric.get(m)
+        noise = 2.0 * metric_run_std if metric_run_std is not None else None
+        r["run_std"] = metric_run_std
+        if isinstance(run_std, Mapping) and m not in run_std_by_metric:
+            r["noise_note"] = "no_replicate_floor"
         r["within_noise"] = (
             noise is not None and r.get("delta") is not None and abs(r["delta"]) < noise
         )
@@ -329,10 +354,11 @@ def delta_report(
                 f"{headline_name} {headline_for_proxy['delta']:+.3f} (95% {tspan}): the policy "
                 "learned something the target does not credit (rlhf-book ch. 14)"
             )
-    if noise is not None and target_verdict == "within_eval_noise" and target_result:
+    headline_noise = 2.0 * headline_run_std if headline_run_std is not None else None
+    if headline_noise is not None and target_verdict == "within_eval_noise" and target_result:
         warnings.append(
             f"{target_key}: {target_result['delta']:+.3f} is inside the eval's own re-run band "
-            f"(2 x run_std = {noise:.3f}); re-running the eval moves it that much"
+            f"(2 x run_std = {headline_noise:.3f}); re-running the eval moves it that much"
         )
     for m in regressions:
         r = results[m]
@@ -441,7 +467,8 @@ def delta_report(
         "regressions": regressions,
         "slipped": slipped,
         "within_noise": within_noise,
-        "run_std": float(run_std) if run_std is not None else None,
+        "run_std": headline_run_std,
+        "run_std_by_metric": {m: run_std_by_metric.get(m) for m in metrics},
         "run_std_source": run_std_source,
         "eval_runs": eval_runs,
         "replicated": replicated,
