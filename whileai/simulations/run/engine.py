@@ -2929,14 +2929,21 @@ class Run:
             ):
                 data.degraded.append("followups_starved")
         # The simulated user reasoned out loud. The reasoning was stripped
-        # before it became a user turn; the count, and how many were cut
-        # off inside the block, is per run so two arms can be compared
+        # before it became a user turn; the counts and their shares of the
+        # user turns are on every run, zeros included, so two arms can be
+        # compared in the same unit as config["unclosed_think_share"]
         # (#284: 18 unclosed on one arm, 0 on the other).
+        user_turns = int(self.turn_stats.get("user_turns", 0) or 0)
         stripped = int(self.turn_stats.get("user_think_stripped", 0) or 0)
+        unclosed = int(self.turn_stats.get("user_think_unclosed", 0) or 0)
+        data.search["user_think"] = {
+            "user_turns": user_turns,
+            "stripped": stripped,
+            "unclosed": unclosed,
+            "stripped_share": round(stripped / user_turns, 4) if user_turns else 0.0,
+            "unclosed_share": round(unclosed / user_turns, 4) if user_turns else 0.0,
+        }
         if stripped:
-            unclosed = int(self.turn_stats.get("user_think_unclosed", 0) or 0)
-            data.search["user_think_stripped"] = stripped
-            data.search["user_think_unclosed"] = unclosed
             note = (
                 f"{stripped} simulated-user turns came back as <think> reasoning ({unclosed} cut "
                 "off inside the block by the user model's token cap); the reasoning was stripped "

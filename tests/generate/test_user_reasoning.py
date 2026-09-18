@@ -12,9 +12,9 @@ from whileai.simulations.generate.agents import (
     _MIN_SPOKEN,
     _user_followup,
     local_model,
-    split_reasoning,
     user_sim_system,
 )
+from whileai.simulations.text import split_reasoning
 
 REASONING = (
     "<think> okay, the user is confused because the customer says they saw the order "
@@ -194,8 +194,12 @@ def test_run_counts_stripped_user_turns_per_arm_and_names_the_fix(monkeypatch):
         for message in row.get("messages") or []:
             if message.get("role") == "user":
                 assert "<think>" not in str(message.get("content") or "")
-    assert data.search["user_think_stripped"] == 2
-    assert data.search["user_think_unclosed"] == 1
+    think = data.search["user_think"]
+    assert think["stripped"] == 2 and think["unclosed"] == 1
+    assert think["user_turns"] >= 2
+    # shares of the user turns: the same unit as config["unclosed_think_share"]
+    assert think["stripped_share"] == round(2 / think["user_turns"], 4)
+    assert think["unclosed_share"] == round(1 / think["user_turns"], 4)
     note = next(w for w in data.warnings if "simulated-user turns came back as <think>" in w)
     assert "thinking=False" in note and "user_model=" in note
-    assert f"({data.search['user_think_unclosed']} cut off" in note
+    assert f"({think['unclosed']} cut off" in note

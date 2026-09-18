@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from whileai._env import getenv
 from whileai.auth import SIGN_IN_URL
 
+from ..text import split_reasoning
 from ..world.sandbox import MockEnvironment
 from .anthropic_backend import ANTHROPIC_BASE_URL, is_anthropic_url
 from .anthropic_backend import DEFAULT_MODEL as ANTHROPIC_DEFAULT_MODEL
@@ -780,10 +781,6 @@ def _strip_tool_markup(text: str) -> str:
     return cleaned.strip()
 
 
-_THINK_BLOCK = re.compile(r"<think>(.*?)</think>\s*", re.S | re.I)
-_THINK_OPEN = re.compile(r"<think>.*\Z", re.S | re.I)
-
-
 #: A simulated-user turn that carried reasoning and left fewer spoken
 #: characters than this was reasoning with no spoken line: the writer
 #: thought and never typed, so the turn is retried, never emitted as a
@@ -791,30 +788,6 @@ _THINK_OPEN = re.compile(r"<think>.*\Z", re.S | re.I)
 #: bare ``yes`` or ``order 4821`` with no ``<think>`` is a real user turn
 #: and passes untouched (#284).
 _MIN_SPOKEN = 25
-
-
-def split_reasoning(text: str) -> tuple[str, int, bool]:
-    """A thinking model's output as ``(spoken, closed_blocks, unclosed)``.
-
-    Closed ``<think>...</think>`` blocks are removed whole; the ones with
-    words in them are counted (an empty ``<think> </think>``, what a
-    reasoning-suppressed model prints, is markup and not reasoning). An
-    unclosed ``<think>`` means the token cap landed inside the reasoning,
-    so everything from it to the end is dropped and ``unclosed`` is True:
-    the writer was cut off, and what follows the tag is not a reply.
-    """
-    raw = str(text or "")
-    closed = 0
-
-    def _drop(match: re.Match[str]) -> str:
-        nonlocal closed
-        if match.group(1).strip():
-            closed += 1
-        return ""
-
-    spoken = _THINK_BLOCK.sub(_drop, raw)
-    spoken, opened = _THINK_OPEN.subn("", spoken)
-    return spoken, closed, bool(opened)
 
 
 def _strip_think(text: str) -> str:
@@ -825,14 +798,18 @@ def _strip_think(text: str) -> str:
     return split_reasoning(text)[0]
 
 
-def _count_user_reasoning(turn_stats: dict | None, unclosed: bool) -> None:
-    """One simulated-user turn came back as reasoning. The run reports the
-    count, and how many were cut off inside the block, per arm (#284)."""
+def _note_user_turn(turn_stats: dict | None, closed: int, unclosed: bool) -> None:
+    """One simulated-user reply came back: count the turn, and count it
+    again as stripped when it carried reasoning, and as unclosed when the
+    reasoning was cut off. The run reports counts and shares per arm
+    (#284: 18 unclosed on one arm, 0 on the other)."""
     if not turn_stats:
         return
     lock = turn_stats.get("lock")
     with lock if lock is not None else contextlib.nullcontext():
-        turn_stats["user_think_stripped"] = turn_stats.get("user_think_stripped", 0) + 1
+        turn_stats["user_turns"] = turn_stats.get("user_turns", 0) + 1
+        if closed or unclosed:
+            turn_stats["user_think_stripped"] = turn_stats.get("user_think_stripped", 0) + 1
         if unclosed:
             turn_stats["user_think_unclosed"] = turn_stats.get("user_think_unclosed", 0) + 1
 
@@ -1366,15 +1343,14 @@ def _user_followup(
         except Exception:
             continue
         spoken, closed, unclosed = split_reasoning(reply.get("content") or "")
-        if closed or unclosed:
-            _count_user_reasoning(turn_stats, unclosed)
-            if len(spoken.strip()) < _MIN_SPOKEN:
-                # Reasoning and no spoken line. One more try with the
-                # short prompt; never a fragment, never empty user speech.
-                if not retried_for_reasoning:
-                    retried_for_reasoning = True
-                    attempts.append(retry_body)
-                continue
+        _note_user_turn(turn_stats, closed, unclosed)
+        if (closed or unclosed) and len(spoken.strip()) < _MIN_SPOKEN:
+            # Reasoning and no spoken line. One more try with the short
+            # prompt; never a fragment, never empty user speech.
+            if not retried_for_reasoning:
+                retried_for_reasoning = True
+                attempts.append(retry_body)
+            continue
         text = _scrub_ai_traces(
             _realize_typed_message(_strip_directive_phrases(clean_user_message(spoken)), tags)
         )
@@ -1479,10 +1455,9 @@ def _human_answer(
         extra=extra,
     )
     spoken, closed, unclosed = split_reasoning(reply.get("content") or "")
-    if closed or unclosed:
-        _count_user_reasoning(turn_stats, unclosed)
-        if len(spoken.strip()) < _MIN_SPOKEN:
-            return ""
+    _note_user_turn(turn_stats, closed, unclosed)
+    if (closed or unclosed) and len(spoken.strip()) < _MIN_SPOKEN:
+        return ""
     return _strip_tool_markup(spoken).strip()
 
 
@@ -1564,8 +1539,9 @@ def local_model(
     the ``messages`` history): what the user model still emits as
     reasoning is stripped before it becomes speech, and a turn that was
     reasoning with no spoken line is retried, then dropped (#284). The run
-    counts those under ``search["user_think_stripped"]`` and
-    ``search["user_think_unclosed"]``.
+    reports those under ``search["user_think"]``: ``user_turns``,
+    ``stripped`` and ``unclosed`` as counts, ``stripped_share`` and
+    ``unclosed_share`` as shares of the user turns, zeros when none.
     """
     local = threading.local()
     plans = fault_plans if fault_plans is not None else {}

@@ -22,10 +22,12 @@ entirely above the target's. The report says so and fails.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Sequence
+from statistics import NormalDist
 from typing import Any
 
-from .passat import pass_at
+from .passat import answer_counts, pass_at
 from .stats import (
     DEFAULT_BOOT,
     compare_runs,
@@ -135,27 +137,39 @@ def _by_group(
     return out
 
 
-#: One side is short of replies when at least this share of its rows have
-#: no spoken text, and the other side has under a third of that share.
-UNANSWERED_MIN_SHARE = 0.10
+#: With no re-run band to read the gap against, a difference in answered
+#: share this large between the arms is material on its own.
+ANSWERED_GAP_POINTS = 0.10
+#: The two-proportion test has to clear this before a gap counts at all.
+ANSWERED_P_MAX = 0.01
 
 
-def _one_sided(a: float, b: float) -> bool:
-    """True when one arm's share is at least ``UNANSWERED_MIN_SHARE`` and
-    the other's is under a third of it (#297: 93% against 0%)."""
-    hi, lo = max(a, b), min(a, b)
-    return hi >= UNANSWERED_MIN_SHARE and lo * 3 < hi
+def _two_proportion_p(x_a: int, n_a: int, x_b: int, n_b: int) -> float | None:
+    """Two-sided p-value of the pooled two-proportion z test: is the share
+    ``x_a/n_a`` different from ``x_b/n_b``? ``None`` when either side has
+    no rows or the pooled share is 0 or 1 (no variance to test against)."""
+    if n_a <= 0 or n_b <= 0:
+        return None
+    pooled = (x_a + x_b) / (n_a + n_b)
+    if pooled <= 0.0 or pooled >= 1.0:
+        return None
+    se = math.sqrt(pooled * (1.0 - pooled) * (1.0 / n_a + 1.0 / n_b))
+    z = abs(x_a / n_a - x_b / n_b) / se
+    return 2.0 * (1.0 - NormalDist().cdf(z))
 
 
-def _manufactured_win_note(cfg_a: dict[str, Any], cfg_b: dict[str, Any]) -> str:
-    """The warning for a comparison where one arm mostly never answered:
-    what was seen per arm, the mechanism that produces it, and the fix."""
+def _answered_note(
+    cfg_a: dict[str, Any], cfg_b: dict[str, Any], *, p: float, gap: float, bar: str, fails: bool
+) -> str:
+    """The warning for arms that differ in how often they answered at all:
+    the shares, the test, the mechanism that produces it, and the fix."""
     missing_a = 1.0 - float(cfg_a["answered_share"])
     missing_b = 1.0 - float(cfg_b["answered_share"])
+    head = "NOT COMPARABLE: " if fails else ""
     line = (
-        f"MANUFACTURED: {missing_a:.0%} of before rows and {missing_b:.0%} of after rows have "
-        "no spoken reply, so every rate above is computed over replies one side did not "
-        "produce. "
+        f"{head}{missing_a:.0%} of before rows and {missing_b:.0%} of after rows have no spoken "
+        f"reply (two-proportion test p={p:.2g}, gap {gap:.1%} against {bar}), so every rate above "
+        "is computed over replies one side did not produce. "
     )
     think_a = float(cfg_a.get("unclosed_think_share") or 0.0)
     think_b = float(cfg_b.get("unclosed_think_share") or 0.0)
@@ -254,15 +268,18 @@ def delta_report(
     (rlhf-book ch. 16: a comparison is only as good as the settings it
     was run under).
 
-    ``answered`` is the share of rows per side with a spoken reply once
-    ``<think>`` markup is gone (``config[side]["answered_share"]``). Every
-    rate is conditional on it. When one side is short of replies
-    (``UNANSWERED_MIN_SHARE`` or more of its rows, and the other side
-    under a third of that) the report sets ``unanswered_asymmetric``,
-    fails, and the warning names the mechanism: a reasoning base against
-    a reasoning-suppressed adapter under one shared ``max_tokens`` runs
-    out of budget inside ``<think>`` and never answers, so the adapter
-    wins every row the base did not reply to (#297).
+    ``config[side]["answered_share"]`` is the share of rows per side with
+    a spoken reply once ``<think>`` markup is gone. Every rate is
+    conditional on it. The two shares are compared with a pooled
+    two-proportion z test; when it clears ``ANSWERED_P_MAX`` (p < 0.01)
+    the warning states p and the gap, and when the gap also exceeds the
+    re-run band (or ``ANSWERED_GAP_POINTS`` with no band) the report
+    fails with ``answered`` in ``not_comparable`` and names the mechanism:
+    a reasoning base against a reasoning-suppressed adapter under one
+    shared ``max_tokens`` runs out of budget inside ``<think>`` and never
+    answers, so the adapter wins every row the base did not reply to
+    (#297). ``not_comparable`` lists every such cause under one prefix,
+    ``NOT COMPARABLE:``.
     """
     names = (
         list(markers)
@@ -320,6 +337,7 @@ def delta_report(
         target_verdict = _verdict_word(target_result, replicated)
     ok = not regressions and target_verdict not in {"moved_the_wrong_way"}
     warnings: list[str] = []
+    not_comparable: list[str] = []
     if target_verdict == "moved_unreplicated":
         single = [side for side, n in eval_runs.items() if n < 2]
         where = "each side" if len(single) == 2 else f"the {single[0]} side"
@@ -494,19 +512,31 @@ def delta_report(
             "Before and after are the same policy version; this compares a model to itself."
         )
     # Answer production. A rate is conditional on the arm having replied;
-    # when one side mostly did not and the other did, the comparison does
-    # not exist and the report fails (#297).
-    answered = {"before": cfg_a.get("answered_share"), "after": cfg_b.get("answered_share")}
-    unanswered_asymmetric = False
+    # when the two arms differ in how often they did, by more than chance
+    # (two-proportion z test) and by more than the eval's noise, the
+    # comparison does not exist and the report fails (#297).
     if _both("answered_share"):
-        unanswered_asymmetric = _one_sided(
-            1.0 - float(cfg_a["answered_share"]), 1.0 - float(cfg_b["answered_share"])
-        )
-    if unanswered_asymmetric:
-        ok = False
-        warnings.append(_manufactured_win_note(cfg_a, cfg_b))
+        answered_a, _, n_reply_a = answer_counts(before)
+        answered_b, _, n_reply_b = answer_counts(after)
+        answered_p = _two_proportion_p(answered_a, n_reply_a, answered_b, n_reply_b)
+        answered_gap = abs(float(cfg_a["answered_share"]) - float(cfg_b["answered_share"]))
+        if noise is not None:
+            gap_bar, bar_name = noise, f"the re-run band {noise:.3f}"
+        else:
+            gap_bar, bar_name = ANSWERED_GAP_POINTS, f"{ANSWERED_GAP_POINTS:.0%} with no run_std"
+        if answered_p is not None and answered_p < ANSWERED_P_MAX:
+            fails = answered_gap > gap_bar
+            if fails:
+                ok = False
+                not_comparable.append("answered")
+            warnings.append(
+                _answered_note(
+                    cfg_a, cfg_b, p=answered_p, gap=answered_gap, bar=bar_name, fails=fails
+                )
+            )
     return {
         "ok": ok,
+        "not_comparable": not_comparable,
         "target": target_key,
         "target_verdict": target_verdict,
         "target_delta": target_result["delta"] if target_result else None,
@@ -533,8 +563,6 @@ def delta_report(
         "metrics": results,
         "warnings": warnings,
         "config": config,
-        "answered": answered,
-        "unanswered_asymmetric": unanswered_asymmetric,
         "by": (
             by if isinstance(by, str) else (getattr(by, "__name__", "callable") if by else None)
         ),
@@ -580,6 +608,12 @@ def format_delta_report(report: dict[str, Any]) -> str:
         )
     if report.get("ceiling"):
         lines.append("CEILING: the before run already passes most tasks; use harder situations")
+    answered = {
+        side: (report.get("config") or {}).get(side, {}).get("answered_share")
+        for side in ("before", "after")
+    }
+    if answered["before"] is not None and answered["after"] is not None:
+        lines.append(f"answered: {answered['before']:.1%} before, {answered['after']:.1%} after")
     for name, r in report["metrics"].items():
         if r.get("delta") is None:
             lines.append(f"  {name:<28} insufficient data")

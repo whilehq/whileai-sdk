@@ -36,7 +36,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..generate.agents import split_reasoning
+from ..text import split_reasoning
 
 JUDGE_NOISE_NOTE = (
     "pass@k inflates on judge false positives, pass^k on false negatives; "
@@ -130,20 +130,28 @@ def run_config(
     # unclosed <think> (the cap landed mid-reasoning). ``delta_report``
     # fails the comparison when one side answered and the other did not
     # (#297). ``None`` on an empty set.
-    replies = [_reply_text(r) for r in rows if isinstance(r, dict)]
-    said = [text for text in replies if text is not None]
-    if said:
-        split = [split_reasoning(text) for text in said]
-        out["answered_share"] = round(
-            sum(1 for spoken, _, _ in split if spoken.strip()) / len(split), 4
-        )
-        out["unclosed_think_share"] = round(
-            sum(1 for _, _, unclosed in split if unclosed) / len(split), 4
-        )
+    answered, unclosed, with_reply = answer_counts(rows)
+    if with_reply:
+        out["answered_share"] = round(answered / with_reply, 4)
+        out["unclosed_think_share"] = round(unclosed / with_reply, 4)
     else:
         out["answered_share"] = None
         out["unclosed_think_share"] = None
     return out
+
+
+def answer_counts(rows: Sequence[dict]) -> tuple[int, int, int]:
+    """``(answered, unclosed, with_reply)``: rows whose reply has spoken
+    text once ``<think>`` markup is gone, rows whose reply ends inside an
+    unclosed ``<think>``, and rows that carry a reply field at all (the
+    denominator of ``answered_share``; ``delta_report`` needs the counts
+    for its two-proportion test)."""
+    replies = [_reply_text(r) for r in rows if isinstance(r, dict)]
+    said = [text for text in replies if text is not None]
+    split = [split_reasoning(text) for text in said]
+    answered = sum(1 for spoken, _, _ in split if spoken.strip())
+    unclosed = sum(1 for _, _, cut in split if cut)
+    return answered, unclosed, len(split)
 
 
 def _reply_text(row: dict) -> str | None:

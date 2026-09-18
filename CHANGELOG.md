@@ -16,9 +16,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `order 4821` still passes. `local_model(thinking=False)` now reaches the
   user simulator too when the agent's own model plays it (or `user_model`
   is on the same endpoint), so the customer is asked not to reason at all.
-  The run counts stripped turns and unclosed tails per arm under
-  `data.search["user_think_stripped"]` and `["user_think_unclosed"]` and
-  `data.warnings` says so, with the fix.
+  Every run reports `data.search["user_think"]`: `user_turns`, `stripped`
+  and `unclosed` as counts and `stripped_share` / `unclosed_share` as shares
+  of the user turns (zeros when none, the same unit as
+  `config["unclosed_think_share"]`), and `data.warnings` says so, with the
+  fix. `split_reasoning` moved to `whileai.simulations.text`, stdlib only,
+  so scoring no longer imports the agent runtime to read a reply.
 - `delta_report` fails a manufactured win. Generating on a non-reasoning
   model and training a reasoning base teaches the adapter to print an empty
   `<think></think>` and answer at once; at eval, under one shared
@@ -27,12 +30,15 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   rows with no reply (#297). `pass_at(...).config` now carries
   `answered_share` (rows with spoken text once `<think>` is gone) and
   `unclosed_think_share`, the printed line says `N% of rows have no spoken
-  reply`, and `delta_report` sets `unanswered_asymmetric`, returns
-  `answered` per side, flips `ok` and names the mechanism and the fix (raise
-  `agent_max_tokens=` on both sides, set `thinking=` the same on both arms,
-  or strip `<think>` on both) when one side is short of replies and the
-  other is not. `training_rows(strip_think=)` documents that same
-  mechanism.
+  reply`, and `delta_report` compares the two shares with a two-proportion
+  z test: at p < 0.01 the warning states p and the gap, and when the gap
+  also exceeds the re-run band (or 10 points with no `run_std`) the report
+  fails with `"answered"` in `not_comparable`, one list naming every reason
+  two arms cannot be compared under one prefix, `NOT COMPARABLE:`, and the
+  warning names the mechanism and the fix (raise `agent_max_tokens=` on both
+  sides, set `thinking=` the same on both arms, or strip `<think>` on both).
+  `format_delta_report` prints each side's answered share.
+  `training_rows(strip_think=)` documents that same mechanism.
 
 ## 0.62 (2026-09-17)
 
