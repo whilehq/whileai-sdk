@@ -156,13 +156,22 @@ def delta_report(
 
     The two sides should have the same number of rollouts per task. When
     a run lost rollouts (``data.report()["rollouts_lost"]``), one arm can
-    sit at k=4 and the other at k=2, and a task judged from one row on
-    the side under test weighs the same as one judged from four; the
-    report warns, next to the sizing line, naming both k values.
-    ``balance_rollouts=True`` trims every paired task to the rows both
-    sides have, dropping extra rollouts on the larger side (chosen by
-    ``seed``), and ``balanced`` says how many rows each side lost. The
-    alternative is to re-run the short arm on its short tasks.
+    sit at k=4 and the other at k=2; the report warns, next to the sizing
+    line, naming both. Unequal k is a precision issue, not a bias: a
+    task's pass rate is its mean over however many rows it has, so rows
+    lost at random leave the paired delta unbiased and only widen its
+    interval (simulated, k=4 against k=2 on half the tasks: mean delta on
+    the true value, interval about 10% wider). Rows lost for a reason are
+    the problem: a timeout that takes the hard runs, an empty reply on
+    the long ones, and the surviving rows on that arm score higher than
+    the arm does. No trimming fixes that; only re-running the short arm
+    on its short tasks does, and ``data.report()["rollouts_lost_by"]``
+    says why the rows went missing. ``balance_rollouts=True`` (off by
+    default) trims every paired task to the rows both sides have, chosen
+    by ``seed``, so pass^k and pass@k share one k; it costs precision
+    (another 10% on the interval in the same simulation) and removes no
+    bias (failures dropped on one arm: delta 0.32 untrimmed, 0.32 trimmed,
+    true 0.05), and ``balanced`` says how many rows each side gave up.
 
     ``target`` names the metric the run was meant to move (``"pass_at_1"``
     or ``"marker:<name>"``); the verdict on it is the headline.
@@ -394,8 +403,9 @@ def delta_report(
         warnings.append(line + " (holdout_size).")
     # Rows per task on the two sides. The sizing line and the k-way
     # numbers use the before side's k; an after side short of it was cut
-    # by lost rollouts, and its short tasks are judged from fewer draws
-    # than the sizing assumes (#303).
+    # by lost rollouts. Per-task means keep the paired delta unbiased when
+    # the loss is random and only widen the interval; a loss with a cause
+    # biases it, and only a re-run fixes that (#303).
     k_after = int(pass_at(after).config.get("k") or 1)
     if k_after != k_eval:
         short_side, full_k = ("after", k_eval) if k_after < k_eval else ("before", k_after)
@@ -405,20 +415,22 @@ def delta_report(
         paired_keys = per_task.keys() & {task_key(r) for r in other_rows if isinstance(r, dict)}
         n_short = sum(1 for t in paired_keys if per_task[t] < full_k)
         warnings.append(
-            f"Before has k={k_eval} rollouts per task and after has k={k_after}: "
+            f"before has k={k_eval} rollouts per task and after has k={k_after}: "
             f"{n_short} of {len(paired_keys)} paired tasks on the {short_side} side have fewer "
-            f"than {full_k} rows, so those tasks are judged from fewer draws than the sizing "
-            f"line assumes and pass^k/pass@k use k={min(k_eval, k_after)} there. Re-run the "
-            f"{short_side} side on its short tasks (data.report()['rollouts_lost'] says why "
-            "rows went missing), or pass balance_rollouts=True to trim every task to the rows "
-            "both sides have."
+            f"than {full_k} rows. Unequal k is a precision issue, not a bias: rows lost at random "
+            "leave the paired delta unbiased and widen its interval (about 10% at k=4 against "
+            "k=2 on half the tasks); rows lost for a reason (a timeout on the hard runs) bias it, "
+            f"and only re-running the {short_side} side on its short tasks fixes that "
+            "(data.report()['rollouts_lost_by'] says why rows went missing). "
+            f"balance_rollouts=True only makes pass^k/pass@k share k={min(k_eval, k_after)} "
+            "and costs another 10% of interval width."
         )
     if balanced and (balanced["rows_dropped"]["before"] or balanced["rows_dropped"]["after"]):
         warnings.append(
             f"balance_rollouts=True dropped {balanced['rows_dropped']['before']} before rows and "
             f"{balanced['rows_dropped']['after']} after rows on {balanced['tasks_trimmed']} "
             "tasks so both sides have the same rollouts per task; the intervals are over the "
-            "rows that remain."
+            "rows that remain, and rows lost for a reason are still lost"
         )
     if target_verdict == "target_not_measured":
         warnings.append(f"target {target!r} is not on both row sets")
@@ -619,6 +631,13 @@ def format_delta_report(report: dict[str, Any]) -> str:
         lines.append(
             f"  {name:<28} {r['mean_a']:.3f} -> {r['mean_b']:.3f}  {r['delta']:+.3f} "
             f"[{span}]  {tag}  ({r['n_used']} {pair})"
+        )
+    balanced = report.get("balanced")
+    if balanced:
+        dropped = balanced.get("rows_dropped") or {}
+        lines.append(
+            f"balanced: dropped {dropped.get('before', 0)} before rows and "
+            f"{dropped.get('after', 0)} after rows on {balanced.get('tasks_trimmed', 0)} tasks"
         )
     groups = report.get("groups")
     if groups:

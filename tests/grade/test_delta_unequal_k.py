@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import random
 
-from whileai.simulations.score.delta import delta_report
+from whileai.simulations.score.delta import delta_report, format_delta_report
 
 
 def _rows(n_tasks: int, k_per_task, p: float, rng: random.Random) -> list[dict]:
@@ -39,10 +39,11 @@ def test_different_k_on_the_two_sides_is_warned_next_to_the_sizing_line():
     before, after = _arms()
     report = delta_report(before, after, target="pass_at_1")
     assert report["config"]["before"]["k"] == 4 and report["config"]["after"]["k"] == 2
-    note = next(w for w in report["warnings"] if w.startswith("Before has k="))
+    note = next(w for w in report["warnings"] if w.startswith("before has k="))
     assert "k=4" in note and "k=2" in note
     assert "4 of 10 paired tasks on the after side have fewer than 4 rows" in note
-    assert "Re-run the after side" in note and "balance_rollouts=True" in note
+    assert "precision issue, not a bias" in note and "rows lost for a reason" in note
+    assert "re-running the after side" in note and "balance_rollouts=True only" in note
     assert report["balanced"] is None
     # the sizing line is the neighbour, still quoting the before side's k
     sizing = [w for w in report["warnings"] if "paired tasks at k=4" in w]
@@ -54,7 +55,7 @@ def test_equal_k_does_not_warn():
     before = _rows(10, lambda t: 4, 0.5, rng)
     after = _rows(10, lambda t: 4, 0.6, rng)
     report = delta_report(before, after)
-    assert not any(w.startswith("Before has k=") for w in report["warnings"])
+    assert not any(w.startswith("before has k=") for w in report["warnings"])
 
 
 def test_balance_rollouts_trims_the_larger_side_to_the_same_k():
@@ -65,8 +66,11 @@ def test_balance_rollouts_trims_the_larger_side_to_the_same_k():
         "tasks_trimmed": 4,
     }
     assert report["config"]["before"]["k"] == report["config"]["after"]["k"] == 2
-    assert not any(w.startswith("Before has k=") for w in report["warnings"])
+    assert not any(w.startswith("before has k=") for w in report["warnings"])
     assert any("dropped 8 before rows and 0 after rows on 4 tasks" in w for w in report["warnings"])
+    assert "balanced: dropped 8 before rows and 0 after rows on 4 tasks" in format_delta_report(
+        report
+    )
     assert report["n_paired_tasks"] == 10
     # the inputs are not mutated
     assert len(before) == 40 and len(after) == 32
