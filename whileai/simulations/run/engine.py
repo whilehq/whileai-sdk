@@ -145,6 +145,16 @@ def _auth_error(message: str) -> str | None:
     return None
 
 
+_TIMEOUT_MARKS = ("timed out", "timeout")
+
+
+def _timeout_error(message: str) -> bool:
+    """Did the agent call time out? ``socket.timeout`` is ``TimeoutError``
+    on 3.10+ and reads ``timed out``; a wrapper may say ``timeout``."""
+    text = str(message or "").lower()
+    return any(mark in text for mark in _TIMEOUT_MARKS)
+
+
 def _stop_reason(side: str, message: str) -> str:
     return f"{side}_quota_exceeded" if "quota" in message.lower() else f"{side}_auth_failed"
 
@@ -1036,6 +1046,20 @@ class Run:
             self.agent_errors += 1
             if not self.first_agent_error:
                 self.first_agent_error = final[len("<agent error: ") :].rstrip(">")
+            if _timeout_error(final) and not self.timeout_noted:
+                # A served model that scaled to zero outlives a short
+                # timeout on its first request (#302); the rollout is
+                # dropped and, without this, the run looks finished.
+                self.timeout_noted = True
+                note = (
+                    f"An agent call timed out after {self.c.rollout_timeout:.0f} s and the "
+                    "rollout was dropped. A served model that scaled to zero takes two to "
+                    "three minutes to answer its first request: raise timeout= on "
+                    "local_model (or simulate(timeout=)), or send one throwaway request "
+                    "first so the endpoint is warm."
+                )
+                self.data.warnings.append(note)
+                log.warning(note)
             auth = _auth_error(final[len("<agent error: ") :].rstrip(">"))
             if auth and not self.stopping:
                 # a rejected key fails every rollout the same way; no
@@ -1066,6 +1090,7 @@ class Run:
         # run that drops every rollout says so instead of blaming the writer.
         self.agent_errors = 0
         self.first_agent_error = ""
+        self.timeout_noted = False
         self.agent_error_allowance = max(DEAD_AGENT_MIN_ERRORS, 2 * int(c.cap or 0))
         self.agent_dead = False
         self.auth_error: str | None = None

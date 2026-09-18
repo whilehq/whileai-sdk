@@ -193,6 +193,20 @@ agent=wai.local_model(endpoint, name, tools=TOOLS, system=POLICY,
 thinking=False))`, and run both arms of a before/after through that same
 call so the only difference is the weights.
 
+Two `local_model` knobs the situation writer cannot guess for you.
+`result_shapes={tool_name: example_result}` pins what a tool returns, so a
+policy branch that only exists for some results ("credits over $200 go to
+`escalate_to_human`") is reached on purpose instead of by luck. Ids, dates
+and people are re-drawn per call and a number moves by up to about a third
+of itself (`900.0` lands in roughly 600 to 1200), so pick a template value
+whose whole range sits on one side of the threshold and run the same pinned
+tasks under one shape per side. `fault_plans={message: {tool: {"mode":
+"timeout", "rate": 1.0}}}` replays a known fault schedule; `simulate()`
+writes these from `fault_rate=`, so pass your own only to replay one.
+`timeout=` is 300 s by default, enough for a served model that scaled to
+zero to answer its first request; when a call still times out the run says
+so in `data.warnings` with the fix.
+
 ```bash
 export OPENAI_API_KEY=...
 export OPENAI_BASE_URL=...   # only for a non-OpenAI endpoint
@@ -491,6 +505,7 @@ Pass `spec=` if you have a local tools-and-system-prompt folder of your own: a d
 | `user_model` | `None` | Who plays the simulated user in follow-up turns. `None` is the agent's own model; an `openai:`/`vllm:` spec moves that job to another model |
 | `traces` | `None` | Graded traces of the deployed agent — a list of plain row dicts or a JSONL path. Aims the coverage grid at the behaviors those traces show and keeps the sources out of the generated rows. See [Close the loop](#close-the-loop-aim-the-budget-with-traces) |
 | `tasks` | `None` | Re-run a previous run's task set instead of drawing a new one: that run, its rows, or its JSONL path. k is **not** inherited — see [Same tasks, new prompt](#trust-the-numbers) |
+| `timeout` | `300` | Seconds per agent completion, for `local_model` and every model spec. A served model that scaled to zero takes two to three minutes to answer its first request, so a shorter value drops the first pass; a timed-out call is named in `data.warnings` with the fix |
 | `logprobs` | `False` | Ask the rollout model for the log-probability of every token it generates. Each agent turn's step gets `logprob` and `n_tokens`, the row gets the totals. `"tokens"` keeps the per-token list. Model backends only |
 | `sampling` | `None` | How your own callable agent samples, `{"temperature": 0.7, "max_tokens": 1024, "model": "my-model"}`, recorded on every row as given. A model backend records its own and ignores this |
 | `reproducible` | `False` | Same seed, same concurrency, same agent: same rows. Runs batch by batch, so uneven latency costs throughput. Needs the clock off. `concurrency: 1` always runs this way |

@@ -1433,6 +1433,12 @@ def _answer_tool_call(env: Any, execute: Callable | None, tool: str, arguments: 
 #: says otherwise. Recorded on every row under ``sampling`` (rlhf-book ch. 9:
 #: rejection sampling is run at 0.7 to 1.0; the row has to say what it was).
 LOCAL_MODEL_TEMPERATURE = 0.8
+# Seconds one completion may take. A served model that scaled to zero
+# takes two to three minutes to answer its first request (113 s measured
+# on the account's own endpoint, #302; the hosted judge is the same
+# shape), and the old 60 s dropped every rollout of the first pass and
+# returned an empty run that looked finished.
+LOCAL_MODEL_TIMEOUT = 300.0
 
 
 def reply_budget(max_tokens: int | None = None) -> int:
@@ -1463,7 +1469,7 @@ def local_model(
     opening_rate: float = 0.0,
     human_tools: set | None = None,
     execute: Callable | None = None,
-    timeout: float = 60,
+    timeout: float = LOCAL_MODEL_TIMEOUT,
     max_tokens: int | None = None,
     user_model: str | None = None,
     thinking: bool | None = None,
@@ -1477,6 +1483,38 @@ def local_model(
     does; ``True`` asks for it; ``None`` (the default) sends nothing and
     leaves the server's default. Either way ``<think>`` markup never
     reaches ``step["text"]`` or ``final_text``.
+
+    ``result_shapes`` pins what a tool returns: ``{tool_name: example
+    result dict}``. The sandbox fills the example on every call instead
+    of inventing a record, so a policy branch that only exists for some
+    tool results (a credit over $200 must be escalated) is reached on
+    purpose rather than by luck. Field names and free text stay as
+    written; ids, dates and people are re-drawn per call, and a number
+    moves by up to about a third of itself (``900.0`` lands in roughly
+    600 to 1200, ``90.0`` in 60 to 120), so pick a template value whose
+    whole range sits on the side of the threshold you want. An argument
+    that shares a key with the template is echoed back (``invoice_id``
+    in, same ``invoice_id`` out). To measure a branch, run the same
+    pinned tasks under two shapes, one per side of the rule. Without it
+    the situation writer drafts an example per tool (``write_result_shapes``)
+    and the branch is exercised at random.
+
+    ``fault_plans`` schedules faults per ask: ``{message: {tool_name:
+    {"mode": "timeout", "rate": 1.0}}}``, keyed by the exact user message,
+    with ``mode`` one of ``timeout``, ``malformed``, ``stale`` or
+    ``permission_denied`` and ``rate`` the chance the fault fires on a
+    call. The plan may also carry ``world_state``, ``stance``, ``tone``
+    and ``texture``, which are popped off and shape the world and the
+    simulated user for that ask. ``simulate()`` writes these itself from
+    ``fault_rate=``; pass your own only to replay a known plan (``tasks=``
+    does this for you).
+
+    ``timeout`` is seconds per completion, ``LOCAL_MODEL_TIMEOUT`` (300)
+    by default: a served model that scaled to zero takes two to three
+    minutes to answer its first request, and a timeout under that drops
+    every rollout of the first pass. When a call still times out the run
+    says so in ``data.warnings`` with the fix (raise ``timeout=``, or send
+    one throwaway request first so the endpoint is warm).
     """
     local = threading.local()
     plans = fault_plans if fault_plans is not None else {}

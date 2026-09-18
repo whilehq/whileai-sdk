@@ -206,6 +206,26 @@ for note in scored.warnings:  # hollow-run checks; fix before reading the number
 - `situations` counts asks, `budget` counts rows. Keep
   `budget >= situations * repeats` or the run stops at the budget with
   the later situations never rolled out at all.
+- **To measure a policy branch, pin the tool result.** A rule like
+  "credits over $200 go to `escalate_to_human`" is only tested when the
+  tool returns an amount over $200, and the situation writer invents the
+  amount, so on an unforced run the branch is reached at random: a
+  marker that never fires, or reads 1.000 because it never had a chance
+  to fail. `wai.local_model(..., result_shapes={"lookup_invoice":
+  {"invoice_id": "INV-1000", "amount_usd": 900.0, "status": "open"}})`
+  pins it. Numbers move by up to about a third per call (`900.0` lands in
+  roughly 600 to 1200, `90.0` in 60 to 120), so pick a value whose whole
+  range sits on one side of the threshold, and run the same pinned
+  `tasks=` once per side. Measured on a billing agent: 44 lookups over
+  $200 and 0 under with the big shape, 48 under and 0 over with the
+  small one, no leakage across 34 tasks x 4 rollouts (#301).
+- A served model that scaled to zero takes two to three minutes to
+  answer its first request. `timeout=` is 300 s by default so that
+  first pass lands; if a call still times out, `data.warnings` says so
+  and names the fix (raise `timeout=`, or send one throwaway request
+  first). A pass that comes back with fewer rows than the base arm is
+  the dangerous case, since some tasks then sit at k=1 against the
+  base's k=4; read `data.warnings` before `pass_at`.
 - A long run says where it is on the `whileai.simulations` logger, one
   line at most ten seconds and ten rollouts apart
   (`12/64 rollouts, 3 situations written, 1m40s elapsed, ~5m left`). Call

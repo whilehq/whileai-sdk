@@ -3,6 +3,25 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- `result_shapes=` and `fault_plans=` are documented where the knobs
+  live (#301): the `local_model` docstring, the README's Bring a model
+  section and `docs/evals.md`. `result_shapes={tool: example}` pins what
+  a tool returns so a policy branch that only exists for some results
+  is reached on purpose; the load-bearing fact, that a number in the
+  template moves by up to about a third per call, was only in the
+  sandbox source. A researcher measuring "credits over $200 escalate"
+  read `_fill_template` to find it, then got 44 lookups over the line
+  and 0 under with one shape and the reverse with the other.
+- `local_model`'s default `timeout` is 300 s, was 60 (#302). A served
+  model that scaled to zero took 113 s to answer its first request, so
+  the default dropped every rollout of the first pass and returned 0
+  rows that looked like a finished eval. `simulate(timeout=)` shares the
+  new default (`LOCAL_MODEL_TIMEOUT`). When a call still times out the
+  run puts one note in `data.warnings` with the fix: raise `timeout=`,
+  or send one throwaway request first so the endpoint is warm.
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults

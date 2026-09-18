@@ -16,6 +16,7 @@ from typing import Any
 from whileai._env import getenv
 
 from ..generate.adapters import resolve_system_prompt
+from ..generate.agents import LOCAL_MODEL_TIMEOUT
 from ..generate.diversity import adaptive_allocator
 from ..generate.scenarios import DEFAULT_FAULT_RATE
 from .spec import spec_rubric
@@ -613,8 +614,9 @@ def resolve_run_config(
             raise ValueError("steering_weight= must be a number in [0, 1]")
         if traces is None:
             raise ValueError("steering_weight= needs traces=")
-    # Slow customer backends need more than the tuned 60s per completion.
-    rollout_timeout = float(cfg.pop("timeout", 60) or 60)
+    # Seconds per completion. The default survives a served model's cold
+    # start (two to three minutes); slow customer backends raise it.
+    rollout_timeout = float(cfg.pop("timeout", LOCAL_MODEL_TIMEOUT) or LOCAL_MODEL_TIMEOUT)
 
     cap = budget if budget is not None else SATURATION_CAP
     return RunConfig(
