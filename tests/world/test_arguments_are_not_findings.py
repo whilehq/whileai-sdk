@@ -43,4 +43,7 @@ def test_the_single_record_branch_matches_the_search_branch():
     single = call("get_order", {"order_id": "A-1", "status": "closed"})
     # neither branch lets the caller dictate a field the record already carries
     assert item["status"] != "closed" or "status" not in item
-    assert single["status"] != "closed" or single["status"] == call("get_order", {"order_id": "A-1"})["status"]
+    assert (
+        single["status"] != "closed"
+        or single["status"] == call("get_order", {"order_id": "A-1"})["status"]
+    )
