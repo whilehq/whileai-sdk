@@ -24,7 +24,7 @@ def test_the_recipes_numbers_come_out():
     at_140 = detectable_effect(140, base=0.6, k=4)
     assert 0.07 <= at_140 <= 0.10  # a 3-point gain cannot be proven there
     # the band the recipe saw, from the same model: 1.96 * sd / sqrt(140)
-    sd = holdout_size(0.0001, base=0.6, k=4)["sd_task"]
+    sd = holdout_size(0.0001, base=0.6, k=4)["task_std"]
     assert 0.05 <= 1.96 * sd / 140**0.5 <= 0.065
 
 
