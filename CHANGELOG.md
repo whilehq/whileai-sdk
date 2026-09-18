@@ -11,8 +11,10 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   base rates could not tell rows made under the full numbered policy
   from rows made under a bare prompt, and the two give different
   numbers for the same model. Rows now carry
-  `lineage.system_prompt_sha` (the same 16-char hash) and
-  `lineage.system_prompt_head` (the first 120 chars), the run keeps the
+  `lineage.system_prompt_sha` (the same 16-char hash),
+  `lineage.system_prompt_head` (the first 120 chars) and
+  `lineage.system_prompt_chars` (a bare prompt and a 1,000-word policy are
+  not the same run), the run keeps the
   full text once in `data.system_prompts[<sha>]` (policy plus scaffold,
   the exact text the agent ran under) and in the `.meta.json` sidecar,
   and `data.metadata` names the hash. `delta_report` compares the hash

@@ -329,7 +329,9 @@ class Run:
         # and a head on every row and the full text once per run (#296):
         # a base rate measured under a full policy is not the base rate
         # under a bare prompt, and policy_version alone reads as a model id.
-        self.system_prompt_sha, self.system_prompt_head = system_prompt_stamp(self.gen_policy)
+        self.system_prompt_sha, self.system_prompt_head, self.system_prompt_chars = (
+            system_prompt_stamp(self.gen_policy)
+        )
         self.writer_kind = kind_from_spec(c.spec, self.policy)
         # May be replaced by the backend spec once the runner is built.
         self.simulator = c.simulator
@@ -954,6 +956,7 @@ class Run:
             "lineage": {
                 "system_prompt_sha": self.system_prompt_sha,
                 "system_prompt_head": self.system_prompt_head,
+                "system_prompt_chars": self.system_prompt_chars,
             },
             "seed": meta.get("seed", c.seed),
             "semantic_cluster": None if not semantic else selection.get("cluster"),

@@ -35,6 +35,7 @@ def test_every_row_carries_the_deploy_prompt_hash_and_head(tmp_path):
     for row in data.trajectories:
         assert row["lineage"]["system_prompt_sha"] == sha
         assert row["lineage"]["system_prompt_head"] == POLICY[:120]
+        assert row["lineage"]["system_prompt_chars"] == len(POLICY)
         # the same hash policy_version already carried after "@"
         assert row["policy_version"].endswith("@" + sha)
     # the full text once per run, keyed by the hash
@@ -54,6 +55,9 @@ def test_scaffold_changes_the_hash_and_the_recorded_text():
     a = plain.trajectories[0]["lineage"]["system_prompt_sha"]
     b = scaffolded.trajectories[0]["lineage"]["system_prompt_sha"]
     assert a != b
+    assert scaffolded.trajectories[0]["lineage"]["system_prompt_chars"] == len(
+        f"{POLICY}\n\nBe terse."
+    )
     # the text on record is what the agent was actually run under
     assert scaffolded.system_prompts[b] == f"{POLICY}\n\nBe terse."
     assert plain.system_prompts[a] == POLICY
