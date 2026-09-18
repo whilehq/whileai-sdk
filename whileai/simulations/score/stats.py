@@ -654,6 +654,27 @@ def _embed(embedder: Any, texts: list[str]) -> list[list[float]]:
     return _unit_vectors(vectors)
 
 
+def _distinct_task_similarity(
+    vectors: Sequence[Sequence[float]], task_ids: Sequence[str | None]
+) -> float | None:
+    """The 99th percentile of cosine similarity over pairs of unit vectors
+    whose task ids differ (both recorded): how alike two distinct tasks
+    can read to this embedder. ``None`` with fewer than two such pairs,
+    or when no ids are recorded, since one pair is not a distribution."""
+    sims: list[float] = []
+    for a in range(len(vectors)):
+        if task_ids[a] is None:
+            continue
+        for b in range(a + 1, len(vectors)):
+            if task_ids[b] is None or task_ids[b] == task_ids[a]:
+                continue
+            sims.append(float(sum(x * y for x, y in zip(vectors[a], vectors[b]))))
+    if len(sims) < 2:
+        return None
+    sims.sort()
+    return min(1.0, sims[round(0.99 * (len(sims) - 1))])
+
+
 def decontaminate(
     rows: Sequence[dict],
     against: Sequence[Any] | Any,
@@ -662,7 +683,7 @@ def decontaminate(
     fields: Sequence[str] = ("prompt",),
     overlap: float = 0.8,
     embedder: Callable[[list[str]], Sequence[Sequence[float]]] | None = None,
-    cosine: float = 0.85,
+    similarity: float = 0.85,
 ) -> tuple[list[dict], dict[str, Any]]:
     """Drop rows whose prompt overlaps an evaluation set (rlhf-book ch. 16).
 
@@ -685,7 +706,7 @@ def decontaminate(
       words match verbatim only.
     * ``semantic`` (``n_semantic``), only with ``embedder``: the cosine
       similarity between the row's text and an evaluation prompt is at
-      least ``cosine``, and the two carry different task ids or none.
+      least ``similarity``, and the two carry different task ids or none.
 
     The default field is the prompt, the book's method; add
     ``"final_text"`` to ask the stricter question of whether replies
@@ -719,16 +740,21 @@ def decontaminate(
     answer. So where task identity is recorded the ``same_task`` rule
     decides and the semantic pass only looks across different tasks, and
     the report's ``notes`` say the flag is a question to check, not a
-    verdict. The default stays lexical: ``cosine`` was read off BGE
-    (unrelated prompts score about 0.55 there) and does not transfer to
-    every model, so pick the threshold for yours.
+    verdict. The default stays lexical: ``similarity`` 0.85 was read off
+    BGE (unrelated prompts score about 0.55 there) and does not transfer
+    to every model, so the pass calibrates it for yours when it can: with
+    eval rows that carry task ids, the 99th percentile of similarity over
+    eval-prompt pairs with different task ids is how alike distinct tasks
+    read to this embedder, and ``notes`` says it. A threshold below that
+    number flags tasks that merely share a domain, and the note says so
+    when ``similarity`` is.
 
     Returns the clean rows and a report: the count under each rule, hits
     per field, the eval text count, and the first offenders with their
     coverage (or ``similarity`` for semantic hits).
     """
-    if embedder is not None and not 0 <= float(cosine) <= 1:
-        raise ValueError("cosine is a similarity threshold between 0 and 1 (0.85 by default)")
+    if embedder is not None and not 0 <= float(similarity) <= 1:
+        raise ValueError("similarity is a cosine threshold between 0 and 1 (0.85 by default)")
     sources = (
         against
         if isinstance(against, (list, tuple)) and not (against and isinstance(against[0], dict))
@@ -808,11 +834,26 @@ def decontaminate(
                         candidates.append((i, field, text))
     notes: list[str] = []
     n_semantic = 0
-    if embedder is not None and candidates and eval_prompts:
+    if embedder is not None and eval_prompts:
         eval_norms = list(eval_prompts)
         eval_vecs = _embed(embedder, [eval_prompts[key][0] for key in eval_norms])
-        cand_vecs = _embed(embedder, [text for _, _, text in candidates])
+        eval_task_ids = [eval_prompts[key][1] for key in eval_norms]
+        alike = _distinct_task_similarity(eval_vecs, eval_task_ids)
+        if alike is not None:
+            note = (
+                f"with this embedder, distinct tasks read up to {alike:.2f} alike (99th "
+                f"percentile over {len(eval_norms)} eval prompts with different task ids); a "
+                "threshold below that flags tasks that merely share a domain"
+            )
+            if float(similarity) <= alike:
+                note += (
+                    f". similarity={float(similarity)} is below it, so the semantic flags "
+                    f"here include tasks that only share a domain; raise similarity= above "
+                    f"{alike:.2f} to flag paraphrases only"
+                )
+            notes.append(note + ".")
         semantic: dict[int, dict[str, Any]] = {}
+        cand_vecs = _embed(embedder, [text for _, _, text in candidates])
         for (i, field, _text), vec in zip(candidates, cand_vecs):
             if i in semantic:
                 continue
@@ -820,12 +861,12 @@ def decontaminate(
             top: float = -1.0
             top_j = -1
             for j, evec in enumerate(eval_vecs):
-                if task is not None and eval_prompts[eval_norms[j]][1] == task:
+                if task is not None and eval_task_ids[j] == task:
                     continue  # the same task is the same_task rule's call, made above
                 sim = float(sum(x * y for x, y in zip(vec, evec)))
                 if sim > top:
                     top, top_j = sim, j
-            if top_j >= 0 and top >= float(cosine):
+            if top_j >= 0 and top >= float(similarity):
                 semantic[i] = {
                     "index": i,
                     "field": field,
@@ -841,12 +882,12 @@ def decontaminate(
             flagged.sort(key=lambda f: f["index"])
             n_semantic = len(semantic)
             notes.append(
-                f"{n_semantic} row(s) read alike to an eval prompt (cosine >= {float(cosine)}). "
-                "That is a question about task identity, not a verdict: two prompts can read "
-                "alike and be different tasks with different answers. Rows sharing a "
-                "scenario_id or task_id with an eval row were dropped as same_task first; "
-                "check the semantic ones before treating them as the same task, and raise "
-                "cosine= if your embedder scores unrelated prompts high."
+                f"{n_semantic} row(s) read alike to an eval prompt (similarity >= "
+                f"{float(similarity)}). That is a question about task identity, not a "
+                "verdict: two prompts can read alike and be different tasks with different "
+                "answers. Rows sharing a scenario_id or task_id with an eval row were dropped "
+                "as same_task first; check the semantic ones before treating them as the same "
+                "task, and raise similarity= if your embedder scores unrelated prompts high."
             )
     kept = [rows[i] for i in kept_index]
     total = sum(1 for r in rows if isinstance(r, dict))
@@ -866,7 +907,7 @@ def decontaminate(
         "n_eval_texts": len(texts),
         "ngram": n,
         "overlap": threshold,
-        "cosine": float(cosine) if embedder is not None else None,
+        "similarity": float(similarity) if embedder is not None else None,
         "fields": list(fields),
         "by_field": by_field,
         "examples": flagged[:20],

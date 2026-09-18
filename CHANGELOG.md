@@ -5,7 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
-- `decontaminate(embedder=, cosine=0.85)` adds a semantic pass on top of
+- `decontaminate(embedder=, similarity=0.85)` adds a semantic pass on top of
   the 8-gram rule. Word overlap does not see a paraphrase: a holdout
   written by re-running the generator on the same briefs was 70% within
   0.85 cosine of the training batch, and the 8-gram rule flagged 4 of its
@@ -18,7 +18,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   that they are the same task. Rows that share a `scenario_id` or
   `task_id` with an eval row are now dropped as `same_task` whatever the
   wording, and the semantic pass only looks across different task ids.
-  (#286)
+  0.85 is a number for one embedder, so when the eval rows carry task ids
+  the pass calibrates: the 99th percentile of similarity over eval-prompt
+  pairs with different task ids is how alike distinct tasks read to this
+  embedder, `notes` says it, and says when `similarity=` is at or below
+  it (a threshold there flags tasks that merely share a domain; raise it
+  above the number to flag paraphrases only). (#286)
 
 ## 0.62 (2026-09-17)
 
