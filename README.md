@@ -187,12 +187,13 @@ A declared tool the world cannot answer is the quiet version of the same
 failure: with `execute=`, a tool that is in the schema but has no branch in
 your function fails exactly like a world fault, the agent reports the miss
 honestly, and a candour rubric rewards the row. Every run now records calls
-and successes per tool in `data.search["tools"]` (`n`, `ok`, `fault_n`, and
+and successes per tool in `data.coverage["tools"]` (`n`, `ok`, `fault_n`, and
 `injected` for faults the run scheduled itself), lists the tools that never
-work in `data.search["dead_tools"]` (no success in 3 or more answered calls,
-or under 5% of 10 or more), adds `dead_tools` to `data.degraded`, and puts
-the names and the fix in `data.warnings` and `data.report()`. Steps with no
-recorded result are not evidence and never accuse a tool.
+work in `data.coverage["dead_tools"]` (the Wilson 95% upper bound on the
+success rate is under 0.30, so 0 of 9 or 4 of 612 is dead and 0 of 3 or 2 of
+5 is not), adds `dead_tools` to `data.degraded`, and puts the names and the
+one fix that applies to your world in `data.warnings` and `data.report()`.
+Steps with no recorded result are not evidence and never accuse a tool.
 
 ### Bring a model
 

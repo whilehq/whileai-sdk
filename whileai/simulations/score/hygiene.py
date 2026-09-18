@@ -384,7 +384,8 @@ def coverage_warnings(
             )
         # A declared tool the world never answers fails like a world fault
         # and an honesty rubric rewards the miss (#287). Same table the
-        # engine writes to search["tools"].
+        # engine writes to coverage["tools"]. A row list does not say who
+        # answered the calls, so the note carries no execute= verdict.
         outcomes = tool_outcomes(row_list)
         dead = dead_tools(outcomes)
         if dead:

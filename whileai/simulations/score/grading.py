@@ -478,13 +478,16 @@ def trace_fault(trajectory: dict) -> str:
     return NO_FAULT
 
 
-#: A tool that never worked is dead after this many answered calls with no
-#: success, or after this many with under DEAD_TOOL_MAX_RATE of them
-#: succeeding. The rate rule is the one that matters: a declared tool with
-#: no branch in ``execute=`` was called 612 times and answered 4 (#287).
+#: A tool is dead when the Wilson 95% upper bound on its success rate is
+#: under DEAD_TOOL_R_MIN. Below three in ten a tool cannot carry a
+#: behaviour: the agent that calls it meets a miss on most turns, reports
+#: the miss, and the rubric grades the report instead of the behaviour.
+#: The bound, not the point rate, is the test, so a short run cannot
+#: accuse a tool on a handful of misses and a long run cannot excuse one
+#: on a handful of hits (4 of 612 succeeded in #287). Fewer than
+#: DEAD_TOOL_MIN_CALLS answered calls is no evidence at all.
+DEAD_TOOL_R_MIN = 0.30
 DEAD_TOOL_MIN_CALLS = 3
-DEAD_TOOL_RATE_CALLS = 10
-DEAD_TOOL_MAX_RATE = 0.05
 
 
 def _planned_for(row: dict, tool: str) -> bool:
@@ -526,28 +529,52 @@ def tool_outcomes(rows) -> dict[str, dict[str, int]]:
 
 
 def dead_tools(outcomes: dict[str, dict[str, int]]) -> list[str]:
-    """Tools that never work: no success in ``DEAD_TOOL_MIN_CALLS`` or more
-    answered calls, or under ``DEAD_TOOL_MAX_RATE`` of ``DEAD_TOOL_RATE_CALLS``
-    or more. Injected faults are taken off the call count first."""
+    """Tools whose success rate is shown to be under ``DEAD_TOOL_R_MIN``.
+
+    One rule: the Wilson 95% upper bound on ``ok / evidence`` is below
+    0.30, with ``evidence`` the answered calls less the faults the run
+    scheduled itself, and at least ``DEAD_TOOL_MIN_CALLS`` of them. The
+    bound is ``(p + z²/2n + z·sqrt(p(1-p)/n + z²/4n²)) / (1 + z²/n)`` at
+    z = 1.96, and it puts the arithmetic where a point rate hides it:
+
+    - 0 of 3: upper 0.56, not dead (three misses prove nothing).
+    - 2 of 5: upper 0.77, not dead (a tool that works sometimes).
+    - 0 of 8: upper 0.32, not dead; 0 of 9: upper 0.30, dead. Nine
+      straight misses is the first zero that counts.
+    - 1 of 21: upper 0.23, dead.
+    - 4 of 612: upper 0.02, dead (the lane that opened #287).
+
+    The earlier pair of rules ("0 of 3+", "under 5% of 10+") got both
+    ends wrong: 1/n < 0.05 first holds at n = 21, so between 10 and 20
+    calls the rate rule was the never rule, and "0 of 3" called a tool
+    with a true 30% success rate dead 34% of the time (0.7³).
+    """
+    from .stats import wilson_interval
+
     dead: list[str] = []
     for name, slot in outcomes.items():
         evidence = int(slot.get("n", 0)) - int(slot.get("injected", 0))
         ok = int(slot.get("ok", 0))
-        never = evidence >= DEAD_TOOL_MIN_CALLS and ok == 0
-        rarely = evidence >= DEAD_TOOL_RATE_CALLS and ok / evidence < DEAD_TOOL_MAX_RATE
-        if never or rarely:
+        if evidence < DEAD_TOOL_MIN_CALLS:
+            continue
+        bound = wilson_interval(min(ok, evidence), evidence)
+        if bound is not None and bound[1] < DEAD_TOOL_R_MIN:
             dead.append(name)
     return sorted(dead)
 
 
-def dead_tools_note(outcomes: dict[str, dict[str, int]], dead: list[str], execute=None) -> str:
+def dead_tools_note(
+    outcomes: dict[str, dict[str, int]], dead: list[str], *, execute: bool | None = None
+) -> str:
     """One sentence naming the tools that never work and the fix.
 
     A tool the agent's schema declares but the world cannot answer fails
     exactly like a world fault: the agent reports the miss honestly, a
     candour rubric rewards the row, and the behaviour under test never
-    happens (#287). ``execute`` says whether the caller's own world
-    answered the calls, which decides where the fix goes.
+    happens (#287). ``execute`` is whether the caller's own ``execute=``
+    world answered the calls (the engine reads it off the run) and picks
+    the one fix that applies. Over a bare row list nothing says who
+    answered, so the note names the miss and asks for a world that can.
     """
     if not dead:
         return ""
@@ -556,19 +583,15 @@ def dead_tools_note(outcomes: dict[str, dict[str, int]], dead: list[str], execut
         f"{outcomes[name]['n'] - outcomes[name].get('injected', 0)} calls succeeded)"
         for name in dead
     )
-    if execute is None:
-        fix = (
-            "If execute= is your world, add a branch for each in execute= or remove it "
-            "from the tool schema; if the mock world answered, put the ids it has in "
-            "the tool descriptions or in seeds=."
-        )
-    elif execute:
+    if execute:
         fix = "Add a branch for each in execute=, or remove it from the tool schema."
-    else:
+    elif execute is False:
         fix = (
             "The mock world answered every call with a miss; put the ids it has in "
             "the tool descriptions or in seeds=, or answer the calls with execute=."
         )
+    else:
+        fix = "Give each a world that answers it, or remove it from the tool schema."
     return (
         f"{len(dead)} tool{'s' if len(dead) > 1 else ''} never worked: {shown}. "
         "The agent reports each miss and an honesty rubric rewards it, so the "

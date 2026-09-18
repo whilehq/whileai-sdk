@@ -3103,13 +3103,12 @@ class Run:
         # and the behaviour behind the tool never happens. Per-tool calls
         # and successes on every run, and the ones that never work named
         # with the fix (#287). Same fault rule as trace_mining's fault_n.
+        # Written once, to coverage: data.report() reads coverage.
         if rows:
             outcomes = tool_outcomes(rows)
             if outcomes:
-                data.search["tools"] = outcomes
                 data.coverage["tools"] = outcomes
             dead = dead_tools(outcomes)
-            data.search["dead_tools"] = dead
             data.coverage["dead_tools"] = dead
             if dead:
                 note = dead_tools_note(outcomes, dead, execute=c.execute is not None)

@@ -11,16 +11,22 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   rewards the row; one lane ran 612 calls to `run_query` with 4 successes
   through 978 rows, a probe, a holdout and a published card before anyone
   noticed (#287). Every run now records calls and successes per tool in
-  `data.search["tools"]` (same fault rule as `trace_mining`'s `fault_n`, so
+  `data.coverage["tools"]` (same fault rule as `trace_mining`'s `fault_n`, so
   the two tables agree), lists the tools that never work in
-  `data.search["dead_tools"]` (no success in 3 or more answered calls, or
-  under 5% of 10 or more; the rate rule is what catches 4 of 612), adds
-  `dead_tools` to `data.degraded`, and puts the names and the fix (add a
-  branch for the tool in `execute=`, or remove it from the schema) in
-  `data.warnings` and `data.report()`. `coverage_warnings` (so `evaluate`
-  and `run_judge`) says the same over a row list. Faults the run scheduled
-  itself are taken off the count, and a step with no recorded result is not
-  evidence, so an offline run never accuses a tool it never saw answer.
+  `data.coverage["dead_tools"]`, adds `dead_tools` to `data.degraded`, and
+  puts the names and the fix in `data.warnings` and `data.report()`: a
+  branch for the tool in `execute=` when your world answered, the ids the
+  mock world has in the tool descriptions or `seeds=` when it did. One
+  rule decides dead: the Wilson 95% upper bound on the tool's success rate
+  is under 0.30 (below that a tool cannot carry a behaviour), on at least
+  3 answered calls. 0 of 9, 1 of 21 and 4 of 612 are dead; 0 of 3 and 2 of
+  5 are not. A point-rate pair of rules ("0 of 3+", "under 5% of 10+")
+  would have called a tool with a real 30% success rate dead a third of
+  the time after three misses, and could not flag any 1-success tool
+  before its 21st call. `coverage_warnings` (so `evaluate` and
+  `run_judge`) says the same over a row list. Faults the run scheduled
+  itself are taken off the count, and a step with no recorded result is
+  not evidence, so an offline run never accuses a tool it never saw answer.
 
 ## 0.62 (2026-09-17)
 
