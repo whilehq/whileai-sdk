@@ -40,7 +40,7 @@ def test_eval_variance_over_separate_runs():
     assert report["n_runs"] == 3 and report["metric"] == "pass_at_1"
     assert report["means"] == {"run_1": 0.5, "run_2": 0.525, "run_3": 0.475}
     assert report["mean"] == 0.5 and report["run_std"] == 0.025
-    assert report["noise_band"] == 0.05 and report["run_std_points"] == 2.5
+    assert report["noise_band"] == 0.0693 and report["run_std_points"] == 2.5  # 1.96*sqrt(2)*0.025
     assert report["stability"] == "high_variance"
     assert report["tasks_in_every_run"] == 10 and report["notes"] == []
 
@@ -162,10 +162,12 @@ def test_a_model_against_itself_is_within_its_marker_noise_not_slipped(seeds):
     )
     assert guarded["regressions"] == [] and guarded["ok"] is True
     text = format_delta_report(new)
-    assert "eval noise: run_std 0.029, a delta under 0.059 is noise (run_std given, per metric" in (
-        text
-    )
-    assert "noise<0.157" in text and "noise<0.059" in text
+    assert (
+        "eval noise: run_std 0.029, a delta under 0.081 is noise "
+        "(1.96 x run_std x sqrt(1/1 + 1/1); run_std given, per metric"
+    ) in text
+    # each metric's own band: 1.96 x sqrt(2) x its floor
+    assert "noise<0.218" in text and "noise<0.081" in text
 
 
 def test_a_scalar_run_std_still_applies_one_floor_to_every_metric():
@@ -187,8 +189,9 @@ def test_a_missing_or_none_floor_is_said_not_borrowed():
         assert marker["noise_note"] == "no_replicate_floor"
         assert "noise_note" not in report["metrics"]["pass_at_1"]
         assert report["run_std_by_metric"] == {"pass_at_1": 0.2, "marker:honest": None}
-        note = [w for w in report["warnings"] if "no_replicate_floor" in w]
-        assert len(note) == 1 and note[0].startswith("No re-run floor for marker:honest")
+        # the token stays on the metric; the warning is plain English
+        note = [w for w in report["warnings"] if "no re-run floor for marker:honest" in w]
+        assert len(note) == 1 and "no_replicate_floor" not in note[0]
         assert "run_std_by_metric" in note[0]
         assert "marker:honest" in format_delta_report(report).split("no_replicate_floor")[0]
     # eval_variance under two runs hands back None per metric; the same note
@@ -198,7 +201,7 @@ def test_a_missing_or_none_floor_is_said_not_borrowed():
     assert report["replicated"] is False and report["run_std"] is None
     assert report["metrics"]["marker:honest"]["noise_note"] == "no_replicate_floor"
     assert not any(w.startswith("One eval run") for w in report["warnings"])
-    assert any("no_replicate_floor" in w for w in report["warnings"])
+    assert any("no re-run floor for" in w and "marker:honest" in w for w in report["warnings"])
     assert "no run_std for the headline metric" in format_delta_report(report)
     # no run_std at all: single-run honesty, no note (#240)
     bare = delta_report(before, after, n_boot=100)
