@@ -68,16 +68,40 @@ def _z(p: float) -> float:
 def _paired_task_sd(base: float, effect: float, k: int) -> float:
     """Standard deviation of one task's paired difference (after minus
     before pass rate over ``k`` rollouts each side) when the gain lands
-    uniformly: before at ``base``, after at ``base + effect``."""
+    uniformly: before at ``base``, after at ``base + effect``, and the two
+    arms independent draws (``Var(A) + Var(B)``, no covariance term)."""
     p = min(1.0, max(0.0, float(base)))
     q = min(1.0, max(0.0, p + float(effect)))
     kk = max(1, int(k))
     return math.sqrt((p * (1 - p) + q * (1 - q)) / kk)
 
 
-def _rows_base_and_k(rows: Sequence[dict]) -> tuple[float, int]:
-    """Mean per-task pass rate and the smallest rollouts-per-task on graded
-    rows: what ``delta_report`` would pair on."""
+def _concentrated_task_sd(base: float, effect: float, k: int) -> float:
+    """The same standard deviation when the gain is carried by the fewest
+    tasks that can carry it: a share ``effect / (1 - base)`` of tasks go
+    from ``base`` to 1 and the rest do not move. Most tasks are then
+    ties and the paired differences spread far wider than the uniform
+    model says (#292: 0 -> 0.127 at k=4, model 0.168, measured 0.333)."""
+    p = min(1.0, max(0.0, float(base)))
+    gain = min(1.0 - p, max(0.0, float(effect)))
+    kk = max(1, int(k))
+    if gain <= 0 or p >= 1:
+        return _paired_task_sd(p, gain, kk)
+    share = gain / (1 - p)
+    within = ((1 - share) * 2 * p * (1 - p) + share * p * (1 - p)) / kk
+    between = gain * gain * (1 - share) / share
+    return math.sqrt(within + between)
+
+
+def _sample_sd(values: Sequence[float]) -> float:
+    mean = _mean(values)
+    return math.sqrt(sum((v - mean) ** 2 for v in values) / (len(values) - 1))
+
+
+def _rows_base_and_k(rows: Sequence[dict]) -> tuple[float, int, float | None]:
+    """Mean per-task pass rate, the smallest rollouts-per-task, and the
+    spread (sample sd) of per-task pass rates on graded rows: what
+    ``delta_report`` would pair on."""
     groups: dict[str, list[float]] = {}
     for row in rows:
         if not isinstance(row, dict):
@@ -88,9 +112,32 @@ def _rows_base_and_k(rows: Sequence[dict]) -> tuple[float, int]:
         groups.setdefault(task_key(row), []).append(value)
     if not groups:
         raise ValueError("rows carry no 0/1 rewards; grade them first, or pass base= and k=")
-    base = _mean([_mean(v) for v in groups.values()])
+    rates = [_mean(v) for v in groups.values()]
+    base = _mean(rates)
     k = min(len(v) for v in groups.values())
-    return base, k
+    spread = _sample_sd(rates) if len(rates) >= 2 else None
+    return base, k, spread
+
+
+def _paired_sd_from_rows(
+    before: Sequence[dict], after: Sequence[dict]
+) -> tuple[float, int, float, int]:
+    """The per-task paired sd measured off both arms: the sample sd of
+    ``after - before`` per shared task, so the covariance pairing buys is
+    in it. Returns ``(sd, n_paired, base, k)``."""
+    means_a = _by_task(before, _binary)
+    means_b = _by_task(after, _binary)
+    shared = sorted(set(means_a) & set(means_b))
+    if len(shared) < MIN_CI_TASKS:
+        raise ValueError(
+            f"before and after share {len(shared)} graded task(s); a paired sd needs at "
+            f"least {MIN_CI_TASKS}. Re-run both arms on the same tasks "
+            "(simulate(tasks=base)), or pass sd_task= from a previous delta_report"
+        )
+    diffs = [_mean(means_b[t]) - _mean(means_a[t]) for t in shared]
+    base = _mean([_mean(means_a[t]) for t in shared])
+    k = min(min(len(means_a[t]), len(means_b[t])) for t in shared)
+    return _sample_sd(diffs), len(shared), base, k
 
 
 def holdout_size(
@@ -101,23 +148,57 @@ def holdout_size(
     power: float = 0.8,
     alpha: float = 0.05,
     rows: Sequence[dict] | None = None,
+    after: Sequence[dict] | None = None,
+    sd_task: float | None = None,
 ) -> dict[str, Any]:
     """How many paired tasks a holdout needs to prove a gain of ``effect``.
 
     Models the test ``delta_report`` runs: each task's pass rate over
     ``k`` rollouts on each side, the delta as the mean of the paired
-    differences, the interval from a bootstrap over tasks. A task's
-    difference then has standard deviation
-    ``sqrt((p(1-p) + q(1-q)) / k)`` with ``p = base`` and ``q = base +
-    effect``, and the usual two-sided power calculation gives
-    ``n = ((z_{1-alpha/2} + z_power) * sd / effect) ** 2`` (rlhf-book ch. 16,
-    appendix C: the eval's own variance decides what a delta can mean).
-    It assumes the gain lands uniformly across tasks; a gain concentrated
-    on a few tasks needs more.
+    differences, the interval from a bootstrap over tasks. The usual
+    two-sided power calculation then gives ``n = ((z_{1-alpha/2} +
+    z_power) * sd / effect) ** 2`` with ``sd`` the standard deviation of
+    one task's paired difference (rlhf-book ch. 16: the point of a
+    better eval is statistical power when comparing training runs).
+    Where ``sd`` comes from is the whole question, and there are three
+    ways to answer it, best first:
 
-    ``rows`` (graded before-side rows) reads ``base`` and ``k`` off the
-    data instead. Returns ``n_tasks`` plus the inputs, ``sd_task``, and
-    ``half_width``: the 95% band on the delta at that ``n``.
+    * ``rows`` and ``after``, the graded before and after arms of a
+      previous eval on the same tasks: ``sd`` is measured as the sample
+      sd of the per-task differences, which carries the covariance that
+      pairing buys and whatever shape the gain had. No model.
+      ``sd_source`` is ``"rows"`` and ``n_paired`` says how many tasks it
+      was read off.
+    * ``sd_task``, a number you measured: the same quantity read off a
+      previous ``delta_report``: ``(hi - lo) * sqrt(n_paired_tasks) /
+      3.92`` from ``target_ci95`` and ``n_paired_tasks`` (or any
+      ``metrics[...]["ci95"]`` with its ``n_paired``). Agent rubrics sat
+      near 0.38 across five lanes (#288). ``sd_source`` is ``"given"``.
+      ``eval_variance``'s ``run_std`` is a different number (how much a
+      re-run moves the mean) and is not this.
+    * Neither: the binomial model ``sqrt((p(1-p) + q(1-q)) / k)`` with
+      ``p = base`` and ``q = base + effect``, ``sd_source`` ``"model"``.
+      It assumes two things it cannot check: that the gain is spread
+      evenly across tasks, and that the two arms are independent draws
+      (``Var(A) + Var(B)``, no covariance term). When the gain is carried
+      by a few tasks, most tasks are ties and the paired differences
+      spread far wider than binomial-per-task predicts; a voice trait at
+      0 -> 0.127, k=4, carried by 19 of 150 tasks, measured sd 0.333
+      against the model's 0.168 and needed 54 tasks where the model said
+      14 (#292). So the model path also returns
+      ``n_tasks_concentrated``, the count if the gain were carried by
+      the fewest tasks that can carry it (each going from ``base`` to
+      1), and ``notes`` says which assumption is in play. On a holdout
+      whose tasks differ a lot in difficulty the independence assumption
+      errs the other way, up to about 30% too many tasks, which pairing
+      removes: ``rows`` alone reports that spread as ``base_spread``.
+
+    ``rows`` (graded before-side rows) on its own still reads ``base``
+    and ``k`` off the data. Returns ``n_tasks`` plus the inputs,
+    ``sd_task``, ``sd_source``, ``half_width`` (the 95% band on the delta
+    at that ``n``), ``n_tasks_concentrated``, ``base_spread``,
+    ``n_paired`` and ``notes``. The default answer is unchanged; the
+    honest paths are the two that measure.
 
     The recipe that asked for this had 140 tasks at k=4 around 0.6: a
     band of about +-0.06, so a real 3-point gain reads
@@ -129,12 +210,55 @@ def holdout_size(
         )
     if not 0 < power < 1 or not 0 < alpha < 1:
         raise ValueError("power and alpha are probabilities strictly between 0 and 1")
+    if after is not None and rows is None:
+        raise ValueError("after= needs rows= (the before arm) to pair against")
+    if sd_task is not None and not float(sd_task) > 0:
+        raise ValueError(
+            "sd_task is the per-task paired standard deviation you measured, above 0 "
+            "(agent rubrics sit near 0.38)"
+        )
+    notes: list[str] = []
+    spread: float | None = None
+    n_paired: int | None = None
     if rows is not None:
-        base, k = _rows_base_and_k(rows)
-    sd = _paired_task_sd(base, effect, k)
+        base, k, spread = _rows_base_and_k(rows)
+    if rows is not None and after is not None:
+        sd, n_paired, base, k = _paired_sd_from_rows(rows, after)
+        source = "rows"
+        notes.append(
+            f"sd_task {sd:.3f} measured as the sample sd of the per-task paired difference "
+            f"over {n_paired} tasks; no model, the covariance pairing buys is in it"
+        )
+    elif sd_task is not None:
+        sd = float(sd_task)
+        source = "given"
+        notes.append(f"sd_task {sd:.3f} given; the binomial model was not used")
+    else:
+        sd = _paired_task_sd(base, effect, k)
+        source = "model"
     z = _z(1 - alpha / 2) + _z(power)
-    n = math.ceil((z * sd / float(effect)) ** 2) if sd > 0 else 1
-    n = max(n, 2)
+
+    def _n(s: float) -> int:
+        return max(2, math.ceil((z * s / float(effect)) ** 2) if s > 0 else 1)
+
+    n = _n(sd)
+    concentrated: int | None = None
+    if source == "model":
+        concentrated = _n(_concentrated_task_sd(base, effect, k))
+        notes.append(
+            f"n_tasks {n} assumes the gain is spread evenly across tasks and the two arms are "
+            f"independent draws. If the gain is carried by a few tasks (a trait only some "
+            f"prompts exercise) the same {float(effect):.3f} gain needs about {concentrated} "
+            f"tasks (n_tasks_concentrated). Pass rows= and after= from a previous eval to "
+            f"measure the paired sd, or sd_task= read off a delta_report interval."
+        )
+        if spread is not None and spread > 0:
+            notes.append(
+                f"per-task base pass rates spread sd {spread:.3f}; the independent-arms model "
+                "overstates on a holdout whose tasks differ in difficulty (about 30% too "
+                "many tasks at spread 0.4), and understates when the gain is concentrated. "
+                "Which way this one errs is decided by after= rows."
+            )
     return {
         "n_tasks": n,
         "effect": float(effect),
@@ -143,7 +267,12 @@ def holdout_size(
         "power": float(power),
         "alpha": float(alpha),
         "sd_task": round(sd, 4),
+        "sd_source": source,
         "half_width": round(_z(1 - alpha / 2) * sd / math.sqrt(n), 4),
+        "n_tasks_concentrated": concentrated,
+        "base_spread": round(spread, 4) if spread is not None else None,
+        "n_paired": n_paired,
+        "notes": notes,
     }
 
 

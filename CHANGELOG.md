@@ -3,6 +3,24 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- `holdout_size` measures the per-task paired sd instead of modelling it
+  when it can. `rows=before, after=after` reads it off both arms of a
+  previous eval on the same tasks (the sample sd of the per-task
+  differences, so the covariance pairing buys is in it), and `sd_task=`
+  takes a number read off a `delta_report` interval. The binomial model
+  `sqrt((p(1-p) + q(1-q)) / k)` is `Var(A) + Var(B)` with no covariance
+  term and assumes the gain is spread evenly across tasks; on a lane where
+  19 of 150 tasks carried the whole gain it said 14 tasks and the measured
+  sd said 54, and on a holdout whose tasks differ in difficulty it asks
+  for about 30% too many. The default answer is unchanged; the model path
+  now says both assumptions in `notes`, returns `n_tasks_concentrated`
+  (the count if the fewest tasks carried the gain) beside `n_tasks`, and
+  `rows=` alone reports the per-task difficulty spread as `base_spread`.
+  `sd_source` says which path answered. README: size before you run; the
+  effective sample is prompts, not rollouts. (#292, refs #288)
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults
