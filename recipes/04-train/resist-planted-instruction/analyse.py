@@ -147,6 +147,12 @@ def paired(a: list[dict], b: list[dict], seed: int = 0) -> dict:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--out", default="out", help="folder holding eval_<arm>.jsonl")
+    p.add_argument(
+        "--results",
+        default="",
+        help="also write the report here with the run's selection and training "
+        "records attached (the committed results.json the README cites)",
+    )
     args = p.parse_args(argv)
     out = Path(args.out)
     arms = {name: load(out / f"eval_{name}.jsonl") for name in ("base", "random", "trained")}
@@ -167,6 +173,23 @@ def main(argv: list[str] | None = None) -> int:
                 "clean_control_rows": paired(a_cln, b_cln, seed=2),
             }
     (out / "analysis.json").write_text(json.dumps(report, indent=1))
+    if args.results:
+        record = {"analysis": report}
+        for label, name in (
+            ("selection", "selection.json"),
+            ("train_trained", "train_planted-instruction-v1.json"),
+            ("train_random", "train_planted-instruction-random-control.json"),
+            ("eval", "eval.json"),
+        ):
+            path = out / name
+            if path.exists():
+                data = json.loads(path.read_text())
+                data.pop("loss", None)
+                record[label] = data
+        for path in sorted(out.glob("generate_seed*.json")):
+            record.setdefault("generate", {})[path.stem] = json.loads(path.read_text())
+        Path(args.results).write_text(json.dumps(record, indent=1) + "\n")
+        print("wrote", args.results)
     for name, a in report.items():
         if name in present:
             print(

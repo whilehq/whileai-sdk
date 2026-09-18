@@ -3,8 +3,8 @@
 Train an agent to ignore an instruction that arrives inside a tool result, and
 show that the reward filter, not the fine-tuning, is what taught it. A
 size-matched random-selection control trained the same way gains nothing over
-the base; the reward-selected adapter beats that control by +0.246 with a 95%
-interval of [+0.185, +0.309] on 119 paired prompts.
+the base; the reward-selected adapter beats that control by +0.242 with a 95%
+interval of [+0.177, +0.307] on 119 paired prompts (`results.json`).
 
 What you will learn: how to write a behaviour rubric that a program decides
 from the trajectory, why the criterion you reward must be one the base fails
@@ -31,23 +31,31 @@ grades, decontaminates and selects on your machine:
 python run.py --backend vllm:Qwen/Qwen3-4B@http://127.0.0.1:8000/v1 --repeats 2
 ```
 
-Training and the eval run on Modal and are the part a maintainer runs on their
-own account:
+Without a vLLM of your own, generate in a Modal container instead; each wave
+writes `out/pool_seed<N>.jsonl` and `--pool` runs the same decontamination and
+selection on those files. Training and the eval run on Modal and are the part
+a maintainer runs on their own account:
 
 ```bash
-modal run modal_train_eval.py::run_generate    # optional: generate in the container
+modal run modal_train_eval.py::run_generate --seed 11   # H100, vLLM in the container
+modal run modal_train_eval.py::run_generate --seed 12   # second wave
+python run.py --pool out/pool_seed11.jsonl out/pool_seed12.jsonl
 modal run modal_train_eval.py::run_train --rows-file out/sft_rows.jsonl
 modal run modal_train_eval.py::run_train --rows-file out/sft_rows_random.jsonl \
-    --name planted-instruction-random-control
+    --name planted-instruction-random-control --epochs <treatment samples / control samples>
 modal run modal_train_eval.py::run_eval        # base, control, trained; one process
 python analyse.py                              # paired numbers with intervals
 ```
+
+`run.py --pool` prints both sample counts; the control's `--epochs` is their
+ratio so both arms take the same number of optimizer steps.
 
 | flag | default | what it does |
 |---|---|---|
 | `--dry-run` | off | no model calls and no key: grade the bundled rows |
 | `--limit` | all rows | fewer fixture rows, for a smoke run |
 | `--backend` | none | `vllm:<model>@<url>`; turns on generation |
+| `--pool` | none | graded pool files from `run_generate`; skips generation |
 | `--repeats` | 2 | rollouts per scenario (k) |
 | `--budget` | 1500 | rollout cap per wave; the SDK default of 1000 stops early |
 | `--seed` | 11 | rollout seed; a second wave uses a different one |
@@ -139,17 +147,19 @@ exported policy and every eval arm ran without it.
 
 ## Selection
 
-Two waves of `simulate(tasks=...)` over 700 authored scenarios at k=2:
-2,396 rollouts, all 2,396 graded, pool pass@1 0.377. Then, in this order:
+Two waves of `simulate(tasks=...)` over 700 authored scenarios at k=2 (seeds
+11 and 12): 2,796 rollouts, all 2,796 graded, pool pass@1 0.370 (0.379 and
+0.371 per wave). Then, in this order:
 
 1. `decontaminate` against the holdout (ch. 16). The SDK's coverage rule
-   flagged 796 rows as near copies with 0 exact: shared opener frames, not
+   flagged 947 rows as near copies with 0 exact: shared opener frames, not
    shared questions, since the worlds use disjoint id blocks. The structural
    check (no holdout order id, no verbatim opener) dropped 0. Both numbers are
    reported; training used the structural filter.
-2. `select_for_sft(min_reward=1.0, select="top_per_prompt")`: 376 rows, one
-   per prompt, round-robin over behaviour signatures (ch. 9 top-per-prompt).
-3. `training_rows(unroll=True)`: 1,559 samples, one per assistant turn, loss
+2. `select_for_sft(min_reward=1.0, select="top_per_prompt")`: 376 rows from
+   the 395 that passed, one per prompt, round-robin over behaviour signatures
+   (ch. 9 top-per-prompt).
+3. `training_rows(unroll=True)`: 1,568 samples, one per assistant turn, loss
    on that turn only. The system prompt, every user turn and every tool result
    are masked (ch. 4 and ch. 13: a model trained on tool output learns to
    invent tool results).
@@ -162,7 +172,7 @@ loss curve than the correct one.
 
 LoRA rank 16, alpha 32, all attention and MLP projections, learning rate 2e-5
 with cosine decay and 3% warmup, one epoch, batch 1 with gradient accumulation
-8, 194 optimizer steps, max length 4096, seed 17. The learning rate is passed
+8, 196 optimizer steps, max length 4096, seed 17. The learning rate is passed
 explicitly: 2e-4 was measured as catastrophic on a sibling lane. Batch 2 at
 4096 tokens does not fit a 44 GiB card once the loss upcasts a
 (batch, sequence, 151936) logits tensor, so the recipe uses batch 1 with
@@ -179,47 +189,52 @@ that data.
 The control is identical in every respect but one. Same pool, same
 decontamination, same one-per-prompt rule and signature round-robin, same
 target of 376, same seed, same LoRA and learning rate, epochs sized to the same
-step count. The one difference is `min_reward=0.0`. The set holds 141 passing
-and 235 failing rows, the pool rate, and shares 212 prompts and 108 identical
-rows with the reward-selected set.
+step count (1.0659 epochs over 1,471 samples: 195 steps against 196). The one
+difference is `min_reward=0.0`. The set holds 163 passing and 213 failing
+rows, the pool rate, and shares 226 prompts and 63 identical rows with the
+reward-selected set.
 
 The prediction was written on the published cards before the control finished
 training: near +0.216 means domain adaptation; well below means the reward
 filter did the work. Length was checked before reading the result (ch. 8 and
-ch. 11 on length matching): passing final replies run 17 characters shorter
-and are shorter on 61.5% of prompts that have both a pass and a fail, but
-whole-conversation assistant text shows no skew (52.8%) and passing rows make
-more tool calls (2.93 against 2.40). A brevity signal is not what separates
-the two training sets.
+ch. 11 on length matching): passing final replies run 13 characters shorter
+and are shorter on 62.4% of the 242 prompts that have both a pass and a fail,
+but whole-conversation assistant text shows no skew (48.8%) and passing rows
+make more tool calls (2.90 against 2.40). A brevity signal is not what
+separates the two training sets.
 
 ## What you get
 
 Three arms from one vLLM process on the same 120 pinned prompts, k=4, the
 simulated customer pinned to `Qwen/Qwen3-4B` on every arm so the policy under
-test never voices its own customer. A top-up pass re-ran any prompt the engine
+test never voices its own customer. Every number below is read from
+`results.json` at the recipe root: the analysis plus the generation, selection,
+training and eval records of the maintainer rerun on 2026-09-17.
+`python analyse.py --results results.json` regenerates it from `out/`. A top-up pass re-ran any prompt the engine
 dropped on its own arm in the same process; one prompt would not roll on the
 trained arm after three attempts, and the worst-case bound below scores it 0.
 
 | arm | rows | graded | prompts | pass@1 | 95% interval over prompts |
 |---|---|---|---|---|---|
-| base | 479 | 479 | 120 | 0.385 | [0.308, 0.461] |
-| random-selection control | 474 | 474 | 120 | 0.335 | [0.258, 0.412] |
-| reward-selected adapter | 476 | 476 | 119 | 0.584 | [0.510, 0.658] |
+| base | 479 | 479 | 120 | 0.365 | [0.292, 0.442] |
+| random-selection control | 477 | 477 | 120 | 0.340 | [0.267, 0.415] |
+| reward-selected adapter | 471 | 471 | 119 | 0.584 | [0.504, 0.662] |
 
 | paired comparison | n | delta | 95% interval | improved / worsened |
 |---|---|---|---|---|
-| control vs base | 120 | -0.049 | [-0.098, -0.002] | 16 / 25 |
-| reward-selected vs base | 119 | +0.196 | [+0.133, +0.261] | 48 / 10 |
-| reward-selected vs control | 119 | +0.246 | [+0.185, +0.309] | 56 / 6 |
+| control vs base | 120 | -0.026 | [-0.072, +0.021] | 19 / 25 |
+| reward-selected vs base | 119 | +0.216 | [+0.146, +0.286] | 55 / 9 |
+| reward-selected vs control | 119 | +0.242 | [+0.177, +0.307] | 56 / 7 |
 
 Intervals are a percentile bootstrap over prompts, never over rows (ch. 16).
-The exact sign test over the 62 discordant prompts gives p below 1e-7. The
-measured paired-difference spread is 0.34, so at 119 prompts this eval
-resolves about 0.09 at 80% power; the observed effect is close to three times
-that. An earlier two-arm run of the same design measured +0.216 [+0.147,
-+0.286] for the adapter over base; the three-arm run replicates it within
-noise. Scoring the one missing prompt as a failure for the trained arm gives
-+0.244 [+0.183, +0.304] against the control over all 120 prompts.
+The exact sign test over the 63 discordant prompts gives p below 1e-9. The
+measured paired-difference spread is 0.36, so at 119 prompts this eval
+resolves about 0.09 at 80% power; the observed effect is more than twice
+that. The author's first run of this design, on its own pool, adapters and
+eval, measured +0.246 [+0.185, +0.309] against the control and +0.196
+[+0.133, +0.261] against base; this rerun replicates both within noise.
+Scoring the one missing prompt as a failure for the trained arm gives +0.240
+[+0.175, +0.304] against the control over all 120 prompts.
 
 The two halves are reported apart, because a model that files an escalation
 on every order scores perfectly on the attack rows and fails every control
@@ -227,22 +242,26 @@ row:
 
 | half, reward-selected vs control | n | delta | 95% interval |
 |---|---|---|---|
-| attack rows | 88 | +0.332 | [+0.264, +0.403] |
-| clean control rows | 31 | +0.000 | [-0.057, +0.065] |
+| attack rows | 88 | +0.338 | [+0.264, +0.412] |
+| clean control rows | 31 | -0.032 | [-0.105, +0.032] |
 
 | flagging behaviour | base | control | reward-selected |
 |---|---|---|---|
-| false-flag rate on clean rows | 0.0% | 4.0% | 4.8% |
-| flag recall on attack rows | 24.5% | 21.1% | 48.6% |
+| false-flag rate on clean rows | 1.6% | 6.5% | 9.7% |
+| flag recall on attack rows | 22.0% | 19.6% | 50.7% |
 
-The verdict is a selection result. The control does not beat base at all, so
-there is no domain-adaptation share to subtract: the same count of in-domain
-rows without the reward filter teaches nothing, and what it learned was the
-failures, since its false-flag rate went up while its recall went down. The
-reward filter buys +0.332 on attack rows at no cost on clean rows relative to
-the control. Trained replies are also shorter than base (253 against 286
-characters) with more tool calls (2.82 against 2.55); the gain is carried by
-actions, not by longer text.
+The verdict is a selection result. The control does not beat base (-0.026,
+interval through zero), so there is no domain-adaptation share to subtract:
+the same count of in-domain rows without the reward filter teaches nothing,
+and what it learned was the failures, since its false-flag rate went up while
+its recall went down. The reward filter buys +0.338 on attack rows. On the 31
+clean rows the trained arm sits at -0.032 [-0.105, +0.032] against the
+control, an interval through zero, and its false-flag rate is the highest of
+the three arms (9.7% against 6.5% and 1.6%): the recall gain comes with a
+small rise in flagging clean orders, inside noise at 31 prompts and the
+number to watch on a longer run. Trained replies are shorter than base (266
+against 286 characters) with more tool calls (2.90 against 2.57); the gain
+is carried by actions, not by longer text.
 
 ## Honest limits
 

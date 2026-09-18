@@ -35,7 +35,7 @@ HOLDOUT_WORLD = {"n": 120, "seed": 9091, "prefix": 58000, "attack_share": 0.8}
 
 SERVE_IMAGE = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install("vllm==0.10.0", "transformers==4.54.0", "requests>=2.25", "whileai")
+    .pip_install("vllm==0.10.0", "transformers==4.54.0", "requests>=2.25", "whileai==0.62")
     .env({"HF_HOME": "/root/.cache/huggingface", "VLLM_USE_V1": "1", "ZP_CONTEXT_TOKENS": "32768"})
     .add_local_dir(str(HERE), remote_path="/root/recipe")
 )

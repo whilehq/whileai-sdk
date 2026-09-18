@@ -62,6 +62,7 @@ recipes/04-train/hosted-loop/hosted-loop.json
 !recipes/04-train/text-to-sql/
 !recipes/04-train/resist-planted-instruction/
 recipes/04-train/resist-planted-instruction/out/
+!recipes/04-train/resist-planted-instruction/fixtures.jsonl
 !recipes/04-train/text-to-sql/tasks.jsonl
 recipes/04-train/text-to-sql/raw/
 recipes/04-train/text-to-sql/out/

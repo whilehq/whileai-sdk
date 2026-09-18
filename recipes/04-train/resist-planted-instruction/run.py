@@ -147,7 +147,11 @@ def dry_run(limit: int) -> int:
     assert all(checks.values()), "the world confirmed something it should have refused"
 
     # 2. The grader reproduces the labels the published rows carry.
-    rows = json.loads((HERE / "fixtures.json").read_text())[:limit]
+    rows = [
+        json.loads(line)
+        for line in (HERE / "fixtures.jsonl").read_text().splitlines()
+        if line.strip()
+    ][:limit]
     recorded = [r.get("reward") for r in rows]
     scored = wai.run_judge(rows, make_grader(scenarios), version=f"code@{rubric().version}")
     regraded = [r.get("reward") for r in scored.rows]
@@ -162,6 +166,46 @@ def dry_run(limit: int) -> int:
         "\nNext: python run.py --backend vllm:Qwen/Qwen3-4B@http://127.0.0.1:8000/v1 "
         "--repeats 2, then modal run modal_train_eval.py::run_train"
     )
+    return 0
+
+
+def select_pool(args: argparse.Namespace) -> int:
+    """Decontaminate and select from pools that `run_generate` on Modal
+    already graded: `out/pool_seed<N>.jsonl`, one file per wave."""
+    world = build_world(**TRAIN_WORLD)
+    holdout = build_world(**HOLDOUT_WORLD)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    rows: list[dict] = []
+    for path in args.pool:
+        wave = [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+        print(f"{path}: {len(wave)} rows")
+        rows += wave
+    # The same grader, on the same scenarios, so a pool graded by an older
+    # rubric version cannot slip through with stale labels.
+    scored = wai.run_judge(
+        rows, make_grader(world["scenarios"]), version=f"code@{rubric().version}"
+    )
+    rows = scored.rows
+    (out / "pool.jsonl").write_text("\n".join(json.dumps(r, default=str) for r in rows))
+    print(f"pool {len(rows)} rows")
+    print(wai.pass_at(rows))
+    print("per-criterion failures:", criterion_failures(rows)["failures"])
+    return finish(rows, holdout, out)
+
+
+def finish(rows: list[dict], holdout: dict, out: Path) -> int:
+    sdk_clean, report = wai.decontaminate(rows, tasks_for(holdout))
+    clean = structurally_clean(rows, holdout)
+    print(
+        f"decontaminate: SDK rule kept {len(sdk_clean)} (exact {report.get('n_exact')}, "
+        f"near {report.get('n_near')}); structural rule kept {len(clean)}"
+    )
+    selection = select_and_unroll(clean, out)
+    print("selection:", json.dumps(selection, indent=1))
+    (out / "selection.json").write_text(json.dumps(selection, indent=1))
+    (out / "holdout_tasks.json").write_text(json.dumps(tasks_for(holdout), indent=1))
+    print(f"\nNext: modal run modal_train_eval.py::run_train --rows-file {out / 'sft_rows.jsonl'}")
     return 0
 
 
@@ -207,17 +251,7 @@ def live(args: argparse.Namespace) -> int:
     print(f"rollouts {len(rows)}, stopped because {data.stopped_because}")
     print(wai.pass_at(rows))
     print("per-criterion failures:", criterion_failures(rows)["failures"])
-
-    sdk_clean, report = wai.decontaminate(rows, tasks_for(holdout))
-    clean = structurally_clean(rows, holdout)
-    print(
-        f"decontaminate: SDK rule kept {len(sdk_clean)} (exact {report.get('n_exact')}, "
-        f"near {report.get('n_near')}); structural rule kept {len(clean)}"
-    )
-    print("selection:", json.dumps(select_and_unroll(clean, out), indent=1))
-    (out / "holdout_tasks.json").write_text(json.dumps(tasks_for(holdout), indent=1))
-    print(f"\nNext: modal run modal_train_eval.py::run_train --rows-file {out / 'sft_rows.jsonl'}")
-    return 0
+    return finish(rows, holdout, out)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -225,6 +259,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dry-run", action="store_true", help="no model calls, no key")
     p.add_argument("--limit", type=int, default=10, help="bundled rows to grade")
     p.add_argument("--backend", default="", help="vllm:<model>@<url>; turns on generation")
+    p.add_argument(
+        "--pool",
+        nargs="+",
+        default=[],
+        help="graded pool files from `modal run modal_train_eval.py::run_generate`; "
+        "skips generation and selects from them",
+    )
     p.add_argument("--user-model", default="", help="backend spec for the customer")
     p.add_argument("--repeats", type=int, default=2, help="rollouts per scenario (k)")
     p.add_argument("--budget", type=int, default=1500, help="rollout cap for this wave")
@@ -232,6 +273,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--time-budget", type=float, default=2700.0, help="seconds")
     p.add_argument("--out", default=str(HERE / "out"), help="where rows land")
     args = p.parse_args(argv)
+    if args.pool and not args.dry_run:
+        return select_pool(args)
     if args.dry_run or not args.backend:
         return dry_run(args.limit)
     return live(args)
