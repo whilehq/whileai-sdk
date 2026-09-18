@@ -36,6 +36,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..generate.agents import split_reasoning
+
 JUDGE_NOISE_NOTE = (
     "pass@k inflates on judge false positives, pass^k on false negatives; "
     "pass@1 is the least judge-sensitive"
@@ -122,7 +124,45 @@ def run_config(
     out["truncated_share"] = (
         round(sum(1 for x in known if x == "length") / len(known), 4) if known else None
     )
+    # Answer production. Every rate is conditional on the arm having
+    # produced a reply to score: the share of rows with spoken text once
+    # reasoning markup is gone, and the share whose reply ends inside an
+    # unclosed <think> (the cap landed mid-reasoning). ``delta_report``
+    # fails the comparison when one side answered and the other did not
+    # (#297). ``None`` on an empty set.
+    replies = [_reply_text(r) for r in rows if isinstance(r, dict)]
+    said = [text for text in replies if text is not None]
+    if said:
+        split = [split_reasoning(text) for text in said]
+        out["answered_share"] = round(
+            sum(1 for spoken, _, _ in split if spoken.strip()) / len(split), 4
+        )
+        out["unclosed_think_share"] = round(
+            sum(1 for _, _, unclosed in split if unclosed) / len(split), 4
+        )
+    else:
+        out["answered_share"] = None
+        out["unclosed_think_share"] = None
     return out
+
+
+def _reply_text(row: dict) -> str | None:
+    """The reply a judge read on this row: ``final_text``, else the last
+    assistant message with words in it (rows from another harness carry
+    ``messages`` only). ``None`` when the row carries neither field, so
+    it is skipped rather than read as unanswered."""
+    final = row.get("final_text")
+    if isinstance(final, str) and final.strip():
+        return final
+    messages = row.get("messages")
+    for message in reversed(messages if isinstance(messages, list) else []):
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                return content
+    if isinstance(final, str) or isinstance(messages, list):
+        return ""
+    return None
 
 
 @dataclass(frozen=True)
@@ -230,6 +270,9 @@ class PassAt:
         cut = self.config.get("truncated_share") if self.config else None
         if cut:
             tail += f"; {cut:.0%} of rows cut by the token cap"
+        answered = self.config.get("answered_share") if self.config else None
+        if answered is not None and answered < 1:
+            tail += f"; {1 - answered:.0%} of rows have no spoken reply"
         if self.note:
             tail += f"; {self.note}"
         return f"{head} {tail})"

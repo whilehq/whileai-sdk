@@ -13,6 +13,16 @@ target model emits thinking tokens. ``training_rows`` closes that gap:
 * strips ``<think>`` blocks from assistant turns, so a thinking rollout
   model never teaches a non-thinking student to emit them.
 
+The strip cuts the other way too. A reasoning base (Qwen3) trained on
+think-free targets learns to print an empty ``<think></think>`` and
+answer at once. That is fine until the eval, where that adapter meets
+the untrained base under one shared ``max_tokens``: the base reasons and
+runs out of budget, the adapter answers, and the delta is a win over
+replies the base never produced (#297). ``delta_report`` fails that
+comparison; the fix is ``thinking=`` set the same on both arms, or
+``strip_think=False`` when the student is a reasoning model and should
+keep reasoning.
+
 Two wire shapes come out of here, and they are not the same shape:
 
 ``format="openai"`` (the default)
@@ -410,6 +420,14 @@ def training_rows(
     ``system_prompt=`` and ``tools=`` explicitly; a row exported without
     its policy trains an agent that never saw its rules. ``mask_mode``
     picks which assistant turns carry loss (see ``loss_mask``).
+
+    ``strip_think=True`` (the default) removes ``<think>`` blocks from the
+    assistant turns. On a reasoning base such as Qwen3 that teaches the
+    adapter to emit an empty ``<think></think>`` and answer at once, so
+    at eval it answers while the untrained base is still reasoning under
+    the same ``max_tokens`` (#297). Pass ``strip_think=False`` when the
+    student should keep reasoning, and set ``thinking=`` the same on both
+    arms of the eval either way.
 
     ``unroll=True`` turns an N-turn conversation into N samples, the
     k-th ending at the k-th assistant turn with loss on that turn only

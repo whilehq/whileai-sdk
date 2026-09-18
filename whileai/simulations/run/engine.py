@@ -2928,6 +2928,24 @@ class Run:
                 and "followups_starved" not in data.degraded
             ):
                 data.degraded.append("followups_starved")
+        # The simulated user reasoned out loud. The reasoning was stripped
+        # before it became a user turn; the count, and how many were cut
+        # off inside the block, is per run so two arms can be compared
+        # (#284: 18 unclosed on one arm, 0 on the other).
+        stripped = int(self.turn_stats.get("user_think_stripped", 0) or 0)
+        if stripped:
+            unclosed = int(self.turn_stats.get("user_think_unclosed", 0) or 0)
+            data.search["user_think_stripped"] = stripped
+            data.search["user_think_unclosed"] = unclosed
+            note = (
+                f"{stripped} simulated-user turns came back as <think> reasoning ({unclosed} cut "
+                "off inside the block by the user model's token cap); the reasoning was stripped "
+                "before it became a user turn, and a turn with no spoken line was dropped. Pass "
+                "thinking=False to wai.local_model(...) so the user model does not reason, or "
+                "put the user on a non-reasoning model with user_model=."
+            )
+            data.warnings.append(note)
+            log.warning(note)
         data.elapsed_seconds = time.monotonic() - self.started
         n = len(data.trajectories)
         data.rows_per_second = (n / data.elapsed_seconds) if data.elapsed_seconds else 0.0

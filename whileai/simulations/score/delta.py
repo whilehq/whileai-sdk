@@ -135,6 +135,60 @@ def _by_group(
     return out
 
 
+#: One side is short of replies when at least this share of its rows have
+#: no spoken text, and the other side has under a third of that share.
+UNANSWERED_MIN_SHARE = 0.10
+
+
+def _one_sided(a: float, b: float) -> bool:
+    """True when one arm's share is at least ``UNANSWERED_MIN_SHARE`` and
+    the other's is under a third of it (#297: 93% against 0%)."""
+    hi, lo = max(a, b), min(a, b)
+    return hi >= UNANSWERED_MIN_SHARE and lo * 3 < hi
+
+
+def _manufactured_win_note(cfg_a: dict[str, Any], cfg_b: dict[str, Any]) -> str:
+    """The warning for a comparison where one arm mostly never answered:
+    what was seen per arm, the mechanism that produces it, and the fix."""
+    missing_a = 1.0 - float(cfg_a["answered_share"])
+    missing_b = 1.0 - float(cfg_b["answered_share"])
+    line = (
+        f"MANUFACTURED: {missing_a:.0%} of before rows and {missing_b:.0%} of after rows have "
+        "no spoken reply, so every rate above is computed over replies one side did not "
+        "produce. "
+    )
+    think_a = float(cfg_a.get("unclosed_think_share") or 0.0)
+    think_b = float(cfg_b.get("unclosed_think_share") or 0.0)
+    cut_a = float(cfg_a.get("truncated_share") or 0.0)
+    cut_b = float(cfg_b.get("truncated_share") or 0.0)
+    if think_a or think_b:
+        line += (
+            f"{think_a:.0%} of before and {think_b:.0%} of after replies end inside an unclosed "
+            "<think>: a reasoning base compared against a reasoning-suppressed adapter (one "
+            "trained on think-free targets) under one shared max_tokens spends the budget "
+            "reasoning and never answers, while the adapter answers at once. "
+        )
+    elif cut_a or cut_b:
+        line += (
+            f"The token cap cut {cut_a:.0%} of before and {cut_b:.0%} of after rows, which "
+            "is what a reasoning base does against a reasoning-suppressed adapter under one "
+            "shared max_tokens: it spends the budget reasoning and never answers. "
+        )
+    else:
+        # No reasoning markup and no cap cut on either side: the short
+        # side stopped before it spoke for another reason (a turn budget
+        # that ran out on a tool call reads ``tool`` in finish_reason).
+        return line + (
+            "Neither side shows <think> markup or a token-cap cut, so read finish_reason per "
+            "side (a side that stops on a tool call reads tool) and fix that side before "
+            "reading the delta."
+        )
+    return line + (
+        "Raise agent_max_tokens= on both sides, set thinking= the same on both arms, or "
+        "strip <think> on both, and re-run before reading the delta."
+    )
+
+
 def delta_report(
     before: Sequence[dict],
     after: Sequence[dict],
@@ -199,6 +253,16 @@ def delta_report(
     disagree on, and says so when both sides are the same policy version
     (rlhf-book ch. 16: a comparison is only as good as the settings it
     was run under).
+
+    ``answered`` is the share of rows per side with a spoken reply once
+    ``<think>`` markup is gone (``config[side]["answered_share"]``). Every
+    rate is conditional on it. When one side is short of replies
+    (``UNANSWERED_MIN_SHARE`` or more of its rows, and the other side
+    under a third of that) the report sets ``unanswered_asymmetric``,
+    fails, and the warning names the mechanism: a reasoning base against
+    a reasoning-suppressed adapter under one shared ``max_tokens`` runs
+    out of budget inside ``<think>`` and never answers, so the adapter
+    wins every row the base did not reply to (#297).
     """
     names = (
         list(markers)
@@ -429,6 +493,18 @@ def delta_report(
         warnings.append(
             "Before and after are the same policy version; this compares a model to itself."
         )
+    # Answer production. A rate is conditional on the arm having replied;
+    # when one side mostly did not and the other did, the comparison does
+    # not exist and the report fails (#297).
+    answered = {"before": cfg_a.get("answered_share"), "after": cfg_b.get("answered_share")}
+    unanswered_asymmetric = False
+    if _both("answered_share"):
+        unanswered_asymmetric = _one_sided(
+            1.0 - float(cfg_a["answered_share"]), 1.0 - float(cfg_b["answered_share"])
+        )
+    if unanswered_asymmetric:
+        ok = False
+        warnings.append(_manufactured_win_note(cfg_a, cfg_b))
     return {
         "ok": ok,
         "target": target_key,
@@ -457,6 +533,8 @@ def delta_report(
         "metrics": results,
         "warnings": warnings,
         "config": config,
+        "answered": answered,
+        "unanswered_asymmetric": unanswered_asymmetric,
         "by": (
             by if isinstance(by, str) else (getattr(by, "__name__", "callable") if by else None)
         ),

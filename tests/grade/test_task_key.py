@@ -125,6 +125,8 @@ def test_pass_at_config_reads_the_rows():
         "prompt_hash": "abc123",
         "mixed": [],
         "truncated_share": None,
+        "answered_share": 1.0,
+        "unclosed_think_share": 0.0,
     }
     assert pass_at(rows).to_dict()["config"] == cfg
     # rows that disagree: the field is None and named
