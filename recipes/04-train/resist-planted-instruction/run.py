@@ -15,7 +15,13 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-import whileai.simulations as wai
+try:
+    import whileai.simulations as wai
+except ImportError:  # a fresh clone, before the package is installed
+    raise SystemExit(
+        "This recipe needs the SDK importable. From the repository root run "
+        "`uv sync --extra dev` (or `pip install -e .`), then re-run this script."
+    ) from None
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
