@@ -56,6 +56,7 @@ def test_default_budget_is_500():
         "temperature",
         "timeout",
         "logprobs",
+        "patience",
     ]
     named = [name for name, p in params.items() if p.kind is not inspect.Parameter.VAR_KEYWORD]
     assert named == public

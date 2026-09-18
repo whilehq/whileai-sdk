@@ -44,6 +44,7 @@ from ..generate.agents import (
     current_rollout,
     default_agent_spec,
     default_max_turns,
+    ended_on_question,
     hosted_model,
     local_model,
     missing_hosted_key,
@@ -624,6 +625,7 @@ class Run:
             "max_turns": self.turns,
             "avg_turns": float(c.avg_turns),
             "min_user_turns": c.min_user_turns,
+            "patience": c.patience,
             "turn_stats": self.turn_stats,
         }
         if c.temperature is not None:
@@ -970,6 +972,10 @@ class Run:
         t.update(_row_conversation(meta, prompt, c.seed))
         t["behavior_signature"] = behavior_signature(t)
         t["finish_reason"] = _finish_reason(raw, t["steps"], t["final_text"])
+        # The simulated person gave up on the agent's question (#289): a
+        # rubric about asking reads it here, next to the question itself.
+        if raw.get("ended_by"):
+            t["ended_by"] = str(raw["ended_by"])
         # Sampling facts roll up from the agent turns: the summed logprob
         # and token count a trainer needs for an importance ratio or a KL.
         lp_steps = [
@@ -3092,6 +3098,11 @@ class Run:
                     data.degraded.append("no_tool_calls")
                 data.warnings.append(note)
                 log.warning(note)
+        if rows:
+            # How many threads end on the agent's question, and how many of
+            # those because the person walked away. Zero here on a run with
+            # questions in it means asking was free (#289).
+            data.search["ended_on_question"] = ended_on_question(rows)
         if c.out_path is not None and data.trajectories:
             data.save(str(c.out_path), meta=True)
         return data

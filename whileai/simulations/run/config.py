@@ -16,6 +16,7 @@ from typing import Any
 from whileai._env import getenv
 
 from ..generate.adapters import resolve_system_prompt
+from ..generate.agents import PATIENCE_LEVELS
 from ..generate.diversity import adaptive_allocator
 from ..generate.scenarios import DEFAULT_FAULT_RATE, SEARCH_ARMS
 from .spec import spec_rubric
@@ -64,6 +65,7 @@ _MOVED_NAMES = {
     "max_turns",
     "avg_turns",
     "min_user_turns",
+    "patience",
     "temperature",
     "agent_max_tokens",
     "sampling",
@@ -362,6 +364,7 @@ class RunConfig:
     max_turns: Any
     avg_turns: float
     min_user_turns: int
+    patience: str
     temperature: Any
     agent_max_tokens: int | None
     sampling: dict | None
@@ -503,6 +506,12 @@ def resolve_run_config(
     max_turns = cfg.pop("max_turns", None)
     avg_turns = float(cfg.pop("avg_turns", 12))
     min_user_turns = max(1, int(cfg.pop("min_user_turns", 1)))
+    patience = str(cfg.pop("patience", None) or "normal").strip().lower()
+    if patience not in PATIENCE_LEVELS:
+        raise ValueError(
+            f"patience={patience!r} is not a level; use one of "
+            + ", ".join(repr(p) for p in PATIENCE_LEVELS)
+        )
     temperature = cfg.pop("temperature", None)
     # The model agent's reply budget. Default: 768 tokens, or 2048 above an
     # 8k context (ZP_CONTEXT_TOKENS). A reasoning model that thinks before it
@@ -686,6 +695,7 @@ def resolve_run_config(
         max_turns=max_turns,
         avg_turns=avg_turns,
         min_user_turns=min_user_turns,
+        patience=patience,
         temperature=temperature,
         agent_max_tokens=agent_max_tokens,
         sampling=sampling,

@@ -3,6 +3,29 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- The simulated person can walk away from a question. Before this,
+  `_want_followup` answered every agent question until the depth cap and
+  the user-sim prompt said to always answer, so whether a thread ended
+  was decided by the turn budget and never by what the agent said, and
+  no rubric criterion about asking could fail: in source traces 63% of
+  asked threads ended with the person walking away and one in six ended
+  on the agent's question; in generated data 19-22% and under 1%, all
+  depth-cap cuts (#289). `simulate(patience=)` sets how long the person
+  keeps answering: `"normal"` (the default) always tries the first
+  question and from the second on may walk away (35%, then 60%, drawn
+  per thread so a seeded run reproduces); `"short"` sooner (60% then
+  90%); `"endless"` never, which is the old behaviour. At any question
+  the user-sim may also write `[leaves]` when it asks for something the
+  person could not know or asks again what was already answered, and
+  the follow-up parser ends the thread on it. A row the person left ends
+  on the agent's question and carries `ended_by="user_left"`, so a
+  rubric can charge for a question that should not have been asked, and
+  `search["ended_on_question"]` counts rows ending on a question and
+  how many of those the person left (`ended_on_question(rows)` does the
+  same over any row list). `local_model(patience=)` takes the same levels.
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults

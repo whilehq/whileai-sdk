@@ -1115,6 +1115,7 @@ Measured at `avg_turns=4`. The default is now `12`, so a row carries more turns 
 | `embedder` | `"hash"` | Prompt selection |
 | `seed` | `0` | Reproducible draws. Bit-for-bit at `concurrency: 1` or with `reproducible=True`, within a process and across processes; otherwise which rows land before the cap depends on thread timing |
 | `avg_turns` | `12` | Target conversation length in turns. The person speaks at most `avg_turns // 2` times; `12` leaves room to verify, look up, confirm, and write. |
+| `patience` | `"normal"` | How long the person keeps answering the agent's questions. The first question is always attempted; from the second on the person may walk away (`normal`: 35% then 60%; `short`: 60% then 90%; `endless`: never, the pre-knob behaviour). At any question the person may also leave when it asks for something they could not know. A row the person left ends on the agent's question and carries `ended_by="user_left"`; `search["ended_on_question"]` counts them. |
 
 Aliases: `phrasings=` / `n=` → `requests_per_situation`; `repeats=` → `rollouts_per_request`; `unique=` → `unique_situations`; `policy=` → `system_prompt`; `risk=` → `fault_rate`.
 
