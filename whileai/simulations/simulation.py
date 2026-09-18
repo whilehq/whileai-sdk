@@ -177,9 +177,13 @@ def simulate(
     ``"short"`` walks away sooner (60% then 90%); ``"endless"`` never
     walks away, which is what every run did before this knob: the
     person answered every question until the depth cap, so no rubric
-    criterion about asking could fail. A row the person left carries
-    ``ended_by="user_left"`` and ends on the agent's question, and the
-    run counts them in ``search["ended_on_question"]``.
+    criterion about asking could fail. The odds are a default, not a
+    measurement: to ground them, fit a Kaplan-Meier hazard per question
+    index on source traces and set the levels from it. A row the person
+    left carries ``ended_by="user_left"`` and ends on the agent's
+    question; ``search["ended_on_question"]`` is ``{"share", "n",
+    "user_left"}``: of ``n`` rows, the share that ended on a question and
+    how many of those the person left.
 
     ``scaffold=`` is generation-only guidance appended to the system prompt
     of the MODEL-BACKED teacher during rollout (and to the scene writer).

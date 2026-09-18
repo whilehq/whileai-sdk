@@ -1908,7 +1908,17 @@ def test_short_threads_still_answer_the_question():
         )
         for i in range(200)
     )
+    # At the cap the budget ends the thread before the hazard is consulted.
     assert not any(
-        _user_walks_away(f"m{i}", 3, user_turns=2, budget=2, questions=3, patience="short")
+        _want_followup(
+            f"m{i}",
+            3,
+            user_turns=2,
+            budget=2,
+            agent_text="Which repo?",
+            questions=3,
+            patience="short",
+        )
         for i in range(200)
     )
+    assert any(_user_walks_away(f"m{i}", 3, questions=3, patience="short") for i in range(200))

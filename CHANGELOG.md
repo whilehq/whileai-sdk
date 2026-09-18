@@ -16,15 +16,18 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   keeps answering: `"normal"` (the default) always tries the first
   question and from the second on may walk away (35%, then 60%, drawn
   per thread so a seeded run reproduces); `"short"` sooner (60% then
-  90%); `"endless"` never, which is the old behaviour. At any question
+  90%); `"endless"` never, which is the old behaviour. The odds are a
+  default, not a measurement; a Kaplan-Meier hazard per question index
+  on source traces is how to ground them. At any question
   the user-sim may also write `[leaves]` when it asks for something the
   person could not know or asks again what was already answered, and
   the follow-up parser ends the thread on it. A row the person left ends
   on the agent's question and carries `ended_by="user_left"`, so a
   rubric can charge for a question that should not have been asked, and
-  `search["ended_on_question"]` counts rows ending on a question and
-  how many of those the person left (`ended_on_question(rows)` does the
-  same over any row list). `local_model(patience=)` takes the same levels.
+  `search["ended_on_question"]` is `{"share", "n", "user_left"}`: of `n`
+  rows, the share that ended on a question and how many of those the
+  person left (`ended_on_question(rows)` does the same over any row
+  list). `local_model(patience=)` takes the same levels.
 
 ## 0.62 (2026-09-17)
 

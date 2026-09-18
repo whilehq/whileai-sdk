@@ -52,12 +52,14 @@ def test_first_question_is_always_tried_and_later_ones_can_lose_the_person():
         )
         for m in msgs
     )
-    # A statement never walks away, and the depth cap is the budget's doing.
+    # The first question never loses the person, whatever the level.
+    assert not any(_user_walks_away(m, 3, questions=0, patience="short") for m in msgs)
+    # The hazard is pure patience: it knows nothing about the budget. The
+    # depth cap is the loop's rule, applied before the hazard is consulted.
+    assert any(_user_walks_away(m, 9, questions=3, patience="short") for m in msgs)
     assert not any(
-        _user_walks_away(m, 3, user_turns=2, budget=12, questions=0, patience="short") for m in msgs
-    )
-    assert not any(
-        _user_walks_away(m, 9, user_turns=6, budget=12, questions=3, patience="short") for m in msgs
+        _want_followup(m, 9, user_turns=6, budget=12, agent_text=ASK, questions=3, patience="short")
+        for m in msgs
     )
     # Same message and turn, same draw: a seeded run reproduces.
     assert _want_followup("m", 3, user_turns=2, budget=12, agent_text=ASK, questions=1) == (
@@ -198,8 +200,7 @@ def test_simulate_patience_reaches_the_runner_and_the_run_counts_rows(monkeypatc
     n = len(data.trajectories)
     assert n and all(r["ended_by"] == "user_left" for r in data.trajectories)
     counted = data.search["ended_on_question"]
-    assert counted["n"] == n and counted["ended_on_question"] == n and counted["user_left"] == n
-    assert counted["share"] == 1.0
+    assert counted == {"share": 1.0, "n": n, "user_left": n}
     wai.simulate(patience="endless", **common)
     assert levels == ["normal", "endless"]
     try:

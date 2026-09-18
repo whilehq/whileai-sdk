@@ -896,9 +896,12 @@ def _agent_asked(text: str) -> bool:
 #: is what every run did before the knob existed: every question answered
 #: until the depth cap, so whether a thread ended was decided by the turn
 #: budget and never by what the agent said, and no rubric criterion about
-#: asking could fail (#289). No measured abandonment rate anchors the odds;
-#: the 63% of asked source threads that ended with the person walking away
-#: says the shape is common, not what the per-question hazard is.
+#: asking could fail (#289). The odds are a default, not a measurement: to
+#: ground them, fit a Kaplan-Meier hazard per question index on source
+#: traces (of the threads still answering at question k, the share that
+#: leave at k) and set the levels from it. The 63% of asked source threads
+#: that ended with the person walking away says the shape is common, not
+#: what the per-question hazard is.
 PATIENCE_LEVELS = ("short", "normal", "endless")
 _WALK_AWAY_ODDS = {
     "short": (0.6, 0.9),
@@ -929,21 +932,24 @@ def _walk_away_hazard(patience: str, questions: int) -> float:
     return second if questions == 1 else later
 
 
+def _user_turn_cap(budget: int) -> int:
+    """How many times the person speaks at most on a thread of ``budget``
+    turns. The budget's rule, kept apart from the person's patience: a
+    thread the cap ends is not one the person left."""
+    return max(2, int(budget) // 2)
+
+
 def _user_walks_away(
     message: str,
     turn_i: int,
     *,
-    user_turns: int = 1,
-    budget: int = 6,
     questions: int = 0,
     patience: str = "normal",
 ) -> bool:
     """True when the person gives up on the agent's question rather than
-    answer it (#289). False at the depth cap: that is the budget ending the
-    thread, not the person. Deterministic in the message and turn, so a
+    answer it (#289): the patience hazard at this question index, and
+    nothing about the budget. Deterministic in the message and turn, so a
     seeded run reproduces."""
-    if int(user_turns) >= max(2, int(budget) // 2):
-        return False
     hazard = _walk_away_hazard(patience, questions)
     if hazard <= 0:
         return False
@@ -957,8 +963,9 @@ def _user_left(text: str) -> bool:
 
 
 def ended_on_question(rows) -> dict:
-    """How many rollouts ended with the agent still asking, and how many of
-    those because the person walked away (``ended_by="user_left"``).
+    """``{"share", "n", "user_left"}``: of ``n`` rows, the share that ended
+    on the agent's question, and how many of those the person left
+    (``ended_by="user_left"``; the rest hit the turn budget).
 
     Report this next to any criterion about how the agent asks. Before #289
     it was structurally zero, so a lane could not tell "the agent never asked
@@ -984,10 +991,9 @@ def ended_on_question(rows) -> dict:
         if row.get("ended_by") == "user_left":
             left += 1
     return {
-        "n": total,
-        "ended_on_question": ended,
-        "user_left": left,
         "share": (ended / total if total else 0.0),
+        "n": total,
+        "user_left": left,
     }
 
 
@@ -1029,7 +1035,7 @@ def _want_followup(
     fail: in source traces 63% of asked threads ended with the person
     walking away, in generated data 19-22%, all of those depth-cap cuts.
     """
-    cap = max(2, int(budget) // 2)
+    cap = _user_turn_cap(budget)
     if int(user_turns) >= cap:
         return False
     text = str(agent_text or "")
@@ -1041,14 +1047,7 @@ def _want_followup(
         # second question, so the old contract holds there: with room for
         # one exchange, abandoning would leave the question as the whole
         # rollout and fill the set with stubs.
-        return not _user_walks_away(
-            message,
-            turn_i,
-            user_turns=user_turns,
-            budget=budget,
-            questions=questions,
-            patience=patience,
-        )
+        return not _user_walks_away(message, turn_i, questions=questions, patience=patience)
     if _AGENT_REFUSAL.search(text):
         return True
     if int(budget) < 4:
@@ -1870,18 +1869,15 @@ def local_model(
                     with turn_stats["lock"]:
                         turn_stats["followup_misses"] = turn_stats.get("followup_misses", 0) + 1
                 return _done(steps, spoken or final_text)
+            # No follow-up. Under the cap and asked, that was the person's
+            # patience; at the cap it was the budget, and the row says so
+            # by carrying no ended_by.
             left = (
                 (room or need_first)
                 and not force_followup
+                and n_user < _user_turn_cap(budget)
                 and _agent_asked(spoken)
-                and _user_walks_away(
-                    message,
-                    turn_i,
-                    user_turns=n_user,
-                    budget=budget,
-                    questions=prior_questions,
-                    patience=patience,
-                )
+                and _user_walks_away(message, turn_i, questions=prior_questions, patience=patience)
             )
             return _done(steps, spoken or final_text, ended_by="user_left" if left else "")
         return _done(steps, final_text)
