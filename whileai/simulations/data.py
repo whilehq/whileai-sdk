@@ -368,6 +368,7 @@ class SimulationData:
     user_model: str | None = None
     # The deploy prompt the rows were generated under, full text keyed by
     # the hash every row carries in ``lineage.system_prompt_sha`` (#296).
+    # Those two are the hash's only homes: the row and this text.
     system_prompts: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -402,7 +403,6 @@ class SimulationData:
             "writer_model": self.writer_model or None,
             "user_model": self.user_model,
             "judge_model": self.judge_model,
-            "system_prompt_sha": next(iter(self.system_prompts), None),
         }
 
     def _rewrite(self, path: str | None = None) -> None:

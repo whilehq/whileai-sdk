@@ -256,6 +256,7 @@ def delta_report(
         target_verdict = _verdict_word(target_result, replicated)
     ok = not regressions and target_verdict not in {"moved_the_wrong_way"}
     warnings: list[str] = []
+    not_comparable: list[str] = []
     if target_verdict == "moved_unreplicated":
         single = [side for side, n in eval_runs.items() if n < 2]
         where = "each side" if len(single) == 2 else f"the {single[0]} side"
@@ -409,13 +410,12 @@ def delta_report(
             "the delta."
         )
     if _both("prompt_hash") and cfg_a["prompt_hash"] != cfg_b["prompt_hash"]:
+        not_comparable.append("prompt_hash")
         warnings.append(
-            f"Before rows were generated under system prompt {cfg_a['prompt_hash']} and "
-            f"after under {cfg_b['prompt_hash']} (lineage.system_prompt_sha); a rate "
-            "measured under a full policy is not the rate under a bare prompt, so this "
-            "delta mixes a prompt change with whatever else changed. Re-run one side "
-            "with the other's system_prompt= (the text is in the run's "
-            "system_prompts under that hash), or read it as a prompt comparison."
+            f"NOT COMPARABLE: before rows were generated under system prompt "
+            f"{cfg_a['prompt_hash']} and after under {cfg_b['prompt_hash']} "
+            "(lineage.system_prompt_sha); re-run one side with the other's system_prompt= "
+            "(the text is in that run's system_prompts under the hash)."
         )
     if _both("temperature") and cfg_a["temperature"] != cfg_b["temperature"]:
         warnings.append(
@@ -465,6 +465,7 @@ def delta_report(
         "over_optimized": over_optimized,
         "metrics": results,
         "warnings": warnings,
+        "not_comparable": not_comparable,
         "config": config,
         "by": (
             by if isinstance(by, str) else (getattr(by, "__name__", "callable") if by else None)

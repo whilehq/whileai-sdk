@@ -648,6 +648,7 @@ class Run:
         # simulated user, so they carry no tag.
         self.agent_model: str | None = None
         self.user_model: str | None = None
+        # <model>@<hash>: the suffix is lineage.system_prompt_sha, not a second hash.
         self.policy_version = f"{c.model_version_tag}@{self.system_prompt_sha}"
         if c.execute is not None:
             runner_kw["execute"] = c.execute

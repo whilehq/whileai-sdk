@@ -14,13 +14,16 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `lineage.system_prompt_sha` (the same 16-char hash),
   `lineage.system_prompt_head` (the first 120 chars) and
   `lineage.system_prompt_chars` (a bare prompt and a 1,000-word policy are
-  not the same run), the run keeps the
+  not the same run) and the run keeps the
   full text once in `data.system_prompts[<sha>]` (policy plus scaffold,
-  the exact text the agent ran under) and in the `.meta.json` sidecar,
-  and `data.metadata` names the hash. `delta_report` compares the hash
-  across arms and warns, with the fix, when before and after were
-  generated under different prompts; `run_config` reads the stamp before
-  falling back to `policy_version`.
+  the exact text the agent ran under) and in the `.meta.json` sidecar.
+  Those are the hash's two homes: `policy_version`'s suffix after `@` is
+  the same value, and `run_config["prompt_hash"]` reads it off
+  `lineage` (falling back to that suffix on rows stamped before).
+  `delta_report` compares the hash across arms and, when before and
+  after were generated under different prompts, adds `prompt_hash` to
+  the new `not_comparable` list and a `NOT COMPARABLE:` warning with
+  the fix.
 
 ## 0.62 (2026-09-17)
 

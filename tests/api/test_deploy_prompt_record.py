@@ -38,9 +38,11 @@ def test_every_row_carries_the_deploy_prompt_hash_and_head(tmp_path):
         assert row["lineage"]["system_prompt_chars"] == len(POLICY)
         # the same hash policy_version already carried after "@"
         assert row["policy_version"].endswith("@" + sha)
-    # the full text once per run, keyed by the hash
+    # the full text once per run, keyed by the hash; the row and this
+    # text are the hash's only homes (policy_version's suffix is the same
+    # value, and run_config reads lineage)
     assert data.system_prompts == {sha: POLICY}
-    assert data.metadata["system_prompt_sha"] == sha
+    assert "system_prompt_sha" not in data.metadata
     # the stamp survives the trip to disk, and the sidecar keeps the text
     on_disk = [json.loads(line) for line in out.read_text().splitlines() if line.strip()]
     assert all(r["lineage"]["system_prompt_sha"] == sha for r in on_disk)
@@ -86,12 +88,15 @@ def test_delta_report_warns_when_the_arms_were_made_under_different_prompts():
     assert report["config"]["before"]["prompt_hash"] == "aaaa000011112222"
     assert report["config"]["after"]["prompt_hash"] == "bbbb000011112222"
     [note] = [w for w in report["warnings"] if "system prompt" in w]
+    assert note.startswith("NOT COMPARABLE: ")
     assert "aaaa000011112222" in note and "bbbb000011112222" in note
     assert "system_prompt=" in note  # the fix, not only the problem
+    assert report["not_comparable"] == ["prompt_hash"]
     # the same prompt on both sides says nothing about prompts
     same = _rows("aaaa000011112222", lambda t, r: 1)
     report = delta_report(full_policy, same, target="pass_at_1")
     assert not [w for w in report["warnings"] if "system prompt" in w]
+    assert report["not_comparable"] == []
     # a side with no stamp at all is not accused of differing
     quiet = [{k: v for k, v in r.items() if k not in ("lineage", "policy_version")} for r in same]
     report = delta_report(full_policy, quiet, target="pass_at_1")

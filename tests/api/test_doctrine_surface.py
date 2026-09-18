@@ -163,14 +163,13 @@ def test_metadata_is_small_structured_and_uninterpreted():
         "writer_model",
         "user_model",
         "judge_model",
-        "system_prompt_sha",
     }
     assert meta["strategy"] == "trace"
     assert meta["trace_count"] == len(TRACES)
     assert meta["targeted_rows"] + meta["background_rows"] == len(data.trajectories)
     for key, value in meta.items():
-        if key in ("writer_model", "user_model", "judge_model", "system_prompt_sha"):
-            continue  # model tags and the prompt hash are identifiers, not labels
+        if key in ("writer_model", "user_model", "judge_model"):
+            continue  # model tags are identifiers, not labels
         assert not isinstance(value, str) or value in ("auto", "broad", "trace", "targeted"), (
             "no presentation strings in metadata"
         )
