@@ -7,7 +7,10 @@ import warnings
 import whileai.simulations as wai
 
 TOOLS = [
-    {"type": "function", "function": {"name": "noop", "parameters": {"type": "object", "properties": {}}}}
+    {
+        "type": "function",
+        "function": {"name": "noop", "parameters": {"type": "object", "properties": {}}},
+    }
 ]
 TASKS = [{"prompt": f"task {i}"} for i in range(6)]
 
@@ -36,7 +39,13 @@ def test_the_report_carries_what_was_set_and_what_arrived():
     d = rep["delivered"]
     assert d["rows"] == 6
     # every field a knob is supposed to steer is measured from the rows
-    for key in ("fault_share", "tier_mix", "stance_mix", "mean_user_turns", "user_turns_3plus_share"):
+    for key in (
+        "fault_share",
+        "tier_mix",
+        "stance_mix",
+        "mean_user_turns",
+        "user_turns_3plus_share",
+    ):
         assert key in d, key
     assert 0.0 <= d["fault_share"] <= 1.0
 
