@@ -3,6 +3,23 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- Every row says which deploy prompt it was generated under, so a base
+  rate read off stored rows can be audited later (#296). `policy_version`
+  is `<model>@<hash>` and reads as a model id, so a session screening
+  base rates could not tell rows made under the full numbered policy
+  from rows made under a bare prompt, and the two give different
+  numbers for the same model. Rows now carry
+  `lineage.system_prompt_sha` (the same 16-char hash) and
+  `lineage.system_prompt_head` (the first 120 chars), the run keeps the
+  full text once in `data.system_prompts[<sha>]` (policy plus scaffold,
+  the exact text the agent ran under) and in the `.meta.json` sidecar,
+  and `data.metadata` names the hash. `delta_report` compares the hash
+  across arms and warns, with the fix, when before and after were
+  generated under different prompts; `run_config` reads the stamp before
+  falling back to `policy_version`.
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults

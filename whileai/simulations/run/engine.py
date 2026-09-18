@@ -115,6 +115,7 @@ from .rows import (
     mutation_worthy,
     record_coverage,
     row_cell_key,
+    system_prompt_stamp,
 )
 from .spec import apply_spec, backend_spec, kind_from_spec
 
@@ -324,6 +325,11 @@ class Run:
         self.policy: str = str(self.profile.policy or "")
         # Generation-only teacher guidance. profile.policy and export stay plain.
         self.gen_policy = f"{self.policy}\n\n{c.scaffold_text}" if c.scaffold_text else self.policy
+        # The deploy prompt the rows are generated under, as a short hash
+        # and a head on every row and the full text once per run (#296):
+        # a base rate measured under a full policy is not the base rate
+        # under a bare prompt, and policy_version alone reads as a model id.
+        self.system_prompt_sha, self.system_prompt_head = system_prompt_stamp(self.gen_policy)
         self.writer_kind = kind_from_spec(c.spec, self.policy)
         # May be replaced by the backend spec once the runner is built.
         self.simulator = c.simulator
@@ -491,6 +497,7 @@ class Run:
         c = self.c
         data = SimulationData(profile=self.profile, arm_weights=dict(SEARCH_ARMS))
         data.scaffold_chars = len(c.scaffold_text)
+        data.system_prompts = {self.system_prompt_sha: self.gen_policy}
         data.mode = c.topo["mode"]
         data.repeat_policy = c.topo["repeat_policy"]
         data.n_situations = c.n_situations_target
@@ -639,10 +646,7 @@ class Run:
         # simulated user, so they carry no tag.
         self.agent_model: str | None = None
         self.user_model: str | None = None
-        self.policy_version = (
-            f"{c.model_version_tag}@"
-            f"{hashlib.sha256(str(self.gen_policy or '').encode('utf-8')).hexdigest()[:16]}"
-        )
+        self.policy_version = f"{c.model_version_tag}@{self.system_prompt_sha}"
         if c.execute is not None:
             runner_kw["execute"] = c.execute
         if c.backend:
@@ -945,6 +949,12 @@ class Run:
             # answered: a row that cannot say is a row nobody can audit.
             "writer_model": self._writer_of(meta),
             "user_model": self.user_model,
+            # Which deploy prompt, so a base rate can be audited later
+            # (#296). The text is in data.system_prompts under the hash.
+            "lineage": {
+                "system_prompt_sha": self.system_prompt_sha,
+                "system_prompt_head": self.system_prompt_head,
+            },
             "seed": meta.get("seed", c.seed),
             "semantic_cluster": None if not semantic else selection.get("cluster"),
             "semantic_novelty": None if not semantic else selection.get("novelty"),

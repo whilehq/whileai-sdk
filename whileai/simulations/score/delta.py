@@ -408,6 +408,15 @@ def delta_report(
             f"{cfg_b['judge_version']}); grade both sides with the same judge before reading "
             "the delta."
         )
+    if _both("prompt_hash") and cfg_a["prompt_hash"] != cfg_b["prompt_hash"]:
+        warnings.append(
+            f"Before rows were generated under system prompt {cfg_a['prompt_hash']} and "
+            f"after under {cfg_b['prompt_hash']} (lineage.system_prompt_sha); a rate "
+            "measured under a full policy is not the rate under a bare prompt, so this "
+            "delta mixes a prompt change with whatever else changed. Re-run one side "
+            "with the other's system_prompt= (the text is in the run's "
+            "system_prompts under that hash), or read it as a prompt comparison."
+        )
     if _both("temperature") and cfg_a["temperature"] != cfg_b["temperature"]:
         warnings.append(
             f"Before was sampled at temperature {cfg_a['temperature']} and after at "
