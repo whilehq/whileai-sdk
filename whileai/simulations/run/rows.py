@@ -33,17 +33,35 @@ _TOOL_SCHEMA_DUMP = re.compile(
 )
 
 
-def _usable_rollout(row: dict) -> bool:
-    """Infrastructure and parser failures are not training trajectories."""
+#: Why a finished rollout is not a row. ``agent_error``: the callable raised
+#: (a cold endpoint, an auth failure, a timeout). ``empty_reply``: the agent
+#: came back with no final text. ``tool_markup``: raw ``<tool_call>`` tags or
+#: a tool schema dump leaked into the visible text. Only the first is an agent
+#: error; the other two arrive without an exception, which is how a run ends
+#: at ``degraded=[]`` with rows missing (#303).
+LOST_REASONS = ("agent_error", "empty_reply", "tool_markup")
+
+
+def _unusable_reason(row: dict) -> str | None:
+    """One of ``LOST_REASONS`` when the rollout cannot be a row, else None."""
     final = str((row or {}).get("final_text") or "").strip()
-    if not final or final.lower().startswith("<agent error"):
-        return False
+    if final.lower().startswith("<agent error"):
+        return "agent_error"
+    if not final:
+        return "empty_reply"
     assistant_text = [final]
     for step in (row or {}).get("steps") or []:
         if isinstance(step, dict) and step.get("text") is not None:
             assistant_text.append(str(step["text"]))
     visible = "\n".join(assistant_text)
-    return not (_RAW_TOOL_MARKUP.search(visible) or _TOOL_SCHEMA_DUMP.search(visible))
+    if _RAW_TOOL_MARKUP.search(visible) or _TOOL_SCHEMA_DUMP.search(visible):
+        return "tool_markup"
+    return None
+
+
+def _usable_rollout(row: dict) -> bool:
+    """Infrastructure and parser failures are not training trajectories."""
+    return _unusable_reason(row) is None
 
 
 def _collect_finished(pending: dict, wait_s: float, *, retry: bool = False):

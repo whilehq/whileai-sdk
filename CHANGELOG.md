@@ -3,6 +3,22 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- A run says what it asked for against what came back. `data.report()`
+  carries `rollouts_requested`, `rollouts_completed`, `rollouts_lost` with a
+  `rollouts_lost_by` breakdown (`agent_error`, `empty_reply`, `tool_markup`)
+  and `rollouts_over_cap` (finished after the row budget was full, not
+  lost); any loss puts `rollouts_lost` in `data.degraded` and one line in
+  `data.warnings` with the fix per reason (warm the endpoint or raise
+  `timeout=`, raise `agent_max_tokens=`, fix the tool-call format). A paired
+  eval asked for 34 tasks x 4 and got 163 rows with `degraded=[]`, because
+  the missing rollouts came back empty rather than raising (#303).
+  `delta_report` warns, next to the sizing line, when the two sides sit at
+  different k, naming both and how many paired tasks are short;
+  `balance_rollouts=True` trims every paired task to the rows both sides
+  have (drawn by `seed`), and `balanced` says how many rows each side lost.
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults

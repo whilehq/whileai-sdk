@@ -22,6 +22,8 @@ entirely above the target's. The report says so and fails.
 
 from __future__ import annotations
 
+import random
+from collections import Counter
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -34,6 +36,7 @@ from .stats import (
     holdout_size,
     marker_names,
     metric_summary,
+    task_key,
     task_means,
 )
 
@@ -147,8 +150,19 @@ def delta_report(
     proxy: str | None = None,
     n_boot: int = DEFAULT_BOOT,
     seed: int = 0,
+    balance_rollouts: bool = False,
 ) -> dict[str, Any]:
     """Compare ``after`` to ``before`` on pass@1 and every shared marker.
+
+    The two sides should have the same number of rollouts per task. When
+    a run lost rollouts (``data.report()["rollouts_lost"]``), one arm can
+    sit at k=4 and the other at k=2, and a task judged from one row on
+    the side under test weighs the same as one judged from four; the
+    report warns, next to the sizing line, naming both k values.
+    ``balance_rollouts=True`` trims every paired task to the rows both
+    sides have, dropping extra rollouts on the larger side (chosen by
+    ``seed``), and ``balanced`` says how many rows each side lost. The
+    alternative is to re-run the short arm on its short tasks.
 
     ``target`` names the metric the run was meant to move (``"pass_at_1"``
     or ``"marker:<name>"``); the verdict on it is the headline.
@@ -200,6 +214,9 @@ def delta_report(
     (rlhf-book ch. 16: a comparison is only as good as the settings it
     was run under).
     """
+    balanced: dict[str, Any] | None = None
+    if balance_rollouts:
+        before, after, balanced = _balance_rollouts(before, after, seed=seed)
     names = (
         list(markers)
         if markers is not None
@@ -375,6 +392,34 @@ def delta_report(
                 f"; to prove the {delta_seen:+.3f} seen here you need about {tasks_needed} tasks"
             )
         warnings.append(line + " (holdout_size).")
+    # Rows per task on the two sides. The sizing line and the k-way
+    # numbers use the before side's k; an after side short of it was cut
+    # by lost rollouts, and its short tasks are judged from fewer draws
+    # than the sizing assumes (#303).
+    k_after = int(pass_at(after).config.get("k") or 1)
+    if k_after != k_eval:
+        short_side, full_k = ("after", k_eval) if k_after < k_eval else ("before", k_after)
+        short_rows = after if short_side == "after" else before
+        other_rows = before if short_side == "after" else after
+        per_task = Counter(task_key(r) for r in short_rows if isinstance(r, dict))
+        paired_keys = per_task.keys() & {task_key(r) for r in other_rows if isinstance(r, dict)}
+        n_short = sum(1 for t in paired_keys if per_task[t] < full_k)
+        warnings.append(
+            f"Before has k={k_eval} rollouts per task and after has k={k_after}: "
+            f"{n_short} of {len(paired_keys)} paired tasks on the {short_side} side have fewer "
+            f"than {full_k} rows, so those tasks are judged from fewer draws than the sizing "
+            f"line assumes and pass^k/pass@k use k={min(k_eval, k_after)} there. Re-run the "
+            f"{short_side} side on its short tasks (data.report()['rollouts_lost'] says why "
+            "rows went missing), or pass balance_rollouts=True to trim every task to the rows "
+            "both sides have."
+        )
+    if balanced and (balanced["rows_dropped"]["before"] or balanced["rows_dropped"]["after"]):
+        warnings.append(
+            f"balance_rollouts=True dropped {balanced['rows_dropped']['before']} before rows and "
+            f"{balanced['rows_dropped']['after']} after rows on {balanced['tasks_trimmed']} "
+            "tasks so both sides have the same rollouts per task; the intervals are over the "
+            "rows that remain."
+        )
     if target_verdict == "target_not_measured":
         warnings.append(f"target {target!r} is not on both row sets")
     groups: dict[str, dict[str, Any]] | None = None
@@ -457,12 +502,66 @@ def delta_report(
         "metrics": results,
         "warnings": warnings,
         "config": config,
+        "balanced": balanced,
         "by": (
             by if isinstance(by, str) else (getattr(by, "__name__", "callable") if by else None)
         ),
         "groups": groups,
         "groups_down": groups_down,
     }
+
+
+def _balance_rollouts(
+    before: Sequence[dict], after: Sequence[dict], *, seed: int = 0
+) -> tuple[list[dict], list[dict], dict[str, Any]]:
+    """Trim each paired task to the rows both sides have.
+
+    A task with 4 rows before and 2 after keeps 2 on each side; which 2
+    of the 4 is drawn by ``seed`` so the same call gives the same rows.
+    Tasks on one side only are left alone (the pairing drops them and
+    ``n_unpaired_tasks`` counts them). Returns the two trimmed row lists
+    and ``{"rows_dropped": {"before", "after"}, "tasks_trimmed"}``.
+    """
+
+    def _grouped(rows: Sequence[dict]) -> dict[str, list[dict]]:
+        groups: dict[str, list[dict]] = {}
+        for row in rows:
+            if isinstance(row, dict):
+                groups.setdefault(task_key(row), []).append(row)
+        return groups
+
+    groups_a, groups_b = _grouped(before), _grouped(after)
+    keep: dict[str, dict[str, int]] = {}
+    tasks_trimmed = 0
+    for task in groups_a.keys() & groups_b.keys():
+        n_a, n_b = len(groups_a[task]), len(groups_b[task])
+        if n_a == n_b:
+            continue
+        tasks_trimmed += 1
+        keep[task] = {"before": min(n_a, n_b), "after": min(n_a, n_b)}
+
+    def _trim(rows: Sequence[dict], groups: dict[str, list[dict]], side: str) -> list[dict]:
+        drop: set[int] = set()
+        for task, want in keep.items():
+            members = groups[task]
+            if len(members) <= want[side]:
+                continue
+            rng = random.Random(f"{seed}:{side}:{task}")
+            order = list(range(len(members)))
+            rng.shuffle(order)
+            drop.update(id(members[i]) for i in order[want[side] :])
+        return [row for row in rows if not (isinstance(row, dict) and id(row) in drop)]
+
+    trimmed_a = _trim(before, groups_a, "before")
+    trimmed_b = _trim(after, groups_b, "after")
+    info = {
+        "rows_dropped": {
+            "before": len(before) - len(trimmed_a),
+            "after": len(after) - len(trimmed_b),
+        },
+        "tasks_trimmed": tasks_trimmed,
+    }
+    return trimmed_a, trimmed_b, info
 
 
 def format_delta_report(report: dict[str, Any]) -> str:

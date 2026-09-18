@@ -108,9 +108,11 @@ from ..score.checklist import privileged_context
 from ..score.grading import behavior_signature, conduct_grade
 from .config import DEAD_AGENT_MIN_ERRORS, RunConfig
 from .rows import (
+    LOST_REASONS,
     _row_conversation,
     _situation_key_from_meta,
     _stratified_prompts,
+    _unusable_reason,
     _usable_rollout,
     mutation_worthy,
     record_coverage,
@@ -1053,6 +1055,58 @@ class Run:
                 self.stopping = True
                 self.agent_dead = True
 
+    def _discard_lost(self, t: dict) -> None:
+        """The re-roll allowance is spent (or there was none): the rollout
+        is lost for good, under the reason it was unusable."""
+        self.cap_lifted["lost"] += 1
+        reason = _unusable_reason(t) or "empty_reply"
+        self.lost_by[reason] = self.lost_by.get(reason, 0) + 1
+        note_stage(self.data, "rollout failure discarded")
+
+    def _rollouts_requested(self) -> int | None:
+        """How many rows the run was asked for: pinned prompts times k
+        under ``tasks=``, else situations x requests x k inside the row
+        budget, else the budget itself. None when nothing bounded it.
+        Successive allocation may stop a unanimous group short of k on
+        purpose; that gap is ``rollouts_saved`` in the group summary, not
+        a loss."""
+        c = self.c
+        k = max(1, int(c.repeat_count or 1))
+        if self.pinned_prompts:
+            return len(self.pinned_prompts) * k
+        if c.n_situations_target:
+            return min(int(c.cap), int(c.n_situations_target) * max(1, int(c.n_req or 1)) * k)
+        return int(c.budget) if c.budget is not None else None
+
+    def _lost_note(self, lost: int) -> str:
+        """The run-level warning for lost rollouts: the count against what
+        was asked for, the reasons, and the fix for each reason."""
+        requested = self._rollouts_requested()
+        asked = f" of {requested} asked for" if requested else ""
+        by = ", ".join(f"{n} {reason.replace('_', ' ')}" for reason, n in self.lost_by.items() if n)
+        fixes: list[str] = []
+        if self.lost_by.get("agent_error"):
+            fixes.append(
+                f"agent errors (first: {self.first_agent_error or 'n/a'}): warm a "
+                "scale-to-zero endpoint before the run, or raise timeout= if the calls timed out"
+            )
+        if self.lost_by.get("empty_reply"):
+            fixes.append(
+                "empty replies: the agent returned no final text; check the wrapper returns "
+                "final_text, or raise agent_max_tokens= so the last turn is not cut"
+            )
+        if self.lost_by.get("tool_markup"):
+            fixes.append(
+                "tool markup: raw <tool_call> tags or a tool schema reached the visible text; "
+                "fix the agent's tool-call format before grading it"
+            )
+        return (
+            f"{lost} rollout(s){asked} never became rows ({by}), so every rate in this run "
+            f"is over the {len(self.data.trajectories)} that did, and the missing ones are not "
+            f"missing at random. Fix: {'; '.join(fixes)}. data.report()['rollouts_lost_by'] "
+            "has the breakdown."
+        )
+
     # -------------------------------------------------------- loop state
 
     def _init_loop_state(self) -> None:
@@ -1078,6 +1132,12 @@ class Run:
         # cap once so fresh situations fill the lost slots. Stays unlifted
         # when nothing was lost.
         self.cap_lifted = {"lifted": False, "lost": 0}
+        # Why each lost rollout was lost (LOST_REASONS), and how many
+        # usable rollouts finished after the row budget was already met.
+        # Over-cap rollouts are not lost: the run asked for cap rows and
+        # got them; these were in flight when the last one landed.
+        self.lost_by: dict[str, int] = {reason: 0 for reason in LOST_REASONS}
+        self.over_cap = 0
         # Restarts scale with the job: a 10k-row budget cannot live on the
         # same retry allowance as a smoke run.
         self.max_restarts = max(MAX_NOVELTY_RESTARTS, int(c.cap or 0) // 100)
@@ -1692,18 +1752,18 @@ class Run:
         for fut in [f for f in list(self.inflight) if f.done()]:
             job = self.inflight.pop(fut)
             self.inflight_started.pop(fut, None)
-            if len(data.trajectories) >= c.cap:
-                continue
             try:
                 t = fut.result()
             except Exception as exc:
                 t = self._error_row(job, exc)
             if isinstance(t, dict) and t.get("_skipped"):
                 continue
+            if len(data.trajectories) >= c.cap:
+                self.over_cap += 1
+                continue
             if not _usable_rollout(t):
                 self._note_lost(t)
-                self.cap_lifted["lost"] += 1
-                note_stage(data, "rollout failure discarded")
+                self._discard_lost(t)
                 continue
             if not data.first_row_seconds:
                 data.first_row_seconds = time.monotonic() - self.started
@@ -2248,11 +2308,11 @@ class Run:
                     self.inflight_started[fut] = now
                     note_stage(data, "rollout re-rolled")
                 else:
-                    self.cap_lifted["lost"] += 1
-                    note_stage(data, "rollout failure discarded")
+                    self._discard_lost(t)
         results = [t for t, _ in paired]
         jobs_for = [job for _, job in paired]
         room = c.cap - len(data.trajectories)
+        self.over_cap += max(0, len(results) - max(0, room))
         results, jobs_for = results[:room], jobs_for[:room]
         for t in results:
             note_stage(data, "model rollout")
@@ -2870,16 +2930,16 @@ class Run:
             data.search["writer_errors"] = dict(gen.last_errors)
         lost = int(self.cap_lifted.get("lost", 0))
         if lost:
-            import warnings as _warnings
-
-            _warnings.warn(
-                f"{lost} rollout(s) failed and were dropped: they carry no reward and "
-                f"fall out of every rate computed from this run, and they are not "
-                f"missing at random. data.report()['rollouts_lost'] carries the count; "
-                f"first agent error: {self.first_agent_error or 'n/a'}. If the agent is "
-                f"a scale-to-zero endpoint, warm it before the first rollout.",
-                stacklevel=2,
-            )
+            # Not missing at random: the tasks that failed are the ones a
+            # cold endpoint or a leaky reply format failed on, so every
+            # rate over the survivors is biased (rlhf-book ch. 16, the
+            # eval's composition decides what a pass rate means). Say so
+            # on the run, with the fix for each way a rollout is lost.
+            note = self._lost_note(lost)
+            if "rollouts_lost" not in data.degraded:
+                data.degraded.append("rollouts_lost")
+            data.warnings.append(note)
+            log.warning(note)
         if self.agent_errors:
             # The callable raised (or returned nothing usable). The rows
             # were built and dropped; without this the run reports zero
@@ -2969,16 +3029,18 @@ class Run:
         data.coverage["mode"] = c.topo["mode"]
         data.coverage["repeat_policy"] = c.topo["repeat_policy"]
         data.coverage["until"] = c.until_key
-        # Rollouts that never became rows: agent-call errors (a server still
-        # booting, an auth failure, a timeout) and results the engine could
-        # not use. These were counted internally and never surfaced, so a
-        # run could lose its first 64 pinned tasks to a cold endpoint and
-        # report a clean pass rate over the rest, with no error in the log
-        # and nothing in the report. Rows lost this way are not missing at
-        # random, so every rate over the survivors is biased (rlhf-book
-        # ch. 16).
+        # What was asked for against what came back. ``rollouts_lost`` are
+        # the rollouts that finished but could not be rows (by reason in
+        # ``rollouts_lost_by``); ``rollouts_over_cap`` finished after the
+        # row budget was already full and were not needed. Agent error
+        # counts stay in data.search["agent_errors"]. A run that asked for
+        # 34 tasks x 4 and got 129 rows says so here instead of reporting
+        # a clean pass rate over the 129 (#303).
+        data.coverage["rollouts_requested"] = self._rollouts_requested()
+        data.coverage["rollouts_completed"] = len(data.trajectories)
         data.coverage["rollouts_lost"] = int(self.cap_lifted.get("lost", 0))
-        data.coverage["agent_errors"] = int(self.agent_errors)
+        data.coverage["rollouts_lost_by"] = dict(self.lost_by)
+        data.coverage["rollouts_over_cap"] = int(self.over_cap)
         data.coverage["n_situations"] = c.n_situations_target
         data.coverage["requests_per_situation"] = c.n_req
         data.coverage["rollouts_per_request"] = c.repeat_count
