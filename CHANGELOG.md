@@ -11,12 +11,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   every rule with a tool-result trigger was reproduced by `traces=` and
   every rule about the reply's wording (grounded, estimate labelled,
   one question) was not, while the aggregate failure rate looked right.
-  With `grader=` set, `mutate_graded_failures` (a `simulate()` knob, on
-  by default whenever a grader runs, off without one) makes a row the
-  grader fails (reward under 0.5) a mutation parent, counts its
-  situation as failing, and re-rolls it under the same gate a faulted
-  row gets; the live writer's retry card now says what the grader
-  found wrong instead of only that something broke.
+  With `grader=` set, a row the grader fails (reward under 0.5) is a
+  mutation parent, its situation counts as failing, and it is re-rolled
+  under the same gate a faulted row gets; the live writer's retry card
+  now says what the grader found wrong instead of only that something
+  broke. The grader is the switch (no new `simulate()` parameter); to
+  grade beside the loop and steer by tool faults alone, pass
+  `advanced={"mutate_graded_failures": False}`, next to
+  `mutate_failures`.
   `search["mutation_aims"]` counts parents and mutated rows per aim
   (`world_fault`, `graded_failure`). The `traces=` docs now say plainly
   that traces reproduce situations and that failure modes in reply

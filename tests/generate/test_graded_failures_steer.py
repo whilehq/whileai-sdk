@@ -8,6 +8,8 @@ parent too, and ``search["mutation_aims"]`` says which aim produced what."""
 
 from __future__ import annotations
 
+import pytest
+
 from tests.helpers import POLICY, TOOLS, scripted_agent, simulate_offline
 from whileai.simulations.generate.generator import ModelSimulator
 
@@ -54,13 +56,29 @@ def test_graded_failures_become_mutation_parents_when_a_grader_runs():
     assert all(r["parent_failure_id"] for r in mutated)
 
 
-def test_the_knob_turns_it_off_and_nothing_else_steers():
+def test_the_advanced_key_turns_it_off_and_nothing_else_steers():
     data = _run(
-        _clean_agent, grader=_one_question, mutate_failures=True, mutate_graded_failures=False
+        _clean_agent,
+        grader=_one_question,
+        mutate_failures=True,
+        advanced={"mutate_graded_failures": False},
     )
     assert data.trajectories and all(r["reward"] == 0 for r in data.trajectories)
     assert data.search["mutation_aims"]["graded_failure"] == {"parents": 0, "rows": 0}
     assert not [r for r in data.trajectories if r["arm"] == "failure_mutation"]
+
+
+def test_the_grader_is_the_switch_not_a_named_parameter():
+    import inspect
+
+    import whileai.simulations as wai
+
+    assert "mutate_graded_failures" not in inspect.signature(wai.simulate).parameters
+    with pytest.raises(TypeError, match="mutate_graded_failures"):
+        _run(_clean_agent, grader=_one_question, mutate_graded_failures=False)
+    # on without a grader is a contradiction, and says so
+    with pytest.raises(ValueError, match="needs grader="):
+        _run(_clean_agent, advanced={"mutate_graded_failures": True})
 
 
 def test_without_a_grader_only_world_faults_steer_as_before():

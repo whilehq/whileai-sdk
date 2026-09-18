@@ -69,7 +69,6 @@ _MOVED_NAMES = {
     "sampling",
     "timeout",
     "logprobs",
-    "mutate_graded_failures",
     "seed",
     "grader",
     "llm_spec",
@@ -580,8 +579,16 @@ def resolve_run_config(
     # On whenever a grader runs beside the loop: the grader's verdict is
     # then the definition of failure the search steers by, not only the
     # sandbox's (#285). Off without a grader, since there is no verdict.
+    # Not a named parameter: the grader is the switch, and the only
+    # thing left to say is "grade but do not steer", which is an
+    # advanced key like mutate_failures beside it.
     graded_raw = cfg.pop("mutate_graded_failures", None)
     mutate_graded_failures = (grader is not None) if graded_raw is None else bool(graded_raw)
+    if mutate_graded_failures and grader is None:
+        raise ValueError(
+            "advanced={'mutate_graded_failures': True} needs grader=; without a grader "
+            "there is no verdict to steer by"
+        )
     pool_size = int(cfg.pop("per_round", 80))
     writer_raw = cfg.pop("scenario_concurrency", None)
     # Writer flight is a scheduler internal. Topology (unique / explore)

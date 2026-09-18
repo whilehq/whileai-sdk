@@ -100,7 +100,6 @@ def simulate(
     temperature: float | None = None,
     timeout: float | None = None,
     logprobs: bool | None = None,
-    mutate_graded_failures: bool | None = None,
     **passed: Any,
 ) -> SimulationData:
     """Inspect an agent, generate situations, and roll them out.
@@ -154,20 +153,21 @@ def simulate(
     where one was asked for) has no world-visible trigger, so traces
     alone cannot aim at it; put a grader in the loop for those.
 
-    ``mutate_graded_failures`` lets the grader's verdict steer the search
-    the way a tool fault already does: a row the grader failed is
-    re-rolled and its ask is mutated into new ones, so the budget moves
-    toward what the grader catches, not only toward broken tools. It is
-    on by default whenever ``grader=`` is set, because a grader that
+    With ``grader=`` set, the grader's verdict steers the search the way
+    a tool fault already does: a row the grader failed is re-rolled and
+    its ask is mutated into new ones, so the budget moves toward what
+    the grader catches, not only toward broken tools. A grader that
     fails reply-form rules is exactly the signal the loop was missing
     (#285: with a 12-rule grader, every rule with a tool-result trigger
-    was reproduced and every rule about the reply's wording was not).
-    Off without a grader, since there is no verdict to steer by. A
-    graded failure is a reward under 0.5 (a 0 from a 0/1 judge, a failed
-    verifier, a rubric below half); markers ride along on the row but do
-    not aim on their own, since their direction differs per marker.
-    ``search["mutation_aims"]`` counts the parents and the mutated rows
-    per aim, ``world_fault`` and ``graded_failure``.
+    was reproduced and every rule about the reply's wording was not),
+    and without a grader there is no verdict to steer by, so there is no
+    switch to set: the grader is the switch. A graded failure is a reward
+    under 0.5 (a 0 from a 0/1 judge, a failed verifier, a rubric below
+    half); markers ride along on the row but do not aim on their own,
+    since their direction differs per marker. ``search["mutation_aims"]``
+    counts the parents and the mutated rows per aim, ``world_fault`` and
+    ``graded_failure``. To grade beside the loop and still steer by tool
+    faults alone, ``advanced={"mutate_graded_failures": False}``.
 
     ``execute=`` is the caller's world: a function ``(tool, arguments) ->
     result`` that answers every tool call for real, against their repo,
@@ -293,7 +293,6 @@ def simulate(
         ("temperature", temperature),
         ("timeout", timeout),
         ("logprobs", logprobs),
-        ("mutate_graded_failures", mutate_graded_failures),
     ):
         if _val is not None:
             passed[_name] = _val

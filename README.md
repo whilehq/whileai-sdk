@@ -645,10 +645,12 @@ as one, two questions where one was asked for) has no trigger in the world,
 so traces alone cannot aim at it: measured on a 12-rule grader, every rule
 with a tool-result trigger was reproduced and every rule about the reply's
 wording was not (#285). For those, put the grader in the loop:
-`simulate(..., grader=judge)` turns on `mutate_graded_failures`, so a row
-the grader fails is re-rolled and its ask mutated like a tool fault, and
-`data.search["mutation_aims"]` says how many parents and mutated rows each
-aim (`world_fault`, `graded_failure`) produced.
+with `simulate(..., grader=judge)` a row the grader fails is re-rolled and
+its ask mutated like a tool fault, and `data.search["mutation_aims"]` says
+how many parents and mutated rows each aim (`world_fault`,
+`graded_failure`) produced. The grader is the switch; to grade beside the
+loop and still steer by tool faults alone, pass
+`advanced={"mutate_graded_failures": False}`.
 
 If your traces are already on the platform, `wai.cut(agent="my-agent")`
 does the whole cut in one line — see
@@ -1107,7 +1109,6 @@ Measured at `avg_turns=4`. The default is now `12`, so a row carries more turns 
 | `traces` | `None` | Graded traces (row dicts or a JSONL path) that aim the coverage grid at observed failures. [Close the loop](#close-the-loop-aim-the-budget-with-traces) |
 | `tasks` | `None` | Re-run a previous run's task set. Copies the prompts, not the topology: k comes from *this* call's `mode`/`repeats`, so re-pass them |
 | `grader` | `None` | A judge callable run beside the rollouts as they land; `mode="rl"` allocation then reads rewards instead of behavior signatures |
-| `mutate_graded_failures` | on with `grader=` | A row the grader fails (reward under 0.5) is re-rolled and its ask mutated, the way a tool fault already is, so the search aims at reply-form failures too. Off without a grader. Counts in `search["mutation_aims"]` |
 | `execute` | `None` | Your own world answers tool calls: `execute(tool_name, arguments) -> result`. The SDK's fault schedule does not apply, so difficulty is your world's job; a rollout that calls no tool never invokes it; `generate.agents.current_rollout` (prompt, rollout index) names the rollout being answered, for per-rollout state |
 | `execute` | `None` | `(tool, arguments) -> result`: your real world answers every tool call instead of the mock one |
 | `requests_per_situation` | from mode | Phrasings per situation (n). Alias `phrasings=` / `n=` |
@@ -1130,6 +1131,7 @@ Measured at `avg_turns=4`. The default is now `12`, so a row carries more turns 
 | `embedder` | `"hash"` | Prompt selection |
 | `seed` | `0` | Reproducible draws. Bit-for-bit at `concurrency: 1` or with `reproducible=True`, within a process and across processes; otherwise which rows land before the cap depends on thread timing |
 | `avg_turns` | `12` | Target conversation length in turns. The person speaks at most `avg_turns // 2` times; `12` leaves room to verify, look up, confirm, and write. |
+| `mutate_graded_failures` | on with `grader=` | `False` grades beside the loop without steering by the verdict: only tool faults make mutation parents. A row the grader fails (reward under 0.5) is otherwise re-rolled and its ask mutated the way a tool fault's is; `search["mutation_aims"]` counts each aim. `True` without `grader=` is an error |
 
 Aliases: `phrasings=` / `n=` → `requests_per_situation`; `repeats=` → `rollouts_per_request`; `unique=` → `unique_situations`; `policy=` → `system_prompt`; `risk=` → `fault_rate`.
 
