@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import hashlib
 import http.client
 import json
@@ -890,6 +891,70 @@ def _agent_asked(text: str) -> bool:
     return bool(t) and ("?" in t)
 
 
+#: How often a person walks away instead of answering an agent's question.
+#: No measured abandonment rate exists to anchor this: the 78-80% answer rate
+#: reported in #289 was produced under the old unconditional branch, where the
+#: only way a question went unanswered was the depth cap, so it measures
+#: truncation and not abandonment. The default is therefore deliberately small
+#: -- enough that the shape exists in the data at all, not a claim about how
+#: often real people give up. Set it with :func:`set_abandon_on_ask`; 0.0
+#: restores the old behaviour where every question is answered.
+#:
+#: **The default is 0.0, so nothing changes until a caller opts in.** Turning
+#: it on shifts how many turns each thread runs, which changes group sizes,
+#: and on one offline suite that moved ``pass_at.n_groups_imputed`` out of
+#: step with the number of unanimous short groups (7 against 8). That may be
+#: an imputation edge this shape newly exposes rather than anything wrong with
+#: the hazard, but it is not understood yet, and a generation default that
+#: silently moves everyone's ``pass_at`` is the exact class of change this
+#: repo has spent the day removing. Ship the knob, leave the default alone.
+ABANDON_ON_ASK = 0.0
+
+_abandon_on_ask: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "whileai_abandon_on_ask", default=None
+)
+
+
+def set_abandon_on_ask(rate: float | None) -> None:
+    """Set the chance a person abandons rather than answering a question."""
+    _abandon_on_ask.set(None if rate is None else max(0.0, min(1.0, float(rate))))
+
+
+def current_abandon_on_ask() -> float:
+    value = _abandon_on_ask.get()
+    return ABANDON_ON_ASK if value is None else float(value)
+
+
+def _draw(message: str, turn_i: int, salt: str) -> float:
+    """A uniform draw in [0, 1), fixed by the message and turn so a seeded
+    run reproduces exactly."""
+    digest = hashlib.sha256(f"{message}:{turn_i}:{salt}".encode()).hexdigest()
+    return int(digest[:8], 16) / float(1 << 32)
+
+
+def ended_on_question(rows) -> dict:
+    """How many rollouts ended with the agent still asking.
+
+    Report this next to any criterion about how the agent asks. Before #289
+    it was structurally zero, so a lane could not tell "the agent never asked
+    badly" from "the loop cannot produce that ending".
+    """
+    total = 0
+    ended = 0
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        total += 1
+        turns = row.get("messages") or row.get("trajectory") or []
+        last_agent = ""
+        for turn in turns:
+            if isinstance(turn, dict) and turn.get("role") == "assistant":
+                last_agent = str(turn.get("content") or "")
+        if last_agent and _agent_asked(last_agent):
+            ended += 1
+    return {"n": total, "ended_on_question": ended, "share": (ended / total if total else 0.0)}
+
+
 def _want_followup(
     message: str, turn_i: int, *, user_turns: int = 1, budget: int = 6, agent_text: str = ""
 ) -> bool:
@@ -918,7 +983,26 @@ def _want_followup(
         return False
     text = str(agent_text or "")
     if _agent_asked(text):
-        return True
+        # Asking is free in simulation and costly in reality. This used to be an
+        # unconditional True, so every question was answered and the turn budget
+        # alone decided when a thread ended. Two things followed: no rollout ever
+        # ended on an agent question, and any criterion about HOW the agent asks
+        # could never fail -- one lane measured a `one_question` criterion failing
+        # 4.7% of the time in source trajectories and 0.0% across 887 generated
+        # rows. A reward built on such a criterion never charges for a bad
+        # question, so nothing discourages asking and the trained model meets a
+        # population that abandons.
+        if int(budget) < 4:
+            # Short threads keep the old contract: with room for one exchange,
+            # abandoning leaves the agent's question as the whole rollout and
+            # the set fills with stubs. The shape belongs in threads that have
+            # room for it.
+            return True
+        # Floored at the ordinary continuation rate so asking is never WORSE
+        # than saying nothing: a question should still earn an answer more
+        # often than a statement does, it just no longer earns one always.
+        keep = max(1.0 - current_abandon_on_ask(), 1.0 - 1.0 / float(cap))
+        return _draw(message, turn_i, "abandon") < keep
     if _AGENT_REFUSAL.search(text):
         return True
     if int(budget) < 4:
@@ -927,9 +1011,7 @@ def _want_followup(
         return False
     # Geometric with p = 1 - 1/cap: a thread of cap turns in expectation,
     # deterministic in the message and turn so a seeded run reproduces.
-    digest = hashlib.sha256(f"{message}:{turn_i}:react".encode()).hexdigest()
-    draw = int(digest[:8], 16) / float(1 << 32)
-    return draw < (1.0 - 1.0 / float(cap))
+    return _draw(message, turn_i, "react") < (1.0 - 1.0 / float(cap))
 
 
 # Follow-up user turns only. Opener temperature lives on the writer (0.45–1.05).

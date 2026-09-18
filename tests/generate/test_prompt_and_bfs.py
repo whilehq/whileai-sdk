@@ -1834,3 +1834,83 @@ def test_followup_depth_does_not_depend_on_success_phrasing():
     assert abs(active - plain) < 0.3, (active, plain)
     # a question still earns an answer, which is the one phrasing that should matter
     assert depth("Do you want me to cancel it?") > active
+
+
+def test_asking_can_cost_the_thread_when_turned_on():
+    """A question used to be answered unconditionally, so no rollout ever ended
+    on one and no criterion about HOW the agent asks could fail (#289). The
+    hazard is opt-in: off by default, and when set it ends some asking turns."""
+    from whileai.simulations.generate.agents import _want_followup, set_abandon_on_ask
+
+    asked = "Which order and which item?"
+
+    def answered(budget, n=3000):
+        return (
+            sum(
+                1
+                for i in range(n)
+                if _want_followup(f"m{i}", 1, user_turns=1, budget=budget, agent_text=asked)
+            )
+            / n
+        )
+
+    try:
+        set_abandon_on_ask(None)
+        assert answered(12) == 1.0, "default must not change anyone's data"
+        set_abandon_on_ask(0.0)
+        assert answered(12) == 1.0
+
+        # At budget 4 the cap is 2 and the ordinary continuation rate is 0.5,
+        # so a 0.5 hazard is not floored and lands where it was asked.
+        set_abandon_on_ask(0.5)
+        assert 0.4 < answered(4) < 0.6, answered(4)
+
+        # At budget 12 the cap is 6 and the floor is 1 - 1/6 = 0.833, so the
+        # EFFECTIVE hazard is bounded by the continuation rate. That is the
+        # floor working, not the knob failing: asking must never be worse than
+        # saying nothing. A caller wanting a harder hazard lowers avg_turns.
+        assert 0.80 < answered(12) < 0.87, answered(12)
+    finally:
+        set_abandon_on_ask(None)
+
+
+def test_asking_is_never_worse_than_saying_nothing():
+    """A question must still earn an answer more often than a plain statement
+    does. Flooring the keep-rate at the ordinary continuation rate is what
+    stops a high hazard from making asking actively harmful."""
+    import statistics
+
+    from whileai.simulations.generate.agents import _want_followup, set_abandon_on_ask
+
+    def depth(text, budget=12):
+        out = []
+        for i in range(1500):
+            n = 1
+            while (
+                _want_followup(f"m{i}", n, user_turns=n, budget=budget, agent_text=text) and n < 50
+            ):
+                n += 1
+            out.append(n)
+        return statistics.mean(out)
+
+    try:
+        for rate in (0.0, 0.3, 0.9):
+            set_abandon_on_ask(rate)
+            assert depth("Do you want me to cancel it?") >= depth("There are 4821 orders."), rate
+    finally:
+        set_abandon_on_ask(None)
+
+
+def test_short_threads_still_answer_the_question():
+    """With room for one exchange, abandoning leaves the agent's question as
+    the whole rollout and the set fills with stubs."""
+    from whileai.simulations.generate.agents import _want_followup, set_abandon_on_ask
+
+    try:
+        set_abandon_on_ask(0.9)
+        assert all(
+            _want_followup(f"m{i}", 1, user_turns=1, budget=2, agent_text="Which repo?")
+            for i in range(200)
+        )
+    finally:
+        set_abandon_on_ask(None)
