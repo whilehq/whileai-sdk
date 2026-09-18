@@ -38,7 +38,7 @@ def test_eval_variance_over_separate_runs():
     assert report["n_runs"] == 3 and report["metric"] == "pass_at_1"
     assert report["means"] == {"run_1": 0.5, "run_2": 0.525, "run_3": 0.475}
     assert report["mean"] == 0.5 and report["run_std"] == 0.025
-    assert report["noise_band"] == 0.0707 and report["run_std_points"] == 2.5  # 2*sqrt(2)*0.025
+    assert report["noise_band"] == 0.0693 and report["run_std_points"] == 2.5  # 1.96*sqrt(2)*0.025
     assert report["stability"] == "high_variance"
     assert report["tasks_in_every_run"] == 10 and report["notes"] == []
 
@@ -72,7 +72,7 @@ def test_delta_report_refuses_a_verdict_inside_the_noise_band():
     loud = delta_report(before, after, target="pass_at_1")
     assert loud["target_verdict"] == "moved_unreplicated" and loud["within_noise"] == []
     assert loud["metrics"]["pass_at_1"]["within_noise"] is False
-    # a 0.25 delta inside a 2*sqrt(2) x 0.2 band is what re-running the eval does
+    # a 0.25 delta inside a 1.96 x sqrt(2) x 0.2 band is what re-running the eval does
     quiet = delta_report(before, after, target="pass_at_1", run_std=0.2)
     assert quiet["target_verdict"] == "within_eval_noise" and quiet["ok"] is True
     assert quiet["within_noise"] == ["pass_at_1", "marker:honest"]

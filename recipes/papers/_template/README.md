@@ -34,7 +34,7 @@ Recipe vs baseline: <+0.00 [lo, hi]>. Verdict: <moved / flat>.
 
 | Check | Book | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | run_std <0.00>; a delta under <2 x sqrt(2) x run_std> is noise (a delta is the difference of two re-run draws) |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | run_std <0.00>; a delta under <1.96 x sqrt(2) x run_std> is noise (`noise_band(run_std)` with one run per side: a delta is the difference of two re-run draws) |
 | Holdout is clean: `decontaminate(train, against=holdout)` | ch. 16 | <n> train rows dropped |
 | Reward is a program, not a judge | ch. 7, 13 | <what the reward reads> |
 | Proxy vs target: `delta_report(proxy=)` | ch. 14 | over_optimized <false / true> |

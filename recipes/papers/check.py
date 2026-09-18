@@ -15,11 +15,28 @@ import sys
 from pathlib import Path
 
 PAPERS = Path(__file__).resolve().parent
-#: run_std is the spread of ONE run's mean; a delta is the difference of two
-#: re-run draws, so its spread is sqrt(2) times that, and the band is two of
-#: those. Kept in step with whileai.simulations.score.stats.NOISE_SIGMAS
-#: (this script stays stdlib-only so it runs before the package is installed).
-NOISE_SIGMAS = 2.0 * math.sqrt(2.0)
+
+
+def noise_band(run_std: float, n_a: int = 1, n_b: int = 1, df: int | None = None) -> float:
+    """The re-run band a delta has to clear: a stdlib copy of
+    ``whileai.simulations.score.stats.noise_band`` (this script runs before
+    the package is installed), same formula, same sentence.
+
+    ``run_std`` is the standard deviation of ONE run's mean when the same
+    model is evaluated again. A delta is the mean of ``n_a`` before runs
+    against the mean of ``n_b`` after runs, so its own standard deviation
+    is ``run_std * sqrt(1/n_a + 1/n_b)``; the band is that times 1.96 for
+    a given ``run_std`` (taken as the eval's spread, ``df=None``), or the
+    two-sided 95% t quantile at ``df`` when it was estimated from the
+    re-runs being compared. A paper recipe hands ``delta_report`` the
+    ``run_std`` of three base re-runs and compares one run per side, so
+    the bar here is ``1.96 x sqrt(2) x run_std``.
+    """
+    if df is not None:
+        raise NotImplementedError("the recipes compare one run per side with a given run_std")
+    return 1.96 * float(run_std) * math.sqrt(1.0 / n_a + 1.0 / n_b)
+
+
 INDEX = PAPERS / "README.md"
 START, END = "<!-- table:start -->", "<!-- table:end -->"
 SECTIONS = ["## Recipe", "## Run", "## Result", "## Checks", "## Climb", "## Learned"]
@@ -119,18 +136,19 @@ def check_recipe(d: Path) -> dict:
     # The science bar: "moved" needs an interval that excludes zero AND a delta
     # larger than the eval's own re-run band (rlhf-book ch. 16, app. C), and no
     # over-optimization verdict (ch. 14). Otherwise it is "flat". The band is
-    # NOISE_SIGMAS x run_std, the same number as whileai's eval_variance
-    # noise_band and delta_report within_noise test.
+    # noise_band(run_std), the same number as whileai's eval_variance
+    # noise_band and delta_report(run_std=) within_noise test.
     if r["delta"]["verdict"] == "moved":
         lo, hi = r["delta"].get("ci", [0.0, 0.0])
         delta = float(r["delta"]["recipe_vs_baseline"])
         run_std = float(r["checks"]["run_std"])
         if lo <= 0.0 <= hi:
             fail(f"{d.name}: verdict moved but the interval [{lo}, {hi}] covers zero")
-        if abs(delta) < NOISE_SIGMAS * run_std:
+        band = noise_band(run_std)
+        if abs(delta) < band:
             fail(
-                f"{d.name}: verdict moved but |delta| {abs(delta):.3f} < "
-                f"{NOISE_SIGMAS:.2f} x run_std {run_std:.3f} (the re-run band on a delta)"
+                f"{d.name}: verdict moved but |delta| {abs(delta):.3f} < {band:.3f} "
+                f"(1.96 x run_std x sqrt(1/1 + 1/1), the re-run band on a one-run-per-side delta)"
             )
         if r["checks"]["over_optimized"]:
             fail(f"{d.name}: verdict moved but the proxy-vs-target check says over-optimized")

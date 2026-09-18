@@ -28,29 +28,18 @@ from typing import Any
 from .passat import pass_at
 from .stats import (
     DEFAULT_BOOT,
-    NOISE_SIGMAS,
+    _t975,
     compare_runs,
     detectable_effect,
     eval_variance,
     holdout_size,
     marker_names,
     metric_summary,
+    noise_band,
     task_means,
 )
 
 GROUP_KEYS = ("delta", "ci95", "verdict", "mean_a", "mean_b", "n_used", "n_paired", "paired")
-
-#: Two arms whose graded shares differ by more than this are warned about:
-#: the gap bounds how far selection alone can move the rate, and the warning
-#: puts that bound next to the delta. At 136 rows, 3 rows is 2 points, so
-#: below this is single-row noise.
-GRADED_SHARE_WARN_GAP = 0.02
-#: Above this the report fails. A 10-point gap can move a pass rate by up to
-#: 10 points, several times any re-run band Olmo 3 measured (0.25 to 1.5
-#: points, rlhf-book ch. 16), so no delta the eval could show survives it.
-#: The lane that motivated the check lost 11.4 points and fails; a 3-point
-#: gap on a 20-point delta is named and left to the reader.
-GRADED_SHARE_FAIL_GAP = 0.10
 
 #: A before side passing this share of tasks has little room left to show
 #: an improvement; the report flags ``ceiling``.
@@ -93,14 +82,37 @@ def _eval_runs(rows: Sequence[dict]) -> set[str]:
 
 def _pooled_run_std(before: Sequence[dict], after: Sequence[dict], metric: str) -> float | None:
     """The eval's re-run standard deviation from both sides' repeats:
-    ``eval_variance`` per side, pooled as the root mean square, since
-    each side is the same eval on one model (rlhf-book appendix C)."""
-    stds = [
-        eval_variance(rows, metric=metric, by="eval_run")["run_std"] for rows in (before, after)
-    ]
-    if any(v is None for v in stds):
-        return None
-    return (sum(float(v) ** 2 for v in stds) / len(stds)) ** 0.5
+    ``eval_variance`` per side, pooled by degrees of freedom (each side's
+    variance weighted by its runs minus one), since each side is the same
+    eval on one model (rlhf-book appendix C). The pooled estimate has
+    ``sum(n_i - 1)`` degrees of freedom, which is what ``noise_band``
+    widens for."""
+    variances = []
+    for rows in (before, after):
+        side = eval_variance(rows, metric=metric, by="eval_run")
+        if side["run_std"] is None or int(side["n_runs"]) < 2:
+            return None
+        variances.append((float(side["run_std"]) ** 2, int(side["n_runs"]) - 1))
+    df = sum(w for _, w in variances)
+    return (sum(v * w for v, w in variances) / df) ** 0.5
+
+
+def _band_args(
+    eval_runs: dict[str, int], run_std_source: str | None
+) -> tuple[int, int, int | None]:
+    """What ``noise_band`` needs: how many runs each side's mean averages
+    over, and the degrees of freedom behind ``run_std`` when the report
+    estimated it from those runs itself (``None`` for a given ``run_std``,
+    which is taken as the eval's spread)."""
+    n_a, n_b = max(1, int(eval_runs["before"])), max(1, int(eval_runs["after"]))
+    df = (n_a - 1) + (n_b - 1) if run_std_source == "eval_run" else None
+    return n_a, n_b, df
+
+
+def _band_rule(n_a: int, n_b: int, df: int | None) -> str:
+    """The band as a reader can check it: the quantile, then the run counts."""
+    q = "1.96" if df is None else f"t(df={df})={_t975(df):.2f}"
+    return f"{q} x run_std x sqrt(1/{n_a} + 1/{n_b})"
 
 
 def _group_of(row: dict, by: str | Callable[[dict], Any]) -> str | None:
@@ -187,17 +199,21 @@ def delta_report(
 
     ``run_std`` is the evaluation's own re-run standard deviation
     (``eval_variance(...)["run_std"]``, rlhf-book ch. 16). A metric whose
-    delta is smaller than ``NOISE_SIGMAS`` times it (2*sqrt(2), since a
-    delta is the difference of two re-run draws and carries sqrt(2) times
-    one side's spread) is ``within_noise``: not
-    improved, not slipped, not a regression, and a target there reads
-    ``within_eval_noise`` rather than moved, because re-running the eval
-    moves it that much on its own. When both row sets carry two or more
+    delta is inside ``noise_band(run_std, n_a, n_b, df)`` is
+    ``within_noise``: not improved, not slipped, not a regression, and a
+    target there reads ``within_eval_noise`` rather than moved, because
+    re-running the eval moves it that much on its own. The band is
+    ``run_std * sqrt(1/n_a + 1/n_b)`` (the delta is a mean of ``n_a`` runs
+    against a mean of ``n_b``) times 1.96 for a given ``run_std``, which is
+    taken as the eval's spread. When both row sets carry two or more
     ``lineage.eval_run`` values (``simulate(tasks=..., runs=3)``) the
     report computes ``run_std`` itself on the headline metric, pooled
-    over the two sides, and ``eval_runs`` says how many runs each side
-    had. With one run on either side and no ``run_std`` a target that
-    moved reads ``moved_unreplicated`` and a warning says how to fix it:
+    over the two sides, and uses the t quantile at ``df = sum(runs - 1)``
+    instead (three runs per side: 2.78 x run_std x sqrt(2/3)); ``eval_runs``
+    says how many runs each side had, ``noise_band`` is the band and
+    ``noise_rule`` spells it out. With one run on either side and no
+    ``run_std`` a target that moved reads ``moved_unreplicated`` and a
+    warning says how to fix it:
     one evaluation is a draw, not a distribution (rlhf-book ch. 16,
     "why many comparisons are unreliable", and appendix C).
 
@@ -245,15 +261,18 @@ def delta_report(
         )
         run_std_source = "eval_run" if run_std is not None else None
     replicated = run_std is not None
-    # ``run_std`` is how far ONE side moves when the eval is re-run. The delta
-    # is a difference of two such draws, so its own standard deviation is
-    # ``run_std * sqrt(2)`` and a two-sigma band on it is ``2*sqrt(2)*run_std``,
-    # not ``2*run_std``. Using the narrower band admits ~15% of pure-noise
-    # deltas as real instead of ~5% (rlhf-book ch. 16, appendix C).
-    noise = NOISE_SIGMAS * float(run_std) if run_std is not None else None
+    # ``run_std`` is how far ONE run's mean moves when the eval is re-run.
+    # The delta is a mean of n_a runs against a mean of n_b, so its own
+    # standard deviation is ``run_std * sqrt(1/n_a + 1/n_b)``, and the band
+    # is that times 1.96, or times the t quantile when run_std was
+    # estimated from these very runs (rlhf-book ch. 16, appendix C).
+    n_a, n_b, band_df = _band_args(eval_runs, run_std_source)
+    noise = noise_band(float(run_std), n_a, n_b, df=band_df) if run_std is not None else None
+    noise_rule = _band_rule(n_a, n_b, band_df)
     within_noise: list[str] = []
     for m in metrics:
         r = results[m]
+        r["noise_band"] = noise
         r["within_noise"] = (
             noise is not None and r.get("delta") is not None and abs(r["delta"]) < noise
         )
@@ -276,6 +295,7 @@ def delta_report(
         target_verdict = _verdict_word(target_result, replicated)
     ok = not regressions and target_verdict not in {"moved_the_wrong_way"}
     warnings: list[str] = []
+    not_comparable: list[str] = []
     if target_verdict == "moved_unreplicated":
         single = [side for side, n in eval_runs.items() if n < 2]
         where = "each side" if len(single) == 2 else f"the {single[0]} side"
@@ -307,9 +327,9 @@ def delta_report(
         warnings.append(
             f"{n_metrics} metrics were each tested at 95%, so up to about a {family_error:.0%} "
             "chance that at least one clears zero by luck (an upper bound: it treats the "
-            "metrics as independent, and markers that move together share their luck). The "
-            "target is pre-specified and unaffected; treat single unexpected entries in "
-            "improved/slipped as leads, not findings, and confirm them on a second eval run."
+            "metrics as independent, and markers that move together share their luck); the "
+            "target is pre-specified and unaffected, so treat a single unexpected entry in "
+            "improved/slipped as a lead, not a finding, and confirm it on a second eval run."
         )
     # ceiling: an eval the before side already passes cannot show a gain
     mean_a = results["pass_at_1"].get("mean_a")
@@ -369,7 +389,7 @@ def delta_report(
     if noise is not None and target_verdict == "within_eval_noise" and target_result:
         warnings.append(
             f"{target_key}: {target_result['delta']:+.3f} is inside the eval's own re-run band "
-            f"({NOISE_SIGMAS:.2f} x run_std = {noise:.3f}); re-running the eval moves it that much"
+            f"({noise_rule} = {noise:.3f}); re-running the eval moves it that much"
         )
     for m in regressions:
         r = results[m]
@@ -464,32 +484,55 @@ def delta_report(
         )
     # Rows that could not be graded leave the denominator, and they are not a
     # random sample: a long trajectory is both likelier to break a judge and
-    # likelier to have failed, so a side that loses more rows scores higher for
-    # that reason alone. Measured at 11.4 points on one lane. No interval sees
-    # this, because it is selection, not variance.
-    graded_gap = abs(cfg_a["graded_share"] - cfg_b["graded_share"]) if _both("graded_share") else 0
-    if graded_gap > GRADED_SHARE_FAIL_GAP:
-        ok = False
-        warnings.append(
-            f"ARMS NOT COMPARABLE: {cfg_a['graded_share']:.1%} of before rows were graded "
-            f"against {cfg_b['graded_share']:.1%} of after rows. Ungraded rows leave the "
-            "denominator and the ones that drop are the long ones, which fail more often, so "
-            "the side that lost more rows is flattered. Re-grade the dropped rows before "
-            "reading this delta."
+    # likelier to have failed. A side that dropped a share d of its rows has
+    # a survivors' rate off by up to d/(1-d) (every dropped row passed, or
+    # every one failed), and the two sides' errors add: a zero gap with one
+    # side dropping failures and the other dropping passes biases the delta
+    # by the full amount, so the gap between the shares bounds nothing. No
+    # interval sees this, because it is selection, not variance.
+    graded_bias: float | None = None
+    if _both("graded_share"):
+        dropped = [1.0 - float(cfg["graded_share"]) for cfg in (cfg_a, cfg_b)]
+        graded_bias = sum(d / (1.0 - d) if d < 1.0 else 1.0 for d in dropped)
+    headline_size = abs(float(headline["delta"])) if headline.get("delta") is not None else None
+    # the noise the bound is read against: the re-run band, else the task
+    # interval's half-width
+    if noise is not None:
+        bias_bar, bar_name = noise, "the re-run band"
+    elif headline.get("ci95"):
+        bias_bar = (headline["ci95"][1] - headline["ci95"][0]) / 2
+        bar_name = "the interval's half-width"
+    else:
+        bias_bar, bar_name = None, ""
+    if graded_bias and bias_bar is not None and graded_bias > bias_bar:
+        shares = (
+            f"{cfg_a['graded_share']:.1%} of before rows and {cfg_b['graded_share']:.1%} of "
+            f"after rows carry a verdict"
         )
-    elif graded_gap > GRADED_SHARE_WARN_GAP:
-        warnings.append(
-            f"{cfg_a['graded_share']:.1%} of before rows were graded against "
-            f"{cfg_b['graded_share']:.1%} of after rows. The dropped rows are the long ones, "
-            f"which fail more often, so the gap can move the rate by up to {graded_gap:.1%} in "
-            "favour of the side that lost more; read a delta near that size as unproven, or "
-            "re-grade the dropped rows."
+        why = (
+            "rows a judge could not grade leave the denominator and are not a random sample "
+            "(the long ones fail more often), so each side's rate can be off by up to "
+            "dropped/(1-dropped) and the two sides add"
         )
+        if headline_size is not None and graded_bias >= headline_size:
+            ok = False
+            not_comparable.append("graded_share")
+            warnings.append(
+                f"NOT COMPARABLE: {shares}; {why}: up to {graded_bias:.1%}, which covers the whole "
+                f"{headline_size:.3f} delta on {headline_key}; re-grade the dropped rows before "
+                "reading this delta"
+            )
+        else:
+            warnings.append(
+                f"{shares}; {why}: up to {graded_bias:.1%}, more than {bar_name} "
+                f"({bias_bar:.3f}); read a delta near that size as unproven, or re-grade the "
+                "dropped rows"
+            )
     elif _both("graded_share") and min(cfg_a["graded_share"], cfg_b["graded_share"]) < 0.95:
         warnings.append(
-            f"Only {min(cfg_a['graded_share'], cfg_b['graded_share']):.1%} of rows on one side "
+            f"only {min(cfg_a['graded_share'], cfg_b['graded_share']):.1%} of rows on one side "
             "carry a verdict; both rates are over the rows that survived grading, not the rows "
-            "that were run."
+            "that were run"
         )
     if _both("policy_version") and cfg_a["policy_version"] == cfg_b["policy_version"]:
         warnings.append(
@@ -502,27 +545,35 @@ def delta_report(
     # model, so in a before/after they follow the policy under test and the
     # delta measures the pair (rlhf-book ch. 16: every layer of an agentic
     # eval moves the score, so every layer is pinned and recorded).
+    agent_a = str(cfg_a.get("policy_version") or "").split("@", 1)[0]
+    agent_b = str(cfg_b.get("policy_version") or "").split("@", 1)[0]
+    one_name_two_policies = (
+        bool(agent_a)
+        and agent_a == agent_b
+        and (cfg_a.get("policy_version") != cfg_b.get("policy_version"))
+    )
     for key, knob in (("user_model", "user_model="), ("writer_model", "simulator=")):
         if _both(key) and cfg_a[key] != cfg_b[key]:
             ok = False
+            not_comparable.append(key)
             warnings.append(
-                f"ARMS NOT COMPARABLE: {key} was {cfg_a[key]!r} before and {cfg_b[key]!r} after. "
-                f"The environment moved with the weights, so this delta measures the pair, not "
-                f"the policy. Pin {knob} to one model on both arms and re-run."
+                f"NOT COMPARABLE: {key} was {cfg_a[key]!r} before and {cfg_b[key]!r} after; the "
+                f"environment moved with the weights, so this delta measures the pair, not the "
+                f"policy; pin {knob} to one model on both arms and re-run"
             )
-        elif cfg_a.get(key) is None and cfg_b.get(key) is None:
-            continue
-        else:
-            agent_a = str(cfg_a.get("policy_version") or "").split("@", 1)[0]
-            agent_b = str(cfg_b.get("policy_version") or "").split("@", 1)[0]
-            if agent_a and cfg_a.get(key) == agent_a and cfg_b.get(key) == agent_b:
-                warnings.append(
-                    f"{key} is the agent's own model on both arms, so whoever it is ran on the "
-                    f"policy under test. If the two arms served different weights under one name "
-                    f"the environment moved with them; pin {knob} to a fixed model to rule it out."
-                )
+        elif one_name_two_policies and cfg_a.get(key) == agent_a and cfg_b.get(key) == agent_a:
+            # Same served name, different policy stamp: if the two arms are
+            # different weights under one name, the user or writer that ran
+            # on that name moved with them.
+            warnings.append(
+                f"{key} is the agent's own served model ({agent_a!r}) on both arms, and the two "
+                f"arms differ in policy_version under that one name; if they served different "
+                f"weights the environment moved with them, so pin {knob} to a fixed model to "
+                "rule it out"
+            )
     return {
         "ok": ok,
+        "not_comparable": not_comparable,
         "target": target_key,
         "target_verdict": target_verdict,
         "target_delta": target_result["delta"] if target_result else None,
@@ -538,6 +589,8 @@ def delta_report(
         "within_noise": within_noise,
         "run_std": float(run_std) if run_std is not None else None,
         "run_std_source": run_std_source,
+        "noise_band": noise,
+        "noise_rule": noise_rule,
         "eval_runs": eval_runs,
         "replicated": replicated,
         "ceiling": ceiling,
@@ -593,8 +646,24 @@ def format_delta_report(report: dict[str, Any]) -> str:
         )
         lines.append(
             f"eval noise: run_std {report['run_std']:.3f}, a delta under "
-            f"{NOISE_SIGMAS * report['run_std']:.3f} is noise ({source})"
+            f"{report['noise_band']:.3f} is noise ({report['noise_rule']}; {source})"
         )
+    if report.get("n_metrics", 0) >= 2 and report.get("family_error") is not None:
+        lines.append(
+            f"family error: {report['n_metrics']} metrics at 95%, up to {report['family_error']:.0%} "
+            "chance that one clears zero on luck alone (upper bound, independent metrics)"
+        )
+    graded = {
+        side: (report.get("config") or {}).get(side, {}).get("graded_share")
+        for side in ("before", "after")
+    }
+    if graded["before"] is not None and graded["after"] is not None:
+        bound = sum((1 - g) / g if g else 1.0 for g in graded.values())
+        if bound > 0:
+            lines.append(
+                f"graded: {graded['before']:.1%} before, {graded['after']:.1%} after "
+                f"(selection can move the delta up to {bound:.1%})"
+            )
     if report.get("ceiling"):
         lines.append("CEILING: the before run already passes most tasks; use harder situations")
     for name, r in report["metrics"].items():

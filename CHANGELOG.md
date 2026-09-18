@@ -5,27 +5,38 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
-- `delta_report` fails a comparison whose arms differed in more than the weights.
-  `run_config` now reads `user_model` and `writer_model` off the rows, so an eval
-  where the simulated user or the situation writer moved with the arm is named
-  instead of silently averaged. Both fields were already stamped and never read.
+- `delta_report` fails a comparison whose arms differed in more than the weights,
+  with one prefix, `NOT COMPARABLE:`, and one key, `not_comparable`, listing every
+  cause (`user_model`, `writer_model`, `graded_share`). `run_config` now reads
+  `user_model` and `writer_model` off the rows, so an eval where the simulated user
+  or the situation writer moved with the arm is named instead of silently averaged.
+  Both fields were already stamped and never read. The line saying the user model
+  is the agent's own now fires only when the two arms share a served model name
+  and differ in `policy_version`, not on every default before/after.
 - `graded_share` counts the rows that carry a verdict: a numeric reward, partial
   scores included (a rubric's 0.75 is a verdict; pass@1 just does not count it).
-  Rows a judge could not grade leave the denominator, and the ones that drop are
-  the long ones, which fail more often, so the side that lost more rows is
-  flattered. Arms differing by more than 2 points get a warning that bounds the
-  bias (the gap); more than 10 points fails the report, since no delta the eval
-  could show survives that.
-- The re-run noise band is `2*sqrt(2)*run_std`, not `2*run_std`, everywhere it
-  is stated: `eval_variance`'s `noise_band`, `delta_report`'s `within_noise`,
-  `recipes/papers/check.py`'s "moved" bar, and the README. A delta is the
-  difference of two re-run draws, so it carries sqrt(2) times one side's spread.
-  The old band read about 15% of pure-noise deltas as real instead of 5%. No
-  paper recipe's verdict changes (`filter-metric` +0.067 clears 0.048).
+  Rows a judge could not grade leave the denominator and are not a random sample,
+  so a side that dropped a share `d` has a survivors' rate off by up to `d/(1-d)`,
+  and the two sides add: a zero gap with one side dropping failures and the other
+  dropping passes biases the delta by the full amount, so the gap bounds nothing.
+  The report warns when that bound exceeds the re-run band (or the interval's
+  half-width) and fails, `not_comparable`, when it covers the whole delta.
+- `noise_band(run_std, n_a=1, n_b=1, df=None)` is the one re-run band, in
+  `stats`: `run_std * sqrt(1/n_a + 1/n_b)` (a delta is a mean of `n_a` runs
+  against a mean of `n_b`) times 1.96 for a given `run_std`, or the two-sided
+  95% t quantile at `df` when `delta_report` pooled it from `runs=3` on both
+  sides (df=4, 2.78). Used by `eval_variance`'s `noise_band`, `delta_report`'s
+  `within_noise` (which now returns `noise_band` and `noise_rule`),
+  `format_delta_report`, `recipes/papers/check.py`'s "moved" bar, and the README.
+  A flat `2 * run_std` let about 15% of pure-noise deltas through with one run
+  per side, and `2*sqrt(2)*run_std` was right only there and wrong with three;
+  simulated null deltas now clear the band about 5% of the time on both paths.
+  No paper recipe's verdict changes (`filter-metric` +0.067 clears 0.047).
 - `delta_report` returns `n_metrics` and `family_error`, and warns when several
   metrics were each tested at 95%: six gives up to about a 26% chance that one
   clears zero by luck (an upper bound; it treats the metrics as independent).
-  The pre-specified target is unaffected.
+  The pre-specified target is unaffected. `format_delta_report` prints the family
+  error and each side's graded share with the selection bound.
 
 ## 0.62 (2026-09-17)
 

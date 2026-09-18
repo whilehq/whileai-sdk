@@ -37,8 +37,8 @@ batch. See Climb.
 
 Recipe vs baseline: **+0.067 [+0.021, +0.113]** over 120 paired tasks.
 Verdict: **moved**. The interval excludes zero, the delta clears the eval's
-own re-run band (run_std 0.0169, band 0.048 on a difference of two re-run
-draws), and the proxy check is clean: the shaped
+own re-run band (run_std 0.0169, band 0.047 = 1.96 x sqrt(2) x run_std on a
+difference of two re-run draws), and the proxy check is clean: the shaped
 score went *down* -0.035 [-0.080, +0.009] while pass@1 went up, which is the
 opposite of over-optimization.
 
@@ -68,7 +68,7 @@ Every cell is written by `recipe.py` into `results.json`. These are the round 2 
 
 | Check | Book | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | **run_std 0.0169**: a delta under 0.048 (2 x sqrt(2) x run_std, the band on a difference of two re-run draws) is noise. The measured +0.067 clears it |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | **run_std 0.0169**: a delta under 0.047 (`noise_band(run_std)` = 1.96 x sqrt(2) x run_std, the band on a difference of two re-run draws) is noise. The measured +0.067 clears it |
 | Holdout is clean: `decontaminate(train, against=holdout)` | ch. 16 | **0 of 512 train rows dropped**, prompt-keyed against the holdout as the note below requires |
 | Reward is a program, not a judge | ch. 7, 13 | `MathEqual` against the GSM8K gold number, plus a length term. No model in the reward path |
 | Proxy vs target: `delta_report(proxy=)` | ch. 14 | **not over-optimized.** `marker:shaped_reward` -0.035 [-0.080, +0.009] while pass@1 +0.067: the target moved and the proxy did not follow it up |
