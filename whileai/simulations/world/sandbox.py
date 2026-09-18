@@ -781,6 +781,9 @@ def _invented_record(tool: str, arguments: dict, n: int, digest: str) -> dict[st
         for i in range(count):
             # The record's own id comes first so entity identity is the
             # item's id, never an inherited parent reference (matter_id).
+            # A hit's fields then derive from that id (_entity_consistent),
+            # so a caller argument only fills a key the hit lacks; it never
+            # overrides a generated one, locator or finding.
             fields = _record_fields(n, i, noun, cue)
             item = {**fields, **{k: v for k, v in known.items() if k not in fields}}
             items.append(_entity_consistent(item, None, noun))
@@ -790,14 +793,18 @@ def _invented_record(tool: str, arguments: dict, n: int, digest: str) -> dict[st
             "items": items,
         }
     record = dict(_record_fields(n, 0, noun, cue))
-    # Caller arguments fill only the keys the record does not already have, the
-    # same rule the search branch above uses. A blanket update let an argument
-    # overwrite a generated field, so the world confirmed whatever the agent
-    # asserted: run_tests(path=..., status="passed") came back status "passed",
-    # a green test run the agent manufactured by naming it. A rubric that checks
-    # the reply against tool output then scores the fabrication as grounded,
-    # because the claim genuinely is in a tool result.
-    record.update({k: v for k, v in known.items() if k not in record})
+    # A caller argument is one of two things. A locator (id, name, date) says
+    # which record to read, and the record echoes it: reading the locator back
+    # is how the agent knows it got the record it asked for, and a get_user
+    # (id="u_42") that answers id 1007 is the wrong record. A finding (status,
+    # owner, quantity, amount) says what the record contains, and only the
+    # generated record decides that. A blanket update let a finding through:
+    # get_ticket(owner="alice") came back owned by alice and check_inventory
+    # (quantity=500) came back with 500 in stock, each a fact the agent
+    # manufactured by naming it. A rubric that checks the reply against tool
+    # output then scores the fabrication as grounded, because the claim really
+    # is in a tool result. Keys the record lacks are filled either way.
+    record.update({k: v for k, v in known.items() if k not in record or _is_locator(k)})
     if digest:
         record.setdefault("ref", digest[:8])
     return record
@@ -806,6 +813,15 @@ def _invented_record(tool: str, arguments: dict, n: int, digest: str) -> dict[st
 _KEY_DATEISH = re.compile(r"(date|_at$|^at$|time$|day$|when)", re.I)
 _KEY_IDISH = re.compile(r"(^id$|_id$|number$|^sku$|^ref$|^pnr$|^code$|^asin$)", re.I)
 _KEY_PERSONISH = re.compile(r"(^from$|owner|author|assignee|sender|^by$)", re.I)
+_LOCATOR_KEYS = _IDENTITY_KEYS | {"date"}
+
+
+def _is_locator(key: Any) -> bool:
+    """A locator names which record to read: an id-ish key, a title-ish key
+    (_IDENTITY_KEYS), or a date. Every other key describes the record's state
+    and is a finding the record decides for itself."""
+    lk = str(key).lower()
+    return lk in _LOCATOR_KEYS or bool(_KEY_IDISH.search(lk))
 
 
 def _entity_seed(value: Any) -> int:
