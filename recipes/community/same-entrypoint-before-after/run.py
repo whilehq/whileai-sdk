@@ -324,17 +324,21 @@ def report() -> None:
     print("\n=== noise floor: 3 passes of the SAME base on the SAME pinned tasks ===")
     ev = wai.eval_variance(b1, b2, b3, metric="pass_at_1")
     run_std = ev.get("run_std")
+    # One floor per metric (#300): a marker on a subset of tasks is several
+    # times noisier than pass@1, so pass@1's band reads a re-run draw of the
+    # marker as a regression. delta_report takes the mapping.
+    floors = ev.get("run_std_by_metric") or run_std
     print(json.dumps(ev, default=str, indent=2)[:900])
 
     base_tbl = _markers("base (pass 1)", b1)
     trained_tbl = _markers("trained adapter", tr)
 
     print("\n=== DELTA: base -> trained, BOTH through local_model ===")
-    d = wai.delta_report(b1, tr, run_std=run_std, must_not_regress=["no_invented_amount"])
+    d = wai.delta_report(b1, tr, run_std=floors, must_not_regress=["no_invented_amount"])
     print(d.get("summary") or "")
 
     print("\n=== NULL CONTROL: base pass 2 -> base pass 3 (must find nothing) ===")
-    n = wai.delta_report(b2, b3, run_std=run_std)
+    n = wai.delta_report(b2, b3, run_std=floors)
     print(n.get("summary") or "")
 
     # How much of the headline number is an artefact of #264?

@@ -438,41 +438,47 @@ def eval_variance(
         groups = [_run_rows(r, i + 1) for i, r in enumerate(runs)]
         labels = [f"run_{i + 1}" for i in range(len(groups))]
         unkeyed = 0
-    means: dict[str, float | None] = {}
-    task_sets: list[set[str]] = []
-    for label, rows in zip(labels, groups):
-        per_task = task_means(rows, metric)
-        means[label] = round(_mean(list(per_task.values())), 4) if per_task else None
-        task_sets.append(set(per_task))
-    values = [v for v in means.values() if v is not None]
+
+    def _run_means(which: str) -> tuple[dict[str, float | None], list[set[str]]]:
+        """Each run's mean of ``which`` over its tasks (unrounded), and the
+        task set each run covered."""
+        by_run: dict[str, float | None] = {}
+        covered: list[set[str]] = []
+        for label, rows in zip(labels, groups):
+            per_task = task_means(rows, which)
+            by_run[label] = _mean(list(per_task.values())) if per_task else None
+            covered.append(set(per_task))
+        return by_run, covered
+
+    def _sample_std(values: list[float]) -> float | None:
+        if len(values) < 2:
+            return None
+        centre = _mean(values)
+        return (sum((v - centre) ** 2 for v in values) / (len(values) - 1)) ** 0.5
+
+    raw_means, task_sets = _run_means(metric)
+    means: dict[str, float | None] = {
+        label: round(v, 4) if v is not None else None for label, v in raw_means.items()
+    }
+    values = [v for v in raw_means.values() if v is not None]
     n = len(values)
     mean = _mean(values) if values else None
-    std = (
-        (sum((v - mean) ** 2 for v in values) / (n - 1)) ** 0.5
-        if n >= 2 and mean is not None
-        else None
-    )
+    std = _sample_std(values)
     common = set.intersection(*task_sets) if task_sets else set()
+    # One floor per metric, each from the same unrounded run means as the
+    # scalar, so ``run_std`` and ``run_std_by_metric[metric]`` agree to the
+    # digit. A marker that applies to a subset of tasks is noisier than
+    # pass@1, which averages over all of them (#300).
     shared_markers = (
         set.intersection(*(set(marker_names(rows)) for rows in groups)) if groups else set()
     )
+    floor_metrics = ["pass_at_1", *[f"marker:{name}" for name in sorted(shared_markers)]]
+    if metric not in floor_metrics:
+        floor_metrics.append(metric)
     run_std_by_metric: dict[str, float | None] = {}
-    for variance_metric in ["pass_at_1", *[f"marker:{name}" for name in sorted(shared_markers)]]:
-        metric_values: list[float] = []
-        for rows in groups:
-            per_task = task_means(rows, variance_metric)
-            if per_task:
-                metric_values.append(_mean(list(per_task.values())))
-        metric_mean = _mean(metric_values) if metric_values else None
-        metric_std = (
-            (sum((value - metric_mean) ** 2 for value in metric_values) / (len(metric_values) - 1))
-            ** 0.5
-            if len(metric_values) >= 2 and metric_mean is not None
-            else None
-        )
-        run_std_by_metric[variance_metric] = (
-            round(metric_std, 4) if metric_std is not None else None
-        )
+    for floor_metric in floor_metrics:
+        metric_std = _sample_std([v for v in _run_means(floor_metric)[0].values() if v is not None])
+        run_std_by_metric[floor_metric] = round(metric_std, 4) if metric_std is not None else None
     stability = None
     if std is not None:
         points = std * 100

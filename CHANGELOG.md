@@ -3,6 +3,22 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- `eval_variance` returns `run_std_by_metric`: one re-run floor for pass@1
+  and for every marker the runs share, from the same run means as the
+  scalar `run_std` (which stays, and now matches its own entry to the
+  digit). `delta_report(run_std=)` takes that mapping as well as a float
+  and judges each metric against its own floor; a metric the mapping
+  lacks, or carries as `None`, gets `noise_note: no_replicate_floor`, a
+  warning next to the verdict, and no borrowed floor. A marker on 8 of 30
+  tasks was 2.7x noisier than pass@1, so pass@1's band read a model
+  compared to itself as `slipped`; with its own floor it is
+  `within_noise`. `format_delta_report` prints each metric's band.
+  Unchanged: a scalar `run_std` still applies one floor everywhere,
+  `report["run_std"]` is the headline metric's, and no `run_std` still
+  reads `moved_unreplicated`. (#300)
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults

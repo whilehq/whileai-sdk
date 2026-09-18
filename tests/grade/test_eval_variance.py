@@ -3,6 +3,8 @@ delta_report."""
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 import whileai.simulations as wai
@@ -95,36 +97,113 @@ def test_delta_report_refuses_a_verdict_inside_the_noise_band():
     assert "marker:polite" in lenient["within_noise"]
 
 
-def test_per_metric_run_std_does_not_apply_pass_at_1_noise_to_markers():
-    runs = []
-    marker_rates = (0.25, 0.5, 0.75)
-    for marker_rate in marker_rates:
-        rows = _rows({f"t{i}": 0.5 for i in range(8)})
-        for task_i in range(8):
-            value = 1.0 if task_i < round(marker_rate * 8) else 0.0
-            for row in rows[task_i * 4 : (task_i + 1) * 4]:
-                row["markers"]["honest"] = value
-        runs.append(rows)
+def _issue_300_rows(seed: int, applicable: int = 8) -> list[dict]:
+    """The generator from #300: 30 tasks x 4 rollouts, pass rate 0.6, and a
+    policy marker that applies to ``applicable`` of the tasks at rate 0.3.
+    Every call is the same model; two seeds are a model against itself."""
+    rng = random.Random(seed)
+    rows = []
+    for t in range(30):
+        for k in range(4):
+            row = {
+                "prompt": f"task {t}",
+                "task_key": f"t{t}",
+                "rollout_index": k,
+                "reward": 1.0 if rng.random() < 0.60 else 0.0,
+                "markers": {},
+            }
+            if t < applicable:
+                row["markers"]["policy_marker"] = 1.0 if rng.random() < 0.30 else 0.0
+            rows.append(row)
+    return rows
 
-    variance = eval_variance(*runs)
+
+def test_eval_variance_gives_each_marker_its_own_floor_and_the_scalar_matches():
+    variance = eval_variance(_issue_300_rows(11), _issue_300_rows(22), _issue_300_rows(33))
     floors = variance["run_std_by_metric"]
-    assert floors["pass_at_1"] == 0.0
-    assert floors["marker:honest"] > floors["pass_at_1"]
+    assert set(floors) == {"pass_at_1", "marker:policy_marker"}
+    # the scalar and the mapping are the same number for the same metric
+    assert variance["run_std"] == floors["pass_at_1"] == 0.0293
+    # a marker on 8 of 30 tasks is several times noisier than pass@1
+    assert floors["marker:policy_marker"] == 0.0786
+    assert floors["marker:policy_marker"] > 2.5 * floors["pass_at_1"]
+    assert (
+        eval_variance(_issue_300_rows(1), _issue_300_rows(2))["run_std_by_metric"][
+            "marker:policy_marker"
+        ]
+        == eval_variance(_issue_300_rows(1), _issue_300_rows(2), metric="marker:policy_marker")[
+            "run_std"
+        ]
+    )
 
-    before = runs[0]
-    after = runs[1]
-    report = delta_report(before, after, must_not_regress=["honest"], run_std=floors, n_boot=200)
-    assert report["metrics"]["marker:honest"]["run_std"] == floors["marker:honest"]
-    assert report["metrics"]["pass_at_1"]["run_std"] == floors["pass_at_1"]
+
+@pytest.mark.parametrize("seeds", [(108, 109), (110, 113), (119, 121)])
+def test_a_model_against_itself_is_within_its_marker_noise_not_slipped(seeds):
+    # #300: judged against pass@1's floor a re-run draw of the marker reads as
+    # a regression; against the marker's own floor it is noise.
+    floors = eval_variance(_issue_300_rows(11), _issue_300_rows(22), _issue_300_rows(33))
+    before, after = (_issue_300_rows(s) for s in seeds)
+    old = delta_report(before, after, run_std=floors["run_std"], n_boot=300)
+    assert "marker:policy_marker" in old["slipped"]
+    assert old["metrics"]["marker:policy_marker"]["within_noise"] is False
+    assert any("marker:policy_marker dropped" in w for w in old["warnings"])
+
+    new = delta_report(before, after, run_std=floors["run_std_by_metric"], n_boot=300)
+    marker = new["metrics"]["marker:policy_marker"]
+    assert marker["within_noise"] is True and "marker:policy_marker" in new["within_noise"]
+    assert new["slipped"] == [] and new["regressions"] == [] and new["ok"] is True
+    assert marker["run_std"] == 0.0786 and new["metrics"]["pass_at_1"]["run_std"] == 0.0293
+    assert new["run_std"] == 0.0293 and new["run_std_source"] == "given"
+    assert new["run_std_by_metric"] == {"pass_at_1": 0.0293, "marker:policy_marker": 0.0786}
+    assert not any("dropped" in w for w in new["warnings"])
+    # the guard reads the same floor
+    guarded = delta_report(
+        before, after, must_not_regress=["policy_marker"], run_std=floors["run_std_by_metric"]
+    )
+    assert guarded["regressions"] == [] and guarded["ok"] is True
+    text = format_delta_report(new)
+    assert "eval noise: run_std 0.029, a delta under 0.059 is noise (run_std given, per metric" in (
+        text
+    )
+    assert "noise<0.157" in text and "noise<0.059" in text
 
 
-def test_per_metric_run_std_does_not_fall_back_for_missing_marker_floor():
+def test_a_scalar_run_std_still_applies_one_floor_to_every_metric():
+    before, after = _issue_300_rows(108), _issue_300_rows(109)
+    report = delta_report(before, after, run_std=0.1, n_boot=100)
+    assert report["run_std"] == 0.1 and report["replicated"] is True
+    assert report["run_std_by_metric"] == {"pass_at_1": 0.1, "marker:policy_marker": 0.1}
+    assert report["within_noise"] == ["pass_at_1", "marker:policy_marker"]
+    assert "per metric" not in format_delta_report(report)
+
+
+def test_a_missing_or_none_floor_is_said_not_borrowed():
     before = _rows({f"t{i}": 0.5 for i in range(8)})
     after = _rows({f"t{i}": 0.5 for i in range(8)})
-    report = delta_report(before, after, run_std={"pass_at_1": 0.2}, n_boot=100)
-    marker = report["metrics"]["marker:honest"]
-    assert marker["run_std"] is None
-    assert marker["noise_note"] == "no_replicate_floor"
+    for run_std in ({"pass_at_1": 0.2}, {"pass_at_1": 0.2, "honest": None}):
+        report = delta_report(before, after, run_std=run_std, n_boot=100)
+        marker = report["metrics"]["marker:honest"]
+        assert marker["run_std"] is None and marker["within_noise"] is False
+        assert marker["noise_note"] == "no_replicate_floor"
+        assert "noise_note" not in report["metrics"]["pass_at_1"]
+        assert report["run_std_by_metric"] == {"pass_at_1": 0.2, "marker:honest": None}
+        note = [w for w in report["warnings"] if "no_replicate_floor" in w]
+        assert len(note) == 1 and note[0].startswith("No re-run floor for marker:honest")
+        assert "run_std_by_metric" in note[0]
+        assert "marker:honest" in format_delta_report(report).split("no_replicate_floor")[0]
+    # eval_variance under two runs hands back None per metric; the same note
+    single = eval_variance(_rows({"t0": 0.5}, run_id="x"))["run_std_by_metric"]
+    assert single == {"pass_at_1": None, "marker:honest": None}
+    report = delta_report(before, after, target="honest", run_std=single, n_boot=100)
+    assert report["replicated"] is False and report["run_std"] is None
+    assert report["metrics"]["marker:honest"]["noise_note"] == "no_replicate_floor"
+    assert not any(w.startswith("One eval run") for w in report["warnings"])
+    assert any("no_replicate_floor" in w for w in report["warnings"])
+    assert "no run_std for the headline metric" in format_delta_report(report)
+    # no run_std at all: single-run honesty, no note (#240)
+    bare = delta_report(before, after, n_boot=100)
+    assert bare["replicated"] is False and "noise_note" not in bare["metrics"]["marker:honest"]
+    assert bare["run_std_by_metric"] == {"pass_at_1": None, "marker:honest": None}
 
 
 def test_public_surface():
