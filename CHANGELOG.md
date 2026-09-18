@@ -3,6 +3,23 @@
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 `pip install zeroproof==0.4` is the `0.04` line below.
 
+## Unreleased
+
+- `decontaminate(embedder=, cosine=0.85)` adds a semantic pass on top of
+  the 8-gram rule. Word overlap does not see a paraphrase: a holdout
+  written by re-running the generator on the same briefs was 70% within
+  0.85 cosine of the training batch, and the 8-gram rule flagged 4 of its
+  101 prompts where the semantic pass flagged 16. `embedder` is any
+  callable from a list of texts to one vector per text (a
+  sentence-transformers one-liner is in the docstring), so nothing new is
+  imported and the default stays lexical. The report counts each rule on
+  its own (`n_same_task`, `n_exact`, `n_near`, `n_semantic`) and a row
+  once, and `notes` says a semantic flag means the prompts read alike, not
+  that they are the same task. Rows that share a `scenario_id` or
+  `task_id` with an eval row are now dropped as `same_task` whatever the
+  wording, and the semantic pass only looks across different task ids.
+  (#286)
+
 ## 0.62 (2026-09-17)
 
 - `init-evals` finds an agent whose extra parameters have defaults

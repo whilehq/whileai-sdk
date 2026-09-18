@@ -617,6 +617,43 @@ def _eval_texts(row: dict) -> list[str]:
     return out
 
 
+def _explicit_task(row: dict) -> str | None:
+    """A row's recorded task identity (``scenario_id`` else ``task_id``),
+    ``None`` when it carries neither: the prompt fallback of ``task_key``
+    is already the exact rule."""
+    value = row.get("scenario_id") or row.get("task_id")
+    return str(value) if value else None
+
+
+def _unit_vectors(vectors: Sequence[Sequence[float]]) -> list[list[float]]:
+    out = []
+    for vec in vectors:
+        floats = [float(x) for x in vec]
+        norm = math.sqrt(sum(x * x for x in floats))
+        out.append([x / norm for x in floats] if norm > 0 else floats)
+    return out
+
+
+def _embed(embedder: Any, texts: list[str]) -> list[list[float]]:
+    """``embedder(texts)`` checked to return one vector per text."""
+    embed = embedder.embed if not callable(embedder) and hasattr(embedder, "embed") else embedder
+    if not callable(embed):
+        raise TypeError(
+            "embedder must be a callable taking a list of texts and returning one vector "
+            "per text (list[str] -> list[list[float]]); see decontaminate's docstring for a "
+            "sentence-transformers example"
+        )
+    if not texts:
+        return []
+    vectors = list(embed(list(texts)))
+    if len(vectors) != len(texts):
+        raise ValueError(
+            f"embedder returned {len(vectors)} vectors for {len(texts)} texts; it must "
+            "return exactly one vector per text, in order"
+        )
+    return _unit_vectors(vectors)
+
+
 def decontaminate(
     rows: Sequence[dict],
     against: Sequence[Any] | Any,
@@ -624,18 +661,34 @@ def decontaminate(
     n: int = 8,
     fields: Sequence[str] = ("prompt",),
     overlap: float = 0.8,
+    embedder: Callable[[list[str]], Sequence[Sequence[float]]] | None = None,
+    cosine: float = 0.85,
 ) -> tuple[list[dict], dict[str, Any]]:
     """Drop rows whose prompt overlaps an evaluation set (rlhf-book ch. 16).
 
     ``against`` is one or more evaluation sources: row lists, JSONL paths,
     or platform dataset ids (``ds_...``). Evaluation prompts, answers and
-    references are the texts (not the eval set's own replies). A training
-    row is contaminated when one of its ``fields`` is an evaluation text
-    verbatim (after normalization), or when one evaluation text covers at
-    least ``overlap`` of its words with shared word ``n``-grams (the
-    Llama 2 rule: 80% of tokens). Texts shorter than ``n`` words match
-    verbatim only. The default field is the prompt, the book's method;
-    add ``"final_text"`` to ask the stricter question of whether replies
+    references are the texts (not the eval set's own replies). Four rules,
+    applied in this order, and a row flagged by one is not counted again
+    by the next, so ``n_contaminated`` is the number of rows dropped:
+
+    * ``same_task`` (``n_same_task``): the row's ``scenario_id`` or
+      ``task_id`` is an evaluation row's. A task is a situation, not a
+      string (``task_key``), so a rephrasing of an eval situation is the
+      eval situation whatever the words say. Rows with no recorded id
+      skip this rule.
+    * ``exact`` (``n_exact``): one of the row's ``fields`` is an evaluation
+      text verbatim after normalization (case and whitespace).
+    * near copy (``n_near``): one evaluation text covers at least
+      ``overlap`` of the row's words with shared word ``n``-grams (the
+      Llama 2 rule: 8-grams, 80% of tokens). Texts shorter than ``n``
+      words match verbatim only.
+    * ``semantic`` (``n_semantic``), only with ``embedder``: the cosine
+      similarity between the row's text and an evaluation prompt is at
+      least ``cosine``, and the two carry different task ids or none.
+
+    The default field is the prompt, the book's method; add
+    ``"final_text"`` to ask the stricter question of whether replies
     reproduce eval answers or references.
 
     One shared n-gram is the book's test for free-form sets. Situations
@@ -643,10 +696,39 @@ def decontaminate(
     which question was asked, so any-n-gram flags every row of a
     template-written set; the coverage rule counts a row when one eval
     text accounts for most of it. ``overlap=0`` restores any-n-gram.
-    Returns the clean rows and a report: verbatim hits (``n_exact``) apart
-    from near copies (``n_near``), hits per field, the eval text count,
-    and the first offenders with their coverage.
+
+    Word overlap does not see a paraphrase. A holdout written by
+    re-running the generator on the same briefs was 70% within 0.85
+    cosine of the training batch and 5 of 133 byte-identical; the 8-gram
+    rule flagged 4 of 101 prompts and the semantic pass 16 (#286).
+    ``embedder`` is any callable from a list of texts to one vector per
+    text, so nothing here imports a model; with sentence-transformers::
+
+        from sentence_transformers import SentenceTransformer
+
+        model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+        clean, report = wai.decontaminate(
+            train,
+            against=[holdout],
+            embedder=lambda texts: model.encode(texts, normalize_embeddings=True).tolist(),
+        )
+
+    A semantic flag means the two prompts read alike, not that they are
+    the same task: "cancel one reservation" and "cancel three
+    reservations" for different customers scored 0.932 with no shared
+    answer. So where task identity is recorded the ``same_task`` rule
+    decides and the semantic pass only looks across different tasks, and
+    the report's ``notes`` say the flag is a question to check, not a
+    verdict. The default stays lexical: ``cosine`` was read off BGE
+    (unrelated prompts score about 0.55 there) and does not transfer to
+    every model, so pick the threshold for yours.
+
+    Returns the clean rows and a report: the count under each rule, hits
+    per field, the eval text count, and the first offenders with their
+    coverage (or ``similarity`` for semantic hits).
     """
+    if embedder is not None and not 0 <= float(cosine) <= 1:
+        raise ValueError("cosine is a similarity threshold between 0 and 1 (0.85 by default)")
     sources = (
         against
         if isinstance(against, (list, tuple)) and not (against and isinstance(against[0], dict))
@@ -655,9 +737,17 @@ def decontaminate(
     texts: dict[str, int] = {}
     n_eval = 0
     index: dict[tuple[str, ...], set[int]] = {}
+    eval_tasks: set[str] = set()
+    eval_prompts: dict[str, tuple[str, str | None]] = {}  # normalized -> (text, task id)
     for source in sources:
         for row in _load_rows(source):
             n_eval += 1
+            task = _explicit_task(row)
+            if task is not None:
+                eval_tasks.add(task)
+            prompt = str(row.get("prompt") or "")
+            if prompt.strip():
+                eval_prompts.setdefault(_norm(prompt), (prompt, task))
             for text in _eval_texts(row):
                 words = _words(text)
                 if not words or _norm(text) in texts:
@@ -666,14 +756,20 @@ def decontaminate(
                 for gram in _ngrams(words, n):
                     index.setdefault(gram, set()).add(tid)
     threshold = max(0.0, min(1.0, float(overlap)))
-    kept: list[dict] = []
+    kept_index: list[int] = []
     flagged: list[dict[str, Any]] = []
     by_field: dict[str, int] = {}
+    candidates: list[tuple[int, str, str]] = []  # (row index, field, text) for the semantic pass
     for i, row in enumerate(rows):
         if not isinstance(row, dict):
             continue
         hit: dict[str, Any] | None = None
+        task = _explicit_task(row)
+        if task is not None and task in eval_tasks:
+            hit = {"field": "task", "match": "same_task", "coverage": 1.0, "task": task}
         for field in fields:
+            if hit:
+                break
             text = str(row.get(field) or "")
             words = _words(text)
             if not words:
@@ -704,24 +800,77 @@ def decontaminate(
             flagged.append({"index": i, **hit})
             by_field[hit["field"]] = by_field.get(hit["field"], 0) + 1
         else:
-            kept.append(row)
+            kept_index.append(i)
+            if embedder is not None:
+                for field in fields:
+                    text = str(row.get(field) or "")
+                    if text.strip():
+                        candidates.append((i, field, text))
+    notes: list[str] = []
+    n_semantic = 0
+    if embedder is not None and candidates and eval_prompts:
+        eval_norms = list(eval_prompts)
+        eval_vecs = _embed(embedder, [eval_prompts[key][0] for key in eval_norms])
+        cand_vecs = _embed(embedder, [text for _, _, text in candidates])
+        semantic: dict[int, dict[str, Any]] = {}
+        for (i, field, _text), vec in zip(candidates, cand_vecs):
+            if i in semantic:
+                continue
+            task = _explicit_task(rows[i])
+            top: float = -1.0
+            top_j = -1
+            for j, evec in enumerate(eval_vecs):
+                if task is not None and eval_prompts[eval_norms[j]][1] == task:
+                    continue  # the same task is the same_task rule's call, made above
+                sim = float(sum(x * y for x, y in zip(vec, evec)))
+                if sim > top:
+                    top, top_j = sim, j
+            if top_j >= 0 and top >= float(cosine):
+                semantic[i] = {
+                    "index": i,
+                    "field": field,
+                    "match": "semantic",
+                    "similarity": round(min(1.0, top), 4),
+                    "eval_prompt": eval_prompts[eval_norms[top_j]][0][:120],
+                }
+        if semantic:
+            kept_index = [i for i in kept_index if i not in semantic]
+            for i in sorted(semantic):
+                flagged.append(semantic[i])
+                by_field[semantic[i]["field"]] = by_field.get(semantic[i]["field"], 0) + 1
+            flagged.sort(key=lambda f: f["index"])
+            n_semantic = len(semantic)
+            notes.append(
+                f"{n_semantic} row(s) read alike to an eval prompt (cosine >= {float(cosine)}). "
+                "That is a question about task identity, not a verdict: two prompts can read "
+                "alike and be different tasks with different answers. Rows sharing a "
+                "scenario_id or task_id with an eval row were dropped as same_task first; "
+                "check the semantic ones before treating them as the same task, and raise "
+                "cosine= if your embedder scores unrelated prompts high."
+            )
+    kept = [rows[i] for i in kept_index]
     total = sum(1 for r in rows if isinstance(r, dict))
     n_exact = sum(1 for f in flagged if f["match"] == "exact")
+    n_same_task = sum(1 for f in flagged if f["match"] == "same_task")
     return kept, {
         "n": total,
         "n_kept": len(kept),
         "n_contaminated": len(flagged),
         "contamination_rate": (len(flagged) / total) if total else 0.0,
-        # verbatim reuse of an eval text, and near copies under the coverage rule
+        # one count per rule; a row is under the first rule that caught it
+        "n_same_task": n_same_task,
         "n_exact": n_exact,
-        "n_near": len(flagged) - n_exact,
+        "n_near": len(flagged) - n_exact - n_same_task - n_semantic,
+        "n_semantic": n_semantic,
         "n_eval_rows": n_eval,
         "n_eval_texts": len(texts),
         "ngram": n,
         "overlap": threshold,
+        "cosine": float(cosine) if embedder is not None else None,
         "fields": list(fields),
         "by_field": by_field,
         "examples": flagged[:20],
+        "notes": notes,
     }
 
 
