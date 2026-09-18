@@ -478,6 +478,104 @@ def trace_fault(trajectory: dict) -> str:
     return NO_FAULT
 
 
+#: A tool that never worked is dead after this many answered calls with no
+#: success, or after this many with under DEAD_TOOL_MAX_RATE of them
+#: succeeding. The rate rule is the one that matters: a declared tool with
+#: no branch in ``execute=`` was called 612 times and answered 4 (#287).
+DEAD_TOOL_MIN_CALLS = 3
+DEAD_TOOL_RATE_CALLS = 10
+DEAD_TOOL_MAX_RATE = 0.05
+
+
+def _planned_for(row: dict, tool: str) -> bool:
+    plan = row.get("faults")
+    return isinstance(plan, dict) and bool(plan.get(tool) or plan.get("*"))
+
+
+def tool_outcomes(rows) -> dict[str, dict[str, int]]:
+    """Calls and successes per tool, over every recorded step.
+
+    ``n`` is the calls that carry a result, ``ok`` the ones that were not
+    a fault, ``fault_n`` the rest (the same rule ``trace_mining`` counts
+    with, so the two tables agree). ``injected`` is the faults on rows
+    whose ``faults`` plan named the tool: the world was told to fail
+    those, so they are not evidence against it. A step with no recorded
+    result is not evidence either way and is left out, so an offline row
+    list cannot accuse a tool it never saw answer.
+    """
+    out: dict[str, dict[str, int]] = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        for step in row.get("steps") or []:
+            if not isinstance(step, dict) or not step.get("tool"):
+                continue
+            result = step.get("result")
+            if result is None:
+                continue
+            tool = str(step["tool"])
+            slot = out.setdefault(tool, {"n": 0, "ok": 0, "fault_n": 0, "injected": 0})
+            slot["n"] += 1
+            if _fault_from_result(result):
+                slot["fault_n"] += 1
+                if _planned_for(row, tool):
+                    slot["injected"] += 1
+            else:
+                slot["ok"] += 1
+    return out
+
+
+def dead_tools(outcomes: dict[str, dict[str, int]]) -> list[str]:
+    """Tools that never work: no success in ``DEAD_TOOL_MIN_CALLS`` or more
+    answered calls, or under ``DEAD_TOOL_MAX_RATE`` of ``DEAD_TOOL_RATE_CALLS``
+    or more. Injected faults are taken off the call count first."""
+    dead: list[str] = []
+    for name, slot in outcomes.items():
+        evidence = int(slot.get("n", 0)) - int(slot.get("injected", 0))
+        ok = int(slot.get("ok", 0))
+        never = evidence >= DEAD_TOOL_MIN_CALLS and ok == 0
+        rarely = evidence >= DEAD_TOOL_RATE_CALLS and ok / evidence < DEAD_TOOL_MAX_RATE
+        if never or rarely:
+            dead.append(name)
+    return sorted(dead)
+
+
+def dead_tools_note(outcomes: dict[str, dict[str, int]], dead: list[str], execute=None) -> str:
+    """One sentence naming the tools that never work and the fix.
+
+    A tool the agent's schema declares but the world cannot answer fails
+    exactly like a world fault: the agent reports the miss honestly, a
+    candour rubric rewards the row, and the behaviour under test never
+    happens (#287). ``execute`` says whether the caller's own world
+    answered the calls, which decides where the fix goes.
+    """
+    if not dead:
+        return ""
+    shown = ", ".join(
+        f"{name} ({outcomes[name]['ok']} of "
+        f"{outcomes[name]['n'] - outcomes[name].get('injected', 0)} calls succeeded)"
+        for name in dead
+    )
+    if execute is None:
+        fix = (
+            "If execute= is your world, add a branch for each in execute= or remove it "
+            "from the tool schema; if the mock world answered, put the ids it has in "
+            "the tool descriptions or in seeds=."
+        )
+    elif execute:
+        fix = "Add a branch for each in execute=, or remove it from the tool schema."
+    else:
+        fix = (
+            "The mock world answered every call with a miss; put the ids it has in "
+            "the tool descriptions or in seeds=, or answer the calls with execute=."
+        )
+    return (
+        f"{len(dead)} tool{'s' if len(dead) > 1 else ''} never worked: {shown}. "
+        "The agent reports each miss and an honesty rubric rewards it, so the "
+        f"behaviour behind the tool is never tested. {fix}"
+    )
+
+
 def _verdict(reward: float, reason: str, fault_detected: bool = False) -> dict:
     out = {"reward": reward, "reason": reason}
     if fault_detected:

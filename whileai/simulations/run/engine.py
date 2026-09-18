@@ -105,7 +105,13 @@ from ..ingest.traces import (
 )
 from ..schema import SCHEMA_KEY, SCHEMA_VERSION, Judgment, ScorerRef, attach
 from ..score.checklist import privileged_context
-from ..score.grading import behavior_signature, conduct_grade
+from ..score.grading import (
+    behavior_signature,
+    conduct_grade,
+    dead_tools,
+    dead_tools_note,
+    tool_outcomes,
+)
 from .config import DEAD_AGENT_MIN_ERRORS, RunConfig
 from .rows import (
     _row_conversation,
@@ -3090,6 +3096,25 @@ class Run:
                 )
                 if "no_tool_calls" not in data.degraded:
                     data.degraded.append("no_tool_calls")
+                data.warnings.append(note)
+                log.warning(note)
+        # A declared tool the world cannot answer fails exactly like a world
+        # fault: the agent reports the miss, an honesty rubric rewards it,
+        # and the behaviour behind the tool never happens. Per-tool calls
+        # and successes on every run, and the ones that never work named
+        # with the fix (#287). Same fault rule as trace_mining's fault_n.
+        if rows:
+            outcomes = tool_outcomes(rows)
+            if outcomes:
+                data.search["tools"] = outcomes
+                data.coverage["tools"] = outcomes
+            dead = dead_tools(outcomes)
+            data.search["dead_tools"] = dead
+            data.coverage["dead_tools"] = dead
+            if dead:
+                note = dead_tools_note(outcomes, dead, execute=c.execute is not None)
+                if "dead_tools" not in data.degraded:
+                    data.degraded.append("dead_tools")
                 data.warnings.append(note)
                 log.warning(note)
         if c.out_path is not None and data.trajectories:

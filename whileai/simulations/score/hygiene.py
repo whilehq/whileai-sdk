@@ -27,7 +27,7 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
-from .grading import behavior_signature, looks_finished
+from .grading import behavior_signature, dead_tools, dead_tools_note, looks_finished, tool_outcomes
 from .optimize import _binary_label, _messages
 
 #: |corr(reward, feature)| at or above this is flagged. Chosen from the
@@ -382,6 +382,13 @@ def coverage_warnings(
                 f"({', '.join(never)}); the policy branches behind them are untested. "
                 "Add a seed ask for each."
             )
+        # A declared tool the world never answers fails like a world fault
+        # and an honesty rubric rewards the miss (#287). Same table the
+        # engine writes to search["tools"].
+        outcomes = tool_outcomes(row_list)
+        dead = dead_tools(outcomes)
+        if dead:
+            out.append(dead_tools_note(outcomes, dead))
     populated: dict[str, int] = {}
     for r in row_list:
         marks = r.get("markers")
