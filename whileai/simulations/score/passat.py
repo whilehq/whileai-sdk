@@ -139,26 +139,29 @@ def run_config(
     out["truncated_share"] = (
         round(sum(1 for x in known if x == "length") / len(known), 4) if known else None
     )
-    # The share of rows that actually carry a gradeable verdict. A row the
-    # judge could not grade leaves the denominator entirely, and the rows that
-    # fail to grade are not a random sample: long trajectories are both more
-    # likely to break a judge payload and more likely to have failed, so the
-    # surviving rate is biased upward. Two arms that lose different shares are
-    # not scored on comparable denominators, which is a selection effect no
-    # interval can see (rlhf-book ch. 16). ``delta_report`` warns when they
-    # differ; here it is only counted.
+    # The share of rows that carry a verdict at all. A row the judge could
+    # not grade leaves the denominator entirely, and the rows that fail to
+    # grade are not a random sample: long trajectories are both more likely
+    # to break a judge payload and more likely to have failed, so the
+    # surviving rate is biased upward. Two arms that lose different shares
+    # are not scored on comparable denominators, which is a selection effect
+    # no interval can see (rlhf-book ch. 16). ``delta_report`` warns when
+    # they differ; here it is only counted. Graded means a numeric reward,
+    # however partial: a rubric score of 0.75 is a verdict the judge
+    # reached, even though pass@1 (binary by definition) does not count it.
     gradeable = [r for r in rows if isinstance(r, dict)]
     out["graded_share"] = (
-        round(sum(1 for r in gradeable if _binary_reward(r) is not None) / len(gradeable), 4)
+        round(sum(1 for r in gradeable if _graded_reward(r) is not None) / len(gradeable), 4)
         if gradeable
         else None
     )
     return out
 
 
-def _binary_reward(row: dict) -> float | None:
-    """The row's binary reward, or ``None`` when it carries no gradeable
-    verdict. Mirrors what ``group_signal`` and ``pass_at`` count."""
+def _graded_reward(row: dict) -> float | None:
+    """The row's reward as the judge left it, or ``None`` when the row
+    carries none: a missing, boolean or non-numeric ``reward`` (falling
+    back to ``qwen_reward``). Partial scores count as graded."""
     for key in ("reward", "qwen_reward"):
         v = row.get(key)
         if v is None or isinstance(v, bool):
@@ -167,7 +170,7 @@ def _binary_reward(row: dict) -> float | None:
             f = float(v)
         except (TypeError, ValueError):
             continue
-        if f in (0.0, 1.0):
+        if math.isfinite(f):
             return f
     return None
 

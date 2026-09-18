@@ -30,6 +30,13 @@ from typing import Any
 DEFAULT_BOOT = 2000
 #: tasks a bootstrap interval needs; below it the interval is the data itself
 MIN_CI_TASKS = 3
+#: Width of the re-run noise band in units of ``run_std``, the standard
+#: deviation of ONE run's mean. A before/after delta is the difference of two
+#: such draws, so its own standard deviation is ``sqrt(2) * run_std``; two of
+#: those is the band re-running the eval moves a delta inside on its own. The
+#: same number is ``eval_variance``'s ``noise_band``, ``delta_report``'s
+#: ``within_noise`` test and the paper recipes' "moved" bar.
+NOISE_SIGMAS = 2.0 * math.sqrt(2.0)
 _WORD = re.compile(r"[a-z0-9]+")
 
 
@@ -410,8 +417,10 @@ def eval_variance(
     ``evaluate(run_id=)`` stamps), or a top-level or lineage key named by
     ``by``. Each run's ``metric`` is a mean over tasks; the report is
     those means, their mean, the sample standard deviation ``run_std``,
-    and ``noise_band`` = 2 x ``run_std``: a before/after delta inside it
-    is what re-running the eval does on its own. Hand ``run_std`` to
+    and ``noise_band`` = ``NOISE_SIGMAS`` (2 x sqrt(2)) x ``run_std``: a
+    before/after delta is the difference of two re-run draws, so its own
+    spread is sqrt(2) times one run's, and a delta inside two of those is
+    what re-running the eval does on its own. Hand ``run_std`` to
     ``delta_report(run_std=)`` and it refuses to call such a delta a
     change. ``stability`` places ``run_std`` on Olmo 3's bands in points.
     Fewer than three runs is a difference, not a distribution; the report
@@ -461,7 +470,7 @@ def eval_variance(
         "mean": round(mean, 4) if mean is not None else None,
         "run_std": round(std, 4) if std is not None else None,
         "run_std_points": round(std * 100, 2) if std is not None else None,
-        "noise_band": round(2 * std, 4) if std is not None else None,
+        "noise_band": round(NOISE_SIGMAS * std, 4) if std is not None else None,
         "stability": stability,
         "tasks_in_every_run": len(common),
         "notes": [],

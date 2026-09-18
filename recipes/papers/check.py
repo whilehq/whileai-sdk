@@ -9,11 +9,17 @@ from the results files so parallel authors never edit the same lines.
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 from pathlib import Path
 
 PAPERS = Path(__file__).resolve().parent
+#: run_std is the spread of ONE run's mean; a delta is the difference of two
+#: re-run draws, so its spread is sqrt(2) times that, and the band is two of
+#: those. Kept in step with whileai.simulations.score.stats.NOISE_SIGMAS
+#: (this script stays stdlib-only so it runs before the package is installed).
+NOISE_SIGMAS = 2.0 * math.sqrt(2.0)
 INDEX = PAPERS / "README.md"
 START, END = "<!-- table:start -->", "<!-- table:end -->"
 SECTIONS = ["## Recipe", "## Run", "## Result", "## Checks", "## Climb", "## Learned"]
@@ -111,17 +117,20 @@ def check_recipe(d: Path) -> dict:
     if CHECK_KEYS - set(r["checks"]):
         fail(f"{d.name}: checks missing {sorted(CHECK_KEYS - set(r['checks']))}")
     # The science bar: "moved" needs an interval that excludes zero AND a delta
-    # larger than twice the eval's own re-run noise (rlhf-book ch. 16, app. C),
-    # and no over-optimization verdict (ch. 14). Otherwise it is "flat".
+    # larger than the eval's own re-run band (rlhf-book ch. 16, app. C), and no
+    # over-optimization verdict (ch. 14). Otherwise it is "flat". The band is
+    # NOISE_SIGMAS x run_std, the same number as whileai's eval_variance
+    # noise_band and delta_report within_noise test.
     if r["delta"]["verdict"] == "moved":
         lo, hi = r["delta"].get("ci", [0.0, 0.0])
         delta = float(r["delta"]["recipe_vs_baseline"])
         run_std = float(r["checks"]["run_std"])
         if lo <= 0.0 <= hi:
             fail(f"{d.name}: verdict moved but the interval [{lo}, {hi}] covers zero")
-        if abs(delta) < 2.0 * run_std:
+        if abs(delta) < NOISE_SIGMAS * run_std:
             fail(
-                f"{d.name}: verdict moved but |delta| {abs(delta):.3f} < 2 x run_std {run_std:.3f}"
+                f"{d.name}: verdict moved but |delta| {abs(delta):.3f} < "
+                f"{NOISE_SIGMAS:.2f} x run_std {run_std:.3f} (the re-run band on a delta)"
             )
         if r["checks"]["over_optimized"]:
             fail(f"{d.name}: verdict moved but the proxy-vs-target check says over-optimized")

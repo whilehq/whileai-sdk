@@ -22,13 +22,13 @@ entirely above the target's. The report says so and fails.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Callable, Sequence
 from typing import Any
 
 from .passat import pass_at
 from .stats import (
     DEFAULT_BOOT,
+    NOISE_SIGMAS,
     compare_runs,
     detectable_effect,
     eval_variance,
@@ -40,11 +40,17 @@ from .stats import (
 
 GROUP_KEYS = ("delta", "ci95", "verdict", "mean_a", "mean_b", "n_used", "n_paired", "paired")
 
-#: Width of the re-run noise band, in units of ``run_std``. A delta is the
-#: difference of two independently re-run sides, so its standard deviation is
-#: ``run_std * sqrt(2)``; two of those is the band inside which re-running the
-#: eval moves the delta on its own.
-NOISE_SIGMAS = 2.0 * math.sqrt(2.0)
+#: Two arms whose graded shares differ by more than this are warned about:
+#: the gap bounds how far selection alone can move the rate, and the warning
+#: puts that bound next to the delta. At 136 rows, 3 rows is 2 points, so
+#: below this is single-row noise.
+GRADED_SHARE_WARN_GAP = 0.02
+#: Above this the report fails. A 10-point gap can move a pass rate by up to
+#: 10 points, several times any re-run band Olmo 3 measured (0.25 to 1.5
+#: points, rlhf-book ch. 16), so no delta the eval could show survives it.
+#: The lane that motivated the check lost 11.4 points and fails; a 3-point
+#: gap on a 20-point delta is named and left to the reader.
+GRADED_SHARE_FAIL_GAP = 0.10
 
 #: A before side passing this share of tasks has little room left to show
 #: an improvement; the report flags ``ceiling``.
@@ -292,14 +298,18 @@ def delta_report(
     # clears zero by luck grows with the number of markers. The target is
     # pre-specified and keeps its 5%; the improved/slipped lists do not, and a
     # false flag in must_not_regress fails an otherwise good run.
+    # ``1 - 0.95**n`` is the chance under independent metrics; markers that
+    # move together share their luck, so it is an upper bound on the real
+    # family-wise rate, and the warning says so.
     n_metrics = len(metrics)
     family_error = 1.0 - 0.95**n_metrics
     if n_metrics >= 4 and (improved or slipped or regressions):
         warnings.append(
-            f"{n_metrics} metrics were each tested at 95%, so about a {family_error:.0%} chance "
-            "that at least one clears zero by luck. The target is pre-specified and unaffected; "
-            "treat single unexpected entries in improved/slipped as leads, not findings, and "
-            "confirm them on a second eval run."
+            f"{n_metrics} metrics were each tested at 95%, so up to about a {family_error:.0%} "
+            "chance that at least one clears zero by luck (an upper bound: it treats the "
+            "metrics as independent, and markers that move together share their luck). The "
+            "target is pre-specified and unaffected; treat single unexpected entries in "
+            "improved/slipped as leads, not findings, and confirm them on a second eval run."
         )
     # ceiling: an eval the before side already passes cannot show a gain
     mean_a = results["pass_at_1"].get("mean_a")
@@ -457,7 +467,8 @@ def delta_report(
     # likelier to have failed, so a side that loses more rows scores higher for
     # that reason alone. Measured at 11.4 points on one lane. No interval sees
     # this, because it is selection, not variance.
-    if _both("graded_share") and abs(cfg_a["graded_share"] - cfg_b["graded_share"]) > 0.02:
+    graded_gap = abs(cfg_a["graded_share"] - cfg_b["graded_share"]) if _both("graded_share") else 0
+    if graded_gap > GRADED_SHARE_FAIL_GAP:
         ok = False
         warnings.append(
             f"ARMS NOT COMPARABLE: {cfg_a['graded_share']:.1%} of before rows were graded "
@@ -465,6 +476,14 @@ def delta_report(
             "denominator and the ones that drop are the long ones, which fail more often, so "
             "the side that lost more rows is flattered. Re-grade the dropped rows before "
             "reading this delta."
+        )
+    elif graded_gap > GRADED_SHARE_WARN_GAP:
+        warnings.append(
+            f"{cfg_a['graded_share']:.1%} of before rows were graded against "
+            f"{cfg_b['graded_share']:.1%} of after rows. The dropped rows are the long ones, "
+            f"which fail more often, so the gap can move the rate by up to {graded_gap:.1%} in "
+            "favour of the side that lost more; read a delta near that size as unproven, or "
+            "re-grade the dropped rows."
         )
     elif _both("graded_share") and min(cfg_a["graded_share"], cfg_b["graded_share"]) < 0.95:
         warnings.append(

@@ -9,16 +9,23 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `run_config` now reads `user_model` and `writer_model` off the rows, so an eval
   where the simulated user or the situation writer moved with the arm is named
   instead of silently averaged. Both fields were already stamped and never read.
-- `graded_share` counts the rows that carry a verdict. Rows a judge could not
-  grade leave the denominator, and the ones that drop are the long ones, which
-  fail more often, so the side that lost more rows is flattered. Arms differing
-  by more than 2 points fail the report.
-- The re-run noise band is `2*sqrt(2)*run_std`, not `2*run_std`: a delta is the
+- `graded_share` counts the rows that carry a verdict: a numeric reward, partial
+  scores included (a rubric's 0.75 is a verdict; pass@1 just does not count it).
+  Rows a judge could not grade leave the denominator, and the ones that drop are
+  the long ones, which fail more often, so the side that lost more rows is
+  flattered. Arms differing by more than 2 points get a warning that bounds the
+  bias (the gap); more than 10 points fails the report, since no delta the eval
+  could show survives that.
+- The re-run noise band is `2*sqrt(2)*run_std`, not `2*run_std`, everywhere it
+  is stated: `eval_variance`'s `noise_band`, `delta_report`'s `within_noise`,
+  `recipes/papers/check.py`'s "moved" bar, and the README. A delta is the
   difference of two re-run draws, so it carries sqrt(2) times one side's spread.
-  The old band read about 15% of pure-noise deltas as real instead of 5%.
+  The old band read about 15% of pure-noise deltas as real instead of 5%. No
+  paper recipe's verdict changes (`filter-metric` +0.067 clears 0.048).
 - `delta_report` returns `n_metrics` and `family_error`, and warns when several
-  metrics were each tested at 95%: six gives about a 26% chance that one clears
-  zero by luck. The pre-specified target is unaffected.
+  metrics were each tested at 95%: six gives up to about a 26% chance that one
+  clears zero by luck (an upper bound; it treats the metrics as independent).
+  The pre-specified target is unaffected.
 
 ## 0.62 (2026-09-17)
 
