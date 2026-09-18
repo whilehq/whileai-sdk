@@ -35,7 +35,10 @@ Use what the developer has:
 - `traces=` plus the agent definition: mine observed failures and concentrate
   search on their tools, faults, world states, and behaviors. About 20 graded
   or fault-bearing traces gives useful targeting; below 10, treat the result
-  mostly as cold-start exploration and say so.
+  mostly as cold-start exploration and say so. Traces reproduce situations
+  (tools, faults, world states); a failure that lives in how the reply is
+  worded has no world-visible trigger, so pass `grader=` as well and the
+  loop mutates on graded failures too (`search["mutation_aims"]`).
 - `agent=`: connect an existing callable, supported framework agent, command,
   or OpenAI-compatible model endpoint.
 - `spec=`: load a repository folder containing the agent specification.

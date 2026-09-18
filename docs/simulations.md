@@ -33,6 +33,11 @@ plain OpenTelemetry spans included, into a picture of which situations
 fail, which are new since the last model version, and which have stopped
 failing. That picture sets the generation budget, so new rows land where
 the deployed agent actually needs them and not where it is already fine.
+Traces reproduce situations: the tools, faults and world states the
+agent met. A failure that lives in how the reply is worded (an
+unsupported claim, an estimate not labelled as one) has no trigger in
+the world, so traces alone cannot aim at it; pass `grader=` and the
+search mutates on graded failures as well as on tool faults.
 
 Both paths use the same engine. The first one is what produced the
 training set behind our first fine-tune, from nothing but the agent's

@@ -145,6 +145,19 @@ def _auth_error(message: str) -> str | None:
     return None
 
 
+def _graded_failure(row: dict) -> bool:
+    """Did the grader fail this row? A reward under 0.5: a 0 from a 0/1
+    judge, a failed verifier, a rubric below half. ``None`` (not judged,
+    judge error) is not a failure."""
+    reward = row.get("reward")
+    if reward is None or isinstance(reward, bool):
+        return False
+    try:
+        return float(reward) < 0.5
+    except (TypeError, ValueError):
+        return False
+
+
 def _stop_reason(side: str, message: str) -> str:
     return f"{side}_quota_exceeded" if "quota" in message.lower() else f"{side}_auth_failed"
 
@@ -951,6 +964,9 @@ class Run:
             "parent_failure_id": meta.get("parent_failure_id") or meta.get("parent"),
             "selection_reason": selection.get("reason"),
         }
+        if t["arm"] == "failure_mutation":
+            aim = self.failure_aim.get(str(t["parent_failure_id"] or ""), "unattributed")
+            self.mutation_aims[aim]["rows"] += 1
         # Cards drawn the steered way carry the mark onto the row, so
         # metadata's targeted/background split counts real draws.
         steering = meta.get("steering")
@@ -1087,6 +1103,16 @@ class Run:
         self.explore_only = False
         self.failing_regions: list[dict] = []
         self.failing_rows: list[dict] = []
+        # Why each failing row is a mutation parent, by its prompt head and
+        # situation id, and how many parents and mutated rows each aim
+        # produced (#285): a fault the world raised, or a grade the judge
+        # gave. Reported as search["mutation_aims"].
+        self.failure_aim: dict[str, str] = {}
+        self.mutation_aims: dict[str, dict[str, int]] = {
+            "world_fault": {"parents": 0, "rows": 0},
+            "graded_failure": {"parents": 0, "rows": 0},
+            "unattributed": {"parents": 0, "rows": 0},
+        }
         self.used = set()
         self.rerolls: dict[str, int] = {}
         self.discarded: set[str] = set()
@@ -2406,6 +2432,8 @@ class Run:
 
         region_index = {r["id"]: r for r in gen.regions}
         self.failing_rows = [t for t in results if mutation_worthy(t)]
+        for t in self.failing_rows:
+            self._aim_failure(t, "world_fault")
         self.failing_regions = [
             region_index[t["scenario_id"]]
             for t in self.failing_rows
@@ -2517,6 +2545,7 @@ class Run:
         )
         self.flat = self.flat + 1 if space_rate < NEW_SIGNATURE_FLOOR else 0
         data.search["plateau_batches"] = self.flat
+        data.search["mutation_aims"] = {k: dict(v) for k, v in self.mutation_aims.items()}
         if c.until_sat and space_saturated(
             self.cell_counts, self.shape_counts, expected_cells=self.planned_cell_keys
         ):
@@ -2662,11 +2691,41 @@ class Run:
                 if key in verdict:
                     row[key] = verdict[key]
             prompt = str(row.get("prompt") or job[0] or "")
+            if self.c.mutate_graded_failures and _graded_failure(row) and not mutation_worthy(row):
+                # The grader's verdict steers like a tool fault (#285): the
+                # row becomes a mutation parent, its situation counts as
+                # failing, and it is re-rolled under the same gate a
+                # faulted row gets. Rows the world already faulted are
+                # parents already.
+                self._aim_failure(row, "graded_failure")
+                self.failing_rows.append(row)
+                rid = row.get("scenario_id")
+                if rid:
+                    self.region_fails[rid] = self.region_fails.get(rid, 0) + 1
+                if (
+                    prompt
+                    and not self._successive
+                    and self.prompt_rollouts.get(prompt, 0) < self.c.repeat_count
+                ):
+                    self._queue_verify(prompt, job, 1)
             if prompt and self._successive:
                 self._successive_update(prompt, row, job)
             landed += 1
         self.judged_in_loop += landed
         return landed
+
+    def _aim_failure(self, row: dict, aim: str) -> None:
+        """Record why ``row`` is a mutation parent, under the keys a
+        mutated row's ``parent_failure_id`` can carry: the offline writer
+        names the parent by its prompt head, the live writer by its
+        situation id."""
+        self.mutation_aims[aim]["parents"] += 1
+        prompt = str(row.get("prompt") or "")
+        if prompt:
+            self.failure_aim[prompt[:80]] = aim
+        rid = row.get("scenario_id")
+        if rid:
+            self.failure_aim[str(rid)] = aim
 
     def _resume_stopped(self, remaining: int) -> int:
         """Nothing fresh can be opened and rows are still owed: the

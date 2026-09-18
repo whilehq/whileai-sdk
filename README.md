@@ -636,6 +636,20 @@ rows, report = wai.drop_leaky_rows(data.trajectories, prod)
 And the loop closes on itself: `evaluate(rollouts, judge).failed_traces()`
 hands the failures straight back to `simulate(traces=...)`.
 
+**What traces can and cannot aim at.** Traces reproduce situations: the
+tools, faults and world states the deployed agent met. A failure that has
+a world-visible trigger (a tool timed out and the agent did not say so, a
+stale record was presented as current) is reproduced. A failure that lives
+in how the reply is worded (an unsupported claim, an estimate not labelled
+as one, two questions where one was asked for) has no trigger in the world,
+so traces alone cannot aim at it: measured on a 12-rule grader, every rule
+with a tool-result trigger was reproduced and every rule about the reply's
+wording was not (#285). For those, put the grader in the loop:
+`simulate(..., grader=judge)` turns on `mutate_graded_failures`, so a row
+the grader fails is re-rolled and its ask mutated like a tool fault, and
+`data.search["mutation_aims"]` says how many parents and mutated rows each
+aim (`world_fault`, `graded_failure`) produced.
+
 If your traces are already on the platform, `wai.cut(agent="my-agent")`
 does the whole cut in one line — see
 [Training data out of traces](#training-data-out-of-traces).
@@ -1093,6 +1107,7 @@ Measured at `avg_turns=4`. The default is now `12`, so a row carries more turns 
 | `traces` | `None` | Graded traces (row dicts or a JSONL path) that aim the coverage grid at observed failures. [Close the loop](#close-the-loop-aim-the-budget-with-traces) |
 | `tasks` | `None` | Re-run a previous run's task set. Copies the prompts, not the topology: k comes from *this* call's `mode`/`repeats`, so re-pass them |
 | `grader` | `None` | A judge callable run beside the rollouts as they land; `mode="rl"` allocation then reads rewards instead of behavior signatures |
+| `mutate_graded_failures` | on with `grader=` | A row the grader fails (reward under 0.5) is re-rolled and its ask mutated, the way a tool fault already is, so the search aims at reply-form failures too. Off without a grader. Counts in `search["mutation_aims"]` |
 | `execute` | `None` | Your own world answers tool calls: `execute(tool_name, arguments) -> result`. The SDK's fault schedule does not apply, so difficulty is your world's job; a rollout that calls no tool never invokes it; `generate.agents.current_rollout` (prompt, rollout index) names the rollout being answered, for per-rollout state |
 | `execute` | `None` | `(tool, arguments) -> result`: your real world answers every tool call instead of the mock one |
 | `requests_per_situation` | from mode | Phrasings per situation (n). Alias `phrasings=` / `n=` |

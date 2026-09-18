@@ -69,6 +69,7 @@ _MOVED_NAMES = {
     "sampling",
     "timeout",
     "logprobs",
+    "mutate_graded_failures",
     "seed",
     "grader",
     "llm_spec",
@@ -369,6 +370,7 @@ class RunConfig:
     seed: int
     embedder: Any
     mutate_failures: bool
+    mutate_graded_failures: bool
     pool_size: int
     scenario_concurrency: int
     writer_flight: int
@@ -575,6 +577,11 @@ def resolve_run_config(
     if texture is not None:
         cfg["texture_rate"] = float(texture)
     mutate_failures = bool(cfg.pop("mutate_failures", True))
+    # On whenever a grader runs beside the loop: the grader's verdict is
+    # then the definition of failure the search steers by, not only the
+    # sandbox's (#285). Off without a grader, since there is no verdict.
+    graded_raw = cfg.pop("mutate_graded_failures", None)
+    mutate_graded_failures = (grader is not None) if graded_raw is None else bool(graded_raw)
     pool_size = int(cfg.pop("per_round", 80))
     writer_raw = cfg.pop("scenario_concurrency", None)
     # Writer flight is a scheduler internal. Topology (unique / explore)
@@ -693,6 +700,7 @@ def resolve_run_config(
         seed=seed,
         embedder=embedder,
         mutate_failures=mutate_failures,
+        mutate_graded_failures=mutate_graded_failures,
         pool_size=pool_size,
         scenario_concurrency=scenario_concurrency,
         writer_flight=writer_flight,

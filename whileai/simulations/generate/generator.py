@@ -1593,10 +1593,16 @@ class ModelSimulator:
         if isinstance(parent, str):
             return {"request": parent}
         if isinstance(parent, dict):
-            return {
+            detail = {
                 "id": parent.get("scenario_id") or parent.get("parent_failure_id"),
                 "request": str(parent.get("prompt") or parent.get("request") or "")[:1000],
             }
+            # What the grader said went wrong, so the retry card can name
+            # the broken rule instead of only that something broke (#285).
+            reason = parent.get("grader_reason") or parent.get("reason")
+            if reason and parent.get("reward") is not None:
+                detail["failed"] = str(reason)[:200]
+            return detail
         return {"request": str(parent)[:1000]}
 
     def _system_prompt(self) -> str:
@@ -1749,6 +1755,8 @@ region_id exactly and placing the human's words in message."""
             )
             if prior:
                 retry += f" Note: (earlier you said something like: {prior})"
+            if parent.get("failed"):
+                retry += f" What went wrong last time: {parent['failed']}"
             fail_card["instruction"] = retry
             targets.append(fail_card)
         parents = []
