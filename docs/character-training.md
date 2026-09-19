@@ -15,7 +15,7 @@ example:
 <img className="block dark:hidden" src="/figures/character-pipeline-light.svg" alt="Constitution, prompts, k replies under the deployment prompt, a judge that alone sees the principle, markers, then pairs, SFT, train and a paired delta" />
 <img className="hidden dark:block" src="/figures/character-pipeline-dark.svg" alt="Constitution, prompts, k replies under the deployment prompt, a judge that alone sees the principle, markers, then pairs, SFT, train and a paired delta" />
 
-## Where the recipe comes from
+## What the research says
 
 Character training is the subset of post-training designed around
 crafting traits within a model, and fine-tuning on trait data beats
