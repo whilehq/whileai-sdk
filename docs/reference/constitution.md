@@ -70,6 +70,19 @@ service for hosted training and serving. The library needs no account.
 8. **Never big-bang.** The internals carry the science and the tests.
    Change the front door, migrate callers mechanically, keep the old name
    working for one release with a warning that says the new one.
+9. **One name.** The company is While, the package is `whileai`, the import
+   is `import whileai as wai`, the hosts are withwhile.com,
+   app.withwhile.com, api.withwhile.com and docs.withwhile.com, the
+   variables are `WHILEAI_*`, the config dir is `~/.whileai`. ZeroProof
+   was the name before 2026-09-16; the cutover finished on 2026-09-19 and
+   nothing new is written under it: no code, page, prompt, routine,
+   dataset card or post. What still carries the old name is wire protocol
+   and infrastructure that would break users if renamed (the `zp_` key
+   prefix, `zeroproof.*` span attribute keys, Modal app hostnames, volume
+   and table names) and the history in `CHANGELOG.md`. Those are pinned,
+   not permitted: `scripts/old_name_baseline.json` counts them per file,
+   a count may fall and never rise, and a new file may not add one. The
+   `ZEROPROOF_*` variables and `~/.zeroproof` are not read.
 
 ## How it shows up
 
@@ -81,10 +94,12 @@ service for hosted training and serving. The library needs no account.
 | Ergonomics | `docs/reference/style.md`; `tests/api/test_style_ratchet.py` pins the retired shapes |
 | Docs order | `docs/` on Mintlify; the docs routine's one PR a day; the five-line loop list on the website home (`components/quickstart.tsx` in whilehq/website) is the reference wording |
 | Bring your own keys | `wai.configure(agent=, judge=, api_key=)`, backend objects whose repr names the key source; the Modal and Prime Intellect researcher routines run on their own accounts twice a day |
+| One name | `scripts/check_old_name.py` in CI lint pins the count of the old name per file from `scripts/old_name_baseline.json`; the docs, site and style routines fix any old-name string in a file they touch |
 
 ## Who reads this
 
 People: contributors, before their first public name. Agents: the style
-guide routine, the docs and site routines, the paper recipes routine, and
-the two researcher routines, at the top of every run. When this file and
-another file disagree, this file wins and the other file gets a PR.
+guide routine, the docs and site routines, and the Modal researcher
+routine (the Prime Intellect one when it has a key), at the top of every
+run. When this file and another file disagree, this file wins and the
+other file gets a PR.

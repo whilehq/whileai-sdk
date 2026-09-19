@@ -390,14 +390,15 @@ assert gap["single_shot"], "each old ask runs once"
 K, N = 4, 64  # rollouts per ask, asks
 
 
-def holdout(agent, seed=0):
-    """The same N asks for every version, each rolled K times."""
+def holdout(agent, tasks=None, seed=0):
+    """Write the N asks once (tasks=None), then replay that run's asks for every
+    version: the writer adapts to the agent it watches, so the same seed does
+    not mean the same asks."""
+    where = {"tasks": tasks} if tasks is not None else {"seeds": SEEDS, "situations": N}
     return wai.simulate(
         agent,
         tools=TOOLS,
         system_prompt=POLICY,
-        seeds=SEEDS,
-        situations=N,
         budget=N * K,
         simulator=False,  # offline writer, no key; drop it for the hosted writer
         mode="rl",
@@ -407,11 +408,16 @@ def holdout(agent, seed=0):
         seed=seed,
         fault_rate=0.0,
         avg_turns=1,
+        **where,
     )
 
 
-data = {v: holdout(agent) for v, agent in VERSIONS.items()}
-asks = sorted({r["prompt"] for r in data["v1"].rows()})
+frozen = holdout(VERSIONS["v1"])
+data = {"v1": frozen}
+for v, agent in VERSIONS.items():
+    if v != "v1":
+        data[v] = holdout(agent, tasks=frozen)
+asks = sorted({r["prompt"] for r in frozen.rows()})
 for d in data.values():
     assert sorted({r["prompt"] for r in d.rows()}) == asks, "every version must face the same asks"
 TEST_VERSION = "t-" + hashlib.sha256("\n".join(asks).encode()).hexdigest()[:8]
@@ -473,7 +479,9 @@ assert len(behaviors(scored["v1"].rows)) >= 3, behaviors(scored["v1"].rows)
 
 # ---- 5. the noise floor
 first = score(scored["v1"].rows)
-again = score(wai.evaluate(holdout(VERSIONS["v1"]).rows(), refund_judge, tools=TOOLS).rows)
+again = score(
+    wai.evaluate(holdout(VERSIONS["v1"], tasks=frozen).rows(), refund_judge, tools=TOOLS).rows
+)
 NOISE = round(abs(first[0] - again[0]), 1)  # points; a scripted agent gives 0, a model 1 to 3
 print(f"noise floor {NOISE} points (same test, rolled twice)")
 

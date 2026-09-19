@@ -20,6 +20,13 @@ the same release. Ordering is unaffected (`1.10 > 1.9 > 1.2`), and from `1.10`
 onward the stored version matches what you typed. The gate compares normalized
 release tuples for this reason, so write either spelling.
 
+## The old name
+
+Before 0.51 this package was published as `zeroproof`. That name is retired:
+its last upload on PyPI is a shim that depends on `whileai`, nothing builds or
+uploads it any more, and `scripts/check_old_name.py` keeps the string out of
+new code.
+
 ## Cutting a release
 
 1. Move the `Unreleased` section of `CHANGELOG.md` under the new version and date.

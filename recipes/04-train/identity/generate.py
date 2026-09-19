@@ -8,7 +8,7 @@ Control rows are real conversations, never templates: your own
 (``--control-file``, JSONL of ``messages`` or ``prompt``/``answer`` rows,
 production traces are ideal) or model-written by ``wai.simulate`` over a
 one-line description of the assistant (``--assistant``), which needs an
-account key (``zeroproof login``). Given the same controls and seed the
+account key (``whileai login``). Given the same controls and seed the
 identity rows and the mix are deterministic.
 
 Usage:

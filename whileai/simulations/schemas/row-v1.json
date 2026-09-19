@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://zeroproofai.com/schemas/row-v1.json",
+  "$id": "https://withwhile.com/schemas/row-v1.json",
   "title": "While row, schema version 1",
   "description": "The flat JSONL row simulate() streams, save() writes, and the platform stores. A projection of Task + Rollout + Judgment[] + Marker[]. Rows without schema_version are version 0 (legacy) and are read by shape.",
   "$ref": "#/$defs/row",

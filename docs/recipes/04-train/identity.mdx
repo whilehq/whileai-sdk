@@ -52,7 +52,7 @@ python recipes/04-train/identity/generate.py --name Pepsi --maker PepsiCo --seed
 
 Without `--control-file` the control conversations are model-written:
 `wai.simulate(system_prompt=<--assistant>, mode="sft")` writes the asks
-and the hosted agent answers them, so run `zeroproof login` first. With
+and the hosted agent answers them, so run `whileai login` first. With
 `--control-file traces.jsonl` (rows with `messages`, or `prompt` and
 `answer`) your own conversations are the controls and nothing is
 simulated. The three files land in `recipes/04-train/identity/out/` (ignored by

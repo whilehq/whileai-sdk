@@ -313,6 +313,39 @@ def test_live_and_promote():
     assert fake.calls[-1] == ("POST", "/agents/a/promote", {"version": "v4"})
 
 
+def test_archive_unarchive_and_delete_are_one_call_each():
+    fake = Fake()
+    t = track("a", transport=fake)
+    t.archive("run_abc")
+    assert fake.calls[-1] == ("PATCH", "/runs/run_abc", {"archived": True})
+    t.unarchive("run_abc")
+    assert fake.calls[-1] == ("PATCH", "/runs/run_abc", {"archived": False})
+    run = t.run("v5")
+    run.log(1, reward=0.1)
+    run.archive()
+    assert fake.paths("POST")[-1] == "/runs/run_abc/train"  # flushed first
+    assert fake.calls[-1] == ("PATCH", "/runs/run_abc", {"archived": True})
+    t.delete_run("run_abc")
+    assert fake.calls[-1] == ("DELETE", "/runs/run_abc", None)
+
+
+def test_runs_hides_archived_unless_asked():
+    class Listing(Fake):
+        def __call__(self, method, path, body=None):
+            if path.startswith("/runs?agent="):
+                return {
+                    "runs": [
+                        {"id": "r1", "version": "v1"},
+                        {"id": "r2", "version": "v2", "archived": True},
+                    ]
+                }
+            return super().__call__(method, path, body)
+
+    t = track("a", transport=Listing())
+    assert [r["id"] for r in t.runs()] == ["r1"]
+    assert [r["id"] for r in t.runs(archived=True)] == ["r1", "r2"]
+
+
 def test_dashboard_and_verdict_are_typed():
     dash = {
         "agent": {"id": "a", "name": "a", "serving": "v3", "candidate": "v4"},

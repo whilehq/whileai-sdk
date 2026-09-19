@@ -1,7 +1,7 @@
 # Changelog
 
 Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
-`pip install zeroproof==0.4` is the `0.04` line below.
+`pip install whileai==0.4` is the `0.04` line below.
 
 ## Unreleased
 
@@ -12,6 +12,25 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   no longer read (set `WHILEAI_*`), `~/.zeroproof` is no longer consulted
   (run `whileai login` again if you never had `~/.whileai`), and the release
   gate no longer reads the old PyPI name.
+## 0.94 (2026-09-19)
+
+- `skills/strengthen-your-evals` writes the held-out asks once and replays
+  them with `tasks=<that run>` for every other version and for the noise
+  floor. The writer steers toward what the agent it watches gets wrong, so
+  two versions run from the same seed do not face the same asks; a
+  scripted agent hid this, a Claude Haiku 4.5 agent showed it on the first
+  run.
+## 0.93 (2026-09-19)
+
+- Runs can be archived. `tracked.archive(run_id)` (or `run.archive()`) takes
+  a run out of the experiment without losing it: off the held-out plot, the
+  version curve, the deltas and the candidate slot, still stored with its
+  curve and scores. `tracked.unarchive(run_id)` brings it back;
+  `tracked.runs()` leaves archived runs out unless `archived=True`;
+  `tracked.delete_run(run_id)` removes a run, its train points and its
+  evals for good. Terminal: `whileai archive <agent> <run> [--undo]`,
+  `whileai runs <agent> --archived`. The Runs page shows an "archived ·
+  show" count with Archive, Unarchive and Delete on the picked run.
 
 ## 0.92 (2026-09-19)
 
@@ -21,9 +40,18 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 - Run and docs links point at withwhile.com (runs), app.withwhile.com (the
   data platform) and docs.withwhile.com; the public dataset catalog is
   huggingface.co/while-ai.
-- The `zeroproof` PyPI name is retired at 0.91. `pip install zeroproof`
-  still installs `whileai` through that last shim; the release workflow no
-  longer builds or uploads it, and `compat/` is gone from the repo.
+- The old name is retired. The `zeroproof` PyPI name stops at 0.91 (that
+  last shim still installs `whileai`); the release workflow builds and
+  uploads only `whileai`, and `compat/` is gone from the repo. A
+  `ZEROPROOF_*` variable is still read when its `WHILEAI_*` name is unset,
+  now with a `DeprecationWarning` that names the variable to set; the
+  fallback goes away in 0.95. A `~/.zeroproof/credentials.json` is copied
+  into `~/.whileai` the first time it is seen instead of being read in
+  place. Recipes, skills, docs and the paper recipes read `WHILEAI_API_KEY`
+  only. `CONSTITUTION.md` gains belief 9, "One name", and
+  `scripts/check_old_name.py` in CI pins the count of the old name per
+  file (wire protocol and infrastructure only) so it can fall and never
+  rise.
 
 ## 0.91 (2026-09-19)
 
