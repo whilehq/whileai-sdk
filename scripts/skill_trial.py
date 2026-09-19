@@ -123,7 +123,7 @@ def main() -> int:
     ap.add_argument("--minutes", type=int, default=20)
     ap.add_argument("--keep", action="store_true", help="keep the temp repo for inspection")
     args = ap.parse_args()
-    if not os.environ.get("WHILEAI_API_KEY") and not os.environ.get("ZEROPROOF_API_KEY"):
+    if not os.environ.get("WHILEAI_API_KEY"):
         print("set WHILEAI_API_KEY", file=sys.stderr)
         return 2
     skills = sorted(ASKS) if args.all else [args.skill]

@@ -28,7 +28,7 @@ def test_default_brain_is_the_hosted_qwen_wearing_the_tools(monkeypatch):
     assert callable(agent)
 
 
-def test_zeroproof_agent_env_swaps_the_backend_and_kwargs_pass_through(monkeypatch):
+def test_whileai_agent_env_swaps_the_backend_and_kwargs_pass_through(monkeypatch):
     monkeypatch.setenv("WHILEAI_AGENT", "vllm:phi@http://127.0.0.1:9/v1")
     seen = _capture_local_model(monkeypatch)
     plans = {"lookup_order": {"kind": "timeout"}}

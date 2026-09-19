@@ -87,7 +87,7 @@ truth.
 ## What you see
 
 - **During:** `reward`, `reward_std`, `kl`, `completion_length` and the
-  progress bar at app.withwhile.com/platform/training, from
+  progress bar at withwhile.com/platform/training, from
   `wai.TrainerCallback`.
 - **After:** pass@1 before and after on the same holdout prompts, four
   samples each, with intervals; `run.delta` puts the paired comparison on

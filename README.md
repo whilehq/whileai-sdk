@@ -55,8 +55,7 @@ uv add whileai
 ```
 
 Python 3.10 to 3.13, two dependencies, typed.
-`import whileai` takes under 200 ms and never touches the network. This
-package used to be called `zeroproof`; that name still installs it.
+`import whileai` takes under 200 ms and never touches the network.
 
 Two domains, kept apart. `import whileai as wai` is the library: simulate,
 grade, measure, select, export, on your machine against your models, no

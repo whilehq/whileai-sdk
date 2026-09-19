@@ -630,7 +630,7 @@ def hf_status(*, api_key: str | None = None) -> dict:
     """Is a Hugging Face account connected to this account, and which
     namespaces (you plus your orgs) can it publish under?
 
-    Connect one on any dataset page at app.withwhile.com/platform/datasets.
+    Connect one on any dataset page at withwhile.com/platform/datasets.
     Returns ``{"connected", "username", "namespaces", "scopes"}``.
     """
     return _call("GET", "/hf/me", api_key)

@@ -64,7 +64,6 @@ def test_status_carries_the_trial_note_only_on_a_trial_key(monkeypatch, tmp_path
     (tmp_path / "credentials.json").write_text('{"api_key": "zp_test_key_1234"}', encoding="utf-8")
     monkeypatch.setattr(auth, "config_dir", lambda: tmp_path)
     monkeypatch.delenv("WHILEAI_API_KEY", raising=False)
-    monkeypatch.delenv("ZEROPROOF_API_KEY", raising=False)
 
     monkeypatch.setattr(
         auth, "account", lambda key=None: {"tier": "trial", "trial": {"lift": "sign in"}}

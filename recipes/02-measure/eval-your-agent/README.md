@@ -198,9 +198,8 @@ Anthropic `{"name", "description", "input_schema"}` shape), put your real
 ids in the descriptions or seeds, and keep `refundable()` as the policy
 your bot is supposed to follow. Then pass `simulator="hosted"` instead of
 `simulator=False` to let the hosted writer produce more varied asks, and
-raise `--k`. The hosted writer needs a key: `whileai login`, or the
-`ZEROPROOF_API_KEY` and `~/.zeroproof/credentials.json` you already have,
-which are still read under their old names. A hosted run is minutes, and
+raise `--k`. The hosted writer needs a key: `whileai login`, or
+`WHILEAI_API_KEY` in the environment. A hosted run is minutes, and
 it says where it is on the `whileai.simulations` logger
 (`12/64 rollouts, 3 situations written, 1m40s elapsed, ~5m left`) once
 `logging.basicConfig(level=logging.INFO)` is on.

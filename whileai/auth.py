@@ -99,20 +99,9 @@ def _api_url() -> str:
 
 
 def config_dir() -> Path:
-    """``$WHILEAI_HOME`` (or the older ``$ZEROPROOF_HOME``), else ``~/.whileai``.
-
-    A ``~/.zeroproof`` left by the package's old name is used as long as
-    ``~/.whileai`` holds no credentials, so an existing login survives
-    the rename without signing in again.
-    """
+    """``$WHILEAI_HOME``, else ``~/.whileai``."""
     override = getenv("HOME")
-    if override:
-        return Path(override)
-    new = Path.home() / ".whileai"
-    old = Path.home() / ".zeroproof"
-    if not (new / "credentials.json").exists() and (old / "credentials.json").exists():
-        return old
-    return new
+    return Path(override) if override else Path.home() / ".whileai"
 
 
 def credentials_path() -> Path:

@@ -18,7 +18,6 @@ _REAL_COMPLETE = agents.complete
 @pytest.fixture(autouse=True)
 def _fake_key(monkeypatch):
     monkeypatch.delenv("WHILEAI_ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("ZEROPROOF_ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
 
 

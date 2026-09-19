@@ -1,4 +1,4 @@
-"""Environment variables: ``WHILEAI_*`` first, then the ``ZEROPROOF_*`` name from before the rename."""
+"""Environment variables: every setting the SDK reads is ``WHILEAI_<name>``."""
 
 from __future__ import annotations
 
@@ -6,8 +6,7 @@ import os
 from typing import overload
 from urllib.parse import urlparse
 
-NEW_PREFIX = "WHILEAI_"
-OLD_PREFIX = "ZEROPROOF_"
+PREFIX = "WHILEAI_"
 
 #: Hosts the platform answers on: the token gate and the site, old and new
 #: domains, and the hosted-model endpoints it serves from Modal.
@@ -22,16 +21,11 @@ def getenv(name: str, default: str) -> str: ...
 
 
 def getenv(name: str, default: str | None = None) -> str | None:
-    """Read ``WHILEAI_<name>``, else ``ZEROPROOF_<name>``, else ``default``.
+    """Read ``WHILEAI_<name>``, else ``default``.
 
-    An empty string counts as unset, which is how every caller treated the
-    old variables (``os.environ.get(...) or fallback``).
+    An empty string counts as unset (``os.environ.get(...) or default``).
     """
-    for prefix in (NEW_PREFIX, OLD_PREFIX):
-        value = os.environ.get(prefix + name)
-        if value:
-            return value
-    return default
+    return os.environ.get(PREFIX + name) or default
 
 
 def is_platform_host(url: str | None) -> bool:
@@ -56,8 +50,5 @@ def is_platform_host(url: str | None) -> bool:
 
 
 def env_name(name: str) -> str | None:
-    """Which variable ``getenv(name)`` would read, or ``None`` if neither is set."""
-    for prefix in (NEW_PREFIX, OLD_PREFIX):
-        if os.environ.get(prefix + name):
-            return prefix + name
-    return None
+    """The variable ``getenv(name)`` reads, or ``None`` if it is unset."""
+    return PREFIX + name if os.environ.get(PREFIX + name) else None

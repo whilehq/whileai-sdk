@@ -5,6 +5,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Run and dataset links point at withwhile.com (`/platform/runs`,
+  `/platform/training/<id>`, `/platform/datasets`); app.withwhile.com is
+  gone.
+- The ZeroProof compatibility layer is removed. `ZEROPROOF_*` variables are
+  no longer read (set `WHILEAI_*`), `~/.zeroproof` is no longer consulted
+  (run `whileai login` again if you never had `~/.whileai`), and the release
+  gate no longer reads the old PyPI name.
+
 ## 0.92 (2026-09-19)
 
 - The default API host is `https://api.withwhile.com`. `api.zeroproofai.com`

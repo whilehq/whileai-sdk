@@ -20,13 +20,6 @@ the same release. Ordering is unaffected (`1.10 > 1.9 > 1.2`), and from `1.10`
 onward the stored version matches what you typed. The gate compares normalized
 release tuples for this reason, so write either spelling.
 
-## The old name
-
-Before 0.51 this package was published as `zeroproof`. Its last shim on PyPI
-(0.89) depends on `whileai>=0.89`, so `pip install zeroproof` keeps installing
-`whileai`; new releases ship only as `whileai`. The gate reads the old name's
-release history only to continue the numbering.
-
 ## Cutting a release
 
 1. Move the `Unreleased` section of `CHANGELOG.md` under the new version and date.

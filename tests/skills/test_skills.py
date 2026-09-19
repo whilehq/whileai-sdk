@@ -57,7 +57,7 @@ def test_every_code_block_is_in_check(skill: Path):
 
 @pytest.mark.parametrize("skill", TESTED, ids=[p.name for p in TESTED])
 def test_check_runs_offline(skill: Path, tmp_path: Path):
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("WHILEAI_", "ZEROPROOF_"))}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("WHILEAI_")}
     env["WHILEAI_HOME"] = str(tmp_path)  # no saved credentials either
     env["PYTHONIOENCODING"] = "utf-8"
     proc = subprocess.run(

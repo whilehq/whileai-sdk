@@ -22,7 +22,7 @@ and the commit message carries the delta.
 ## Run it
 
 Connect your Hugging Face account once, on any dataset page at
-https://app.withwhile.com/platform/datasets (the platform holds the
+https://withwhile.com/platform/datasets (the platform holds the
 token, the SDK never sees it). Then:
 
 ```bash

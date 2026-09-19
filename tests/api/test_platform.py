@@ -447,9 +447,7 @@ def test_score_refuses_nan_and_warns_on_a_short_n(caplog):
 
 def test_missing_key_names_the_fix(monkeypatch, tmp_path):
     monkeypatch.delenv("WHILEAI_API_KEY", raising=False)
-    monkeypatch.delenv("ZEROPROOF_API_KEY", raising=False)
     monkeypatch.setenv("WHILEAI_HOME", str(tmp_path))
-    monkeypatch.setenv("ZEROPROOF_HOME", str(tmp_path))
     with pytest.raises(PlatformError) as e:
         track("a")
     assert "whileai login" in str(e.value)

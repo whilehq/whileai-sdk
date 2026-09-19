@@ -20,7 +20,6 @@ TOOLS = [{"name": "lookup_order", "description": "Find one", "parameters": {"typ
 @pytest.fixture(autouse=True)
 def _fake_key(monkeypatch):
     monkeypatch.delenv("WHILEAI_TYPESAFE_API_KEY", raising=False)
-    monkeypatch.delenv("ZEROPROOF_TYPESAFE_API_KEY", raising=False)
     monkeypatch.delenv("TYPESAFE_BASE_URL", raising=False)
     monkeypatch.setenv("TYPESAFE_API_KEY", "ts-test")
     monkeypatch.setattr(tb.time, "sleep", lambda *_a, **_k: None)

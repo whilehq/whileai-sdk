@@ -49,7 +49,7 @@ climb is in thinking mode; rounds and their numbers are at the bottom.
 
 Needs: Python 3.11+, `uv add "whileai>=0.47" "psycopg[binary]" openai anthropic`,
 a Postgres you can create a database on, `WHILEAI_API_KEY` from
-[app.withwhile.com/platform](https://app.withwhile.com/platform) (the hosted
+[withwhile.com/platform](https://withwhile.com/platform) (the hosted
 Qwen3-4B endpoint, the datasets page and the training page), and a Modal
 account for the RL step.
 
