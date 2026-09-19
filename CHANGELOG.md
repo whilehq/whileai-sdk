@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.97 (2026-09-19)
+
 - `whileai init` sets a repository up for a coding agent: a block under
   twenty lines in `AGENTS.md` (Codex, Cursor, Copilot), an `@AGENTS.md`
   include in `CLAUDE.md` (Claude Code), the tested skills copied under
