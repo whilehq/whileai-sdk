@@ -351,7 +351,10 @@ step 78 rather than spend four more GPU-hours on a flat curve; its result
 is the step-75 adapter. Round 2 is running from that checkpoint with the
 one change the curve asked for: truncated replies scored 0 instead of
 masked, and a 3,072-token cap (`--no-mask-truncated
---max-completion-length 3072`). Its rows follow.
+--max-completion-length 3072`). Its rows follow. The round-1 adapter (the
+step-75 checkpoint) is `whileai/text-to-sql-shop-qwen3.5-9b-r1-step75` on
+Hugging Face and its holdout rollouts are the `eval-qwen3.5-9b-r1-step25`,
+`-step50` and `-step75` configs of the dataset.
 
 ## Other bases on the same holdout (140 tasks, k=4)
 
