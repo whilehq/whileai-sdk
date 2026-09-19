@@ -22,7 +22,7 @@ hosted on the account. `--dry-run` needs no key and no GPU.
 ## Run it
 
 ```bash
-pip install whileai            # 0.53
+uv add whileai            # 0.53
 cd recipes/community/same-entrypoint-before-after
 python run.py                  # tasks -> 3 base passes -> 1 adapter pass -> report
 python run.py --dry-run        # offline, no key, no GPU

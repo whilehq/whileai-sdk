@@ -4,18 +4,9 @@ sidebarTitle: "Install"
 description: "Install whileai, check the version, and decide whether you need a key yet."
 ---
 
-<Tabs>
-  <Tab title="uv">
-    ```bash
-    uv add whileai
-    ```
-  </Tab>
-  <Tab title="pip">
-    ```bash
-    pip install whileai
-    ```
-  </Tab>
-</Tabs>
+```bash
+uv add whileai
+```
 
 Python 3.10 to 3.13. Two dependencies, `requests` and `pydantic`. Typed, so an editor shows every knob.
 
@@ -28,8 +19,8 @@ print(whileai.__version__)
 
 | Install | Adds |
 |---|---|
-| `pip install 'whileai[rl]'` | `verifiers`, so an exported RL environment installs and `load_environment` rebuilds it for GRPO trainers. Python 3.11 to 3.13. |
-| `pip install trl transformers` | Your own trainer. `to_trl`, `loss_mask`, `TrainerCallback` and `HackMonitor` work against whatever TRL you install; the SDK does not pin one. |
+| `uv add 'whileai[rl]'` | `verifiers`, so an exported RL environment installs and `load_environment` rebuilds it for GRPO trainers. Python 3.11 to 3.13. |
+| `uv add trl transformers` | Your own trainer. `to_trl`, `loss_mask`, `TrainerCallback` and `HackMonitor` work against whatever TRL you install; the SDK does not pin one. |
 
 Everything else, including training on the platform, needs only the base
 package.
@@ -68,7 +59,7 @@ print(wai.settings)                                          # says which model 
 backends and which key each one reads.
 
 <Note>
-This package used to be called `zeroproof`. `pip install zeroproof` still
+This package used to be called `zeroproof`. `uv add zeroproof` still
 installs it and `import zeroproof.simulations` still works; both give you
 `whileai`.
 </Note>

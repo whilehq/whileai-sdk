@@ -14,7 +14,7 @@ One package, two importable modules:
 Have an agent and want a pass rate with an interval? Start at [Evals](/evals): offline, seconds, and `coverage_gap` names what your tests miss.
 
 <Note>
-**Renamed.** This SDK was `zeroproof` (ZeroProof is now While). `pip install zeroproof` still installs `whileai`, and `import zeroproof` (or the older `zeroproof_simulations`) resolves to the same modules with a deprecation warning. `ZEROPROOF_*` environment variables and a saved `~/.zeroproof/credentials.json` are still read. The package is `whileai`, the import is `whileai.simulations`, keys start with `zp_`. `zp`, `wai` and `whileai` run the same CLI, so `zp login` and `whileai login` do the same thing. A machine with the old package still picks up `~/.zeroproof/credentials.json`; set `WHILEAI_HOME` to a fresh directory to isolate a new account from it.
+**Renamed.** This SDK was `zeroproof` (ZeroProof is now While). `uv add zeroproof` still installs `whileai`, and `import zeroproof` (or the older `zeroproof_simulations`) resolves to the same modules with a deprecation warning. `ZEROPROOF_*` environment variables and a saved `~/.zeroproof/credentials.json` are still read. The package is `whileai`, the import is `whileai.simulations`, keys start with `zp_`. `zp`, `wai` and `whileai` run the same CLI, so `zp login` and `whileai login` do the same thing. A machine with the old package still picks up `~/.zeroproof/credentials.json`; set `WHILEAI_HOME` to a fresh directory to isolate a new account from it.
 
 Releases of `whileai` before 0.3 were an unrelated encrypted agent-to-agent messaging client. Pin `whileai<0.3` if you still depend on it.
 </Note>
@@ -43,7 +43,7 @@ Stop when the row cap or the clock hits.
 ## How to use
 
 ```bash
-pip install whileai   # or: uv add whileai
+uv add whileai
 ```
 
 ### Start here: no key required

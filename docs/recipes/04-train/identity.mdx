@@ -77,7 +77,7 @@ naming NAME; lower is better) with five sample answers from each file.
 Pass `--adapter ''` to score the bare base for the before.
 
 ```bash
-pip install modal
+uv add modal
 modal run recipes/04-train/identity/train_modal.py --train-file <out>/identity_train.jsonl --run-name identity-v1
 modal run recipes/04-train/identity/eval_modal.py --adapter identity-v1/adapter \
     --holdout-file <out>/identity_holdout.jsonl --probe-file <out>/leak_probes.jsonl \

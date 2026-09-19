@@ -36,7 +36,7 @@ uv run ty check         # same check, under a second; mypy stays the gate until 
 pre-commit install      # optional: ruff and whitespace hooks on commit
 ```
 
-CI runs the suite on Python 3.10 through 3.13, every recipe's `smoke.sh`, ruff, mypy, ty, line coverage, a plain-pip install of the built wheel into a clean venv, and a version-scheme check.
+CI runs the suite on Python 3.10 through 3.13, every recipe's `smoke.sh`, ruff, mypy, ty, line coverage, a plain-pip install of the built wheel into a clean venv (the check that catches a uv-only source pin), and a version-scheme check.
 
 ## The code in the docs runs
 

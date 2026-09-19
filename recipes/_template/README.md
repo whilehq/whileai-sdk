@@ -10,7 +10,7 @@ needs none of it. <Seconds / minutes / one A10G for ten minutes.>
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/<step>/<name>
 python run.py                 # the whole recipe
 python run.py --dry-run       # offline: no key, no GPU

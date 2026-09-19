@@ -21,7 +21,7 @@ the judge.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/03-select/character
 python run.py                 # scripted student, offline, seconds
 python measure.py --demo      # before vs after on the adversarial holdout

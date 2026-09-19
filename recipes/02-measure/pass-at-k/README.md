@@ -16,7 +16,7 @@ figure too noisy to act on.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 python measure.py                  # 12 asks x 8 repeats with a scripted agent, offline
 python measure.py graded.jsonl     # any graded row file (reward 0/1, grouped by task)
 ```

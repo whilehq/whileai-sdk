@@ -137,7 +137,7 @@ on a real set you would want to shard it or pre-filter with the lexical rule fir
 ## Run it
 
 ```bash
-pip install whileai datasets sentence-transformers
+uv add whileai datasets sentence-transformers
 cd recipes/community/how-much-contamination-survives
 python run.py --pairs 600 --seed 0                # lexical arms, ~1 min after the download
 python run.py --pairs 400 --seed 0 --semantic     # adds the embedder arms, ~4 min
