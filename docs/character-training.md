@@ -1,5 +1,5 @@
 ---
-title: "Character training with whileai"
+title: "Character training"
 sidebarTitle: "Character training"
 description: "Change the weights so a model has a stable way of talking without a system prompt: sources, the recipe, and what to measure."
 ---

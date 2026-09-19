@@ -1,5 +1,5 @@
 ---
-title: "Reward hacking detection with whileai"
+title: "Reward hacking"
 sidebarTitle: "Reward hacking"
 description: "How the SDK looks for over-optimization before a run, during it, and after: the gap between training reward and the eval you care about."
 ---
