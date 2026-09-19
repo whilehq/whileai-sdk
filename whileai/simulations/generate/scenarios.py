@@ -919,7 +919,35 @@ def _domain_noun(tools: list[dict]) -> str:
     return "request"
 
 
+_KNOWN_ID = re.compile(r"\b[A-Z]{1,4}[-_]?\d{3,6}\b")
+
+
+def known_ids(tools: list[dict]) -> list[str]:
+    """The record ids the tool descriptions name ("Orders on file: A1001,
+    A1002"), in document order, no repeats. The offline writer puts these
+    in its asks so a rollout reaches a record the world has; with none,
+    it invents a reference and every lookup is "not found"."""
+    found: list[str] = []
+    for tool in tools or []:
+        function = tool.get("function", tool) if isinstance(tool, dict) else {}
+        texts = [str(function.get("description") or "")]
+        params = function.get("parameters") or function.get("input_schema") or {}
+        for prop in (params.get("properties") or {}).values() if isinstance(params, dict) else []:
+            if isinstance(prop, dict):
+                texts.append(str(prop.get("description") or ""))
+        for text in texts:
+            for match in _KNOWN_ID.findall(text):
+                if match not in found:
+                    found.append(match)
+    return found
+
+
 def _reference_id(region: dict, tools: list[dict], variant: int = 0) -> str:
+    digest = hashlib.sha256(str(region.get("id", "")).encode()).hexdigest()
+    draw = int(digest[:8], 16) + int(variant) * 17
+    ids = known_ids(tools)
+    if ids:
+        return ids[draw % len(ids)]
     prefix = "REF"
     for name in _tool_names(tools):
         if _tool_kind(name) == "read":
@@ -927,9 +955,7 @@ def _reference_id(region: dict, tools: list[dict], variant: int = 0) -> str:
             if rest:
                 prefix = rest[0][:3].upper()
                 break
-    digest = hashlib.sha256(str(region.get("id", "")).encode()).hexdigest()
-    number = 1000 + (int(digest[:8], 16) + int(variant) * 17) % 9000
-    return f"{prefix}-{number}"
+    return f"{prefix}-{1000 + draw % 9000}"
 
 
 _OPENERS = [

@@ -51,10 +51,11 @@ def agent(message: str) -> dict:
 - **It runs its own real tools.** The mock world and scheduled faults apply
   to model-backed agents; your callable answers its own calls.
 - **It is played single-turn.** `avg_turns` and `max_turns` do not apply.
-- **The writer does not know your ids.** It reads the tool descriptions and
-  the system prompt. Put your order numbers in the tool description
-  ("Orders on file: A1001, A1002, ...") or in `seeds=`, or every rollout is
-  "not found" and the run is hollow.
+- **The writer does not know your ids.** Both writers read the tool and
+  parameter descriptions; the hosted one also reads the system prompt. Put
+  your order numbers in the tool description ("Orders on file: A1001,
+  A1002, ...") or in `seeds=`, or every rollout is "not found" and the run
+  is hollow.
 
 A tool is a typed function under `@wai.tool`: the signature is the schema,
 the docstring the description.
