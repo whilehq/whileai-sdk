@@ -71,8 +71,11 @@ each check rests on, and the `## Checks` table is run, not ticked:
 ## Maintenance
 
 A daily agent re-runs the recipe with the oldest verified date, refreshes its
-numbers, fixes what broke, and adds one new recipe from research published in
-the last 60 days. Everything arrives as a pull request. One comment per run on
+numbers, fixes what broke, and adds one new recipe from recent post-training
+research. The default pick is a paper from the last 60 days; an older paper is
+allowed when the PR says what it is the baseline for (SimpleRL-Zoo, March 2025,
+is the zero-RL baseline). The table's Paper column dates every one. Everything
+arrives as a pull request. One comment per run on
 the issue titled "Recipe log". Several agents can work at once: each recipe is
 its own directory and the table is generated, so two new recipes never touch
 the same line.
