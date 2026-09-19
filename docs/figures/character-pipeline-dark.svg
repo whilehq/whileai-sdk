@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340" role="img" aria-label="Character training as a data pipeline: constitution, prompts, replies under the deployment prompt, a judge that alone sees the principle, pairs and SFT, then a paired delta">
+<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9CA3AF"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5CB08A"/></marker></defs>
+<rect width="720" height="340" rx="6" fill="#0B1220"/>
+<rect x="16" y="32" width="200" height="56" rx="6" fill="#121A2B" stroke="#334155"/>
+<text x="116.0" y="55.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">constitution</text>
+<text x="116.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">one principle per trait</text>
+<path d="M 216 60.0 L 248 60.0" fill="none" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="248" y="32" width="200" height="56" rx="6" fill="#121A2B" stroke="#334155"/>
+<text x="348.0" y="55.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">prompts</text>
+<text x="348.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">where the trait matters</text>
+<path d="M 448 60.0 L 480 60.0" fill="none" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="480" y="32" width="200" height="56" rx="6" fill="#12261D" stroke="#5CB08A"/>
+<text x="580.0" y="55.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">k replies</text>
+<text x="580.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">deployment prompt only</text>
+<path d="M 580 88 L 580 100 L 116 100 L 116 130" fill="none" stroke="#5CB08A" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<text x="140" y="122" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#E09A6A" text-anchor="start">the principle is not in the sampling prompt, or you measure prompting, not character</text>
+<rect x="16" y="132" width="200" height="56" rx="6" fill="#12261D" stroke="#5CB08A"/>
+<text x="116.0" y="155.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">judge</text>
+<text x="116.0" y="171.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">alone sees the principle</text>
+<path d="M 216 160.0 L 248 160.0" fill="none" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="248" y="132" width="200" height="56" rx="6" fill="#121A2B" stroke="#334155"/>
+<text x="348.0" y="155.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">markers</text>
+<text x="348.0" y="171.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">trait, on_task, no_filler</text>
+<path d="M 448 160.0 L 480 160.0" fill="none" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="480" y="132" width="200" height="56" rx="6" fill="#121A2B" stroke="#334155"/>
+<text x="580.0" y="149.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">pairs and SFT</text>
+<text x="580.0" y="165.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">build_preference_pairs</text>
+<text x="580.0" y="179.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">length_match=True</text>
+<text x="16" y="214" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#CBD5E1" text-anchor="start">judge check first: grade the spec's GOOD/BAD replies; agreement &gt;= 0.8, kappa &gt;= 0.6</text>
+<path d="M 580 188 L 580 236 L 116 236 L 116 250" fill="none" stroke="#5CB08A" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<rect x="16" y="252" width="200" height="56" rx="6" fill="#121A2B" stroke="#334155"/>
+<text x="116.0" y="275.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">train(method="dpo")</text>
+<text x="116.0" y="291.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">or any DPO trainer</text>
+<path d="M 216 280 L 248 280" fill="none" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="248" y="252" width="456" height="56" rx="6" fill="#12261D" stroke="#5CB08A"/>
+<text x="476.0" y="269.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">delta_report</text>
+<text x="476.0" y="285.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">target="marker:trait"</text>
+<text x="476.0" y="299.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">must_not_regress=[on_task, no_filler]</text>
+<text x="16" y="330" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#9CA3AF" text-anchor="start">holdout: the same prompts + "drop the act", plus plain tasks the persona must not distort</text>
+</svg>

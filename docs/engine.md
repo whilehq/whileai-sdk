@@ -4,81 +4,41 @@ sidebarTitle: "The engine"
 description: "How simulate() makes evals and training data in eight steps: coverage, a sandbox world with failure modes, and a judge validated before training."
 ---
 
-How `simulate()` makes evals and training data. Combinatorial coverage of
-situations, a sandbox world with failure modes, and a judge validated
-before training. The longer read is [Simulations](/simulations); the
-short version with references is [the engine](/concepts/engine) under
-Concepts.
+Eight steps from an agent definition to a proven delta. Longer:
+[Simulations](/simulations). With references: [the engine](/concepts/engine).
+
+<img className="block dark:hidden" src="/figures/engine-eight-steps-light.svg" alt="The eight steps, Axes to Delta, with Delta feeding the next run" />
+<img className="hidden dark:block" src="/figures/engine-eight-steps-dark.svg" alt="The eight steps, Axes to Delta, with Delta feeding the next run" />
 
 ## Eight steps
 
 | # | Step | What happens | Code |
 |---|------|--------------|------|
-| 01 | Axes | Declare what varies: tool, policy rule, user stance, world state, tool condition, history. A situation is a point in that space, not a prompt. | `generate/scenarios.py` |
-| 02 | Cover | Plan cells so every pair of axis values co-occurs at least once (a pairwise covering array). Most failures are two-factor interactions [6]. `data.coverage["pairwise"]` is `pairs_planned`, `pairs_covered` and `fraction`: pairwise cells of the six-axis grid, which is training-data coverage, not policy coverage. A low fraction on a short run is a small sample of a large grid, not a failed eval; for policy coverage use `coverage_gap`. | `generate/coverage.py` |
-| 03 | Search | Five search arms fill the grid, starting at `structured` 42%, `llm_guided` 42%, `open_ended` 10%, `behavior_targeted` 3%, `failure_mutation` 3%. Each batch, weights move toward the arms that produced new behavior signatures and cells: `w *= 1 + 0.5 * yield`, renormalized, with floors (15% for each grid arm, 1% for the rare arms) and caps (8% for the rare arms, 10% for open-ended). Novelty search, not importance sampling [7]. Stops at saturation. | `generate/scenarios.py`, `generate/generator.py` |
-| 04 | World | Tools answer from schema-shaped state. Deterministic per seed. Unknown id: not found. An argument that echoes the schema instead of the customer: refused with a hint. Every dial (fault modes, hit counts, id and date ranges, name pools, the result-kind routing table) is a `WorldOptions` field with its reason in `defaults.py`; `advanced={"world": {...}}` or `MockEnvironment(options=)` turns it. | `world/sandbox.py`, `defaults.py` |
-| 05 | Rollout | Run the agent on N situations x n phrasings x k samples. With `logprobs=True` every row keeps the policy's summed log-probability and token count, the per-token list when the backend returns one, the policy version and the sampling settings. | `run/engine.py` |
-| 06 | Grade | Deterministic conduct rules first, then your judge. The judge is scored against gold labels before its grades are trusted. | `score/grading.py`, `score/judge_trust.py` |
+| 01 | Axes | What varies: tool, policy rule, user stance, world state, tool condition, history. A situation is a point in that space, not a prompt. | `generate/scenarios.py` |
+| 02 | Cover | A pairwise covering array: every pair of axis values co-occurs at least once, because most failures are two-factor interactions [6]. `data.coverage["pairwise"]` reports `pairs_planned`, `pairs_covered`, `fraction`: grid coverage, not policy coverage (`coverage_gap` is that). | `generate/coverage.py` |
+| 03 | Search | Five arms fill the grid: `structured` 42%, `llm_guided` 42%, `open_ended` 10%, `behavior_targeted` 3%, `failure_mutation` 3%. Each batch, `w *= 1 + 0.5 * yield` of new behavior signatures and cells, renormalized, floored and capped. Novelty search [7]. | `generate/scenarios.py`, `generate/generator.py` |
+| 04 | World | Tools answer from schema-shaped state, deterministic per seed. Unknown id: not found. Schema-echo argument: refused. Every dial is a `WorldOptions` field with its reason in `defaults.py`. | `world/sandbox.py`, `defaults.py` |
+| 05 | Rollout | The agent on N situations x n phrasings x k samples. `logprobs=True` keeps each row's log-probabilities, policy version and sampling settings. | `run/engine.py` |
+| 06 | Grade | Deterministic conduct rules, then your judge, scored against gold labels before its grades count. | `score/grading.py`, `score/judge_trust.py` |
 | 07 | Cut | SFT rows (reward=1, loss mask on agent turns), DPO pairs with margin, GRPO groups in the 20 to 80 percent band [4, 5], or a reward-model set. | `score/optimize.py`, `score/publish_gate.py`, `export.py` |
-| 08 | Delta | Re-run held-out tasks after training. A paired difference per task with a bootstrap interval and a sign-flip permutation p [1]. | `score/delta.py`, `score/stats.py` |
+| 08 | Delta | Re-run held-out tasks after training: a paired difference per task, bootstrap interval, sign-flip permutation p [1]. | `score/delta.py`, `score/stats.py` |
 
-## What is ours
+Steps 02, 03, 04 and 07 are ours. The rest is the literature:
 
-- **Covering array.** Every pair of axis values appears together at least
-  once. Most failures are two-factor interactions [6].
-- **Arm search.** `structured`, `llm_guided`, `open_ended`,
-  `behavior_targeted`, `failure_mutation`, weighted each batch by the yield
-  of new behavior signatures. Novelty search, not importance sampling [7].
-- **Sandbox world.** Built from the tool JSON schemas. Deterministic per
-  seed. Unknown id: not found. Schema-echo argument: refused. Every
-  number it answers with is a named default (`defaults.py`) and a
-  `WorldOptions` field.
-- **Cuts.** SFT: reward=1 rows, loss mask on agent turns. DPO: pairs with
-  margin and length gap. GRPO: mixed groups, 20 to 80 percent band [4, 5].
-  RM: all graded rows.
-
-## What we take from the literature
-
-- **pass@1 / pass^k / pass@k.** Headline, reliability, RL headroom.
-  Unbiased combinatorial estimators over k samples per task [2, 3].
-  `score/passat.py`.
-- **Intervals.** Bootstrap over tasks, not rollouts. Before and after is a
-  paired difference with a sign-flip permutation p [1]. Ship when the
-  interval excludes zero. `score/stats.py`.
-- **Judge.** Agreement and kappa against gold labels, Wilson interval,
-  held-out halves, length perturbation, probes. Different model family
-  than the policy [8]. Rubric hash on every label. `score/judge_trust.py`.
-- **Hack scan.** `Var(r) = E[Var(r | task)] + Var(E[r | task])`. Only the
-  first term is GRPO gradient. The top within-task feature is compared to
-  a permutation floor from reward shuffled within task [9].
-  `score/hack_scan.py`.
+- **pass@1, pass^k, pass@k**: unbiased estimators over k samples per task [2, 3]. `score/passat.py`.
+- **Intervals**: bootstrap over tasks, not rollouts; before and after as a paired sign-flip permutation [1]. `score/stats.py`.
+- **Judge**: agreement and kappa on gold labels, Wilson interval, held-out halves, a different family than the policy [8]. `score/judge_trust.py`.
+- **Hack scan**: `Var(r) = E[Var(r | task)] + Var(E[r | task])`; only the first term is GRPO gradient [9]. `score/hack_scan.py`.
 
 ## Questions
 
-**Do you use importance sampling?** No. Importance sampling corrects an
-estimator for a wrong proposal distribution; we are not estimating
-production, we are covering the failure space. Each row keeps its
-logprobs, policy version and sampling settings, so an asynchronous
-trainer can form the truncated ratio `exp(log pi_new - log pi_old)`
-itself [10, 11]. `score/logprobs.py` and `score/reference.py` score the
-same tokens under a reference model for the KL side.
+**Importance sampling?** No; we cover the failure space rather than correct
+a proposal. Each row keeps its logprobs, so an asynchronous trainer forms
+the truncated ratio `exp(log pi_new - log pi_old)` itself [10, 11].
 
-**SFT or RL?** Both, from the same graded rows. `select_for_sft` keeps
-each prompt's best reward=1 row and spreads its picks across behavior
-signatures, with a loss mask on agent turns. `build_preference_pairs`
-takes length-matched pairs with a margin. `select_for_rl` takes whole
-groups. A reward model takes all graded rows.
-
-**Isn't the judge just another LLM?** Yes. So it is measured against gold
-labels (`judge_agreement`), probed with known hacks (`judge_trust`),
-versioned by rubric hash, and drawn from a different model family than
-the policy [8].
-
-**How do you know training helped?** `delta_report`: paired before and
-after on held-out tasks with a bootstrap interval. Markers such as
-`argument_grounding` catch regressions pass@1 hides; a `must_not_regress`
-marker whose interval sits below zero fails the run [1].
+**How do you know training helped?** `delta_report`: paired before and after
+on held-out tasks with a bootstrap interval. A `must_not_regress` marker
+whose interval sits below zero fails the run [1].
 
 ## References
 

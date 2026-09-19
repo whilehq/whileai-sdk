@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" role="img" aria-label="The eight steps of the engine, with Delta feeding the next run">
+<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6B7280"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3F8F6B"/></marker></defs>
+<rect width="720" height="300" rx="6" fill="#FFFFFF"/>
+<rect x="16" y="40" width="160" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="96.0" y="63.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">01 Axes</text>
+<text x="96.0" y="79.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">what varies</text>
+<path d="M 176 68.0 L 192 68.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="192" y="40" width="160" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="272.0" y="63.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">02 Cover</text>
+<text x="272.0" y="79.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">pairwise array</text>
+<path d="M 352 68.0 L 368 68.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="368" y="40" width="160" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="448.0" y="63.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">03 Search</text>
+<text x="448.0" y="79.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">five arms</text>
+<path d="M 528 68.0 L 544 68.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="544" y="40" width="160" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="624.0" y="63.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">04 World</text>
+<text x="624.0" y="79.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">seeded sandbox</text>
+<rect x="16" y="150" width="160" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="96.0" y="173.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">05 Rollout</text>
+<text x="96.0" y="189.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">N x n x k</text>
+<path d="M 176 178.0 L 192 178.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="192" y="150" width="160" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="272.0" y="173.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">06 Grade</text>
+<text x="272.0" y="189.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">rules, then judge</text>
+<path d="M 352 178.0 L 368 178.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="368" y="150" width="160" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="448.0" y="173.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">07 Cut</text>
+<text x="448.0" y="189.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">SFT / DPO / GRPO</text>
+<path d="M 528 178.0 L 544 178.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="544" y="150" width="160" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="624.0" y="173.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">08 Delta</text>
+<text x="624.0" y="189.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">paired, bootstrap</text>
+<path d="M 624.0 96 L 624.0 120 L 96.0 120 L 96.0 148" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="16" y="24" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#3F8F6B" text-anchor="start">green: ours</text>
+<text x="100" y="24" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="start">the rest: from the literature</text>
+<path d="M 624.0 206 L 624.0 236 L 96.0 236 L 96.0 208" fill="none" stroke="#3F8F6B" stroke-width="1.5" marker-end="url(#arrow-green)" stroke-dasharray="4 3"/>
+<text x="360.0" y="254" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#3F8F6B" text-anchor="middle">after training: the same held-out tasks again, paired per task</text>
+<text x="16" y="286" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="400" fill="#4B5563" text-anchor="start">pass@1 [lo..hi]  -&gt;  delta per task  -&gt;  ship when the interval excludes zero</text>
+</svg>
