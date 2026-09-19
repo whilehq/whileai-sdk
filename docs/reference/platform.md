@@ -388,6 +388,32 @@ print(tracked.verdict())  # one line: beats, trails, or about the same, and what
 
 Every object is a pydantic model that validates before it leaves the process, and each one's docstring names the rlhfbook.com chapter it comes from. A *harness* is the instructions, tools and model name around the weights; its fingerprint is its version, so a prompt edit shows up as a new version without anyone naming it (a score is only comparable with its setup held constant). A *behavior* has its own frozen held-out test (`test_version`), a `noise_floor` measured by scoring the same model twice, and a judge checked against people (`agreement` over `human_n`) and for `length_bias`. A *run* is scored on every behavior: `targets` are the claim, the rest are the check (verbosity, sycophancy and refusals are what moves when the reward is gamed). `ci` is the half-width of the 95% interval; the difference interval is `delta ± sqrt(ci_candidate² + ci_served²)`, and the verdict says the candidate beats or trails the served version only when that interval excludes zero and the delta clears the behavior's declared `noise_floor`. A missing interval, an interval that includes zero, or a delta inside the re-run band is said in those words. The count of other behaviors that came out lower is on point estimates with no interval yet, so it is a prompt to look, not a result. The verdict ends with what the number rests on (judge agreement, n) and starts with `unproven:` when n is under 50, judge agreement is under 0.8 or unmeasured, or the training reward is the judge. `tracked.live(day, version=, replies=, flagged=)` reports a day of traffic when you serve the model yourself. Logging buffers and never raises into the training loop. Worked example: [`recipes/04-train/report-run`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/report-run).
 
+### Say what the runs are for, and show your working
+
+The typed objects above are the evidence. Three free-form calls put the claim, the pictures and the commentary around it, so the person reading the dashboard knows what the runs are for before they read a number.
+
+```python
+tracked = track("refund-bot")  # the handle from above
+run = tracked.run("v4", method="GRPO", targets=["refunds"])
+
+tracked.experiment(
+    question="Does GRPO on refunds-grpo lift refunds without moving length?",
+    hypothesis="Refunds up 5 or more; length within its noise floor.",
+    method="GRPO, 8 generations, 300 steps on 1xH100; v3 is the baseline.",
+    measure="pass@1 on refunds-test-v2, n=240, with a 95% interval; length scored the same way.",
+    decide="Promote when the refunds interval clears the 2.4 noise floor and length does not drop.",
+)
+tracked.experiment()  # read it back; None when nothing is posted
+
+fig = {"data": [{"x": [0, 100, 200], "y": [0.2, 0.4, 0.41]}], "layout": {"title": "Reward"}}  # or any plotly Figure
+tracked.figure("reward-by-step", fig, caption="Training reward, v4", run=run)
+tracked.figures()  # every figure on the agent, by name
+
+run.note("Reward flattened at step 300; the last 100 steps bought nothing. Next: fewer steps, more generations.")
+```
+
+`experiment` is one block per agent (a second call replaces it), rendered at the top of the Runs page as five labeled rows (Question, Hypothesis, Method, Measure, Decide) plus Notes; every field is markdown of at most 4096 chars and `question` is the only required one. `figure` posts a Plotly figure as JSON, never as code: the SDK reads `to_plotly_json()` off the object you pass (plotly is not imported or required) or takes a dict with `data` and `layout`, drops `layout.images`, `updatemenus`, `sliders` and `template` (the API drops them too), and refuses, on that line, what the API would refuse: a name outside `[a-z0-9][a-z0-9-]{0,39}`, more than 200 KB of JSON, fewer than 1 or more than 50 traces, or a trace type outside scatter, bar and pie (the page ships plotly.js-basic; a missing type means scatter). Figures draw in a grid after the run table, caption above each, and are illustration: the verdict on the page comes from the scored evals, never from a figure. `run.note` puts markdown (at most 8192 chars) under the run record when the run is selected, and keeps it on `run.notes`.
+
 ## Is it hacking the reward right now?
 
 ```python

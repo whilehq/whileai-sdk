@@ -43,6 +43,19 @@ describe it by hand::
 
     print(tracked.verdict())  # refunds: v4 beats v3 by 5 (interval excludes zero); 1 regression
 
+Say what the runs are for, and show your working. The experiment block
+sits at the top of the Runs page, a figure grid follows the run table,
+and a note sits under its run. Figures are illustration; the verdict
+above comes from the scored evals::
+
+    tracked.experiment(
+        question="Does GRPO on refunds-grpo lift refunds without moving length?",
+        measure="pass@1 on refunds-test-v2, n=240, 95% interval",
+        decide="promote when the interval clears the 2.4 noise floor",
+    )
+    tracked.figure("reward-by-step", fig, caption="Training reward, v4")  # plotly Figure or dict
+    run.note("Reward flattened at step 300; the last 100 steps bought nothing.")
+
 Every object is a pydantic model, validated before it leaves the
 process, and each one says which chapter of rlhfbook.com it comes from.
 Chapters are cited by title because the web book's numbering has moved.
@@ -55,6 +68,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import threading
 import time
 import urllib.error
@@ -77,6 +91,18 @@ PLATFORM_URL_ENV = "WHILEAI_PLATFORM_URL"
 FLUSH_EVERY = 25
 FLUSH_SECONDS = 15.0
 MAX_BATCH = 2000
+
+#: What the platform accepts for the experiment block, figures and run
+#: notes. Each mirrors the check the API makes, so a bad value fails on
+#: the line that wrote it instead of as a 4xx from the server.
+EXPERIMENT_FIELD_MAX = 4096  # chars per experiment field, markdown allowed
+FIGURE_NAME_PATTERN = r"^[a-z0-9][a-z0-9-]{0,39}$"  # one figure per name per agent
+FIGURE_MAX_BYTES = 200_000  # JSON bytes of {data, layout}; the API says 413 past it
+FIGURE_MAX_TRACES = 50  # traces per figure; the API says 422 past it
+FIGURE_TRACE_TYPES = ("scatter", "bar", "pie")  # the page ships plotly.js-basic
+FIGURE_CAPTION_MAX = 1024  # chars
+FIGURE_DROPPED_LAYOUT_KEYS = ("images", "updatemenus", "sliders", "template")  # never stored
+NOTES_MAX = 8192  # chars of markdown on one run
 
 Transport = Callable[..., Any]
 
@@ -207,6 +233,52 @@ class Behavior(_Wire):
     contamination: int | None = Field(default=None, ge=0)
     reward_is_judge: bool | None = None
     description: str | None = Field(default=None, max_length=400)
+
+
+class Experiment(_Wire):
+    """What this agent's training is trying to find out, in the agent's
+    own words: one block of markdown fields, one per tracked agent.
+
+    The Runs page renders it at the top, above the run table, as five
+    labeled rows (Question, Hypothesis, Method, Measure, Decide) plus
+    Notes when set, so the person reading the dashboard knows what the
+    runs below are for before they read a number. ``question`` is
+    required; the rest are optional; every field is markdown of at most
+    4096 chars. Sent with ``tracked.experiment(...)``, read back with
+    ``tracked.experiment()``.
+
+    Convention, untested: the five headings are the pre-registration a
+    lab writes before a run, so the dashboard shows the claim next to
+    the evidence.
+    """
+
+    question: str = Field(min_length=1, max_length=EXPERIMENT_FIELD_MAX)
+    hypothesis: str | None = Field(default=None, max_length=EXPERIMENT_FIELD_MAX)
+    method: str | None = Field(default=None, max_length=EXPERIMENT_FIELD_MAX)
+    measure: str | None = Field(default=None, max_length=EXPERIMENT_FIELD_MAX)
+    decide: str | None = Field(default=None, max_length=EXPERIMENT_FIELD_MAX)
+    notes: str | None = Field(default=None, max_length=EXPERIMENT_FIELD_MAX)
+
+
+class Figure(_Wire):
+    """One Plotly figure the agent posted, as JSON (``{data, layout}``),
+    never as code.
+
+    The Runs page draws every figure on the agent in a grid after the
+    run table, caption (or name) above each, with the house layout under
+    the agent's layout. Figures are illustration: the verdict on the page
+    comes from the platform-scored evals (``run.score``), not from
+    anything drawn here. ``figure`` holds ``data`` (1 to 50 traces of
+    type scatter, bar or pie) and ``layout``; ``run`` is the id of the
+    run it belongs to, when it belongs to one. Sent with
+    ``tracked.figure(name, fig)``, listed with ``tracked.figures()``.
+    """
+
+    name: str = Field(pattern=FIGURE_NAME_PATTERN)
+    caption: str | None = Field(default=None, max_length=FIGURE_CAPTION_MAX)
+    run: str | None = None
+    figure: dict[str, Any]
+    updated_at: str | None = None
 
 
 class Data(_Wire):
@@ -636,6 +708,79 @@ def _number(value: Any) -> float | None:
     return number
 
 
+def _json_default(value: Any) -> Any:
+    """What ``json.dumps`` does with the values plotly puts in a figure
+    without plotly's own encoder: numpy arrays and scalars, dates,
+    bytes-free objects with ``tolist``/``item``/``isoformat``."""
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    if hasattr(value, "item"):
+        return value.item()
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    raise TypeError(f"figure holds a value JSON cannot carry: {type(value).__name__}")
+
+
+def _figure_json(name: str, fig: Any) -> dict[str, Any]:
+    """Turn a plotly ``Figure`` (duck-typed) or a ``{data, layout}``
+    mapping into the wire shape, and check what the API checks. Raises
+    ``ValueError`` on the line that took the bad value, before any
+    network call. Returns the figure as plain JSON values."""
+    if not isinstance(name, str) or not re.match(FIGURE_NAME_PATTERN, name):
+        raise ValueError(
+            f"figure name {name!r} must match {FIGURE_NAME_PATTERN} "
+            "(lowercase letters, digits and dashes, up to 40 chars)"
+        )
+    if hasattr(fig, "to_plotly_json"):
+        raw = fig.to_plotly_json()
+    elif hasattr(fig, "to_dict"):
+        raw = fig.to_dict()
+    else:
+        raw = fig
+    if not isinstance(raw, Mapping) or "data" not in raw:
+        raise ValueError(
+            f"figure {name!r}: fig must be a plotly Figure or a dict with a 'data' list of "
+            f"traces (got {type(fig).__name__})"
+        )
+    layout = raw.get("layout") or {}
+    if not isinstance(layout, Mapping):
+        raise ValueError(f"figure {name!r}: layout must be a dict (got {type(layout).__name__})")
+    figure: dict[str, Any] = {
+        "data": raw["data"],
+        "layout": {k: v for k, v in layout.items() if k not in FIGURE_DROPPED_LAYOUT_KEYS},
+    }
+    # Compact, like JSON.stringify, so the byte count is the one the API sees.
+    encoded = json.dumps(
+        figure, default=_json_default, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    if len(encoded) > FIGURE_MAX_BYTES:
+        raise ValueError(
+            f"figure {name!r} is {len(encoded):,} bytes as JSON; the limit is "
+            f"{FIGURE_MAX_BYTES:,} bytes. Downsample the traces or split it into several figures."
+        )
+    figure = json.loads(encoded)
+    data = figure["data"]
+    if not isinstance(data, list) or not 1 <= len(data) <= FIGURE_MAX_TRACES:
+        count = len(data) if isinstance(data, list) else type(data).__name__
+        raise ValueError(
+            f"figure {name!r}: data must be a list of 1..{FIGURE_MAX_TRACES} traces (got {count})"
+        )
+    allowed = ", ".join(FIGURE_TRACE_TYPES)
+    for i, trace in enumerate(data):
+        if not isinstance(trace, Mapping):
+            raise ValueError(
+                f"figure {name!r}: trace {i} must be a dict (got {type(trace).__name__}); "
+                f"allowed types are {allowed}"
+            )
+        kind = trace.get("type", "scatter")
+        if kind not in FIGURE_TRACE_TYPES:
+            raise ValueError(
+                f"figure {name!r}: trace {i} has type {kind!r}; allowed types are {allowed} "
+                "(a missing type means scatter)"
+            )
+    return figure
+
+
 # ------------------------------------------------------------------ handles
 
 
@@ -668,6 +813,7 @@ class Run:
         self.total_steps: int | None = None
         self.errors = 0
         self.scores: dict[str, Score] = {}
+        self.notes: str | None = None
         self._flush_every = max(1, int(flush_every))
         self._flush_seconds = float(flush_seconds)
         self._buffer: list[dict[str, Any]] = []
@@ -805,6 +951,20 @@ class Run:
         self.status = status
         return self.tracked._call("PATCH", f"/runs/{self.id}", patch)
 
+    def note(self, markdown: str) -> None:
+        """Put free-form markdown on this run. The Runs page renders it
+        under the run record when the run is selected, so the reader gets
+        what happened in the agent's words (what surprised you, what you
+        would change) next to the numbers. At most 8192 chars; a second
+        call replaces the first. Kept on ``run.notes``."""
+        text = str(markdown)
+        if len(text) > NOTES_MAX:
+            raise ValueError(
+                f"note() takes at most {NOTES_MAX:,} chars of markdown (got {len(text):,})"
+            )
+        self.tracked._call("PATCH", f"/runs/{self.id}", {"notes": text})
+        self.notes = text
+
     def fail(self, error: str) -> dict[str, Any]:
         self.flush()
         self.status = "failed"
@@ -894,6 +1054,100 @@ class Tracked:
     def behaviors(self) -> list[Behavior]:
         rows = self._call("GET", f"/agents/{self.id}/behaviors").get("behaviors") or []
         return [Behavior.model_validate(r) for r in rows]
+
+    def experiment(
+        self,
+        question: str | None = None,
+        *,
+        hypothesis: str | None = None,
+        method: str | None = None,
+        measure: str | None = None,
+        decide: str | None = None,
+        notes: str | None = None,
+    ) -> Experiment | None:
+        """Say what the runs on this agent are for, or read it back.
+
+        With a ``question``, stores the experiment block (one per agent;
+        a second call replaces it) and the Runs page renders it at the
+        top as five labeled rows plus Notes: what you are asking,
+        what you expect, how you train, how you measure and what result
+        makes you promote. Every field is markdown of at most 4096 chars.
+        With no arguments, returns the stored ``Experiment``, or ``None``
+        when none was posted.
+        """
+        if question is None:
+            if any(v is not None for v in (hypothesis, method, measure, decide, notes)):
+                raise TypeError(
+                    "experiment(question=..., ...) needs the question; "
+                    "experiment() with no arguments reads the stored block"
+                )
+            try:
+                out = self._call("GET", f"/agents/{self.id}/experiment")
+            except PlatformError as e:
+                if e.status == 404:  # literal: no experiment posted on this agent yet
+                    return None
+                raise
+            return Experiment.model_validate(out)
+        item = Experiment(
+            question=question,
+            hypothesis=hypothesis,
+            method=method,
+            measure=measure,
+            decide=decide,
+            notes=notes,
+        )
+        out = self._call("PUT", f"/agents/{self.id}/experiment", item.wire())
+        if isinstance(out, dict) and out.get("question"):
+            return Experiment.model_validate(out)
+        return item
+
+    def figure(
+        self,
+        name: str,
+        fig: Any,
+        *,
+        caption: str | None = None,
+        run: str | Run | None = None,
+    ) -> Figure:
+        """Post one Plotly figure as JSON, for the figures grid on the
+        Runs page. Figures are illustration: the verdict on the page
+        comes from the platform-scored evals (``run.score``), never from
+        a figure.
+
+        ``fig`` is a plotly ``Figure`` (read through ``to_plotly_json()``
+        or ``to_dict()``, so plotly is never imported here) or a dict
+        with ``data`` (a list of traces) and ``layout``. ``name`` is
+        lowercase letters, digits and dashes, up to 40 chars, and names
+        the slot: posting the same name again replaces the figure.
+        ``caption`` (at most 1024 chars) is drawn above it; ``run`` ties
+        it to one run on this agent. Checked here before any network
+        call, with the API's limits: at most 200 KB of JSON, 1 to 50
+        traces, trace types in scatter, bar and pie (the page ships
+        plotly.js-basic). ``layout.images``, ``updatemenus``, ``sliders``
+        and ``template`` are dropped, as the API drops them; titles,
+        annotations, shapes and axes are kept.
+        """
+        figure = _figure_json(name, fig)
+        if caption is not None and len(caption) > FIGURE_CAPTION_MAX:
+            raise ValueError(
+                f"figure {name!r}: caption is at most {FIGURE_CAPTION_MAX:,} chars "
+                f"(got {len(caption):,})"
+            )
+        run_id = run.id if isinstance(run, Run) else run
+        body: dict[str, Any] = {"figure": figure}
+        if caption is not None:
+            body["caption"] = caption
+        if run_id is not None:
+            body["run"] = run_id
+        out = self._call("PUT", f"/agents/{self.id}/figures/{name}", body)
+        if isinstance(out, dict) and out.get("name"):
+            return Figure.model_validate(out)
+        return Figure(name=name, caption=caption, run=run_id, figure=figure)
+
+    def figures(self) -> list[Figure]:
+        """Every figure posted on this agent, sorted by name."""
+        rows = self._call("GET", f"/agents/{self.id}/figures").get("figures") or []
+        return [Figure.model_validate(r) for r in rows]
 
     def run(
         self,
@@ -1197,6 +1451,8 @@ __all__ = [
     "Delta",
     "Described",
     "EvalSetup",
+    "Experiment",
+    "Figure",
     "Frontier",
     "Harness",
     "Judge",

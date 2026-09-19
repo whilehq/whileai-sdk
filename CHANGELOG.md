@@ -12,6 +12,21 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `docs/figures/`, and their prose is 40 percent shorter; the code blocks
   and quoted outputs are unchanged, except that the Evals coverage-gap
   output now quotes what the block prints.
+- The Runs page takes the agent's own account of an experiment, next to
+  the typed runs and evals it already draws. `tracked.experiment(question=,
+  hypothesis=, method=, measure=, decide=, notes=)` posts one markdown
+  block per agent (rendered at the top as five labeled rows), and
+  `tracked.experiment()` reads it back (`None` when nothing is posted).
+  `tracked.figure(name, fig, caption=, run=)` posts a Plotly figure as JSON,
+  never as code: it reads `to_plotly_json()` or `to_dict()` off whatever you
+  pass, so plotly is neither imported nor a dependency, or takes a
+  `{data, layout}` dict; `tracked.figures()` lists them. The SDK refuses
+  on its own line what the API would refuse (name pattern, 200 KB, 1 to 50
+  traces, types in scatter/bar/pie) and drops the layout keys the API
+  drops. Figures are illustration; the verdict still comes from the scored
+  evals. `run.note(markdown)` puts up to 8192 chars under the run record
+  and keeps it on `run.notes`. New models `Experiment` and `Figure`.
+
 ## 0.89 (2026-09-19)
 
 - TrainerCallback forwards TRL's `completions/clipped_ratio` as `clip_ratio`,
