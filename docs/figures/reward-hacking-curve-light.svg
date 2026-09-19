@@ -1,30 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 270" width="960" height="270" role="img" aria-label="Proxy reward keeps climbing while gold reward turns over as KL grows; the five checks placed before, during and after">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" role="img" aria-label="Proxy reward keeps climbing while gold reward turns over as KL grows; the five checks placed before, during and after">
 <defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6B7280"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3F8F6B"/></marker></defs>
-<rect width="960" height="270" rx="6" fill="#FFFFFF"/>
-<line x1="60" y1="200" x2="600" y2="200" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
-<line x1="60" y1="200" x2="60" y2="40" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
-<text x="320.0" y="240" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">KL from the reference policy</text>
-<text x="54" y="36" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="end">reward</text>
-<path d="M 60 190 C 180 110, 320 80, 580 60" fill="none" stroke="#3F8F6B" stroke-width="1.5"/>
-<text x="586" y="62" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="600" fill="#3F8F6B" text-anchor="start">proxy</text>
-<text x="586" y="76" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10" font-weight="400" fill="#6B7280" text-anchor="start">training reward</text>
-<path d="M 60 190 C 170 115, 260 95, 320 100 S 480 160, 580 185" fill="none" stroke="#B5602A" stroke-width="2"/>
-<text x="586" y="166" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="600" fill="#B5602A" text-anchor="start">gold</text>
-<text x="586" y="180" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10" font-weight="400" fill="#6B7280" text-anchor="start">held-out scorer</text>
-<line x1="490" y1="74" x2="490" y2="164" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
-<text x="498" y="120" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">the gap</text>
-<text x="100" y="222" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="600" fill="#6B7280" text-anchor="middle">before</text>
-<text x="310" y="222" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="600" fill="#6B7280" text-anchor="middle">during</text>
-<text x="530" y="222" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="600" fill="#6B7280" text-anchor="middle">after</text>
-<line x1="60" y1="210" x2="580" y2="210" stroke="#D1D5DB" stroke-width="1"/>
-<text x="700" y="46" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="600" fill="#6B7280" text-anchor="start">before</text>
-<text x="700" y="63" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">hack_scan(endorsed=)</text>
-<text x="700" y="78" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">judge_probes</text>
-<text x="700" y="93" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">trace_flag_report</text>
-<text x="700" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="600" fill="#6B7280" text-anchor="start">during</text>
-<text x="700" y="131" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">HackMonitor(holdout=, gold=)</text>
-<text x="700" y="182" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="600" fill="#6B7280" text-anchor="start">after</text>
-<text x="700" y="199" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">delta_report(proxy=)</text>
-<text x="700" y="214" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">hack_scan_diff</text>
-<text x="700" y="246" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10" font-weight="400" fill="#6B7280" text-anchor="start">shape after Gao et al. 2023; not measured here</text>
+<rect width="720" height="300" rx="6" fill="#FFFFFF"/>
+<path d="M 50 220 L 466 220" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 50 220 L 50 40" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="250.0" y="264" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#6B7280" text-anchor="middle">KL from the reference policy</text>
+<text x="44" y="36" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#6B7280" text-anchor="end">reward</text>
+<path d="M 50 210 C 140 120, 250 85, 450 65" fill="none" stroke="#3F8F6B" stroke-width="2"/>
+<text x="456" y="70" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="600" fill="#3F8F6B" text-anchor="start">proxy</text>
+<text x="456" y="84" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="start">training</text>
+<text x="456" y="96" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="start">reward</text>
+<path d="M 50 210 C 135 125, 200 102, 250 108 S 370 175, 450 202" fill="none" stroke="#B5602A" stroke-width="2"/>
+<text x="456" y="180" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="600" fill="#B5602A" text-anchor="start">gold</text>
+<text x="456" y="194" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="start">held-out</text>
+<text x="456" y="206" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="start">scorer</text>
+<line x1="380" y1="78" x2="380" y2="180" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="388" y="132" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#4B5563" text-anchor="start">the gap</text>
+<line x1="50" y1="232" x2="450" y2="232" stroke="#D1D5DB" stroke-width="1"/>
+<text x="90" y="246" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="600" fill="#6B7280" text-anchor="middle">before</text>
+<text x="250" y="246" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="600" fill="#6B7280" text-anchor="middle">during</text>
+<text x="410" y="246" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="600" fill="#6B7280" text-anchor="middle">after</text>
+<text x="530" y="40" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="600" fill="#6B7280" text-anchor="start">before</text>
+<text x="530" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="#0B1220" text-anchor="start">hack_scan(endorsed=)</text>
+<text x="530" y="74" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="#0B1220" text-anchor="start">judge_probes</text>
+<text x="530" y="90" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="#0B1220" text-anchor="start">trace_flag_report</text>
+<text x="530" y="120" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="600" fill="#6B7280" text-anchor="start">during</text>
+<text x="530" y="138" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="#0B1220" text-anchor="start">HackMonitor(</text>
+<text x="530" y="154" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="#0B1220" text-anchor="start">  holdout=, gold=)</text>
+<text x="530" y="184" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="600" fill="#6B7280" text-anchor="start">after</text>
+<text x="530" y="202" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="#0B1220" text-anchor="start">delta_report(proxy=)</text>
+<text x="530" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="#0B1220" text-anchor="start">hack_scan_diff</text>
+<text x="530" y="286" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="start">shape after Gao et al. 2023</text>
 </svg>

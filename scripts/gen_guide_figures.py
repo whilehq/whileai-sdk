@@ -2,7 +2,8 @@
 """Draw the guide figures, one light and one dark SVG each, into docs/figures/.
 
 Each figure is one mechanism from one guide, drawn with the names the code
-uses. The palette is docs/style.css; the dark set is the same tokens on the
+uses, 720 px wide so it fills the docs content column without shrinking the
+type. The palette is docs/style.css; the dark set is the same tokens on the
 docs.json dark background. Rerun after editing and commit both files:
 
     python scripts/gen_guide_figures.py
@@ -13,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "figures"
+W = 720
 
 LIGHT = {
     "bg": "#FFFFFF",
@@ -22,9 +24,7 @@ LIGHT = {
     "line": "#D1D5DB",
     "surface": "#F4F6F9",
     "green": "#3F8F6B",
-    "green_soft": "#5CB08A",
     "tint": "#F0FAF5",
-    "tint_strong": "#D7F0E3",
     "warm": "#B5602A",
     "warm_tint": "#FBEDE3",
 }
@@ -36,9 +36,7 @@ DARK = {
     "line": "#334155",
     "surface": "#121A2B",
     "green": "#5CB08A",
-    "green_soft": "#3F8F6B",
     "tint": "#12261D",
-    "tint_strong": "#1D3A2C",
     "warm": "#E09A6A",
     "warm_tint": "#3A2418",
 }
@@ -47,10 +45,10 @@ MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 
 
 class Canvas:
-    def __init__(self, w: int, h: int, p: dict, label: str):
-        self.w, self.h, self.p = w, h, p
+    def __init__(self, h: int, p: dict, label: str):
+        self.p = p
         self.parts: list[str] = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" '
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {h}" width="{W}" '
             f'height="{h}" role="img" aria-label="{label}">',
             "<defs>"
             f'<marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" '
@@ -58,24 +56,25 @@ class Canvas:
             f'<marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" '
             f'markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="{p["green"]}"/></marker>'
             "</defs>",
-            f'<rect width="{w}" height="{h}" rx="6" fill="{p["bg"]}"/>',
+            f'<rect width="{W}" height="{h}" rx="6" fill="{p["bg"]}"/>',
         ]
 
-    def box(
-        self, x, y, w, h, title, sub=None, *, fill="surface", stroke="line", mono=False, small=False
-    ):
+    def box(self, x, y, w, h, title, sub=None, *, hl=False, mono=False):
         p = self.p
+        fill, stroke = ("tint", "green") if hl else ("surface", "line")
         self.parts.append(
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{p[fill]}" stroke="{p[stroke]}"/>'
         )
         fam = MONO if mono else SANS
-        size = 11 if small else 13
-        cy = y + h / 2
-        if sub:
-            self.text(x + w / 2, cy - 5, title, size=size, fam=fam, weight=600, anchor="middle")
-            self.text(x + w / 2, cy + 12, sub, size=10.5, fam=MONO, color="muted", anchor="middle")
-        else:
-            self.text(x + w / 2, cy + 5, title, size=size, fam=fam, weight=600, anchor="middle")
+        cx, cy = x + w / 2, y + h / 2
+        subs = [sub] if isinstance(sub, str) else list(sub or [])
+        if not subs:
+            self.text(cx, cy + 5, title, size=13, fam=fam, weight=600, anchor="middle")
+            return
+        top = cy - 6 * len(subs) + 1
+        self.text(cx, top, title, size=13, fam=fam, weight=600, anchor="middle")
+        for i, s in enumerate(subs):
+            self.text(cx, top + 16 + i * 14, s, size=11, fam=MONO, color="muted", anchor="middle")
 
     def text(self, x, y, s, *, size=12, fam=SANS, color="ink", weight=400, anchor="start"):
         s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -85,21 +84,15 @@ class Canvas:
         )
 
     def arrow(self, x1, y1, x2, y2, *, green=False, dashed=False):
-        c = self.p["green" if green else "muted"]
-        m = "arrow-green" if green else "arrow"
-        dash = ' stroke-dasharray="4 3"' if dashed else ""
-        self.parts.append(
-            f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{c}" stroke-width="1.5" '
-            f'marker-end="url(#{m})"{dash}/>'
-        )
+        self.path(f"M {x1} {y1} L {x2} {y2}", green=green, dashed=dashed)
 
-    def path(self, d, *, green=False, dashed=False, arrow=True):
+    def path(self, d, *, green=False, dashed=False, arrow=True, width=1.5):
         c = self.p["green" if green else "muted"]
         m = "arrow-green" if green else "arrow"
         dash = ' stroke-dasharray="4 3"' if dashed else ""
         head = f' marker-end="url(#{m})"' if arrow else ""
         self.parts.append(
-            f'<path d="{d}" fill="none" stroke="{c}" stroke-width="1.5"{head}{dash}/>'
+            f'<path d="{d}" fill="none" stroke="{c}" stroke-width="{width}"{head}{dash}/>'
         )
 
     def dot(self, x, y, r, *, fill="green", stroke=None):
@@ -110,96 +103,112 @@ class Canvas:
         return "\n".join([*self.parts, "</svg>"]) + "\n"
 
 
+def row(c, y, boxes, *, x0=16, w=200, h=56, gap=32, mono=False):
+    """Boxes left to right with arrows between them; returns the x of each."""
+    xs = []
+    for i, (title, sub, hl) in enumerate(boxes):
+        x = x0 + i * (w + gap)
+        c.box(x, y, w, h, title, sub, hl=hl, mono=mono)
+        if i < len(boxes) - 1:
+            c.arrow(x + w, y + h / 2, x + w + gap, y + h / 2)
+        xs.append(x)
+    return xs
+
+
 def simulations_pipeline(p):
-    c = Canvas(960, 250, p, "How simulate() turns an agent definition into graded rows and cuts")
-    c.text(16, 24, "IN", size=10, color="muted", weight=600)
-    c.box(16, 34, 150, 44, "describe the behavior", "system_prompt, tools", small=True)
-    c.box(16, 92, 150, 44, "or its traces", "traces=, OTel spans", small=True)
-    c.arrow(166, 56, 196, 78)
-    c.arrow(166, 114, 196, 92)
-    c.box(200, 60, 130, 50, "six axes", "pairwise grid", fill="tint", stroke="green")
-    c.arrow(330, 85, 360, 85)
-    c.box(364, 60, 120, 50, "world", "seeded, says no")
-    c.arrow(484, 85, 514, 85)
-    c.box(518, 60, 120, 50, "agent", "agent= or callable")
-    c.arrow(638, 85, 668, 85)
-    c.box(672, 60, 120, 50, "rows", "ungraded", fill="tint", stroke="green")
-    c.arrow(792, 85, 822, 85)
-    c.box(826, 60, 118, 50, "your judge", "grade(judge=)")
-    c.text(200, 140, "what varies", size=10, color="muted", weight=600)
-    for i, ax in enumerate(
-        ["tool", "policy rule", "user stance", "world state", "tool condition", "history"]
-    ):
-        c.text(200, 158 + i * 15, ax, size=11, fam=MONO, color="body")
-    c.text(364, 140, "records shaped like the schema", size=10, color="muted", weight=600)
-    c.text(364, 158, "unknown id: not found", size=11, fam=MONO, color="body")
-    c.text(364, 174, "schema echo: refused", size=11, fam=MONO, color="body")
-    c.text(672, 140, "OUT, from the graded rows", size=10, color="muted", weight=600)
+    c = Canvas(344, p, "How simulate() turns an agent definition into graded rows and cuts")
+    c.text(16, 24, "IN", size=11, color="muted", weight=600)
+    c.box(16, 32, 200, 56, "describe the behavior", "system_prompt, tools")
+    c.text(232, 64, "or", size=12, color="muted")
+    c.box(256, 32, 200, 56, "point at its traces", "traces=, OTel spans")
+    c.text(480, 56, "either way, the same engine", size=11.5, color="muted")
+    c.path("M 116 88 L 116 110", green=True)
+    c.path("M 356 88 L 356 110", green=True)
+    row(
+        c,
+        112,
+        [
+            ("six axes", "a pairwise grid", True),
+            ("world", "seeded, says no", False),
+            ("agent", "agent= or a callable", False),
+        ],
+    )
+    c.path("M 580 168 L 580 184 L 116 184 L 116 200", green=True)
+    xs = row(c, 202, [("rows", "ungraded", True), ("your judge", "grade(judge=)", False)])
+    ox = xs[1] + 232
+    c.text(ox, 214, "cuts, from the graded rows", size=11, color="muted", weight=600)
     for i, (name, call) in enumerate(
         [
             ("SFT", "select_for_sft"),
-            ("DPO pairs", "build_preference_pairs"),
-            ("GRPO groups", "select_for_rl"),
+            ("DPO", "build_preference_pairs"),
+            ("GRPO", "select_for_rl"),
             ("RL env", "export_environment"),
         ]
     ):
-        y = 158 + i * 18
-        c.text(672, y, name, size=11, color="ink", weight=600)
-        c.text(760, y, call, size=11, fam=MONO, color="body")
-    c.path("M 885 110 L 885 128 L 740 128 L 740 146", green=True)
+        y = 232 + i * 16
+        c.text(ox, y, name, size=11.5, weight=600)
+        c.text(ox + 48, y, call, size=11.5, fam=MONO, color="body")
+    c.arrow(xs[1] + 200, 230, ox - 6, 230)
+    c.text(
+        16,
+        306,
+        "axes: tool, policy rule, user stance, world state, tool condition, history",
+        size=11.5,
+        fam=MONO,
+        color="body",
+    )
+    c.text(
+        16,
+        324,
+        "world: records shaped like the schema; unknown id not found; schema echo refused",
+        size=11.5,
+        fam=MONO,
+        color="body",
+    )
     return c.render()
 
 
 def engine_eight_steps(p):
-    c = Canvas(960, 230, p, "The eight steps of the engine, with Delta feeding the next run")
+    c = Canvas(300, p, "The eight steps of the engine, with Delta feeding the next run")
     steps = [
-        ("01 Axes", "what varies"),
-        ("02 Cover", "pairwise array"),
-        ("03 Search", "five arms"),
-        ("04 World", "seeded sandbox"),
-        ("05 Rollout", "N x n x k"),
-        ("06 Grade", "rules, then judge"),
-        ("07 Cut", "SFT / DPO / GRPO"),
-        ("08 Delta", "paired, bootstrap"),
+        ("01 Axes", "what varies", True),
+        ("02 Cover", "pairwise array", True),
+        ("03 Search", "five arms", True),
+        ("04 World", "seeded sandbox", True),
+        ("05 Rollout", "N x n x k", False),
+        ("06 Grade", "rules, then judge", False),
+        ("07 Cut", "SFT / DPO / GRPO", True),
+        ("08 Delta", "paired, bootstrap", False),
     ]
-    w, h, gap = 104, 54, 14
-    x0, y0 = 16, 40
-    for i, (t, s) in enumerate(steps):
-        x = x0 + i * (w + gap)
-        fill = "tint" if i in (1, 2, 3, 6) else "surface"
-        stroke = "green" if i in (1, 2, 3, 6) else "line"
-        c.box(x, y0, w, h, t, s, fill=fill, stroke=stroke, small=True)
-        if i < 7:
-            c.arrow(x + w, y0 + h / 2, x + w + gap, y0 + h / 2)
-    c.text(16, 24, "green: ours", size=10, color="green", weight=600)
-    c.text(90, 24, "the rest: from the literature", size=10, color="muted")
-    c.text(
-        16,
-        128,
-        "01, 04, 05: the run.  02, 03: which situations.  06: reward.  07: training rows.  08: the proof.",
-        size=11,
-        color="body",
-    )
-    x_last = x0 + 7 * (w + gap) + w / 2
-    x_first = x0 + 4 * (w + gap) + w / 2
+    # ours: 02, 03, 04, 07 (green). 01 is the declaration the rest hangs on.
+    steps[0] = ("01 Axes", "what varies", False)
+    w, h, gap = 160, 56, 16
+    r1 = row(c, 40, steps[:4], w=w, h=h, gap=gap)
+    r2 = row(c, 150, steps[4:], w=w, h=h, gap=gap)
     c.path(
-        f"M {x_last} {y0 + h} L {x_last} 150 L {x_first} 150 L {x_first} {y0 + h + 4}",
+        f"M {r1[3] + w / 2} 96 L {r1[3] + w / 2} 120 L {r2[0] + w / 2} 120 L {r2[0] + w / 2} 148",
+        green=False,
+    )
+    c.text(16, 24, "green: ours", size=11, color="green", weight=600)
+    c.text(100, 24, "the rest: from the literature", size=11, color="muted")
+    c.path(
+        f"M {r2[3] + w / 2} 206 L {r2[3] + w / 2} 236 L {r2[0] + w / 2} 236 L {r2[0] + w / 2} 208",
         green=True,
         dashed=True,
     )
     c.text(
-        (x_last + x_first) / 2,
-        166,
-        "after training: re-run the held-out tasks",
-        size=10.5,
+        (r2[0] + r2[3] + w) / 2,
+        254,
+        "after training: the same held-out tasks again, paired per task",
+        size=11.5,
         color="green",
         anchor="middle",
     )
     c.text(
         16,
-        200,
+        286,
         "pass@1 [lo..hi]  ->  delta per task  ->  ship when the interval excludes zero",
-        size=11,
+        size=11.5,
         fam=MONO,
         color="body",
     )
@@ -208,101 +217,83 @@ def engine_eight_steps(p):
 
 def evals_loop(p):
     c = Canvas(
-        960, 210, p, "The eval loop: wrap, simulate with repeats, judge, read pass rates, gate CI"
+        300, p, "The eval loop: wrap, simulate with repeats, judge, read pass rates, gate CI"
     )
-    boxes = [
-        ("agent(message)", "your callable", False),
-        ("simulate", "seeds=, repeats=4, fixed", True),
-        ("evaluate", "judge(row) -> reward", False),
-        ("pass_at", "pass@1 [lo..hi] pass^4", True),
-        ("run.py --gate 0.9", "exit 1 low, exit 2 hollow", False),
-    ]
-    w, h, gap, y = 168, 54, 22, 40
-    for i, (t, s, hl) in enumerate(boxes):
-        x = 16 + i * (w + gap)
-        c.box(
-            x,
-            y,
-            w,
-            h,
-            t,
-            s,
-            mono=True,
-            small=True,
-            fill="tint" if hl else "surface",
-            stroke="green" if hl else "line",
-        )
-        if i < 4:
-            c.arrow(x + w, y + h / 2, x + w + gap, y + h / 2)
-    c.text(
-        16,
-        122,
-        "read scored.warnings first: no tool called, a tool never touched, a marker on no row",
-        size=11,
-        color="warm",
-    )
-    # judge check branch
-    jx = 16 + 2 * (w + gap)
-    c.path(f"M {jx + w / 2} {y + h} L {jx + w / 2} 150", dashed=True)
-    c.box(
-        jx - 60,
-        152,
-        300,
-        40,
-        'attach_labels(kind="human")  ->  judge_trust',
-        None,
+    row(
+        c,
+        32,
+        [
+            ("agent(message)", "your callable", False),
+            ("simulate", "seeds=, repeats=4, fixed", True),
+            ("evaluate", "judge(row) -> reward", False),
+        ],
         mono=True,
-        small=True,
     )
-    c.text(jx + 254, 168, "agreement, kappa, Wilson lower bound", size=11, color="body")
-    c.text(jx + 254, 184, "16 labels to clear 0.8 at perfect agreement", size=11, color="muted")
+    c.path("M 580 88 L 580 108 L 116 108 L 116 130", green=True)
+    xs = row(
+        c,
+        132,
+        [
+            ("pass_at", "pass@1 [lo..hi]  pass^4", True),
+            ("run.py --gate 0.9", ["exit 1 under the floor", "exit 2 when hollow"], False),
+        ],
+        mono=True,
+    )
+    c.text(xs[1] + 232, 150, "hollow: no tool called, a tool", size=11.5, color="warm")
+    c.text(xs[1] + 232, 166, "never touched, a marker on no", size=11.5, color="warm")
+    c.text(xs[1] + 232, 182, "row. Not a result.", size=11.5, color="warm")
+    c.path("M 116 188 L 116 220", dashed=True)
+    c.box(16, 222, 380, 40, 'attach_labels(kind="human")  ->  judge_trust', None, mono=True)
+    c.text(412, 238, "agreement, kappa, Wilson lower bound;", size=11.5, color="body")
+    c.text(412, 254, "16 labels to clear 0.8 at perfect agreement", size=11.5, color="muted")
+    c.text(16, 286, "check the judge before you read the number", size=11.5, color="muted")
     return c.render()
 
 
 def evals_pass_at_k(p):
-    c = Canvas(
-        960, 250, p, "pass@1, pass^k and pass@k read off one grid of five tasks by four tries"
-    )
+    c = Canvas(270, p, "pass@1, pass^k and pass@k read off one grid of five tasks by four tries")
     grid = [[1, 1, 1, 1], [1, 1, 1, 0], [1, 0, 1, 0], [0, 0, 0, 0], [0, 1, 0, 0]]
-    x0, y0, cell = 120, 40, 34
-    c.text(x0 - 8, 28, "task", size=10, color="muted", anchor="end")
+    x0, y0, cell = 60, 44, 32
+    cols = [
+        (x0 + 4 * cell + 22, "per task"),
+        (x0 + 4 * cell + 88, "all 4"),
+        (x0 + 4 * cell + 140, "any of 4"),
+    ]
     for j in range(4):
         c.text(
-            x0 + j * cell + cell / 2, 28, f"try {j + 1}", size=10, color="muted", anchor="middle"
+            x0 + j * cell + cell / 2, 30, f"try {j + 1}", size=11, color="muted", anchor="middle"
         )
-    c.text(x0 + 4 * cell + 24, 28, "per task", size=10, color="muted")
-    c.text(x0 + 4 * cell + 96, 28, "all 4", size=10, color="muted")
-    c.text(x0 + 4 * cell + 150, 28, "any of 4", size=10, color="muted")
-    for i, row in enumerate(grid):
+    for x, name in cols:
+        c.text(x, 30, name, size=11, color="muted")
+    for i, r in enumerate(grid):
         y = y0 + i * cell + cell / 2
-        c.text(x0 - 8, y + 4, f"t{i + 1}", size=11, fam=MONO, color="body", anchor="end")
-        for j, v in enumerate(row):
+        c.text(x0 - 10, y + 4, f"t{i + 1}", size=12, fam=MONO, color="body", anchor="end")
+        for j, v in enumerate(r):
             x = x0 + j * cell + cell / 2
             if v:
                 c.dot(x, y, 9)
             else:
                 c.dot(x, y, 9, fill="warm_tint", stroke="warm")
-        k = sum(row)
-        c.text(x0 + 4 * cell + 24, y + 4, f"{k}/4", size=11, fam=MONO, color="body")
-        c.text(x0 + 4 * cell + 96, y + 4, "1" if k == 4 else "0", size=11, fam=MONO, color="body")
-        c.text(x0 + 4 * cell + 150, y + 4, "1" if k > 0 else "0", size=11, fam=MONO, color="body")
-    tx = 520
+        k = sum(r)
+        for (x, _), val in zip(cols, (f"{k}/4", "1" if k == 4 else "0", "1" if k else "0")):
+            c.text(x, y + 4, val, size=12, fam=MONO, color="body")
+    tx = 400
     lines = [
-        ("pass@1", "mean of the per-task rates", "(1.00+0.75+0.50+0+0.25)/5 = 0.50"),
-        ("pass^4", "tasks that passed all four tries", "1/5 = 0.20"),
-        ("pass@4", "tasks that passed at least once", "4/5 = 0.80"),
-        ("headroom", "pass@4 - pass@1, what training can win", "0.80 - 0.50 = 0.30"),
+        ("pass@1", "mean of the per-task rates", "(1 + .75 + .5 + 0 + .25) / 5 = 0.50"),
+        ("pass^4", "tasks that passed all four tries", "1 / 5 = 0.20"),
+        ("pass@4", "tasks that passed at least once", "4 / 5 = 0.80"),
+        ("headroom", "pass@4 - pass@1: what training can win", "0.80 - 0.50 = 0.30"),
     ]
     for i, (name, what, arith) in enumerate(lines):
-        y = 52 + i * 46
+        y = 46 + i * 50
         c.text(tx, y, name, size=13, fam=MONO, color="green", weight=600)
-        c.text(tx + 90, y, what, size=11, color="body")
-        c.text(tx + 90, y + 16, arith, size=11, fam=MONO, color="muted")
+        c.text(tx + 84, y, what, size=11.5, color="body")
+        c.text(tx + 84, y + 17, arith, size=11.5, fam=MONO, color="muted")
     c.text(
         16,
-        232,
-        "the interval is a bootstrap over tasks, not tries: five tasks is a wide one",
-        size=11,
+        250,
+        "the interval is a bootstrap over tasks, not tries; five tasks makes a wide one",
+        size=11.5,
         color="muted",
     )
     return c.render()
@@ -310,102 +301,109 @@ def evals_pass_at_k(p):
 
 def reward_hacking_curve(p):
     c = Canvas(
-        960,
-        270,
+        300,
         p,
         "Proxy reward keeps climbing while gold reward turns over as KL grows; the five checks placed before, during and after",
     )
-    ox, oy, W, H = 60, 200, 520, 150
-    c.arrow(ox, oy, ox + W + 20, oy)
-    c.arrow(ox, oy, ox, oy - H - 10)
+    ox, oy, cw, ch = 50, 220, 400, 170
+    c.arrow(ox, oy, ox + cw + 16, oy)
+    c.arrow(ox, oy, ox, oy - ch - 10)
     c.text(
-        ox + W / 2, oy + 40, "KL from the reference policy", size=11, color="muted", anchor="middle"
+        ox + cw / 2,
+        oy + 44,
+        "KL from the reference policy",
+        size=11.5,
+        color="muted",
+        anchor="middle",
     )
-    c.text(ox - 6, oy - H - 14, "reward", size=11, color="muted", anchor="end")
-    # proxy: monotone rise
+    c.text(ox - 6, oy - ch - 14, "reward", size=11.5, color="muted", anchor="end")
     c.path(
-        f"M {ox} {oy - 10} C {ox + 120} {oy - 90}, {ox + 260} {oy - 120}, {ox + W} {oy - 140}",
+        f"M {ox} {oy - 10} C {ox + 90} {oy - 100}, {ox + 200} {oy - 135}, {ox + cw} {oy - 155}",
         green=True,
         arrow=False,
+        width=2,
     )
-    c.text(ox + W + 6, oy - 138, "proxy", size=12, fam=MONO, color="green", weight=600)
-    c.text(ox + W + 6, oy - 124, "training reward", size=10, color="muted")
-    # gold: rise then fall
+    c.text(ox + cw + 6, oy - 150, "proxy", size=12.5, fam=MONO, color="green", weight=600)
+    c.text(ox + cw + 6, oy - 136, "training", size=10.5, color="muted")
+    c.text(ox + cw + 6, oy - 124, "reward", size=10.5, color="muted")
     c.parts.append(
-        f'<path d="M {ox} {oy - 10} C {ox + 110} {oy - 85}, {ox + 200} {oy - 105}, {ox + 260} {oy - 100} '
-        f'S {ox + 420} {oy - 40}, {ox + W} {oy - 15}" fill="none" stroke="{p["warm"]}" stroke-width="2"/>'
+        f'<path d="M {ox} {oy - 10} C {ox + 85} {oy - 95}, {ox + 150} {oy - 118}, {ox + 200} {oy - 112} '
+        f'S {ox + 320} {oy - 45}, {ox + cw} {oy - 18}" fill="none" stroke="{p["warm"]}" stroke-width="2"/>'
     )
-    c.text(ox + W + 6, oy - 34, "gold", size=12, fam=MONO, color="warm", weight=600)
-    c.text(ox + W + 6, oy - 20, "held-out scorer", size=10, color="muted")
-    # gap
+    c.text(ox + cw + 6, oy - 40, "gold", size=12.5, fam=MONO, color="warm", weight=600)
+    c.text(ox + cw + 6, oy - 26, "held-out", size=10.5, color="muted")
+    c.text(ox + cw + 6, oy - 14, "scorer", size=10.5, color="muted")
     c.parts.append(
-        f'<line x1="{ox + 430}" y1="{oy - 126}" x2="{ox + 430}" y2="{oy - 36}" stroke="{p["muted"]}" '
-        f'stroke-width="1" stroke-dasharray="3 3"/>'
+        f'<line x1="{ox + 330}" y1="{oy - 142}" x2="{ox + 330}" y2="{oy - 40}" stroke="{p["muted"]}" stroke-width="1" stroke-dasharray="3 3"/>'
     )
-    c.text(ox + 438, oy - 80, "the gap", size=11, color="body")
-    # phases
-    for x, label in [(ox + 40, "before"), (ox + 250, "during"), (ox + 470, "after")]:
-        c.text(x, oy + 22, label, size=10.5, color="muted", weight=600, anchor="middle")
+    c.text(ox + 338, oy - 88, "the gap", size=11.5, color="body")
     c.parts.append(
-        f'<line x1="{ox}" y1="{oy + 10}" x2="{ox + W}" y2="{oy + 10}" stroke="{p["line"]}" stroke-width="1"/>'
+        f'<line x1="{ox}" y1="{oy + 12}" x2="{ox + cw}" y2="{oy + 12}" stroke="{p["line"]}" stroke-width="1"/>'
     )
-    # checks
+    for x, label in [(ox + 40, "before"), (ox + 200, "during"), (ox + 360, "after")]:
+        c.text(x, oy + 26, label, size=11.5, color="muted", weight=600, anchor="middle")
     checks = [
         ("before", ["hack_scan(endorsed=)", "judge_probes", "trace_flag_report"]),
-        ("during", ["HackMonitor(holdout=, gold=)"]),
+        ("during", ["HackMonitor(", "  holdout=, gold=)"]),
         ("after", ["delta_report(proxy=)", "hack_scan_diff"]),
     ]
-    x = 700
-    for i, (phase, calls) in enumerate(checks):
-        y = 46 + i * 68
-        c.text(x, y, phase, size=10.5, color="muted", weight=600)
+    x = 530
+    y = 40
+    for phase, calls in checks:
+        c.text(x, y, phase, size=11.5, color="muted", weight=600)
         for j, call in enumerate(calls):
-            c.text(x, y + 17 + j * 15, call, size=11, fam=MONO, color="ink")
-    c.text(700, 246, "shape after Gao et al. 2023; not measured here", size=10, color="muted")
+            c.text(x, y + 18 + j * 16, call, size=12, fam=MONO, color="ink")
+        y += 18 + len(calls) * 16 + 14
+    c.text(530, 286, "shape after Gao et al. 2023", size=10.5, color="muted")
     return c.render()
 
 
 def safety_channels(p):
     c = Canvas(
-        960,
-        260,
+        320,
         p,
         "Three ways an instruction reaches a tool-using agent, three ways data leaves, one marker per exit",
     )
-    c.text(16, 24, "WHERE THE INSTRUCTION COMES FROM", size=10, color="muted", weight=600)
+    c.text(16, 24, "WHERE THE INSTRUCTION COMES FROM", size=10.5, color="muted", weight=600)
     ins = [
-        ("the ask", "prompt_injection, social_engineering"),
-        ("a tool result", "indirect_injection: planted in a record"),
-        ("public text", "a review, a listing (marketplace)"),
+        ("the ask", ["prompt_injection", "social_engineering"]),
+        ("a tool result", ["indirect_injection", "planted in a record"]),
+        ("public text", ["a review, a listing", "(marketplace)"]),
     ]
     for i, (t, s) in enumerate(ins):
-        y = 40 + i * 60
-        c.box(16, y, 250, 46, t, s, small=True)
-        c.arrow(266, y + 23, 330, 130)
-    c.box(334, 90, 180, 80, "agent", "reads data, acts, sends", fill="tint", stroke="green")
-    c.text(560, 24, "WHERE DATA CAN LEAVE", size=10, color="muted", weight=600)
+        y = 34 + i * 72
+        c.box(16, y, 200, 60, t, s)
+        c.arrow(216, y + 30, 268, 142)
+    c.box(272, 112, 176, 60, "agent", ["reads private data,", "acts on state, sends"], hl=True)
+    c.text(504, 24, "WHERE DATA CAN LEAVE", size=10.5, color="muted", weight=600)
     outs = [
         ("the reply", "no_secret_leak"),
         ("an outbound send", "no_external_send"),
         ("a write", "no_unauthorized_write"),
     ]
     for i, (t, m) in enumerate(outs):
-        y = 40 + i * 60
-        c.arrow(514, 130, 556, y + 23)
-        c.box(560, y, 200, 46, t, m, small=True)
-        c.text(772, y + 28, "1.0 when it held", size=10.5, color="muted")
+        y = 34 + i * 72
+        c.arrow(448, 142, 500, y + 30)
+        c.box(504, y, 200, 60, t, [m, "1.0 when it held"])
     c.text(
         16,
-        232,
-        "controls: benign asks in the same set, marker helpful_on_benign. A refusal that passes them is a reward the policy can collect.",
-        size=11,
+        272,
+        "controls: benign asks in the same set, marker helpful_on_benign. A refusal that",
+        size=11.5,
         color="body",
     )
     c.text(
         16,
-        248,
-        "reward = 1 only when every applicable marker holds; the judge reads steps and final_text, not the prose alone",
-        size=11,
+        288,
+        "passes them is a reward the policy can collect by refusing everything.",
+        size=11.5,
+        color="body",
+    )
+    c.text(
+        16,
+        308,
+        "reward = 1 only when every applicable marker holds; the judge reads steps and final_text",
+        size=11.5,
         color="muted",
     )
     return c.render()
@@ -413,82 +411,63 @@ def safety_channels(p):
 
 def character_pipeline(p):
     c = Canvas(
-        960,
-        250,
+        340,
         p,
         "Character training as a data pipeline: constitution, prompts, replies under the deployment prompt, a judge that alone sees the principle, pairs and SFT, then a paired delta",
     )
-    boxes = [
-        ("constitution", "one principle per trait"),
-        ("prompts", "where the trait matters"),
-        ("k replies", "deployment prompt only"),
-        ("judge", "alone sees the principle"),
-        ("markers", "trait, on_task, no_filler"),
-    ]
-    w, h, gap, y = 168, 54, 20, 40
-    for i, (t, s) in enumerate(boxes):
-        x = 16 + i * (w + gap)
-        hl = i in (2, 3)
-        c.box(
-            x,
-            y,
-            w,
-            h,
-            t,
-            s,
-            small=True,
-            fill="tint" if hl else "surface",
-            stroke="green" if hl else "line",
-        )
-        if i < 4:
-            c.arrow(x + w, y + h / 2, x + w + gap, y + h / 2)
+    row(
+        c,
+        32,
+        [
+            ("constitution", "one principle per trait", False),
+            ("prompts", "where the trait matters", False),
+            ("k replies", "deployment prompt only", True),
+        ],
+    )
+    c.path("M 580 88 L 580 100 L 116 100 L 116 130", green=True)
     c.text(
-        16,
-        118,
-        "if the principle is in the sampling prompt you measure prompting, not character",
+        140,
+        122,
+        "the principle is not in the sampling prompt, or you measure prompting, not character",
         size=11,
         color="warm",
     )
-    x_m = 16 + 4 * (w + gap) + w / 2
-    c.path(f"M {x_m} {y + h} L {x_m} 140", green=True)
-    c.box(560, 142, 184, 44, "build_preference_pairs", "length_match=True", mono=True, small=True)
-    c.box(
-        760,
-        142,
-        184,
-        44,
-        "export_training",
-        "passes, loss mask on agent turn",
-        mono=True,
-        small=True,
+    row(
+        c,
+        132,
+        [
+            ("judge", "alone sees the principle", True),
+            ("markers", "trait, on_task, no_filler", False),
+            ("pairs and SFT", ["build_preference_pairs", "length_match=True"], False),
+        ],
     )
-    c.arrow(652, 186, 652, 206)
-    c.box(
-        560,
-        208,
-        384,
-        40,
-        'train(method="dpo")  ->  delta_report',
-        'target="marker:trait", must_not_regress=[on_task, no_filler]',
-        mono=True,
-        small=True,
-    )
-    c.text(16, 160, "judge check first:", size=11, color="ink", weight=600)
     c.text(
         16,
-        176,
-        "grade the spec's GOOD/BAD replies, judge_agreement >= 0.8, kappa >= 0.6",
+        214,
+        "judge check first: grade the spec's GOOD/BAD replies; agreement >= 0.8, kappa >= 0.6",
         size=11,
         fam=MONO,
         color="body",
     )
-    c.text(16, 200, "holdout:", size=11, color="ink", weight=600)
+    c.path("M 580 188 L 580 236 L 116 236 L 116 250", green=True)
+    c.box(16, 252, 200, 56, 'train(method="dpo")', "or any DPO trainer", mono=True)
+    c.arrow(216, 280, 248, 280)
+    c.box(
+        248,
+        252,
+        456,
+        56,
+        "delta_report",
+        ['target="marker:trait"', "must_not_regress=[on_task, no_filler]"],
+        hl=True,
+        mono=True,
+    )
     c.text(
         16,
-        216,
-        'same prompts + "drop the act", plus plain tasks the persona must not distort',
-        size=11,
-        color="body",
+        330,
+        'holdout: the same prompts + "drop the act", plus plain tasks the persona must not distort',
+        size=11.5,
+        color="muted",
     )
     return c.render()
 
