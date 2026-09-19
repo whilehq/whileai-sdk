@@ -63,9 +63,10 @@ service for hosted training and serving. The library needs no account.
    Change the front door, migrate callers mechanically, keep the old name
    working for one release with a warning that says the new one.
 9. **One name.** The company is While, the package is `whileai`, the import
-   is `import whileai as wai`, the hosts are withwhile.com,
-   app.withwhile.com, api.withwhile.com and docs.withwhile.com, the
-   variables are `WHILEAI_*`, the config dir is `~/.whileai`. ZeroProof
+   is `import whileai as wai`, the hosts are withwhile.com (site and
+   platform), api.withwhile.com and docs.withwhile.com, the variables are
+   `WHILEAI_*`, the config dir is `~/.whileai`. app.withwhile.com was
+   retired the same day; nothing links to it. ZeroProof
    was the name before 2026-09-16; the cutover finished on 2026-09-19 and
    nothing new is written under it: no code, page, prompt, routine,
    dataset card or post. What still carries the old name is wire protocol
