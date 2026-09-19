@@ -1,10 +1,11 @@
 """Row hygiene a grouped RL update or a rejection-sampling pass cares about.
 
-Three checks, all report-first (rlhf-book ch. 9 and 12: dedupe and strong
-quality filters are what keep synthetic data out of the collapse regime;
-ch. 6 and 7: overlong filtering; our own reward-hack scan from the
-RLVR signal work: rank candidate features by correlation with reward and
-look at what wins).
+Three checks, all report-first (Lambert 2025, chapters Rejection Sampling and
+Synthetic Data and Distillation: dedupe and strong quality filters are what
+keep synthetic data out of the collapse regime; Yu et al. 2025 (DAPO),
+arXiv:2503.14476: overlong filtering; our own reward-hack scan from the RLVR
+signal work: rank candidate features by correlation with reward and look at
+what wins).
 
 * ``dedupe_groups``: within one ask, rollouts that are the same
   trajectory (same behavior signature and same visible reply) add
@@ -245,15 +246,15 @@ def pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
 def reward_correlations(
     rows: Sequence[dict], *, threshold: float = HACK_THRESHOLD
 ) -> dict[str, Any]:
-    """corr(reward, feature) for the cheap features a judge tends to
-    reward by accident: reply length, tool-call count, assistant turns,
-    and the over-optimization signatures of rlhf-book ch. 14 (boilerplate,
-    hedging, sycophancy, refusal phrases, 1 when present; see
-    ``score.style``), plus every trajectory flag that fired on any row
-    (``lie.*``, ``hack.*``, ``risk.*``; see ``score.trace``). Any |corr|
-    at or above ``threshold`` is flagged. A negative tool-count
-    correlation means the reward pays the policy to do less; a positive
-    phrase or flag correlation means it pays for the tic or the fake."""
+    """corr(reward, feature) for the cheap features a judge tends to reward by
+    accident: reply length, tool-call count, assistant turns, and the
+    over-optimization signatures Lambert 2025 (chapter Over-optimization)
+    lists (boilerplate, hedging, sycophancy, refusal phrases, 1 when present;
+    see ``score.style``), plus every trajectory flag that fired on any row
+    (``lie.*``, ``hack.*``, ``risk.*``; see ``score.trace``). Any |corr| at or
+    above ``threshold`` is flagged. A negative tool-count correlation means
+    the reward pays the policy to do less; a positive phrase or flag
+    correlation means it pays for the tic or the fake."""
     from .style import STYLE_FEATURES, assistant_text, phrase_hits
 
     graded = [r for r in rows if isinstance(r, dict) and _binary_label(r) is not None]

@@ -1,6 +1,7 @@
 """Structured-output verifiers: valid JSON, JSON Schema, a field's value.
 
-Book ch. 13: many agent rewards are "did it emit the right structured call".
+Many agent rewards are "did it emit the right structured call" (Lambert
+2025, chapter Tool Use).
 ``JSONSchema`` uses the ``jsonschema`` package when installed and falls back
 to a minimal type/required check so it still runs without it.
 """

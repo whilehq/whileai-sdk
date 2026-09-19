@@ -1,11 +1,11 @@
 """Is the run hacking its reward right now? Watch it while it trains.
 
-rlhf-book ch. 14 draws over-optimization as one picture: the training
-reward keeps climbing while the evaluation you actually care about
-flattens and then falls, read against how far the policy has drifted
-from where it started (KL). Every trainer logs the first curve. Nobody
-draws the second until the run is over and the holdout is scored once.
-``HackMonitor`` draws it during the run.
+Gao et al. 2022 (arXiv:2210.10760) draw over-optimization as one picture: the
+training reward keeps climbing while the evaluation you actually care about
+flattens and then falls, read against how far the policy has drifted from
+where it started (KL). Every trainer logs the first curve. Nobody draws the
+second until the run is over and the holdout is scored once. ``HackMonitor``
+draws it during the run.
 
 It is a Transformers / TRL callback plus a wrapper for the reward
 function, so it sees two things the trainer's averages hide:
@@ -23,12 +23,13 @@ function, so it sees two things the trainer's averages hide:
 Four alarms, each one line on the run:
 
 * ``divergence``: proxy up by ``delta`` or more over the window while
-  the gold interval does not move up (the book's figure 1);
+  the gold interval does not move up (figure 1 of Gao et al. 2022);
 * ``length``: mean completion length up by ``length_pct`` or more over
-  the window while gold does not move up (ch. 6: per-sequence losses
-  pay for short, per-token for long; a judge that reads length pays
-  for long);
-* ``drift``: KL from the reference past ``kl_budget`` (ch. 15);
+  the window while gold does not move up (Yu et al. 2025 (DAPO),
+  arXiv:2503.14476, on token-level loss: per-sequence losses pay for
+  short, per-token for long; a judge that reads length pays for long);
+* ``drift``: KL from the reference past ``kl_budget`` (Lambert 2025,
+  chapter Regularization);
 * ``feature``: the buffer's ``hack_scan`` says ``reward_hack`` (needs
   ``endorsed``).
 

@@ -250,7 +250,7 @@ def _convert_messages(
             if max_tool_output_chars is not None and len(content) > int(max_tool_output_chars):
                 # Tool output eats context faster than anything else the
                 # trainer sees; cutting it is a decision the export makes
-                # out loud (rlhf-book ch. 13), never silently.
+                # out loud (Lambert 2025, chapter Tool Use), never silently.
                 cap = max(0, int(max_tool_output_chars))
                 cut = len(content) - cap
                 marker = "[... " + str(cut) + " chars of tool output truncated]"
@@ -378,10 +378,10 @@ def loss_mask(messages: Sequence[dict], *, mode: str = "assistant") -> list[int]
     ``"assistant"`` trains every assistant turn, the multi-turn default.
     ``"final"`` trains only the last assistant turn, for conversations
     whose earlier agent turns were scripted or came from another policy
-    (rlhf-book ch. 4 "Implementation Details" describes both). System,
+    (Lambert 2025, chapter Instruction Tuning, describes both). System,
     user, and tool messages are always 0: tool output is the environment
     speaking, not the policy, and training on it teaches the model to
-    invent tool results (ch. 13).
+    invent tool results (Lambert 2025, chapter Tool Use).
     """
     if mode not in MASK_MODES:
         raise ValueError(f"mask_mode must be one of {MASK_MODES}, got {mode!r}")
@@ -445,7 +445,7 @@ def training_rows(
       only.
     * ``unroll`` (``False``): ``True`` turns an N-turn conversation into N
       samples, the k-th ending at the k-th assistant turn with loss on
-      that turn only (rlhf-book ch. 4, multi-turn masking). Every earlier
+      that turn only (Lambert 2025, chapter Instruction Tuning). Every earlier
       agent turn then trains once with exactly the context it had,
       instead of only the last one (``mask_mode="final"``) or all of them
       at once (``"assistant"``, where later turns see context the policy
@@ -459,8 +459,8 @@ def training_rows(
       output truncated]`` and counting the cut on the row as
       ``tool_output_truncated`` (messages) and ``tool_output_chars_cut``.
       Tool output is masked from the loss anyway; what it costs is
-      context, and the cut is explicit rather than silent (rlhf-book
-      ch. 13).
+      context, and the cut is explicit rather than silent (Lambert 2025,
+      chapter Tool Use).
 
     ```python
     rows = wai.training_rows(data, unroll=True)
@@ -515,8 +515,9 @@ def training_rows(
             entry["tool_output_truncated"] = cut_stats["truncated"]
             entry["tool_output_chars_cut"] = cut_stats["chars_cut"]
         # Train on the agent's turns only. Tool output is the environment's
-        # text, not the policy's, and is masked from the loss (rlhf-book
-        # ch. 13); system and user turns likewise. One entry per message.
+        # text, not the policy's, and is masked from the loss (Lambert 2025,
+        # chapter Tool Use); system and user turns likewise. One entry per
+        # message.
         entry["loss_mask"] = loss_mask(entry["messages"], mode=mask_mode)
         if resolved_tools:
             entry["tools"] = list(resolved_tools)
@@ -581,7 +582,7 @@ def _stamp_groups(rows: list[dict]) -> None:
     stable name (sha1 of the ``task_key``: the situation id, else the prompt), ``k`` the
     group size, ``n0``/``n1`` the fail/pass counts so a consumer can drop
     unanimous groups without rescoring, and ``reward_mean``/``reward_std``
-    the group's reward statistics (rlhfbook.com/c/11-policy-gradients.html,
+    the group's reward statistics (Shao et al. 2024, arXiv:2402.03300,
     GRPO: group-normalized advantages divide by this std, so a trainer can
     see where it is near zero and choose batch-level normalization or Dr.
     GRPO instead). A
@@ -741,8 +742,8 @@ def export_training(
     }
     # SFT clones every row it is given. A failed rollout in the file
     # teaches the failure, so say how many there are instead of leaving
-    # the caller to notice after training (rlhf-book ch. 9: rejection
-    # sampling keeps the passes).
+    # the caller to notice after training (rejection sampling keeps the
+    # passes: Lambert 2025, chapter Rejection Sampling).
     rewards = [_numeric(r.get("reward")) for r in rows]
     n_fail = sum(1 for v in rewards if v is not None and v < PASS_THRESHOLD)
     n_pass = sum(1 for v in rewards if v is not None and v >= PASS_THRESHOLD)
@@ -786,7 +787,8 @@ export_dataset = export_training
 
 # Pair metadata that survives export. Scores and margin feed a margin-aware
 # loss; the two model names and same_policy tell a reviewer whether the pair
-# is on-policy; length_delta is the length-exploit check (rlhf-book ch. 8).
+# is on-policy; length_delta is the length-exploit check (Lambert 2025,
+# chapter Direct Alignment).
 _PAIR_KEYS = (
     "tie",
     "pairwise",

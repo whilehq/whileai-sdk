@@ -1,13 +1,13 @@
 """Does the judge agree with labels you trust?
 
-An LLM judge is a reward model, and a reward model is only as good as
-its accuracy on a held-out set you labeled yourself (rlhf-book ch. 5
-"Suggested Experiments": 50 to 200 pairs is enough to tune on). Without
-that number a training run optimizes the judge's habits, not the
+An LLM judge is a reward model, and a reward model is only as good as its
+accuracy on a held-out set you labeled yourself (Lambert 2025, chapter Reward
+Modeling, "Suggested Experiments": 50 to 200 pairs is enough to tune on).
+Without that number a training run optimizes the judge's habits, not the
 behavior. ``judge_agreement`` is that number, plus the two directions of
-disagreement, which are not symmetric: a judge that passes a failure
-teaches the failure (a reward hack in RL, a bad demonstration in SFT); a
-judge that fails a pass only wastes a row.
+disagreement, which are not symmetric: a judge that passes a failure teaches
+the failure (a reward hack in RL, a bad demonstration in SFT); a judge that
+fails a pass only wastes a row.
 
 The same function measures self-consistency: judge the same rows twice
 and pass the second run as ``gold``. Agreement below what two humans
@@ -26,9 +26,8 @@ from typing import Any
 from ..defaults import MIN_GOLD
 
 # MIN_GOLD = 50 (``defaults``): below it the accuracy estimate has a
-# +/-0.1 Wilson error bar and the book's own guidance
-# (rlhfbook.com/c/07-reward-models.html, a 50- to 200-example held-out
-# set) is not met.
+# +/-0.1 Wilson error bar and the guidance of Lambert 2025, chapter Reward
+# Modeling (a 50- to 200-example held-out set), is not met.
 # LEAK_THRESHOLD = 0.1: a judge that passes one in ten gold failures leaks
 # that many bad rows into a training set at the pass rate of the run; ten
 # points is the same sensitivity as FLIP_FLAG (convention).
@@ -224,7 +223,7 @@ def judge_agreement(
     elif n < MIN_GOLD:
         warnings.append(
             f"{n} gold rows; the accuracy estimate is coarse below {MIN_GOLD} "
-            "(rlhf-book ch. 5 suggests 50-200)"
+            "(Lambert 2025, chapter Reward Modeling, suggests 50-200)"
         )
     if leak is not None and leak >= LEAK_THRESHOLD and fp:
         warnings.append(

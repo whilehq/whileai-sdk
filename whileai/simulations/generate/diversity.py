@@ -41,7 +41,7 @@ _TIER_ALIASES = {
 # and ``dimensions={"stance": [...]}`` picks which stances run, so the
 # tier set is fixed and the split is the knob. The literature filters on
 # solve rate, not on prompt kind: keep prompts the policy solves 20-80% of
-# the time (rlhfbook.com/c/07-reasoning; Tulu 3 2411.15124) and drop
+# the time (Lambert 2025, chapter Reasoning; Tulu 3 2411.15124) and drop
 # groups that are all-pass or all-fail (DAPO 2503.14476, dynamic sampling).
 # That filter runs after the rollouts, in ``score.curriculum`` on
 # ``DEFAULT_BAND``; this share is the prior that feeds it and has no

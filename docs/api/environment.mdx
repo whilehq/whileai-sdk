@@ -32,14 +32,14 @@ One task per distinct prompt, split into train and holdout.
 When a prompt has two or more graded rollouts its solve rate is known
 (partial credit counts as it is) and, with `band`, prompts the policy
 always or never solved are dropped: they carry no advantage
-(rlhfbook.com/c/07-reasoning, difficulty filtering at 20 to 80
+(Lambert 2025, chapter Reasoning, difficulty filtering at 20 to 80
 percent; DAPO's dynamic sampling drops accuracy 0 and 1,
 arXiv:2503.14476). Ungraded prompts and single
 rollouts are kept as they are. `holdout` is a fraction, split by
 scenario id (or the prompt) so a task is wholly on one side, or an
 explicit list of holdout prompts. Train and holdout are decontaminated
 against each other at `ngram`-grams (8: the overlap size
-rlhfbook.com/c/16-evaluation.html found its contaminations with) and
+Lambert 2025, chapter Evaluation, found its contaminations with) and
 the report says what overlapped.
 
 ### export_environment
@@ -100,11 +100,11 @@ advantage) and `decontamination`.
   list of holdout prompts.
 * `band` (`(0.2, 0.8)`): the pass-rate band a graded prompt must
   sit in; prompts the policy always or never solved carry no
-  advantage and are dropped (rlhf-book ch. 7, difficulty filtering at
-  20 to 80 percent; DAPO's dynamic sampling, arXiv:2503.14476).
+  advantage and are dropped (Lambert 2025, chapter Reasoning, difficulty
+  filtering at 20 to 80 percent; DAPO's dynamic sampling, arXiv:2503.14476).
   `None` keeps them all.
 * `ngram` (8): the train-versus-holdout decontamination size, the
-  overlap rlhf-book ch. 16 found its contaminations with.
+  overlap Lambert 2025, chapter Evaluation, found its contaminations with.
 * `name`, `description`, `max_turns`: the package name, its
   README line, and the rollout turn cap (the SDK default when
   `None`).

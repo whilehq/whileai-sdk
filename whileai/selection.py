@@ -137,7 +137,8 @@ def select(
     * ``mode``: ``"rl"`` or ``"sft"``; defaults to the run's own mode, else ``"rl"``.
     * ``target``: about how many rows to keep.
     * ``band``: the RL difficulty band as a pass-rate range, ``(0.2, 0.8)`` by
-      default (rlhfbook.com ch. 7; DAPO, arXiv:2503.14476).
+      default (Lambert 2025, chapter Reasoning; Yu et al. 2025 (DAPO),
+      arXiv:2503.14476).
     * ``endorsed``: feature names the reward should track, so the hack scan
       can call a shortcut a hack.
     * ``truncated``: ``"drop"``, ``"keep"`` or ``"penalize"`` for rollouts cut

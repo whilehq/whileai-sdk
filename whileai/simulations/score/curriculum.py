@@ -1,11 +1,11 @@
 """Curriculum: order tasks easy-to-hard and retire the solved ones.
 
-RLHF book ch. 7 (Reasoning): a curriculum needs per-prompt difficulty. Keep
-the prompts the current policy solves in the 20-80% band, hold the ones it
-never solves (no gradient yet), and retire the ones it always solves (they
+Lambert 2025, chapter Reasoning: a curriculum needs per-prompt difficulty.
+Keep the prompts the current policy solves in the 20-80% band, hold the ones
+it never solves (no gradient yet), and retire the ones it always solves (they
 teach nothing). The difficulty is the task's pass rate over its k rollouts,
-the same number ``group_signal`` and ``Calibration`` already carry, so this
-is a projection of graded rows, not new measurement.
+the same number ``group_signal`` and ``Calibration`` already carry, so this is
+a projection of graded rows, not new measurement.
 
     rows = data.grade(judge=my_verifier).rows
     cur = curriculum(rows)

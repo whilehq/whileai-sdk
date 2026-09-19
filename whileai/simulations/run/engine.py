@@ -207,10 +207,11 @@ def _graded_failure(row: dict, threshold: float = PASS_THRESHOLD) -> bool:
     where the four missed rules failed 4 to 10% of the time in the source
     traces and 0 to 2% in what was generated from them).
 
-    A criterion that never varies contributes no advantage to a grouped
-    update (rlhf-book ch. 6), and difficulty filtering has to read the band on
-    the criterion being trained rather than on a mean that spans several
-    (ch. 7). ``None`` (not judged, judge error) is still not a failure.
+    A criterion that never varies contributes no advantage to a grouped update
+    (Shao et al. 2024, arXiv:2402.03300), and difficulty filtering has to read
+    the band on the criterion being trained rather than on a mean that spans
+    several (Lambert 2025, chapter Reasoning). ``None`` (not judged, judge
+    error) is still not a failure.
     """
     if failed_criteria(row):
         return True
@@ -1191,9 +1192,9 @@ class Run:
                 # per-token, in generation order across the agent's turns:
                 # what a truncated-importance-sampling ratio is built from
                 t["token_logprobs"] = tokens
-        # Which policy, exactly, and how it was sampled (rlhf-book ch. 6
-        # async RL, ch. 9): a later update needs the sampler's version and
-        # temperature on the row, not in a notebook.
+        # Which policy, exactly, and how it was sampled (async RL,
+        # Noukhovitch et al. 2024, arXiv:2410.18252): a later update needs
+        # the sampler's version and temperature on the row, not in a notebook.
         t["policy_version"] = self.policy_version
         t["sampling"] = dict(self.sampling) if self.sampling is not None else None
         # Token usage rolls up the same way, so a row says what it cost and a
@@ -1582,7 +1583,7 @@ class Run:
         # for verdicts: the run had too few situations for its concurrency
         self.idle_on_judge_s = 0.0
         # rollouts that hit the length cap: never judged, counted as done
-        # without evidence in their group (rlhf-book ch. 6)
+        # without evidence in their group (Yu et al. 2025 (DAPO), arXiv:2503.14476)
         self.group_truncated: dict[str, int] = {}
         self.skipped_truncated = 0
         self._successive = c.topo["repeat_policy"] == "successive" and not c.k_immediate
@@ -3061,9 +3062,9 @@ class Run:
         next rollout (Laplace's 1/(n+2) only as the prior), and the fresh
         side is the run's own mixed rate over its probe size. Nothing here
         is a tuned constant: the probe (2, the least that can show a
-        split), k, and the run's measurements decide. rlhf-book ch. 6
-        (dynamic sampling) and ch. 7 (difficulty filtering), applied at
-        generation time.
+        split), k, and the run's measurements decide. Dynamic sampling (Yu
+        et al. 2025 (DAPO), arXiv:2503.14476) and difficulty filtering
+        (Lambert 2025, chapter Reasoning), applied at generation time.
         """
         c = self.c
         k = c.repeat_count
@@ -3453,8 +3454,8 @@ class Run:
         if lost:
             # Not missing at random: the tasks that failed are the ones a
             # cold endpoint or a leaky reply format failed on, so every
-            # rate over the survivors is biased (rlhf-book ch. 16, the
-            # eval's composition decides what a pass rate means). Say so
+            # rate over the survivors is biased (the eval's composition decides
+            # what a pass rate means, Lambert 2025, chapter Evaluation). Say so
             # on the run, with the fix for each way a rollout is lost.
             note = self._lost_note(lost)
             if "rollouts_lost" not in data.degraded:
@@ -3694,9 +3695,10 @@ class Run:
             data.stopped_because = "empty_replies"
         data.user_model = self.user_model
         # One model writing the exam, sitting it, and playing the examiner's
-        # stand-in is the regime the rlhf-book warns about (ch. 12: a model
-        # trained on its own unfiltered output learns its own habits). The
-        # default still does it; the run says so, once, and names the fix.
+        # stand-in is the regime Lambert 2025 (chapter Synthetic Data and
+        # Distillation) warns about: a model trained on its own unfiltered
+        # output learns its own habits. The default still does it; the run
+        # says so, once, and names the fix.
         roles = [
             role
             for role, tag in (

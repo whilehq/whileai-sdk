@@ -1,4 +1,5 @@
-"""Verifiers: programmatic, verifiable rewards (RLHF book ch. 7, 13).
+"""Verifiers: programmatic, verifiable rewards (Lambert et al. 2024,
+arXiv:2411.15124; Lambert 2025, chapters Reasoning and Tool Use).
 
 A verifier is a checker, not a judge: it reads a rollout and decides pass,
 fail, or a partial score in [0, 1], with no model call. Every verifier

@@ -113,10 +113,11 @@ def failed_criteria(row: dict) -> list[str]:
     agent phrased its reply were missed entirely, and their failure rates in
     the source traces were 4 to 10%.
 
-    A criterion nothing ever fails carries no gradient (rlhf-book ch. 6:
-    groups where every rollout scores the same have zero advantage), and
-    difficulty filtering wants the band measured on the thing being trained,
-    not on an average that spans it (ch. 7).
+    A criterion nothing ever fails carries no gradient (Shao et al. 2024,
+    arXiv:2402.03300: groups where every rollout scores the same have zero
+    advantage), and difficulty filtering wants the band measured on the
+    thing being trained, not on an average that spans it (Lambert 2025,
+    chapter Reasoning).
     """
     markers = row.get("markers")
     if not isinstance(markers, dict):

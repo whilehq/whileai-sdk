@@ -161,7 +161,7 @@ def test_select_for_sft_notes_low_completions_per_prompt():
     rows = [_row("a", 1, "Issue 1 is open."), _row("b", 1, "Issue 2 is open.")]
     _picked, report = select_for_sft(rows, target=10)
     assert report["completions_per_prompt_max"] == 1
-    assert "rejection-sampling" in report["note"]
+    assert "chapter Rejection Sampling" in report["note"]
     assert report["completions_per_prompt_mean"] == 1.0
     assert report["selection_effective"] == "pass_filter"
     many = [_row("a", 1, f"Issue {i} is open.") for i in range(12)]
@@ -182,7 +182,7 @@ def test_select_for_sft_note_fires_on_mean_not_max():
     assert report["completions_per_prompt_max"] == 12
     assert report["completions_per_prompt_mean"] < 2
     assert report["prompts_with_one_completion"] == 500
-    assert "rejection-sampling" in report["note"]
+    assert "chapter Rejection Sampling" in report["note"]
     assert report["selection_effective"] == "pass_filter"
 
 

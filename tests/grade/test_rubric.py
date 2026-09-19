@@ -1,4 +1,5 @@
-"""Rubrics as objects, the per-criterion judge, and the writer (rlhf-book ch. 12)."""
+"""Rubrics as objects, the per-criterion judge, and the writer (Lambert
+2025, chapter Synthetic Data and Distillation)."""
 
 from __future__ import annotations
 

@@ -57,7 +57,7 @@ def test_resolve_topology_defaults_and_aliases():
     sft = wai.resolve_topology(mode="sft")
     # k is completions per phrasing and is what top_per_prompt selects
     # among; at k=1 the mode could not do the rejection sampling it is
-    # named for (rlhfbook.com/c/10-rejection-sampling.html). Phrasing
+    # named for (Lambert 2025, chapter Rejection Sampling). Phrasing
     # diversity stays at 3, and repeats= moves k.
     assert sft["n_req"] == defaults.SFT_PHRASINGS_PER_SITUATION == 3
     assert sft["k"] == defaults.SFT_COMPLETIONS_PER_PROMPT == 4
@@ -184,7 +184,8 @@ def test_mode_sft_rl_explore_change_n_and_k():
     assert sft.requests_per_situation == 3
     # k=4 means several completions share a prompt on purpose: that is the
     # distribution top_per_prompt selects from. Prompts are no longer unique,
-    # and were never meant to be once the mode can select (rlhf-book ch. 9).
+    # and were never meant to be once the mode can select (Lambert 2025,
+    # chapter Rejection Sampling).
     assert len({t["prompt"] for t in sft.trajectories}) < len(sft.trajectories)
 
     rl = wai.simulate(scripted_agent, mode="rl", budget=16, **offline())

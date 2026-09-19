@@ -1,8 +1,8 @@
 """A ``run_std`` handed to ``delta_report`` carries where it came from.
-``run_std_runs=`` makes the re-run band the two-sided t quantile at
-``runs - 1`` degrees of freedom; a bare ``run_std=`` keeps 1.96 and names
-the fix (rlhf-book ch. 16, appendix C). ``recipes/papers/check.py`` holds
-its stdlib copy of ``noise_band`` to the same numbers."""
+``run_std_runs=`` makes the re-run band the two-sided t quantile at ``runs -
+1`` degrees of freedom; a bare ``run_std=`` keeps 1.96 and names the fix
+(Lambert 2025, evaluation-variance appendix). ``recipes/papers/check.py``
+holds its stdlib copy of ``noise_band`` to the same numbers."""
 
 from __future__ import annotations
 

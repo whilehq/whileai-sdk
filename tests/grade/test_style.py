@@ -1,4 +1,5 @@
-"""Over-optimization signatures as markers (rlhf-book ch. 14, 17)."""
+"""Over-optimization signatures as markers (Lambert 2025, chapters
+Over-optimization and Model Character and Products)."""
 
 from __future__ import annotations
 

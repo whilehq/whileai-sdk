@@ -36,7 +36,7 @@ description: "Grading, judge checks, pass@k, selection for SFT and RL, hack scan
 | [`dedupe_groups`](#dedupe_groups) | Drop repeat trajectories within one ask. |
 | [`delta_report`](#delta_report) | Compare an `after` run to a `before` run on pass@1 and every shared marker, and say whether the change is real. |
 | [`detectable_effect`](#detectable_effect) | The smallest gain `n_tasks` paired tasks can prove at `power`: `holdout_size` solved for the effect (`FIXED_POINT_STEPS` fixed-point steps, since the after-side variance depends on it). |
-| [`eval_variance`](#eval_variance) | How much an evaluation moves when the same model is evaluated again (rlhf-book ch. 16, Evaluation). |
+| [`eval_variance`](#eval_variance) | How much an evaluation moves when the same model is evaluated again (Lambert 2025, chapter Evaluation). |
 | [`evaluate`](#evaluate) | Judge held-out rollouts under the exact contract `grade` uses. |
 | [`expected_outcome`](#expected_outcome) | What the checklist will look for on this task, in one sentence. |
 | [`filter_rl_rows`](#filter_rl_rows) | Split keep/drop. |
@@ -82,9 +82,9 @@ description: "Grading, judge checks, pass@k, selection for SFT and RL, hack scan
 | [`rank_rows`](#rank_rows) | Score each row in place. |
 | [`recommend`](#recommend) | How much data this agent needs, from its own grid. |
 | [`reference_logprobs`](#reference_logprobs) | Stamp `ref_logprob` on every row: the reference's summed logprob over the tokens the policy generated. |
-| [`refusal_report`](#refusal_report) | Over-refusal on a benign set (rlhf-book ch. 14 "Over-Refusal"). |
+| [`refusal_report`](#refusal_report) | Over-refusal on a benign set (Lambert 2025, chapter Over-optimization, "Over-Refusal"). |
 | [`retire_solved`](#retire_solved) | Return the rows with every solved task removed. |
-| [`reward_correlations`](#reward_correlations) | corr(reward, feature) for the cheap features a judge tends to reward by accident: reply length, tool-call count, assistant turns, and the over-optimization signatures of rlhf-book ch. 14 (boilerplate, hedging, sycophancy, refusal phrases, 1 when present; see `score.style`), plus every trajectory flag that fired on any row (`lie.*`, `hack.*`, `risk.*`; see `score.trace`). |
+| [`reward_correlations`](#reward_correlations) | corr(reward, feature) for the cheap features a judge tends to reward by accident: reply length, tool-call count, assistant turns, and the over-optimization signatures Lambert 2025 (chapter Over-optimization) lists (boilerplate, hedging, sycophancy, refusal phrases, 1 when present; see `score.style`), plus every trajectory flag that fired on any row (`lie.*`, `hack.*`, `risk.*`; see `score.trace`). |
 | [`row_markers`](#row_markers) | The stock markers for one row's final text. |
 | [`rubric_judge`](#rubric_judge) | A judge for `run_judge` / `data.grade(judge=)` that scores the rubric item by item. |
 | [`rubric_of`](#rubric_of) | *no docstring* |
@@ -384,7 +384,7 @@ Arguments that matter:
   proxy moved up and the target did not, or the proxy's interval sits
   entirely above the target's, the report is `over_optimized` and
   fails: the policy learned something the target does not credit
-  (rlhf-book ch. 14).
+  (Gao et al. 2022, arXiv:2210.10760).
 * `must_not_regress`: metrics whose significant drop fails the
   report. Marker metrics go by marker name; pass@1 is `"pass_at_1"`.
 * `by`: split the target by a group on each row (a top-level row
@@ -437,8 +437,9 @@ true 0.05). Only re-running the short arm on its short tasks does,
 and `data.report()["rollouts_lost_by"]` says why the rows went
 missing.
 
-Noise floor. One evaluation is a draw, not a distribution (rlhf-book
-ch. 16, "why many comparisons are unreliable", and appendix C). With
+Noise floor. One evaluation is a draw, not a distribution (Lambert
+2025, chapter Evaluation, "why many comparisons are unreliable", and
+its evaluation-variance appendix). With
 one run on either side and no `run_std`, a target that moved reads
 `moved_unreplicated` and a warning says how to fix it. Pass
 `eval_variance(...)["run_std_by_metric"]` as `run_std` so pass@1
@@ -471,28 +472,26 @@ the headline band, `noise_rule` spells it out, and `eval_runs`
 says how many runs each side had.
 
 Comparability. `config` says what each side was produced with
-(`pass_at(...).config` per side: task count, k, temperature,
-max_tokens, policy and judge versions, prompt hash). A warning names
-each setting the two sides disagree on, and says so when both sides
-are the same policy version (rlhf-book ch. 16: a comparison is only
-as good as the settings it was run under).
-`config[side]["answered_share"]` is the share of rows per side with
-a spoken reply once `<think>` markup is gone, and every rate is
-conditional on it. The two shares are compared with a pooled
-two-proportion z test; when it clears `answered_alpha` the warning
-states p and the gap, and when the gap also exceeds the re-run band
-(or `answered_gap_points` with no band) the report fails with
-`answered` in `not_comparable` and names the mechanism: a
-reasoning base against a reasoning-suppressed adapter under one
-shared `max_tokens` runs out of budget inside `<think>` and never
-answers, so the adapter wins every row the base did not reply to.
-`not_comparable` lists every such cause under one prefix, `NOT
-COMPARABLE:`; none are raised here. A replay (`simulate(tasks=...)`
-or `runs=N`) keeps the writer of the run it replays on
-`writer_model`, so two runs of one call compare as one writer.
-Situations nobody's model wrote (a `seeds=` ask, the offline
-template writer, or a replay of either) count as one writer for this
-check: nothing there could have moved with the weights.
+(`pass_at(...).config` per side: task count, k, temperature, max_tokens,
+policy and judge versions, prompt hash). A warning names each setting the
+two sides disagree on, and says so when both sides are the same policy
+version (Lambert 2025, chapter Evaluation: a comparison is only as good as
+the settings it was run under). `config[side]["answered_share"]` is the
+share of rows per side with a spoken reply once `<think>` markup is
+gone, and every rate is conditional on it. The two shares are compared
+with a pooled two-proportion z test; when it clears `answered_alpha` the
+warning states p and the gap, and when the gap also exceeds the re-run
+band (or `answered_gap_points` with no band) the report fails with
+`answered` in `not_comparable` and names the mechanism: a reasoning
+base against a reasoning-suppressed adapter under one shared
+`max_tokens` runs out of budget inside `<think>` and never answers, so
+the adapter wins every row the base did not reply to. `not_comparable`
+lists every such cause under one prefix, `NOT COMPARABLE:`; none are
+raised here. A replay (`simulate(tasks=...)` or `runs=N`) keeps the
+writer of the run it replays on `writer_model`, so two runs of one call
+compare as one writer. Situations nobody's model wrote (a `seeds=` ask,
+the offline template writer, or a replay of either) count as one writer
+for this check: nothing there could have moved with the weights.
 
 `ceiling` is set when the before side already passes
 `ceiling_pass_rate` of its tasks, or when fewer than
@@ -786,15 +785,15 @@ reward_correlations(
 
 Defined in [`whileai/simulations/score/hygiene.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/hygiene.py).
 
-corr(reward, feature) for the cheap features a judge tends to
-reward by accident: reply length, tool-call count, assistant turns,
-and the over-optimization signatures of rlhf-book ch. 14 (boilerplate,
-hedging, sycophancy, refusal phrases, 1 when present; see
-`score.style`), plus every trajectory flag that fired on any row
-(`lie.*`, `hack.*`, `risk.*`; see `score.trace`). Any |corr|
-at or above `threshold` is flagged. A negative tool-count
-correlation means the reward pays the policy to do less; a positive
-phrase or flag correlation means it pays for the tic or the fake.
+corr(reward, feature) for the cheap features a judge tends to reward by
+accident: reply length, tool-call count, assistant turns, and the
+over-optimization signatures Lambert 2025 (chapter Over-optimization)
+lists (boilerplate, hedging, sycophancy, refusal phrases, 1 when present;
+see `score.style`), plus every trajectory flag that fired on any row
+(`lie.*`, `hack.*`, `risk.*`; see `score.trace`). Any |corr| at or
+above `threshold` is flagged. A negative tool-count correlation means
+the reward pays the policy to do less; a positive phrase or flag
+correlation means it pays for the tic or the fake.
 
 ## judge_trust
 
@@ -828,14 +827,13 @@ Defined in [`whileai/simulations/score/judge_trust.py`](https://github.com/while
 
 Try the reward hacks a policy finds first on the judge, on purpose.
 
-Reach for it when a judge is about to become a training reward: a
-policy trained on it will find these holes, so find them first
-(rlhf-book ch. 14). It returns a dict: `probes` (per probe: `n`,
-`kind`, `pass_before`, `pass_after`, `flips_up`,
-`flips_down`, `exploit_rate`, `flagged`, `errors`; a probe
-that applies to no row is `skipped` with the reason),
-`exploitable_by` (the probes at or over `flip_flag`), and one
-`warnings` line per exploit.
+Reach for it when a judge is about to become a training reward: a policy
+trained on it will find these holes, so find them first (Gao et al. 2022,
+arXiv:2210.10760). It returns a dict: `probes` (per probe: `n`,
+`kind`, `pass_before`, `pass_after`, `flips_up`, `flips_down`,
+`exploit_rate`, `flagged`, `errors`; a probe that applies to no row
+is `skipped` with the reason), `exploitable_by` (the probes at or over
+`flip_flag`), and one `warnings` line per exploit.
 
 Each probe mutates up to `sample` graded rows one way and re-judges
 them. An additive probe (filler, the rubric's words, a success claim,
@@ -894,7 +892,7 @@ given, `disagreements` (the review queue of rows the judge and the
 humans disagree on), `floors`, `n_labeled` and `n_rows`.
 `print(report)` writes the whole thing
 (`format_judge_trust(report)` is the same string). The module
-docstring lays out each check and its rlhf-book chapter.
+docstring lays out each check and its source.
 The floors and flags are keywords with their defaults in
 `whileai.simulations.defaults`: `min_agreement` (0.8, the
 human-human agreement of MT-Bench, arXiv:2306.05685), `min_kappa`
@@ -930,7 +928,8 @@ kappa reached `min_kappa`, and nothing else was flagged. With no
 labels every check has `n=0`, so `ok` is false with a warning
 saying the judge is unmeasured, not failed. The perturbation pass is
 not a substitute: a judge that passes everything is perfectly
-consistent (rlhf-book ch. 5, ch. 12).
+consistent (Lambert 2025, chapters Reward Modeling and Synthetic Data
+and Distillation).
 
 ```python
 >>> rows = [{"task_id": str(i), "reward": i % 2, "gold_reward": i % 2} for i in range(20)]
@@ -1150,7 +1149,7 @@ result never pair.
   contribute.
 * `length_match` (`True`): each chosen row takes the rejected row
   closest to it in length. DPO exploits a length gap faster than it
-  learns the behavior (rlhf-book ch. 8).
+  learns the behavior (Lambert 2025, chapter Direct Alignment).
 
 Each pair keeps what the trainer and the reviewer need to trust it:
 
@@ -1159,7 +1158,8 @@ Each pair keeps what the trainer and the reviewer need to trust it:
   and a reviewer can see how far apart the two really are.
 * `chosen_model` / `rejected_model` / `same_policy`: which policy
   produced each side. Preference data works best when both sides
-  come from the policy being trained (Tulu 3, rlhf-book ch. 11); a
+  come from the policy being trained (Lambert et al. 2024, Tulu 3,
+  arXiv:2411.15124; Lambert 2025, chapter Preference Data); a
   mixed pair is still a pair, but it is labeled as off-policy.
 * `length_delta`: chosen reply chars minus rejected, and the report
   says how often chosen is still the longer side.
@@ -1301,7 +1301,8 @@ with two or more annotators; `unanimous` the share of those where
 every label matched; `kappa` Cohen's kappa when exactly two
 annotators labeled the same rows (`pair` names them), else `None`.
 `disagreements` lists the split rows (prompt, labels) so a person
-can read the ones the guideline did not settle (rlhf-book ch. 11).
+can read the ones the guideline did not settle (Lambert 2025, chapter
+Preference Data).
 
 ### attach_labels
 
@@ -1390,18 +1391,19 @@ Defined in [`whileai/simulations/score/logprobs.py`](https://github.com/whilehq/
 
 Which policies produced these rows, and can an update still use them.
 
-rlhf-book ch. 6 (asynchronous RL, truncated importance sampling): rows
-sampled by an older policy are usable when the row carries the
-sampler's version and its logprobs so the ratio can be formed; rows
-from an unknown sampler are not. `versions` counts rows per
+Noukhovitch et al. 2024, arXiv:2410.18252 (asynchronous RL, truncated
+importance sampling): rows sampled by an older policy are usable when the
+row carries the sampler's version and its logprobs so the ratio can be
+formed; rows from an unknown sampler are not. `versions` counts rows per
 `policy_version` (`model_version` when the row predates it);
 `base_model` names the model about to be trained, and rows whose
-`model_version` differs are `stale`. Coverage says how many rows
-carry `sampling`, `logprob` and `token_logprobs`.
+`model_version` differs are `stale`. Coverage says how many rows carry
+`sampling`, `logprob` and `token_logprobs`.
 
 ## markers
 
-Stock behavioral markers for the over-optimization signatures (book ch. 14).
+Stock behavioral markers for the over-optimization signatures (Lambert
+2025, chapter Over-optimization).
 
 
 ### behavioral_markers
@@ -1513,19 +1515,19 @@ Defined in [`whileai/simulations/score/optimize.py`](https://github.com/whilehq/
 The prompt set for the next round, from the last round's graded
 rollouts.
 
-A round trained on the file it started from keeps paying for groups
-that give no gradient: at a 0.65 training reward about half the
-groups are all-pass or all-fail. The band is the fix the book already
-names (rlhf-book ch. 7: filter to the 20-80% band; ch. 6, DAPO's
-dynamic sampling drops groups with no contrast), applied to what the
-*current* policy does rather than what the base did. `prior` is
-round N's graded rollouts (`simulate(tasks=..., repeats=k)` on the
-round-N policy, or the trainer's own sampled rows); each task's pass
-rate over them decides: inside `[lo, hi]` it is kept, above `hi`
-it is solved and dropped, below `lo` it is unsolved and dropped.
-`tasks` restricts the candidates (rows, task dicts with a
-`prompt`, or prompt strings); a task with no prior rollouts is
-`unknown` and kept, since nothing says it is flat.
+A round trained on the file it started from keeps paying for groups that
+give no gradient: at a 0.65 training reward about half the groups are
+all-pass or all-fail. The band is the published fix (Lambert 2025, chapter
+Reasoning: filter to the 20-80% band; Yu et al. 2025 (DAPO),
+arXiv:2503.14476: dynamic sampling drops groups with no contrast), applied
+to what the *current* policy does rather than what the base did. `prior`
+is round N's graded rollouts (`simulate(tasks=..., repeats=k)` on the
+round-N policy, or the trainer's own sampled rows); each task's pass rate
+over them decides: inside `[lo, hi]` it is kept, above `hi` it is
+solved and dropped, below `lo` it is unsolved and dropped. `tasks`
+restricts the candidates (rows, task dicts with a `prompt`, or prompt
+strings); a task with no prior rollouts is `unknown` and kept, since
+nothing says it is flat.
 
 Returns `tasks` (one representative row per kept task: the prior
 row, with `calibration.pass_rate` and the band), the counts
@@ -1575,12 +1577,12 @@ overwrites the source file unless `output` names it explicitly.
   report), so `export_dataset` never refuses what was kept.
 * `target`: about how many rows to keep, 1000 by default.
 * `band`: the RL difficulty band as a pass-rate range, `(0.2, 0.8)`
-  by default: asks the policy always or never solves carry no
-  advantage (rlhf-book ch. 7, difficulty filtering at 20 to 80
+  by default: asks the policy always or never solves carry no advantage
+  (Lambert 2025, chapter Reasoning, difficulty filtering at 20 to 80
   percent; DAPO's dynamic sampling, arXiv:2503.14476).
   `enforce_band=False` only ranks out-of-band asks last instead of
-  dropping them. `order` is `"spread"` across pass rates (default)
-  or `"middle"` first.
+  dropping them. `order` is `"spread"` across pass rates (default) or
+  `"middle"` first.
 * `select` (`"top_per_prompt"`) and `min_reward` (1.0): the SFT
   picker and the reward a demonstration needs, as in
   `select_for_sft`.
@@ -1588,10 +1590,10 @@ overwrites the source file unless `output` names it explicitly.
   names (`"tool:lookup_order"`), so the RL report's `hack_scan` can
   call a shortcut a hack.
 * `truncated`: what happens to a rollout cut at the token cap
-  (rlhf-book ch. 6, DAPO's overlong handling): `"drop"` removes it
-  (the default), `"keep"` leaves it in with `overlong=True` and its
-  own reward, `"penalize"` keeps it as a failure that counts (reward
-  0, the judged score under `reward_before_penalty`).
+  (DAPO's overlong handling, Yu et al. 2025, arXiv:2503.14476): `"drop"`
+  removes it (the default), `"keep"` leaves it in with `overlong=True`
+  and its own reward, `"penalize"` keeps it as a failure that counts
+  (reward 0, the judged score under `reward_before_penalty`).
 
 ``python
 rows, report = wai.optimize(data, mode="rl", endorsed=["tool:lookup_order"])
@@ -1661,12 +1663,14 @@ training on the selection (#255).
 policy already solves (pass rate above `hi` on `prior`) or never
 solves (below `lo`) are dropped before anything else, so round N+1
 trains on what that policy gets right 20-80% of the time rather than
-on the file round 1 started from (`next_round`; rlhf-book ch. 7).
+on the file round 1 started from (`next_round`; Lambert 2025, chapter
+Reasoning).
 The report's `prior` block counts kept, dropped_solved,
 dropped_unsolved and unknown.
 
 `truncated` says what happens to a rollout cut at the token cap
-(rlhf-book ch. 6, DAPO's overlong handling; ch. 7 overlong filtering):
+(DAPO's overlong handling, Yu et al. 2025, arXiv:2503.14476; overlong
+filtering, Lambert 2025, chapter Reasoning):
 `"drop"` removes it (the default; `drop_truncated=False` is the old
 spelling of `"keep"`), `"keep"` leaves it in with `overlong=True`
 and its own reward, riding with its ask rather than deciding it (the
@@ -1680,24 +1684,23 @@ conduct-grade advisory 0.5 for truncation is unusable under `"keep"`
 and a 0 under `"penalize"`.
 
 After the row gates, duplicate and truncated rollouts (`dedupe`,
-`truncated`), the unanimous trim, and (`enforce_band`) the
-difficulty band, remaining asks are taken round-robin across observed
-fault kinds, so the dataset keeps a grounded spread of no-fault, miss,
-timeout, and already-done situations rather than one over-represented
-failure. Within a fault kind, `order="spread"` (the default) takes
-asks round-robin across their pass rates, so a 25% ask, a 50% ask
-and a 75% ask are picked in turn with no preference for the middle
-(rlhf-book ch. 7 filters to the 20-80% band and stops there; nothing
-in it says 50% is better than 30%). `order="middle"` is the older
-ranking by closeness to a 50% pass rate. The last group may overshoot
-`target`; an RL update wants the complete group or none of it.
-`enforce_band=False` keeps out-of-band asks and only ranks them
-last. The report's `hack_scan` block is the reward-hack
-scan over the selection (`hack_scan`: what separates reward within
-an ask, against a permutation floor; `endorsed` names what it
-should be), `correlations` the older pooled scan. Reward tracking
-a shortcut is a judge problem, flagged in `hygiene_warnings`, not
-pruned.
+`truncated`), the unanimous trim, and (`enforce_band`) the difficulty
+band, remaining asks are taken round-robin across observed fault kinds, so
+the dataset keeps a grounded spread of no-fault, miss, timeout, and
+already-done situations rather than one over-represented failure. Within a
+fault kind, `order="spread"` (the default) takes asks round-robin across
+their pass rates, so a 25% ask, a 50% ask and a 75% ask are picked in turn
+with no preference for the middle (Lambert 2025, chapter Reasoning,
+filters to the 20-80% band and stops there; nothing in it says 50% is
+better than 30%). `order="middle"` is the older ranking by closeness to
+a 50% pass rate. The last group may overshoot `target`; an RL update
+wants the complete group or none of it. `enforce_band=False` keeps
+out-of-band asks and only ranks them last. The report's `hack_scan`
+block is the reward-hack scan over the selection (`hack_scan`: what
+separates reward within an ask, against a permutation floor; `endorsed`
+names what it should be), `correlations` the older pooled scan. Reward
+tracking a shortcut is a judge problem, flagged in `hygiene_warnings`,
+not pruned.
 
 Selected rows are stamped in place with the `calibration` measured
 on the rows as they arrived, before dedupe and the trims: the pass
@@ -1729,15 +1732,15 @@ Imitation clones what it sees, so only rows whose reward reaches
 qualify; unanimity is not a problem here. A grader with partial
 credit ranks by its score: lower `min_reward` to admit it.
 
-`select` is the rejection-sampling rule (rlhf-book ch. 9, "Scoring
-Completions"): `"top_per_prompt"` keeps each prompt's highest-reward
-completion and then round-robins across behavior signatures (tool
-sequence, argument provenance, outcome shape) so every distinct way
-of being right appears before any repeats; `"top_k_overall"` keeps
-the `k` highest-reward completions across all prompts, several per
-prompt allowed; the two `random_*` rules are the book's control
-(same counts, seeded random picks) so a claimed gain from selection
-can be checked against chance. `k` defaults to `target`.
+`select` is the rejection-sampling rule (Lambert 2025, chapter Rejection
+Sampling, "Scoring Completions"): `"top_per_prompt"` keeps each prompt's
+highest-reward completion and then round-robins across behavior signatures
+(tool sequence, argument provenance, outcome shape) so every distinct way
+of being right appears before any repeats; `"top_k_overall"` keeps the
+`k` highest-reward completions across all prompts, several per prompt
+allowed; the two `random_*` rules are the control that chapter asks for
+(same counts, seeded random picks) so a claimed gain from selection can be
+checked against chance. `k` defaults to `target`.
 
 ### trim_out_of_band
 
@@ -1950,11 +1953,11 @@ agree on the same rows. Only binary `reward` (or `qwen_reward`)
 rows count; partial and unjudged rows are skipped, the same rule
 `group_signal` uses.
 
-The intervals resample tasks, never rows (rlhf-book ch. 16), so they
-need at least `MIN_CI_TASKS` (3) tasks. Under that, `ci95` is
-`None` and the `note` says why and what to change. Ten rows that
-all carry one `task_id` are one task, not ten, and get no interval;
-when they are ten separate items, give each its own `task_id`.
+The intervals resample tasks, never rows (Miller 2024, arXiv:2411.00640),
+so they need at least `MIN_CI_TASKS` (3) tasks. Under that, `ci95` is
+`None` and the `note` says why and what to change. Ten rows that all
+carry one `task_id` are one task, not ten, and get no interval; when
+they are ten separate items, give each its own `task_id`.
 
 * `rows`: graded rows, or the `SimulationData` holding them.
 * `k`: the draw size for the k-way numbers. It defaults to the
@@ -2453,7 +2456,7 @@ every row of that prompt (`privileged.rubric`, `source="model"`).
 
 The writer sees the request, the row's reference answer when there is
 one (`privileged.reference` or `row[reference_key]`), and the
-`domain` guidance you give it (the general rubric the book seeds
+`domain` guidance you give it (the general rubric Lambert 2025 seeds
 from). Rows that already carry a rubric are skipped unless
 `overwrite`. `writer(user_message) -> str` replaces the model call
 for tests and for a writer of your own. Report: prompts seen, rubrics
@@ -2468,7 +2471,8 @@ misses is a 0, so an uncapped rubric fails rows a binary judge passes
 
 ## spec
 
-Model spec as a versioned object (RLHF book ch. 17).
+Model spec as a versioned object (Lambert 2025, chapter Model Character and
+Products).
 
 
 ### Spec
@@ -2549,7 +2553,8 @@ version, to the next.
 
 ## stage
 
-Stage lineage: which post-training stage consumed each row (book ch. 3).
+Stage lineage: which post-training stage consumed each row (Lambert 2025,
+chapter Training Overview).
 
 
 ### format_stages
@@ -2668,21 +2673,22 @@ Defined in [`whileai/simulations/score/stats.py`](https://github.com/whilehq/whi
 
 Drop training rows whose prompt overlaps an evaluation set.
 
-Reach for it before any train-versus-holdout comparison: a held-out
-task that also sits in the training data measures memory, not the
-change (rlhf-book ch. 16). It returns `(clean_rows, report)`: the
-rows that survived, and a report with the count under each rule
-(`n_contaminated` in total), hits per field, the eval text count,
-and the first offenders with their coverage (or `similarity` for
-semantic hits).
+Reach for it before any train-versus-holdout comparison: a held-out task
+that also sits in the training data measures memory, not the change
+(Lambert 2025, chapter Evaluation). It returns `(clean_rows, report)`:
+the rows that survived, and a report with the count under each rule
+(`n_contaminated` in total), hits per field, the eval text count, and
+the first offenders with their coverage (or `similarity` for semantic
+hits).
 
 * `rows`: the training rows.
 * `against`: one or more evaluation sources: row lists, JSONL paths,
   or platform dataset ids (`ds_...`). Evaluation prompts, answers
   and references are the texts compared (not the eval set's own
   replies).
-* `fields` (`("prompt",)`): which row texts are checked, the
-  book's method. Add `"final_text"` to ask the stricter question of
+* `fields` (`("prompt",)`): which row texts are checked; prompts
+  only is what Lambert 2025, chapter Evaluation, checks. Add
+  `"final_text"` to ask the stricter question of
   whether replies reproduce eval answers or references.
 * `n` (8) and `overlap` (0.8): the near-copy rule, the Llama 2
   rule of 8-grams covering 80% of tokens. `overlap=0` restores
@@ -2709,11 +2715,11 @@ rows dropped:
   similarity between the row's text and an evaluation prompt is at
   least `similarity`, and the two carry different task ids or none.
 
-One shared n-gram is the book's test for free-form sets. Situations
-written from templates share whole sentences that say nothing about
-which question was asked, so any-n-gram flags every row of a
-template-written set; the coverage rule counts a row when one eval
-text accounts for most of it.
+One shared n-gram is the test Lambert 2025, chapter Evaluation, uses for
+free-form sets. Situations written from templates share whole sentences
+that say nothing about which question was asked, so any-n-gram flags every
+row of a template-written set; the coverage rule counts a row when one
+eval text accounts for most of it.
 
 Word overlap does not see a paraphrase. A holdout written by
 re-running the generator on the same briefs was 70% within 0.85
@@ -2786,7 +2792,7 @@ eval_variance(
 Defined in [`whileai/simulations/score/stats.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/stats.py).
 
 How much an evaluation moves when the same model is evaluated
-again (rlhf-book ch. 16, Evaluation).
+again (Lambert 2025, chapter Evaluation).
 
 Pass each re-run's rows as its own argument, or one row list whose
 rows say which run they belong to: `lineage.eval_run` (what
@@ -2829,15 +2835,14 @@ Defined in [`whileai/simulations/score/stats.py`](https://github.com/whilehq/whi
 
 How many paired tasks a holdout needs to prove a gain of `effect`.
 
-Models the test `delta_report` runs: each task's pass rate over
-`k` rollouts on each side, the delta as the mean of the paired
-differences, the interval from a bootstrap over tasks. The usual
-two-sided power calculation then gives `n = ((z_\{1-alpha/2\} +
-z_power) * sd / effect) ** 2` with `sd` the standard deviation of
-one task's paired difference (rlhf-book ch. 16: the point of a
-better eval is statistical power when comparing training runs).
-Where `sd` comes from is the whole question, and there are three
-ways to answer it, best first:
+Models the test `delta_report` runs: each task's pass rate over `k`
+rollouts on each side, the delta as the mean of the paired differences,
+the interval from a bootstrap over tasks. The usual two-sided power
+calculation then gives `n = ((z_\{1-alpha/2\} + z_power) * sd / effect) **
+2` with `sd` the standard deviation of one task's paired difference
+(Lambert 2025, chapter Evaluation: the point of a better eval is
+statistical power when comparing training runs). Where `sd` comes from
+is the whole question, and there are three ways to answer it, best first:
 
 * `before` and `after`, the graded arms of a previous eval on the
   same tasks (the two row lists `delta_report(before, after)`
@@ -2895,7 +2900,7 @@ rows are not used: `n_tasks` is the binomial model's answer at
 `BASE_PASS_RATE` and the rows' `k`, `sd_source` is `"model"`,
 `saturated` is `True`, and `warnings` names the ceiling and the
 fix: harder situations, so the baseline sits inside the 20-80
-difficulty band (rlhfbook.com/c/14-reasoning.html; DAPO, arXiv
+difficulty band (Lambert 2025, chapter Reasoning; DAPO, arXiv
 2503.14476, drops prompts at accuracy 0 and 1 because they carry no
 signal), then size again on those rows.
 
@@ -2968,14 +2973,14 @@ Defined in [`whileai/simulations/score/stats.py`](https://github.com/whilehq/whi
 
 The one name every report groups a row's rollouts under.
 
-A task is a situation, not a string: `scenario_id` when the row has
-one (the engine's situation id, shared by the repeats of one opener
-and by the textured phrasings of one situation), else `task_id`
-(rows from elsewhere), else the prompt text. `pass_at`,
-`compare_runs`, `delta_report`, `eval_variance`, `curriculum`,
-`group_signal` and the exporters all count tasks with this key, so
-the same rows give the same task count everywhere (rlhf-book ch. 16:
-intervals and paired comparisons are over tasks, never rows).
+A task is a situation, not a string: `scenario_id` when the row has one
+(the engine's situation id, shared by the repeats of one opener and by the
+textured phrasings of one situation), else `task_id` (rows from
+elsewhere), else the prompt text. `pass_at`, `compare_runs`,
+`delta_report`, `eval_variance`, `curriculum`, `group_signal` and
+the exporters all count tasks with this key, so the same rows give the
+same task count everywhere (Miller 2024, arXiv:2411.00640: intervals and
+paired comparisons are over tasks, never rows).
 
 ## style
 
@@ -2995,7 +3000,8 @@ refusal_report(
 
 Defined in [`whileai/simulations/score/style.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/style.py).
 
-Over-refusal on a benign set (rlhf-book ch. 14 "Over-Refusal").
+Over-refusal on a benign set (Lambert 2025, chapter Over-optimization,
+"Over-Refusal").
 
 Pass the rows whose asks the agent should have answered; the report is
 the share it refused anyway, with a Wilson 95% interval, the phrases
@@ -3036,14 +3042,14 @@ Defined in [`whileai/simulations/score/style.py`](https://github.com/whilehq/whi
 How much of each signature the replies carry, and whether the reward
 pays for it. Does not mutate `rows`.
 
-Per marker: `clean` (share of rows without a hit, with a task-
-bootstrap 95% interval), `hits` (rows with a hit), `top_phrases`
-(the phrases that fired, most common first) and `reward_corr`
-(Pearson between "phrase present" and the binary reward over graded
-rows). A positive correlation at or above `threshold` is flagged:
-the judge is rewarding the tic, and a policy trained on these rewards
-will produce more of it (rlhf-book ch. 14). `warnings` says so in
-one line per flag.
+Per marker: `clean` (share of rows without a hit, with a task-bootstrap
+95% interval), `hits` (rows with a hit), `top_phrases` (the phrases
+that fired, most common first) and `reward_corr` (Pearson between
+"phrase present" and the binary reward over graded rows). A positive
+correlation at or above `threshold` is flagged: the judge is rewarding
+the tic, and a policy trained on these rewards will produce more of it
+(Gao et al. 2022, arXiv:2210.10760). `warnings` says so in one line per
+flag.
 
 ## trace
 

@@ -289,7 +289,8 @@ def compare_judges(
     disagreement can be read row by row. ``print(table)`` is the report.
 
     Reference: [7] Zheng et al. 2023 (MT-Bench agreement floor), [6] Cohen
-    1960 (kappa), [9] Wilson 1927 (the interval), rlhfbook ch. 7.
+    1960 (kappa), [9] Wilson 1927 (the interval), Lambert 2025, chapter Reward
+    Modeling.
     """
     from .simulations.score.agreement import judge_agreement
     from .simulations.score.judging import run_judge

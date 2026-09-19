@@ -92,7 +92,7 @@ def test_sft_on_failing_rows_is_refused_before_any_post():
     assert gate.posted is None, "the run must not start"
     assert "all 84 rows, 72 of which fail" in text
     assert "scored.passes()" in text and 'check="warn"' in text
-    assert "rlhfbook.com/c/10-rejection-sampling.html" in text
+    assert "Lambert 2025, chapter Rejection Sampling" in text
     assert f"reward under {defaults.PASS_THRESHOLD:g}" in text
 
 
@@ -133,7 +133,7 @@ def test_grpo_with_no_mixed_task_is_refused_with_the_reasons():
     assert gate.posted is None
     assert "0 of 21 tasks (0 of 84 rows)" in text
     assert "3 tasks all pass, 18 tasks all fail" in text
-    assert "rlhfbook.com/c/11-policy-gradients.html" in text and "2503.14476" in text
+    assert "Shao et al. 2024, arXiv:2402.03300" in text and "2503.14476" in text
     assert "profile('ds_68c3bac292fe6222')['mixed_tasks']" in text
     assert 'check="warn"' in text
 
@@ -176,7 +176,7 @@ def test_the_floor_is_a_knob_and_a_complete_per_task_table_names_each_class():
 def test_dpo_and_rm_use_the_pair_rule():
     for method in ("dpo", "rm"):
         gate = Gate(UNANIMOUS)
-        with pytest.raises(TrainingSelectionError, match="12-direct-alignment"):
+        with pytest.raises(TrainingSelectionError, match="chapter Direct Alignment"):
             _quiet(method=method, transport=gate)
         assert gate.posted is None
 

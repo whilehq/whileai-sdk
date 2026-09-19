@@ -6,18 +6,17 @@ the two sets share (pass@1 and each marker) is compared as paired task
 differences with a bootstrap interval (``stats.compare_runs``), so the
 answer is "moved by X, interval Y" and not a pair of means.
 
-Markers are read as higher-is-better. A metric named in
-``must_not_regress`` whose interval sits entirely below zero is a
-regression and fails the report; any other metric that drops
-significantly is a warning (rlhf-book ch. 15: post-training on one thing
-forgets others, and on-policy data forgets less, which is only visible
-if you measure the others).
+Markers are read as higher-is-better. A metric named in ``must_not_regress``
+whose interval sits entirely below zero is a regression and fails the report;
+any other metric that drops significantly is a warning (Lambert 2025, chapter
+Regularization: post-training on one thing forgets others, and on-policy data
+forgets less, which is only visible if you measure the others).
 
-``proxy`` names the metric the run was trained on (the training reward,
-kept on the rows as a marker) when it is not the target. Over-
-optimization is the two curves parting (rlhf-book ch. 14): the proxy
-moved up while the target did not follow, or the proxy's interval sits
-entirely above the target's. The report says so and fails.
+``proxy`` names the metric the run was trained on (the training reward, kept
+on the rows as a marker) when it is not the target. Over-optimization is the
+two curves parting (Gao et al. 2022, arXiv:2210.10760): the proxy moved up
+while the target did not follow, or the proxy's interval sits entirely above
+the target's. The report says so and fails.
 """
 
 from __future__ import annotations
@@ -153,10 +152,10 @@ def _eval_runs(rows: Sequence[dict]) -> set[str]:
 def _pooled_run_std(before: Sequence[dict], after: Sequence[dict], metric: str) -> float | None:
     """The eval's re-run standard deviation from both sides' repeats:
     ``eval_variance`` per side, pooled by degrees of freedom (each side's
-    variance weighted by its runs minus one), since each side is the same
-    eval on one model (rlhf-book appendix C). The pooled estimate has
-    ``sum(n_i - 1)`` degrees of freedom, which is what ``noise_band``
-    widens for."""
+    variance weighted by its runs minus one), since each side is the same eval
+    on one model (Lambert 2025, evaluation-variance appendix). The pooled
+    estimate has ``sum(n_i - 1)`` degrees of freedom, which is what
+    ``noise_band`` widens for."""
     variances = []
     for rows in (before, after):
         side = eval_variance(rows, metric=metric, by="eval_run")
@@ -361,7 +360,7 @@ def delta_report(
       proxy moved up and the target did not, or the proxy's interval sits
       entirely above the target's, the report is ``over_optimized`` and
       fails: the policy learned something the target does not credit
-      (rlhf-book ch. 14).
+      (Gao et al. 2022, arXiv:2210.10760).
     * ``must_not_regress``: metrics whose significant drop fails the
       report. Marker metrics go by marker name; pass@1 is ``"pass_at_1"``.
     * ``by``: split the target by a group on each row (a top-level row
@@ -414,8 +413,9 @@ def delta_report(
     and ``data.report()["rollouts_lost_by"]`` says why the rows went
     missing.
 
-    Noise floor. One evaluation is a draw, not a distribution (rlhf-book
-    ch. 16, "why many comparisons are unreliable", and appendix C). With
+    Noise floor. One evaluation is a draw, not a distribution (Lambert
+    2025, chapter Evaluation, "why many comparisons are unreliable", and
+    its evaluation-variance appendix). With
     one run on either side and no ``run_std``, a target that moved reads
     ``moved_unreplicated`` and a warning says how to fix it. Pass
     ``eval_variance(...)["run_std_by_metric"]`` as ``run_std`` so pass@1
@@ -448,28 +448,26 @@ def delta_report(
     says how many runs each side had.
 
     Comparability. ``config`` says what each side was produced with
-    (``pass_at(...).config`` per side: task count, k, temperature,
-    max_tokens, policy and judge versions, prompt hash). A warning names
-    each setting the two sides disagree on, and says so when both sides
-    are the same policy version (rlhf-book ch. 16: a comparison is only
-    as good as the settings it was run under).
-    ``config[side]["answered_share"]`` is the share of rows per side with
-    a spoken reply once ``<think>`` markup is gone, and every rate is
-    conditional on it. The two shares are compared with a pooled
-    two-proportion z test; when it clears ``answered_alpha`` the warning
-    states p and the gap, and when the gap also exceeds the re-run band
-    (or ``answered_gap_points`` with no band) the report fails with
-    ``answered`` in ``not_comparable`` and names the mechanism: a
-    reasoning base against a reasoning-suppressed adapter under one
-    shared ``max_tokens`` runs out of budget inside ``<think>`` and never
-    answers, so the adapter wins every row the base did not reply to.
-    ``not_comparable`` lists every such cause under one prefix, ``NOT
-    COMPARABLE:``; none are raised here. A replay (``simulate(tasks=...)``
-    or ``runs=N``) keeps the writer of the run it replays on
-    ``writer_model``, so two runs of one call compare as one writer.
-    Situations nobody's model wrote (a ``seeds=`` ask, the offline
-    template writer, or a replay of either) count as one writer for this
-    check: nothing there could have moved with the weights.
+    (``pass_at(...).config`` per side: task count, k, temperature, max_tokens,
+    policy and judge versions, prompt hash). A warning names each setting the
+    two sides disagree on, and says so when both sides are the same policy
+    version (Lambert 2025, chapter Evaluation: a comparison is only as good as
+    the settings it was run under). ``config[side]["answered_share"]`` is the
+    share of rows per side with a spoken reply once ``<think>`` markup is
+    gone, and every rate is conditional on it. The two shares are compared
+    with a pooled two-proportion z test; when it clears ``answered_alpha`` the
+    warning states p and the gap, and when the gap also exceeds the re-run
+    band (or ``answered_gap_points`` with no band) the report fails with
+    ``answered`` in ``not_comparable`` and names the mechanism: a reasoning
+    base against a reasoning-suppressed adapter under one shared
+    ``max_tokens`` runs out of budget inside ``<think>`` and never answers, so
+    the adapter wins every row the base did not reply to. ``not_comparable``
+    lists every such cause under one prefix, ``NOT COMPARABLE:``; none are
+    raised here. A replay (``simulate(tasks=...)`` or ``runs=N``) keeps the
+    writer of the run it replays on ``writer_model``, so two runs of one call
+    compare as one writer. Situations nobody's model wrote (a ``seeds=`` ask,
+    the offline template writer, or a replay of either) count as one writer
+    for this check: nothing there could have moved with the weights.
 
     ``ceiling`` is set when the before side already passes
     ``ceiling_pass_rate`` of its tasks, or when fewer than
@@ -552,7 +550,8 @@ def delta_report(
     # delta is a mean of n_a runs against a mean of n_b, so its own standard
     # deviation is ``floor * sqrt(1/n_a + 1/n_b)``, and the band is that
     # times 1.96, or times the t quantile when the floor was estimated from
-    # these very runs (rlhf-book ch. 16, appendix C).
+    # these very runs (Lambert 2025, chapter Evaluation and its
+    # evaluation-variance appendix).
     n_a, n_b, band_df = _band_args(eval_runs, run_std_source, run_std_runs)
     noise_rule = _band_rule(n_a, n_b, band_df, level)
     within_noise: list[str] = []
@@ -678,7 +677,8 @@ def delta_report(
                 "situations."
             )
 
-    # proxy vs target: the book's over-optimization picture, as a verdict
+    # proxy vs target: the over-optimization picture of Gao et al. 2022
+    # (arXiv:2210.10760), as a verdict
     proxy_key = _key(proxy) if proxy else None
     proxy_result = results.get(proxy_key) if proxy_key else None
     proxy_verdict: str | None = None
@@ -711,7 +711,7 @@ def delta_report(
                 f"OVER-OPTIMIZED: {proxy_key} up {proxy_result['delta']:+.3f} ({level:.0%} "
                 f"{pspan}) while {headline_name} {headline_for_proxy['delta']:+.3f} "
                 f"({level:.0%} {tspan}): the policy learned something the target does not "
-                "credit (rlhfbook.com/c/14-over-optimization)"
+                "credit (Gao et al. 2022, arXiv:2210.10760)"
             )
     headline_noise = results[headline_metric]["noise_band"]
     if headline_noise is not None and target_verdict == "within_eval_noise" and target_result:
@@ -971,8 +971,9 @@ def delta_report(
     # The environment has to hold still while the weights change. The
     # simulated user and the situation writer default to the agent's own
     # model, so in a before/after they follow the policy under test and the
-    # delta measures the pair (rlhf-book ch. 16: every layer of an agentic
-    # eval moves the score, so every layer is pinned and recorded).
+    # delta measures the pair (Lambert 2025, chapter Evaluation: every layer
+    # of an agentic eval moves the score, so every layer is pinned and
+    # recorded).
     agent_a = str(cfg_a.get("policy_version") or "").split("@", 1)[0]
     agent_b = str(cfg_b.get("policy_version") or "").split("@", 1)[0]
     one_name_two_policies = (

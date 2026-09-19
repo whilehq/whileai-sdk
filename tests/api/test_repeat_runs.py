@@ -1,6 +1,7 @@
-"""runs=: the same task set replayed N times in one call, every row
-stamped ``lineage.eval_run`` (rlhf-book ch. 16, appendix C: one eval is
-a draw, three give a standard deviation)."""
+"""runs=: the same task set replayed N times in one call, every row stamped
+``lineage.eval_run`` (Lambert 2025, chapter Evaluation and its
+evaluation-variance appendix: one eval is a draw, three give a standard
+deviation)."""
 
 from __future__ import annotations
 

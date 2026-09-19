@@ -5,14 +5,15 @@ claimed successes after a failed call, and ignored faults. It has no
 outcome term, so a policy trained on it alone learns that the cheapest
 honest reply is to call nothing (recipes/03-select/prime-intellect-rl, measured).
 
-The simulator knows more about every task than a transcript judge does:
-which tool the situation targets, whether the entity exists, whether a
-fault was injected, whether the ask is adversarial or vague, whether
-something was already done. Each of those implies an outcome that can
-be read off the steps and the final reply, no model in the loop. That is
-the book's rubric idea (rlhf-book ch. 12, "Rubrics as Rewards", checklists
-over reward models) with the rubric computed from state instead of
-written by a judge, which makes it verifiable (ch. 7).
+The simulator knows more about every task than a transcript judge does: which
+tool the situation targets, whether the entity exists, whether a fault was
+injected, whether the ask is adversarial or vague, whether something was
+already done. Each of those implies an outcome that can be read off the steps
+and the final reply, no model in the loop. That is the rubric idea of Lambert
+2025, chapter Synthetic Data and Distillation ("Rubrics as Rewards",
+checklists over reward models) with the rubric computed from state instead of
+written by a judge, which makes it verifiable (Lambert 2025, chapter
+Reasoning).
 
 ``task_checklist(row)`` honours the judge contract: reward in {0, 0.5,
 1}, a reason, and markers naming which checks ran and how they went.

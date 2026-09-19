@@ -190,7 +190,8 @@ class Privileged:
     hidden_state: dict = field(default_factory=dict)
     reference: str | None = None
     #: a ``score.rubric.Rubric`` as a dict: the per-prompt criteria a
-    #: rubric judge scores (rlhf-book ch. 12); never exported
+    #: rubric judge scores (Lambert 2025, chapter Synthetic Data and
+    #: Distillation); never exported
     rubric: dict = field(default_factory=dict)
 
 

@@ -1,13 +1,13 @@
 """What will the policy learn from this reward? Name it before training.
 
-A grouped RL update (GRPO and its variants, rlhf-book ch. 6) baselines
-every rollout against the other rollouts of the same ask. Whatever
-separates reward *within* an ask is the gradient; whatever only tracks
-*which* ask it is (difficulty) is subtracted away. So the question "is
-the reward paying for the behavior or for a shortcut?" has to be asked
-within ask too. The pooled correlation ``reward_correlations`` reports
-cannot tell the two apart: hard asks get long replies and low reward,
-and the pooled number calls that a length penalty.
+A grouped RL update (GRPO and its variants, Shao et al. 2024,
+arXiv:2402.03300) baselines every rollout against the other rollouts of the
+same ask. Whatever separates reward *within* an ask is the gradient; whatever
+only tracks *which* ask it is (difficulty) is subtracted away. So the question
+"is the reward paying for the behavior or for a shortcut?" has to be asked
+within ask too. The pooled correlation ``reward_correlations`` reports cannot
+tell the two apart: hard asks get long replies and low reward, and the pooled
+number calls that a length penalty.
 
     Var(r) = E_g[Var(r | g)]  +  Var_g(E[r | g])
               (within: the gradient)  (between: the difficulty)
@@ -18,9 +18,9 @@ noise floor: the 95th percentile of the same maximum when reward is
 shuffled within ask (difficulty preserved, signal destroyed). A feature
 above the floor is something the policy will move toward. If the user
 names what the reward *should* track (``endorsed=``) and the top feature
-is not it, that is the reward hack, named (rlhf-book ch. 14: over-
-optimization is the training metric parting from the evaluation of
-interest; the scan says on which feature).
+is not it, that is the reward hack, named (Gao et al. 2022,
+arXiv:2210.10760: over-optimization is the training metric parting from
+the evaluation of interest; the scan says on which feature).
 
 Two feature tiers, both pure Python:
 
@@ -874,7 +874,7 @@ def hack_scan_diff(
             f"{g['rho_after']:+.2f})" + ("" if g["endorsed"] else ", which is not endorsed")
         )
         if endorsed and not g["endorsed"]:
-            warnings.append(f"{learned}: a reward hack landed (rlhf-book ch. 14)")
+            warnings.append(f"{learned}: a reward hack landed (Gao et al. 2022, arXiv:2210.10760)")
     elif b["top_feature"]:
         learned = (
             f"nothing new clears the floor after training; the top feature is still "

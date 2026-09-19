@@ -1,8 +1,9 @@
 """Verifiers: rewards that are programs, not judges.
 
-RLHF book ch. 13 (Tools, RLVR) and ch. 7 (Reasoning): the reward for a
-verifiable task is a checker, not an opinion. A verifier reads a rollout,
-decides pass or fail (or a partial score in [0, 1]), and says why.
+Lambert et al. 2024 (Tulu 3, arXiv:2411.15124) and Lambert 2025, chapters Tool
+Use and Reasoning: the reward for a verifiable task is a checker, not an
+opinion. A verifier reads a rollout, decides pass or fail (or a partial score
+in [0, 1]), and says why.
 
 Every verifier honors the judge contract in
 ``whileai.simulations.score.judging``
@@ -346,7 +347,8 @@ class Any_(Verifier):
 
 class Weighted(Verifier):
     """Weighted sum of verifiers, normalized to [0, 1]. Use for a rubric with
-    graded criteria rather than one hard pass/fail (book ch. 12 rubrics)."""
+    graded criteria rather than one hard pass/fail (rubrics as rewards,
+    Lambert 2025, chapter Synthetic Data and Distillation)."""
 
     def __init__(self, pairs: Sequence[tuple[Verifier, float]], *, name: str = "Weighted"):
         super().__init__(name=name)
