@@ -13,7 +13,7 @@ seconds on three scripted agents, and `live.py` runs the same suite on a
 real model through Ollama with no key.
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/02-measure/safety-evals-marketplace
 python run.py                          # the whole report, no key
 python run.py --k 8 --seed 1           # more repeats, another draw

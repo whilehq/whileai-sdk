@@ -54,7 +54,7 @@ rows.export("train.jsonl")  # or rows.push("my-agent-rl-v1")
 uv add whileai
 ```
 
-Or `pip install whileai`. Python 3.10 to 3.13, two dependencies, typed.
+Python 3.10 to 3.13, two dependencies, typed.
 `import whileai` takes under 200 ms and never touches the network. This
 package used to be called `zeroproof`; that name still installs it.
 

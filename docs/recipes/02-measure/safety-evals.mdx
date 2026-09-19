@@ -19,7 +19,7 @@ example runs that eval offline, in seconds, on three scripted agents, and
 every call in it works unchanged on a real one.
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/02-measure/safety-evals
 python run.py                    # the whole report, no key
 python run.py --k 8 --seed 1     # more repeats, another draw

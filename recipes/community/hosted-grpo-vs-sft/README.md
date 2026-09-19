@@ -45,7 +45,7 @@ of GPU (see **Cost**, and note the SDK gave me no way to compute that).
 ## Run it
 
 ```bash
-pip install whileai            # 0.75
+uv add whileai            # 0.75
 cd recipes/community/hosted-grpo-vs-sft
 python run.py                  # data -> train -> eval -> report
 python run.py --dry-run        # offline: the rule, on hand-built traces. No key, no GPU

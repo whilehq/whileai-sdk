@@ -56,7 +56,7 @@
   },
   "markdown": {
     "instructions": [
-      "Install with `pip install whileai`; import as `import whileai as wai`.",
+      "Install with `uv add whileai`; import as `import whileai as wai`.",
       "Run the offline path first (`simulator=False`, `wai.seeded_agent`, a callable judge); no key is needed for it.",
       "Report every pass rate with its interval and n, as `scored.pass_at` prints it."
     ]

@@ -31,7 +31,7 @@ the 9% number applies exactly where the ids are absent, and nowhere else.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/community/who-protects-the-holdout
 python run.py                            # three seed pairs, the regime comparison
 python run.py --dry-run                  # one pair, small budget, a few seconds
@@ -121,7 +121,7 @@ which decontamination rule cleaned the training set. This half needs `datasets`,
 `sentence-transformers`, the GSM8K download from the Hub, and your own Modal account.
 
 ```bash
-pip install datasets sentence-transformers modal
+uv add datasets sentence-transformers modal
 python build_sets.py                  # 800 clean + 60 paraphrased holdout leaks -> out/
 modal run inflation_modal.py          # base x3, then both arms, one A10G
 ```

@@ -16,7 +16,7 @@ score comes out either way. This recipe says which.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 python check_eval.py                          # offline demo on a broken eval
 python check_eval.py holdout.jsonl            # your eval set
 python check_eval.py base.jsonl tuned.jsonl   # both arms, plus the comparison

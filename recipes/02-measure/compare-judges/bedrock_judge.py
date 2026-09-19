@@ -4,7 +4,7 @@ Used with ``python run.py --bedrock`` when you have AWS credentials but no
 ANTHROPIC_API_KEY. It sends exactly what ``wai.Judge`` sends a chat model
 (the conduct-floor system prompt, the rendered record) and parses the
 reply with the same parser, so the numbers are comparable row for row
-with ``anthropic:<model>``. Needs ``boto3`` (``pip install boto3``) and a
+with ``anthropic:<model>``. Needs ``boto3`` (``uv add boto3``) and a
 default AWS profile that can call ``bedrock-runtime`` in ``REGION``.
 """
 

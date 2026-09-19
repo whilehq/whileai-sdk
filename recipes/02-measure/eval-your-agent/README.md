@@ -15,7 +15,7 @@ rate into an exit code. You need nothing; this recipe is offline. Seconds.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/02-measure/eval-your-agent
 python run.py                              # both bots, the whole report
 python run.py --agent careful --gate 0.9   # exit 1 under the floor, exit 2 when the run is hollow

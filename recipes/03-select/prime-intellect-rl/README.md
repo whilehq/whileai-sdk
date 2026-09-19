@@ -18,7 +18,7 @@ offline on any graded row file.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 whileai login                    # or: export VLLM_API_KEY=... for the shared pool
 cd recipes/03-select/prime-intellect-rl
 python generate.py --situations 100 --k 8 --fault-rate 0.15   # -> data/rl.jsonl (+ .meta.json)

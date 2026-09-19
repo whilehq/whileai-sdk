@@ -20,7 +20,7 @@ are deliberately small; this is the wiring check, not a result. You need
 come from the template writer and a scripted agent.
 
 ```bash
-pip install whileai
+uv add whileai
 whileai login                 # or export WHILEAI_API_KEY=...
 cd recipes/04-train/hosted-loop
 python run.py                   # data -> train -> serve -> call

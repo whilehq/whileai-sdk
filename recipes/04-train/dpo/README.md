@@ -11,7 +11,7 @@ before/after on a holdout when it is done.
 ## Run it
 
 ```bash
-pip install whileai modal
+uv add whileai modal
 modal profile activate <your workspace>
 export WHILEAI_API_KEY=...          # for the dashboard; optional
 modal run recipes/04-train/dpo/train_modal.py

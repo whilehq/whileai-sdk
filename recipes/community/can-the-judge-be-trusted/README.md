@@ -45,7 +45,7 @@ exactly the action test, so judge and verifier are asked the same question.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/community/can-the-judge-be-trusted
 python run.py                 # tasks -> 4 arms -> judge -> trust report
 python run.py --dry-run       # offline: builds the task grid only, no key, no GPU

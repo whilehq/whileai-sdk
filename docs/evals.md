@@ -13,14 +13,14 @@ finish. The runnable version is
 
 Names first, because they cost testers ten minutes: **zp, ZeroProof and
 While are the same product.** The package is `whileai`
-(`pip install whileai`; `pip install zeroproof` still works as a shim),
+(`uv add whileai`; `uv add zeroproof` still works as a shim),
 the import is `whileai.simulations`, API keys start with `zp_`, and the
 docs live at docs.withwhile.com.
 
 ## 1. Install and sign in
 
 ```bash
-pip install whileai
+uv add whileai
 whileai signup --email you@example.com   # new account, no browser; or: whileai login
 whileai status                            # which key the SDK will use
 ```
@@ -34,7 +34,7 @@ still picked up as long as `~/.whileai` holds no credentials; set
 **The old names still work, so you may already be signed in.**
 `ZEROPROOF_API_KEY` is read whenever `WHILEAI_API_KEY` is unset (every
 `ZEROPROOF_*` variable is), a saved `~/.zeroproof/credentials.json`
-counts as a login, and `pip install zeroproof` installs `whileai`. If
+counts as a login, and `uv add zeroproof` installs `whileai`. If
 `whileai status` names a key you never set here, that is where it came
 from.
 </Note>

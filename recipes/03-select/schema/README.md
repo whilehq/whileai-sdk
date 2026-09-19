@@ -17,7 +17,7 @@ the training reward). Seconds to run.
 ## Run it
 
 ```bash
-pip install whileai
+uv add whileai
 cd recipes/03-select/schema
 python migrate.py                    # simulate 24 rows, stamp and split them
 python migrate.py old_run.jsonl      # or migrate any legacy file
