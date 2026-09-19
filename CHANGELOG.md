@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.98 (2026-09-19)
+
 - Dataset and adapter links point at the while-ai Hugging Face org, where the
   sets live; the old org name is gone from recipes, results and docs.
 
