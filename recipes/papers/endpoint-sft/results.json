@@ -2,7 +2,7 @@
   "recipe": "endpoint-sft",
   "title": "Endpoint SFT: keep the two ends of the reasoning trace, drop the middle",
   "paper": "https://arxiv.org/abs/2609.07103",
-  "book": "ch. 4 Instruction tuning",
+  "book": "Instruction Tuning",
   "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
   "metric": "pass@1",
   "n_holdout": 64,

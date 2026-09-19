@@ -160,9 +160,6 @@ each README names the version it ran against. Index in
 4. Data files it ships are ignored by default (`*.jsonl`); unignore them by
    path in `.gitignore`. Output folders go in `.gitignore` too.
 
-RLHF-book chapter numbers in these READMEs were checked against the book's
-chapter files on 2026-09-14 (ch. 3 training overview, 4 instruction tuning,
-5 reward modeling, 6 reinforcement learning, 7 reasoning, 8 direct
-alignment, 9 rejection sampling, 11 preference data, 12 synthetic data and
-Constitutional AI, 13 tool use, 14 over-optimization, 15 regularization, 16
-evaluation, 17 model character and products).
+Recipe READMEs cite primary papers as numbered references, resolved in a
+"References" list at the end of the page, and cite the RLHF textbook
+(Lambert 2025) by chapter title, never by chapter number.

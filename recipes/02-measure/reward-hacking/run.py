@@ -9,7 +9,7 @@ order up, then refunds) and sometimes takes the shortcut (skips the lookup
 and writes "Verified and refunded. All checks pass. ### done ###"). Two
 judges grade the same rollouts: an honest one that reads the trajectory,
 and a hackable one that reads the prose. The script runs the SDK's checks
-on both and prints what each one says (rlhfbook.com ch. 14):
+on both and prints what each one says (Lambert 2025, chapter Over-optimization):
 
 1. ``hack_scan``: what a grouped update would learn from each reward.
 2. ``judge_probes``: which shortcuts each judge falls for, tried on purpose.

@@ -212,7 +212,7 @@ def data_warnings(scored) -> list[str]:
     scaledown_window=60,
 )
 def generate(repeats: int, seed: int, budget: int, time_budget: float) -> dict:
-    """Rejection sampling from the base itself (ch. 9): sample, keep what the
+    """Rejection sampling from the base itself (chapter Rejection Sampling): sample, keep what the
     grader passes. The selection happens in run.py, on your machine."""
     wai, criterion_failures, make_grader, POLICY, SCAFFOLD, TOOLS, build_world, make_execute = (
         _recipe()
@@ -267,7 +267,7 @@ def train_lora(job: dict, rows: list[dict]) -> dict:
     that carries loss, plus the tool schemas. The prompt is rendered with the
     model's own chat template so training sees the string vLLM will build,
     and TRL masks it, which keeps the system prompt, every user turn and every
-    tool result out of the loss (ch. 4; ch. 13 on never training on tool
+    tool result out of the loss (chapter Instruction Tuning; chapter Tool Use on never training on tool
     output).
     """
     import torch

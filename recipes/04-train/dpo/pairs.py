@@ -6,7 +6,7 @@ DPO needs a chosen and a rejected reply to the same prompt. Two supplies:
   prompt, score every reply with the rule in ``reward.py``, and let
   ``wai.build_preference_pairs`` pair a pass with a fail of similar length.
   Both sides come from the policy being trained, which is where DPO works
-  best (rlhf-book ch. 11).
+  best (Lambert 2025, chapter Preference Data).
 * **Exported**: a file written by ``wai.export_preference`` (chosen and
   rejected as full message lists) from any graded dataset, for example one
   pulled from the platform. Pass it as ``--pairs``.

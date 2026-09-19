@@ -93,7 +93,7 @@ def check_room_to_move(rows: list[dict]) -> None:
 
 
 def check_headroom(rows: list[dict]) -> None:
-    """2. Is there anything a grouped update could learn? (rlhf-book ch. 7)"""
+    """2. Is there anything a grouped update could learn? (Lambert 2025, chapter Reasoning)"""
     p = pass_at(rows)
     if p.pass_at_k is None or p.headroom is None:
         say(
@@ -163,7 +163,7 @@ def check_contains_the_behavior(rows: list[dict]) -> None:
 
 
 def check_self_noise(rows: list[dict]) -> None:
-    """4. How much does the number move when nothing changes? (ch. 16)
+    """4. How much does the number move when nothing changes? (chapter Evaluation)
 
     The book puts most post-training evals at 0.25 to 1.5 points of run-to-run
     standard deviation with the setup held constant. Any claim under twice
@@ -235,7 +235,7 @@ def check_the_judge(rows: list[dict]) -> None:
 
 
 def check_contamination(rows: list[dict], train_path: str | None) -> None:
-    """6. Did the training data already see the eval? (ch. 16, 8-gram)"""
+    """6. Did the training data already see the eval? (chapter Evaluation, 8-gram)"""
     if not train_path:
         say(
             WARN,
@@ -260,7 +260,7 @@ def check_contamination(rows: list[dict], train_path: str | None) -> None:
 
 def check_arm_hygiene(base: list[dict], tuned: list[dict]) -> None:
     """The one that invalidates a result outright: did the two arms differ in
-    anything other than the weights under test? (ch. 16: every layer of an
+    anything other than the weights under test? (chapter Evaluation: every layer of an
     agentic eval changes the score, so document all of them.)"""
     print("Two arms, so the comparison itself gets checked:\n")
     broken: list[str] = []
