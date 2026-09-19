@@ -14,8 +14,6 @@ One package, two importable modules:
 Have an agent and want a pass rate with an interval? Start at [Evals](/evals): offline, seconds, and `coverage_gap` names what your tests miss.
 
 <Note>
-Before 0.51 this package was published as `zeroproof`. That name still installs `whileai`; new releases ship only as `whileai`.
-
 Releases of `whileai` before 0.3 were an unrelated encrypted agent-to-agent messaging client. Pin `whileai<0.3` if you still depend on it.
 </Note>
 

@@ -423,9 +423,6 @@ def main() -> int:
 
     if args.dry_run:
         return step_dry(args) or 0
-    for key in ("WHILEAI_API_KEY", "ZEROPROOF_API_KEY"):
-        if os.environ.get(key) and not os.environ.get("WHILEAI_API_KEY"):
-            os.environ["WHILEAI_API_KEY"] = os.environ[key]
 
     steps = {
         "data": step_data,

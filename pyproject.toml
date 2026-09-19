@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dependencies = ["requests>=2.25.0", "pydantic>=2.0"]
 authors = [{name = "Jacob Weiss"}]
 keywords = [
-    "zp", "while", "evals", "agent-evals",
+    "while", "whileai", "evals", "agent-evals",
     "rl", "reinforcement-learning", "grpo", "synthetic-data", "agents",
     "tool-use", "evaluation", "simulation", "llm",
 ]

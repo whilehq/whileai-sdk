@@ -133,7 +133,8 @@ the first it finds:
 | 3 | Saved credentials | `whileai login`, or `whileai signup --email you@example.com` |
 
 Keys start with `zp_`. A `ZEROPROOF_*` variable from before the rename is
-still read when its `WHILEAI_*` name is unset.
+read with a `DeprecationWarning` that names the `WHILEAI_*` variable to set;
+that fallback goes away in 0.95.
 
 ## What reaches While
 
