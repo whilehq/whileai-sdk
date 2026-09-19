@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.90 (2026-09-19)
+
 - OpenTelemetry stays on your machine. The server-side trace ingest is gone:
   `whileai.ingest` (`otel_env`, `ingest_traces`, `send_traces`, `send_runs`,
   `list_traces`, `WhileIngestError`), `wai.send_score`, `wai.cuts`,
