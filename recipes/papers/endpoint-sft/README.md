@@ -22,7 +22,7 @@ python recipe.py              # both arms, budgeted for under 60 GPU minutes on 
 python recipe.py --arm recipe --n-holdout 200
 ```
 
-Needs `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` (Modal workspace `zeroproofai`). `WHILEAI_API_KEY` is optional: with it the run appears on zeroproofai.com/platform, without it the recipe trains and prints the same numbers.
+Needs `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` (Modal workspace `zeroproofai`). `WHILEAI_API_KEY` is optional: with it the run appears on app.withwhile.com/platform, without it the recipe trains and prints the same numbers.
 
 ## Result
 
@@ -102,7 +102,7 @@ already move backwards.
 - **Both arms are worse than not training at all** (0.46 -> 0.29 / 0.28), and the proxy check says why: trace *form* moved +0.137 while pass@1 moved -0.012. The model learned the costume — a closed `<think>` block ending in a boxed answer — and not the reasoning inside it. This is over-optimization [4] with an SFT loss instead of a reward model, and it is the reason the verdict here could not be "moved" even if the delta had been large.
 - Gradient checkpointing is on here, unlike the GRPO recipes next door. Their rule is about trainers that generate while they train, where checkpointing corrupts Qwen generation on these pins. `SFTTrainer` is teacher-forced and never generates, so the rule does not reach it, and 4096-token sequences want the memory back.
 
-Verified 2026-09-17, whileai 0.53, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 69.4 GPU minutes, $2.31 on one L40S (round 1: 43.1 minutes, $1.42). Run page: https://www.zeroproofai.com/platform/training/run_aca24d9fdb020c5b
+Verified 2026-09-17, whileai 0.53, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 69.4 GPU minutes, $2.31 on one L40S (round 1: 43.1 minutes, $1.42). Run page: https://app.withwhile.com/platform/training/run_aca24d9fdb020c5b
 
 ## References
 

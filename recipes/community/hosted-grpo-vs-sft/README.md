@@ -202,7 +202,7 @@ at the top of this README.
 **The dollar column is mine, not the product's.** Six ledger entries have now asked for
 a cost number. `run.summary` gives `seconds` and `gpu` — which is genuinely more than
 it used to — but there is no published rate anywhere in the SDK, `wai.models()`, or
-zeroproofai.com, so the right-hand column is me multiplying by a GPU price I brought
+withwhile.com, so the right-hand column is me multiplying by a GPU price I brought
 from outside. Do not cite it as a While number.
 
 ## What I would do next
@@ -230,8 +230,8 @@ from outside. Do not cite it as a While number.
 
 | what | id |
 |---|---|
-| hosted SFT | [`run_80323eb0f1f1d19e`](https://www.zeroproofai.com/platform/training/run_80323eb0f1f1d19e) |
-| hosted GRPO | [`run_7d45f7e7f724464a`](https://www.zeroproofai.com/platform/training/run_7d45f7e7f724464a) |
+| hosted SFT | [`run_80323eb0f1f1d19e`](https://app.withwhile.com/platform/training/run_80323eb0f1f1d19e) |
+| hosted GRPO | [`run_7d45f7e7f724464a`](https://app.withwhile.com/platform/training/run_7d45f7e7f724464a) |
 | train set (sft) | `ds_68c3bac292fe6222` |
 | train set (grpo) | `ds_25d05bb486e0aaae` |
 | holdout | `ds_a52518f20192429c` |

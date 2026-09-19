@@ -85,7 +85,7 @@ Round 1 died on the recipe arm's first loss forward: TRL upcasts the full 248k-t
 - Qwen3.5's hybrid architecture trains under TRL 1.13 with vLLM colocated and LoRA on every linear layer, at 70 to 85 s a step for 48 rollouts of 1.5k tokens on one H100. The memory ceiling is the fp32 logits in the loss forward, not the engine; keep the per-device batch at half a group.
 - Next: three seeds per arm, and DAPO's dynamic sampling [3] on the lenient arm, whose groups saturate at a 0.57 mean reward.
 
-Verified 2026-09-18, whileai 0.83, TRL 1.13.0 GRPOTrainer + vLLM 0.29.0 on Modal. Run page: https://www.zeroproofai.com/platform/training/run_064f9185fdf88eef (recipe arm), https://www.zeroproofai.com/platform/training/run_42f97ae9878c4621 (baseline arm); Runs page: https://while.ai/platform/runs?agent=zero-rl-qwen3.5-4b
+Verified 2026-09-18, whileai 0.83, TRL 1.13.0 GRPOTrainer + vLLM 0.29.0 on Modal. Run page: https://app.withwhile.com/platform/training/run_064f9185fdf88eef (recipe arm), https://app.withwhile.com/platform/training/run_42f97ae9878c4621 (baseline arm); Runs page: https://while.ai/platform/runs?agent=zero-rl-qwen3.5-4b
 
 ## References
 

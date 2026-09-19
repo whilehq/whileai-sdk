@@ -50,10 +50,11 @@ from ..defaults import (
 )
 
 #: Overridable with ``WHILEAI_API_URL``, which is what a self-hosted gate or
-#: a staging one uses. The default is the production token gate behind the
-#: While AWS account, and the SDK prefers delegated credentials over static
-#: keys at runtime.
-DEFAULT_API_URL = "https://api.zeroproofai.com"
+#: a staging one uses. The default is the production token gate
+#: (api.withwhile.com; the older api.zeroproofai.com still answers the same
+#: routes), and the SDK prefers delegated credentials over static keys at
+#: runtime.
+DEFAULT_API_URL = "https://api.withwhile.com"
 
 #: What a dataset is for on the Datasets page, and the simulation mode that
 #: made it. The gate rejects anything else; the studio import takes MODES.
@@ -513,7 +514,7 @@ def publish(
     *,
     api_key: str | None = None,
 ) -> dict:
-    """Publish one of your datasets as a public card on zeroproofai.com/datasets.
+    """Publish one of your datasets as a public card on huggingface.co/while-ai.
 
     Cards are grouped by ``agent`` (a short name such as ``"airline-support"``).
     The dataset must be finalized and hold rows. Returns the card. Anyone can
@@ -629,7 +630,7 @@ def hf_status(*, api_key: str | None = None) -> dict:
     """Is a Hugging Face account connected to this account, and which
     namespaces (you plus your orgs) can it publish under?
 
-    Connect one on any dataset page at zeroproofai.com/platform/datasets.
+    Connect one on any dataset page at app.withwhile.com/platform/datasets.
     Returns ``{"connected", "username", "namespaces", "scopes"}``.
     """
     return _call("GET", "/hf/me", api_key)

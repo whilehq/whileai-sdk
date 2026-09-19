@@ -8,7 +8,7 @@
     python run.py models           # what the account hosts
 
 Needs a key: ``whileai login`` or WHILEAI_API_KEY
-(https://www.zeroproofai.com/docs/get-started). The
+(https://docs.withwhile.com/get-started/quickstart). The
 rows come from the offline template writer and a scripted agent, so no model
 key is needed to build them. Training runs on the platform's A10G (about a
 minute for SFT); serving wakes a GPU that bills by the hour and the first
@@ -32,7 +32,7 @@ from whileai.auth import resolve_api_key
 from whileai.simulations.score.judging import run_judge
 
 STATE = Path(__file__).with_name("hosted-loop.json")
-DOCS = "https://www.zeroproofai.com/docs/training"
+DOCS = "https://docs.withwhile.com/api/training"
 
 TOOLS = [
     {

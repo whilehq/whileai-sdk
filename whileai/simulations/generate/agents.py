@@ -15,7 +15,7 @@ from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlparse
 
-from whileai._env import getenv
+from whileai._env import getenv, is_platform_host
 from whileai.auth import SIGN_IN_URL
 from whileai.config import SPEC_FORMS
 
@@ -301,7 +301,7 @@ def _hosted_qwen_url(base_url: str | None) -> bool:
             return False
     raw = url if "://" in str(url) else "https://" + str(url)
     host = (urlparse(raw).hostname or "").lower()
-    return host.endswith("modal.run") or "zeroproof" in host
+    return host.endswith("modal.run") or is_platform_host(raw)
 
 
 def _configured_key(base_url: str | None) -> str | None:

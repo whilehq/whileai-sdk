@@ -26,8 +26,8 @@ class FakeGate:
             return 200, {
                 "device_code": "d" * 64,
                 "user_code": "ABCD-EFGH",
-                "verification_uri": "https://www.zeroproofai.com/device",
-                "verification_uri_complete": "https://www.zeroproofai.com/device?code=ABCD-EFGH",
+                "verification_uri": "https://withwhile.com/device",
+                "verification_uri_complete": "https://withwhile.com/device?code=ABCD-EFGH",
                 "expires_in": 900,
                 "interval": 0,
             }
@@ -109,7 +109,7 @@ def test_login_prints_link_and_saves_key_after_approval(gate, tmp_path):
 
     assert key == "zp_" + "a" * 48
     text = "\n".join(lines)
-    assert "https://www.zeroproofai.com/device?code=ABCD-EFGH" in text
+    assert "https://withwhile.com/device?code=ABCD-EFGH" in text
     assert "ABCD-EFGH" in text
     saved = json.loads((tmp_path / "credentials.json").read_text())
     assert saved["api_key"] == key
@@ -293,3 +293,23 @@ def test_cli_exit_codes(gate):
     auth._post = down
     auth.logout()
     assert cli.main(["login", "--no-browser"]) == 1
+
+
+def test_login_saved_against_the_retired_gate_host_moves_to_the_default_api(tmp_path, monkeypatch):
+    """A credentials file that pinned api.zeroproofai.com (the token gate the
+    login moved off) still counts as a login and reads as the default API."""
+    monkeypatch.setenv("WHILEAI_HOME", str(tmp_path))
+    monkeypatch.delenv("WHILEAI_API_KEY", raising=False)
+    monkeypatch.delenv("ZEROPROOF_API_KEY", raising=False)
+    (tmp_path / "credentials.json").write_text(
+        json.dumps({"api_key": "zp_" + "c" * 48, "api_url": "https://api.zeroproofai.com"}),
+        encoding="utf-8",
+    )
+    assert auth.stored_api_key() == "zp_" + "c" * 48
+    assert auth._read_credentials()["api_url"] == auth.DEFAULT_API_URL
+    # only that exact host is rewritten; a staging gate someone pinned stays
+    (tmp_path / "credentials.json").write_text(
+        json.dumps({"api_key": "zp_" + "c" * 48, "api_url": "https://gate.staging.example"}),
+        encoding="utf-8",
+    )
+    assert auth._read_credentials()["api_url"] == "https://gate.staging.example"

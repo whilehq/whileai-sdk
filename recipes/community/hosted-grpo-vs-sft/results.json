@@ -511,7 +511,7 @@
    "holdoutLossBefore": 3.9898,
    "holdoutLossAfter": 1.0822,
    "trainLoss": 1.7042,
-   "url": "https://www.zeroproofai.com/platform/training/run_80323eb0f1f1d19e"
+   "url": "https://app.withwhile.com/platform/training/run_80323eb0f1f1d19e"
   },
   "grpo": {
    "runId": "run_7d45f7e7f724464a",
@@ -542,7 +542,7 @@
     "top_feature": "contains:. first AND contains:it",
     "rho_max": 0.6983
    },
-   "url": "https://www.zeroproofai.com/platform/training/run_7d45f7e7f724464a"
+   "url": "https://app.withwhile.com/platform/training/run_7d45f7e7f724464a"
   }
  },
  "datasets": {

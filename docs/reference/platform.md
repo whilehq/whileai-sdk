@@ -141,8 +141,8 @@ whileai keys                   # names and prefixes; create or revoke under Acco
 ```
 
 All take `--json` and `--api-key`; errors exit 1 with the reason on stderr.
-Thin calls into `whileai.platform`. The old `whileai purge` (ZeroProof traces
-and datasets) is gone; `wai.purge_agent("demo-agent")` and
+Thin calls into `whileai.platform`. The old `whileai purge` (traces and
+datasets on the data platform) is gone; `wai.purge_agent("demo-agent")` and
 `wai.delete_empty_datasets(max_rows=2)` remain in Python, both with
 `dry_run=True`.
 
@@ -337,7 +337,7 @@ Plain HTTP, for a stack that is not Python: `POST /runs` with `name`, `dataset_i
 
 ## Report a run so a person can decide
 
-The platform draws one screen per tracked agent at [while.ai/platform/runs](https://while.ai/platform/runs): the held-out score by version with the frontier model as the line to beat, the training curve, what moved on the behaviors you did not train, the judge checks, live traffic on the served version, and cost. A coding agent fills it with `whileai.platform`; the person reads it and presses Promote. Your agent framework stays yours: `track` takes the agent object you already have (OpenAI Agents SDK, Pydantic AI, LangGraph, Claude Agent SDK) and reads the model, the instructions and the tools off it, or you describe it by hand.
+The platform draws one screen per tracked agent at [withwhile.com/platform/runs](https://withwhile.com/platform/runs): the held-out score by version with the frontier model as the line to beat, the training curve, what moved on the behaviors you did not train, the judge checks, live traffic on the served version, and cost. A coding agent fills it with `whileai.platform`; the person reads it and presses Promote. Your agent framework stays yours: `track` takes the agent object you already have (OpenAI Agents SDK, Pydantic AI, LangGraph, Claude Agent SDK) and reads the model, the instructions and the tools off it, or you describe it by hand.
 
 ```python
 from whileai.platform import Behavior, Frontier, Harness, Judge, track

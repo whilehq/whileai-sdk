@@ -61,9 +61,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv build --out-dir dist
-      # The old name: a shim that depends on this release. Same version,
-      # same run, so `pip install zeroproof` never lags `pip install whileai`.
-      - run: uv build --out-dir dist compat/zeroproof
       - run: uvx twine check dist/*
       # uv publish reads UV_PUBLISH_TOKEN from the environment. With no token
       # set it falls back to Trusted Publishing over OIDC, which needs no stored
@@ -76,16 +73,17 @@ jobs:
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN || secrets.PYPI_API_TOKEN }}
         run: |
-          # Both projects on PyPI must accept this workflow: either the
-          # token covers both, or each project lists it as a trusted
-          # publisher (owner whilehq, repo whileai-sdk, publish.yml, env pypi).
-          for name in whileai zeroproof; do
-            if [ -n "$UV_PUBLISH_TOKEN" ]; then
-              uv publish --check-url "https://pypi.org/simple/$name/" dist/$name-*
-            else
-              uv publish --trusted-publishing always --check-url "https://pypi.org/simple/$name/" dist/$name-*
-            fi
-          done
+          # The PyPI project must accept this workflow: either the token
+          # covers it, or it lists this workflow as a trusted publisher
+          # (owner whilehq, repo whileai-sdk, publish.yml, env pypi).
+          # The old `zeroproof` name is retired at 0.89: its last shim on
+          # PyPI depends on whileai>=0.89, so `pip install zeroproof` keeps
+          # installing this package without a new upload.
+          if [ -n "$UV_PUBLISH_TOKEN" ]; then
+            uv publish --check-url "https://pypi.org/simple/whileai/" dist/whileai-*
+          else
+            uv publish --trusted-publishing always --check-url "https://pypi.org/simple/whileai/" dist/whileai-*
+          fi
       - name: tag the release
         env:
           V: ${{ needs.gate.outputs.version }}

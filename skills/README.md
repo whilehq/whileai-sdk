@@ -2,7 +2,7 @@
 
 A skill is the playbook a coding agent reads to do one kind of post-training
 job end to end: get the data, build the frozen test, train, score every
-behavior, report the run so a person can decide on while.ai/platform/runs.
+behavior, report the run so a person can decide on withwhile.com/platform/runs.
 
 Each folder holds `SKILL.md` (the playbook) and `check.py` (the same steps,
 runnable offline with no key). CI runs every `check.py` on every pull request

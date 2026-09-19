@@ -4,8 +4,8 @@
 browser). ``whileai signup --email`` for a new one: no browser at all, the
 account and the key are created in one call.
 
-Device authorization flow (RFC 8628 shape) against the While token
-gate. The CLI asks the gate for a code pair, prints a link and a short code,
+Device authorization flow (RFC 8628 shape) against the While platform
+API. The CLI asks the API for a code pair, prints a link and a short code,
 and polls until the human has signed in and pressed Approve in the browser.
 The API key that comes back is written to ``~/.whileai/credentials.json``
 and every SDK call reads it from there when ``WHILEAI_API_KEY`` is unset.
@@ -33,10 +33,14 @@ from pathlib import Path
 
 from whileai._env import env_name, getenv
 
-#: The While platform API (whilehq/website/backend). ``WHILEAI_API_URL`` overrides.
+#: The While platform API (whilehq/website/backend): serves /device/code,
+#: /device/token, /signup and /me. ``WHILEAI_API_URL`` overrides.
 DEFAULT_API_URL = "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com"
-#: The site the device flow sends people to. Becomes https://while.ai when the domain lands.
-SITE_URL = "https://while-jacobweiss2305s-projects.vercel.app"
+#: The token gate this API replaced for login. A credentials file that
+#: pinned it was written by a whileai before 0.5x and means the default now.
+_RETIRED_API_URL = "https://api.zeroproofai.com"
+#: The site that hosts /sign-in and the /device approval page.
+SITE_URL = "https://withwhile.com"
 SIGN_IN_URL = f"{SITE_URL}/sign-in"
 #: the trial allowance the gate hands out, used when the reply does not say
 DEFAULT_TRIAL_INPUT_TOKENS = 25_000
@@ -79,7 +83,7 @@ def trial_prerun_note() -> str | None:
     """
     if getenv("API_KEY"):
         return None
-    saved = _read(credentials_path()) or {}
+    saved = _read_credentials() or {}
     if not saved.get("api_key") or str(saved.get("tier") or "") != "trial":
         return None
     tokens = int(float(saved.get("daily_input_tokens") or DEFAULT_TRIAL_INPUT_TOKENS))
@@ -136,6 +140,16 @@ def _read(path: Path) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def _read_credentials() -> dict | None:
+    """The saved credentials file, or ``None``."""
+    saved = _read(credentials_path())
+    # A login saved against the retired token-gate host moves to the
+    # default API without signing in again; the key is the same key.
+    if saved and saved.get("api_url") == _RETIRED_API_URL:
+        saved["api_url"] = DEFAULT_API_URL
+    return saved
+
+
 def _tier_fields(payload: dict) -> dict:
     """The tier facts worth keeping next to the key, from ``/signup`` or ``/me``."""
     tier = str((payload or {}).get("tier") or "").strip()
@@ -158,7 +172,7 @@ def remember_account(payload: dict) -> None:
     to another account, and writing its tier here would mislabel this one.
     """
     fields = _tier_fields(payload)
-    saved = _read(credentials_path())
+    saved = _read_credentials()
     if not fields or not saved or not saved.get("api_key"):
         return
     if all(saved.get(key) == value for key, value in fields.items()):
@@ -169,7 +183,7 @@ def remember_account(payload: dict) -> None:
 
 def stored_api_key() -> str | None:
     """The key saved by ``whileai login``, or ``None``."""
-    data = _read(credentials_path())
+    data = _read_credentials()
     key = (data or {}).get("api_key")
     return str(key) if key else None
 
@@ -420,7 +434,7 @@ def status() -> dict:
     """
     env = getenv("API_KEY")
     env_var = env_name("API_KEY")
-    saved = _read(credentials_path()) or {}
+    saved = _read_credentials() or {}
     key = env or saved.get("api_key")
     out = {
         "api_url": _api_url(),

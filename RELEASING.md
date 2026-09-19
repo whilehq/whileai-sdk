@@ -20,13 +20,12 @@ the same release. Ordering is unaffected (`1.10 > 1.9 > 1.2`), and from `1.10`
 onward the stored version matches what you typed. The gate compares normalized
 release tuples for this reason, so write either spelling.
 
-## Two distributions, one version
+## The old name
 
-`compat/zeroproof` is the package's old name: a shim that depends on `whileai` and
-aliases `import zeroproof` to it. It is built and uploaded by the same publish
-run, so both `pyproject.toml` files carry the same version and the shim's
-`whileai>=` floor equals it. The gate fails a release where they differ. Bump
-both files together.
+Before 0.51 this package was published as `zeroproof`. Its last shim on PyPI
+(0.89) depends on `whileai>=0.89`, so `pip install zeroproof` keeps installing
+`whileai`; new releases ship only as `whileai`. The gate reads the old name's
+release history only to continue the numbering.
 
 ## Cutting a release
 

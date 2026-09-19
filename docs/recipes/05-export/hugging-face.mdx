@@ -31,7 +31,7 @@ and the commit message carries the delta.
 ## Run it
 
 Connect your Hugging Face account once, on any dataset page at
-https://www.zeroproofai.com/platform/datasets (the platform holds the
+https://app.withwhile.com/platform/datasets (the platform holds the
 token, the SDK never sees it). Then:
 
 ```bash
@@ -59,7 +59,7 @@ imported cornell-movie-review-data/rotten_tomatoes:test -> ds_... (1066 rows)
 The imported set is deleted at the end unless you pass `--keep`.
 
 Every call is a request to the platform API (`WHILEAI_API_URL`, default
-`https://api.zeroproofai.com`); the SDK never talks to the Hub itself. That
+`https://api.withwhile.com`); the SDK never talks to the Hub itself. That
 is also how the test suite exercises this script offline: it points
 `WHILEAI_API_URL` at a local stub and checks the requests the script
 makes. See `tests/recipes/test_example_hugging_face.py`.
