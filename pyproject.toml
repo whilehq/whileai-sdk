@@ -12,9 +12,11 @@ requires-python = ">=3.10"
 dependencies = ["requests>=2.25.0", "pydantic>=2.0"]
 authors = [{name = "Jacob Weiss"}]
 keywords = [
-    "while", "whileai", "evals", "agent-evals",
-    "rl", "reinforcement-learning", "grpo", "synthetic-data", "agents",
-    "tool-use", "evaluation", "simulation", "llm",
+    "while", "whileai", "evals", "agent-evals", "llm-evals", "llm-as-a-judge",
+    "pass-at-k", "held-out", "confidence-interval", "post-training", "rlhf",
+    "rl", "reinforcement-learning", "grpo", "sft", "dpo", "synthetic-data", "agents",
+    "ai-agents", "tool-use", "evaluation", "simulation", "llm", "claude-code",
+    "agents-md", "cursor", "codex",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

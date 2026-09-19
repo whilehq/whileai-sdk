@@ -72,6 +72,19 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("logout", help="delete the saved key")
     sub.add_parser("status", help="show which key the SDK will use")
 
+    p_repo = sub.add_parser(
+        "init",
+        help="set this repo up for a coding agent: AGENTS.md block, CLAUDE.md include, tested skills",
+    )
+    p_repo.add_argument("--dir", default=".", help="repository root (default: here)")
+    p_repo.add_argument(
+        "--skill",
+        action="append",
+        dest="skills",
+        help="a skill to install under .claude/skills/ (repeatable; default: the evals playbooks)",
+    )
+    p_repo.add_argument("--no-check", action="store_true", help="skip running the evals check.py")
+
     p_init = sub.add_parser(
         "init-evals",
         help="write an eval harness (agent, judge, run, test) wired to this project",
@@ -137,6 +150,15 @@ def main(argv: list[str] | None = None) -> int:
             return _fail(err)
         return 0
 
+    if args.command == "init":
+        from . import init_repo
+
+        return init_repo.init(
+            args.dir,
+            skills=args.skills or init_repo.DEFAULT_SKILLS,
+            check=not args.no_check,
+        )
+
     if args.command == "init-evals":
         from .init_evals import init_evals
 
@@ -153,8 +175,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "status":
+        from . import init_repo
+
         shown = auth.status()
+        shown["repo"] = init_repo.status(".")
         print(json.dumps(shown, indent=2))
+        if shown["repo"].get("stale"):
+            print("the whileai block in AGENTS.md is from an older version: run `whileai init`")
+        elif not shown["repo"].get("agents_md"):
+            print(
+                "no whileai block in AGENTS.md: run `whileai init` so your coding agent finds the skills"
+            )
         if shown.get("trial_note"):
             print(shown["trial_note"])
         if not shown.get("configured"):
