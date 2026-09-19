@@ -1,5 +1,5 @@
 """Environment variables: ``WHILEAI_*``. The ``ZEROPROOF_*`` names from before
-the rename are read with a warning until 0.95, then not at all."""
+the rename are read with a warning until 1.0, then not at all."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 NEW_PREFIX = "WHILEAI_"
 OLD_PREFIX = "ZEROPROOF_"
 #: Release in which the old prefix stops being read.
-OLD_PREFIX_GONE = "0.95"
+OLD_PREFIX_GONE = "1.0"
 
 #: Hosts the platform answers on: the token gate and the site, old and new
 #: domains, and the hosted-model endpoints it serves from Modal.
@@ -30,7 +30,7 @@ def getenv(name: str, default: str | None = None) -> str | None:
 
     A ``ZEROPROOF_<name>`` left from before the rename is still read when
     the new name is unset, with a ``DeprecationWarning`` that says which
-    variable to set instead; that fallback goes away in 0.95. An empty
+    variable to set instead; that fallback goes away in 1.0. An empty
     string counts as unset, which is how every caller treated these
     variables (``os.environ.get(...) or fallback``).
     """

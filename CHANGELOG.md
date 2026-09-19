@@ -5,6 +5,10 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The `ZEROPROOF_*` fallback and `~/.zeroproof` migration stay until 1.0, not
+  0.95: releases moved past 0.95 the night the deadline was written. Belief 9
+  no longer lists app.withwhile.com; that host was retired the same day.
+
 ## 0.95 (2026-09-19)
 
 - `tracked.run(version, harness=Harness(...))` ties a run to the exact
