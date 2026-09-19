@@ -11,6 +11,8 @@ from pydantic import ValidationError
 from whileai.platform import (
     Behavior,
     Dashboard,
+    Experiment,
+    Figure,
     Frontier,
     Harness,
     Judge,
@@ -33,9 +35,24 @@ class Fake:
         self.calls: list[tuple[str, str, object]] = []
         self.dashboard = dashboard or {"agent": {"id": "a", "name": "a"}}
         self.fail_train_once = fail_train_once
+        self.experiment: dict | None = None
+        self.figures: dict[str, dict] = {}
 
     def __call__(self, method, path, body=None):
         self.calls.append((method, path, body))
+        if path.endswith("/experiment"):
+            if method == "GET":
+                if self.experiment is None:
+                    raise PlatformError(404, "GET /agents/a/experiment: no experiment")
+                return self.experiment
+            self.experiment = {**body, "updatedAt": "2026-09-19T00:00:00Z"}
+            return self.experiment
+        if "/figures/" in path and method == "PUT":
+            name = path.rsplit("/", 1)[1]
+            self.figures[name] = {"name": name, **body, "updatedAt": "2026-09-19T00:00:00Z"}
+            return self.figures[name]
+        if path.endswith("/figures") and method == "GET":
+            return {"figures": [self.figures[k] for k in sorted(self.figures)]}
         if path == "/agents" and method == "POST":
             return {"id": body["id"], "name": body.get("name"), "serving": None}
         if path == "/runs" and method == "POST":
@@ -474,3 +491,163 @@ def test_run_record_validates():
         RunRecord(optimizer={"top_p": 1.5})
     with pytest.raises(ValidationError):
         RunRecord(data={"n_holdout": -1})
+
+
+# ----------------------------------------------- experiment, figures, notes
+
+
+class FakePlotly:
+    """Duck-types plotly's Figure: no plotly import anywhere in the SDK."""
+
+    def __init__(self, data, layout=None):
+        self._data, self._layout = data, layout or {}
+
+    def to_plotly_json(self):
+        return {"data": self._data, "layout": self._layout}
+
+
+def test_experiment_put_then_get_then_none_on_404():
+    fake = Fake()
+    t = track("a", transport=fake)
+    assert t.experiment() is None  # 404 before anything is posted
+    assert fake.calls[-1] == ("GET", "/agents/a/experiment", None)
+
+    out = t.experiment(
+        "Does GRPO lift refunds?",
+        measure="pass@1 on refunds-test-v2, n=240",
+        decide="promote when the interval clears 2.4",
+    )
+    method, path, body = fake.calls[-1]
+    assert (method, path) == ("PUT", "/agents/a/experiment")
+    assert body == {
+        "question": "Does GRPO lift refunds?",
+        "measure": "pass@1 on refunds-test-v2, n=240",
+        "decide": "promote when the interval clears 2.4",
+    }
+    assert isinstance(out, Experiment) and out.hypothesis is None
+
+    back = t.experiment()
+    assert isinstance(back, Experiment)
+    assert back.question == "Does GRPO lift refunds?" and back.decide == out.decide
+
+    with pytest.raises(TypeError):
+        t.experiment(measure="no question")
+    with pytest.raises(ValidationError):
+        Experiment(question="x" * 4097)
+    with pytest.raises(ValidationError):
+        Experiment(question="")
+
+
+def test_experiment_get_raises_on_other_errors():
+    def down(method, path, body=None):
+        raise PlatformError(503, "down")
+
+    with pytest.raises(PlatformError):
+        track("a", transport=down).experiment()
+
+
+def test_figure_from_a_plotly_like_object_and_from_a_dict():
+    fake = Fake()
+    t = track("a", transport=fake)
+    run = t.run("v4", flush_every=100)
+    fig = FakePlotly(
+        [{"x": [1, 2], "y": [0.1, 0.4]}],  # no type: scatter
+        {
+            "title": "Reward",
+            "template": {"layout": {"font": {}}},  # dropped, as the API drops it
+            "images": [{"source": "x"}],
+            "annotations": [{"text": "kept"}],
+        },
+    )
+    out = t.figure("reward-by-step", fig, caption="Training reward, v4", run=run)
+    method, path, body = fake.calls[-1]
+    assert (method, path) == ("PUT", "/agents/a/figures/reward-by-step")
+    assert body == {
+        "figure": {
+            "data": [{"x": [1, 2], "y": [0.1, 0.4]}],
+            "layout": {"title": "Reward", "annotations": [{"text": "kept"}]},
+        },
+        "caption": "Training reward, v4",
+        "run": "run_abc",
+    }
+    assert isinstance(out, Figure)
+    assert out.name == "reward-by-step" and out.run == "run_abc" and out.updated_at
+
+    t.figure("share", {"data": [{"type": "pie", "values": [3, 1]}]})
+    _, path, body = fake.calls[-1]
+    assert path == "/agents/a/figures/share"
+    assert body == {"figure": {"data": [{"type": "pie", "values": [3, 1]}], "layout": {}}}
+
+    names = [f.name for f in t.figures()]
+    assert names == ["reward-by-step", "share"]
+    assert fake.calls[-1] == ("GET", "/agents/a/figures", None)
+
+
+def test_figure_encodes_numpy_like_values():
+    class Arr:
+        def tolist(self):
+            return [1, 2, 3]
+
+    fake = Fake()
+    t = track("a", transport=fake)
+    t.figure("arr", {"data": [{"type": "bar", "y": Arr()}]})
+    assert fake.calls[-1][2]["figure"]["data"][0]["y"] == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["Reward", "reward_by_step", "-lead", "", "x" * 41],
+)
+def test_figure_rejects_a_bad_name_before_any_call(name):
+    fake = Fake()
+    t = track("a", transport=fake)
+    before = len(fake.calls)
+    with pytest.raises(ValueError, match="lowercase letters, digits and dashes"):
+        t.figure(name, {"data": [{"y": [1]}]})
+    assert len(fake.calls) == before
+
+
+def test_figure_rejects_a_figure_over_200kb():
+    fake = Fake()
+    t = track("a", transport=fake)
+    before = len(fake.calls)
+    big = {"data": [{"y": list(range(60_000))}]}  # ~330 KB compact
+    with pytest.raises(ValueError, match="200,000 bytes"):
+        t.figure("big", big)
+    assert len(fake.calls) == before
+
+
+@pytest.mark.parametrize("data", [[], [{"y": [1]}] * 51, "not a list", None])
+def test_figure_rejects_a_bad_trace_count(data):
+    fake = Fake()
+    t = track("a", transport=fake)
+    before = len(fake.calls)
+    with pytest.raises(ValueError, match=r"1\.\.50 traces"):
+        t.figure("n", {"data": data})
+    assert len(fake.calls) == before
+
+
+def test_figure_rejects_a_trace_type_off_the_allow_list():
+    fake = Fake()
+    t = track("a", transport=fake)
+    before = len(fake.calls)
+    with pytest.raises(ValueError, match="allowed types are scatter, bar, pie"):
+        t.figure("hm", {"data": [{"type": "bar", "y": [1]}, {"type": "heatmap", "z": [[1]]}]})
+    assert len(fake.calls) == before
+    with pytest.raises(ValueError, match="fig must be a plotly Figure or a dict"):
+        t.figure("x", [1, 2])
+    with pytest.raises(ValueError, match="caption is at most 1,024"):
+        t.figure("cap", {"data": [{"y": [1]}]}, caption="c" * 1025)
+    assert len(fake.calls) == before
+
+
+def test_run_note_patches_notes():
+    fake = Fake()
+    t = track("a", transport=fake)
+    run = t.run("v4", flush_every=100)
+    assert run.notes is None
+    run.note("Reward flattened at step 300.")
+    assert fake.calls[-1] == ("PATCH", "/runs/run_abc", {"notes": "Reward flattened at step 300."})
+    assert run.notes == "Reward flattened at step 300."
+    with pytest.raises(ValueError, match="8,192"):
+        run.note("n" * 8193)

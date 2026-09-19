@@ -274,6 +274,19 @@ describe it by hand::
 
     print(tracked.verdict())  # refunds: v4 beats v3 by 5 (interval excludes zero); 1 regression
 
+Say what the runs are for, and show your working. The experiment block
+sits at the top of the Runs page, a figure grid follows the run table,
+and a note sits under its run. Figures are illustration; the verdict
+above comes from the scored evals::
+
+    tracked.experiment(
+        question="Does GRPO on refunds-grpo lift refunds without moving length?",
+        measure="pass@1 on refunds-test-v2, n=240, 95% interval",
+        decide="promote when the interval clears the 2.4 noise floor",
+    )
+    tracked.figure("reward-by-step", fig, caption="Training reward, v4")  # plotly Figure or dict
+    run.note("Reward flattened at step 300; the last 100 steps bought nothing.")
+
 Every object is a pydantic model, validated before it leaves the process, and
 each one says which chapter of Lambert 2025 (arXiv:2504.12501) it comes from.
 Chapters are cited by title because the numbering has moved between editions.
