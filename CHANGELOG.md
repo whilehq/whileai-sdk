@@ -5,6 +5,16 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Runs can be archived. `tracked.archive(run_id)` (or `run.archive()`) takes
+  a run out of the experiment without losing it: off the held-out plot, the
+  version curve, the deltas and the candidate slot, still stored with its
+  curve and scores. `tracked.unarchive(run_id)` brings it back;
+  `tracked.runs()` leaves archived runs out unless `archived=True`;
+  `tracked.delete_run(run_id)` removes a run, its train points and its
+  evals for good. Terminal: `whileai archive <agent> <run> [--undo]`,
+  `whileai runs <agent> --archived`. The Runs page shows an "archived ·
+  show" count with Archive, Unarchive and Delete on the picked run.
+
 ## 0.92 (2026-09-19)
 
 - The default API host is `https://api.withwhile.com`. `api.zeroproofai.com`
