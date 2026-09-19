@@ -405,11 +405,11 @@ tracked.experiment(
 )
 tracked.experiment()  # read it back; None when nothing is posted
 
-fig = {"data": [{"x": [0, 100, 200], "y": [0.2, 0.4, 0.41]}], "layout": {"title": "Reward"}}  # or any plotly Figure
+fig = {"data": [{"x": [0, 100, 200], "y": [0.2, 0.4, 0.41]}]}  # or any plotly Figure
 tracked.figure("reward-by-step", fig, caption="Training reward, v4", run=run)
 tracked.figures()  # every figure on the agent, by name
 
-run.note("Reward flattened at step 300; the last 100 steps bought nothing. Next: fewer steps, more generations.")
+run.note("Reward flattened at step 300; the last 100 steps bought nothing.")
 ```
 
 `experiment` is one block per agent (a second call replaces it), rendered at the top of the Runs page as five labeled rows (Question, Hypothesis, Method, Measure, Decide) plus Notes; every field is markdown of at most 4096 chars and `question` is the only required one. `figure` posts a Plotly figure as JSON, never as code: the SDK reads `to_plotly_json()` off the object you pass (plotly is not imported or required) or takes a dict with `data` and `layout`, drops `layout.images`, `updatemenus`, `sliders` and `template` (the API drops them too), and refuses, on that line, what the API would refuse: a name outside `[a-z0-9][a-z0-9-]{0,39}`, more than 200 KB of JSON, fewer than 1 or more than 50 traces, or a trace type outside scatter, bar and pie (the page ships plotly.js-basic; a missing type means scatter). Figures draw in a grid after the run table, caption above each, and are illustration: the verdict on the page comes from the scored evals, never from a figure. `run.note` puts markdown (at most 8192 chars) under the run record when the run is selected, and keeps it on `run.notes`.
