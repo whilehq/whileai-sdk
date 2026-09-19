@@ -1,65 +1,52 @@
 ---
 title: "Install"
 sidebarTitle: "Install"
-description: "Install whileai, check the version, and decide whether you need a key yet."
+description: "Install whileai and check it works."
 ---
 
 ```bash
 uv add whileai
 ```
 
-Python 3.10 to 3.13. Two dependencies, `requests` and `pydantic`. Typed, so an editor shows every knob.
-
 ```python
 import whileai
-print(whileai.__version__)
+print(whileai.__version__)   # 0.88
 ```
+
+Python 3.10 to 3.13.
 
 ## Extras
 
-| Install | Adds |
+| Install | When |
 |---|---|
-| `uv add 'whileai[rl]'` | `verifiers`, so an exported RL environment installs and `load_environment` rebuilds it for GRPO trainers. Python 3.11 to 3.13. |
-| `uv add trl transformers` | Your own trainer. `to_trl`, `loss_mask`, `TrainerCallback` and `HackMonitor` work against whatever TRL you install; the SDK does not pin one. |
+| `uv add 'whileai[rl]'` | You export an RL environment for a GRPO trainer. Python 3.11+. |
+| `uv add trl transformers` | You train with your own TRL. Any version. |
 
-Everything else, including training on the platform, needs only the base
-package.
+## Keys
 
-## Do you need a key?
+Bring your own keys. Your model keys never leave your machine.
 
-Not to start. Everything on the [quickstart](/get-started/quickstart)
-runs offline: the template situation writer (`simulator=False`), the
-built-in `seeded_agent`, your own judge as a function.
+The [quickstart](/get-started/quickstart) needs no key at all.
 
-A key turns on the hosted parts: the hosted situation writer and judge,
-dataset storage, training and serving. Get one from the terminal:
+A While key adds hosting: we store your datasets, run the hosted judge, train and serve.
 
 ```bash
-whileai login
+whileai login      # opens the browser, saves a key on this machine
 ```
-
-That opens the browser, waits for approval, and saves a key on this
-machine. No browser? `whileai signup --email you@example.com` creates an
-account and a key in one step. Where the key goes, and where a model
-string goes, is on [keys and models](/get-started/your-model-and-key).
-
-In code, the same key and any provider key go through `configure`, once:
 
 ```python
 import whileai as wai
 
 wai.configure(
-    api_key="zp_...",                                        # the While account key
-    agent=wai.OpenAI("gpt-4.1-mini", api_key="sk-..."),      # or OPENAI_API_KEY
+    api_key="zp_...",                                    # While key
+    agent=wai.OpenAI("gpt-4.1-mini", api_key="sk-..."),  # your model, your key
 )
-print(wai.settings)                                          # says which model and key each role uses
+print(wai.settings)                                      # which model and key each role uses
 ```
 
-[Connect your agent](/get-started/connect-your-agent) has the table of
-backends and which key each one reads.
+Both keys can come from env vars instead: `WHILEAI_API_KEY`, `OPENAI_API_KEY`.
+Other backends: [connect your agent](/get-started/connect-your-agent).
 
 <Note>
-This package used to be called `zeroproof`. `uv add zeroproof` still
-installs it and `import zeroproof.simulations` still works; both give you
-`whileai`.
+`uv add zeroproof` and `import zeroproof` still work. Same package.
 </Note>
