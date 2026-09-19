@@ -5,6 +5,13 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- OpenTelemetry stays on your machine. The server-side trace ingest is gone:
+  `whileai.ingest` (`otel_env`, `ingest_traces`, `send_traces`, `send_runs`,
+  `list_traces`, `WhileIngestError`), `wai.send_score`, `wai.cuts`,
+  `wai.format_cuts`, `wai.cut`, and the `01-simulate/agent-behavior` recipe
+  that streamed spans to `/v1/traces`. The platform holds scores, not traces.
+  `wai.rows_from_otel` and `wai.load_traces` still read an OTLP export or
+  JSONL locally into `simulate(traces=)`; nothing is uploaded.
 - README banner is wai the whale; the ring is gone.
 - Docs logo and favicon are wai the whale, the mark the site ships.
 - Docs cite the way a paper does. Every "What the book says" section and
