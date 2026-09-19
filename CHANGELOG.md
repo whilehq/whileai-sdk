@@ -12,6 +12,15 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   no longer read (set `WHILEAI_*`), `~/.zeroproof` is no longer consulted
   (run `whileai login` again if you never had `~/.whileai`), and the release
   gate no longer reads the old PyPI name.
+## 0.95 (2026-09-19)
+
+- `tracked.run(version, harness=Harness(...))` ties a run to the exact
+  prompt, tools and model it ran under: the label becomes the run's harness
+  version and the fingerprint (sha256 over model + instructions + sorted
+  tools, 12 hex) lands in `record.provenance.pins["harness"]`, the model in
+  `pins["model"]`. A string is a label only; left out, the harness given to
+  `track()` is pinned. For a team iterating on a frontier-model agent this
+  is how two scores on the Runs page say which prompt produced each.
 ## 0.94 (2026-09-19)
 
 - `skills/strengthen-your-evals` writes the held-out asks once and replays
