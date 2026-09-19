@@ -185,6 +185,7 @@
                   "recipes/community/how-much-contamination-survives",
                   "recipes/community/same-entrypoint-before-after",
                   "recipes/community/the-step-the-course-skips",
+                  "recipes/community/what-trl-does-with-the-loss-mask",
                   "recipes/community/who-protects-the-holdout"
                 ]
               }
