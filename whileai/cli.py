@@ -180,14 +180,6 @@ def main(argv: list[str] | None = None) -> int:
         shown = auth.status()
         shown["repo"] = init_repo.status(".")
         print(json.dumps(shown, indent=2))
-        if shown["repo"].get("stale"):
-            print("the whileai block in AGENTS.md is from an older version: run `whileai init`")
-        elif not shown["repo"].get("agents_md"):
-            print(
-                "no whileai block in AGENTS.md: run `whileai init` so your coding agent finds the skills"
-            )
-        if shown.get("trial_note"):
-            print(shown["trial_note"])
         if not shown.get("configured"):
             print(
                 "no API key configured: run `whileai login` or set WHILEAI_API_KEY",
