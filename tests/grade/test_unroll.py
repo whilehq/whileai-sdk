@@ -1,4 +1,5 @@
-"""training_rows(unroll=True): an N-turn conversation as N samples (rlhf-book ch. 4)."""
+"""training_rows(unroll=True): an N-turn conversation as N samples (Lambert
+2025, chapter Instruction Tuning)."""
 
 from __future__ import annotations
 

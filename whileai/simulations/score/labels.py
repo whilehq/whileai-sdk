@@ -1,10 +1,10 @@
 """Human labels on rows: who said what, and do they agree.
 
-rlhf-book ch. 10 and 11: the trusted label a judge is checked against is
-a person's, several people disagree, and the disagreement is signal, not
-noise to average away. ``judge_trust`` and ``judge_agreement`` read
-``gold_reward`` and ``gold_kind``, and only a person's labels count as
-a measurement of the judge; a model's labels are marked as such.
+Lambert 2025, chapter Preference Data: the trusted label a judge is checked
+against is a person's, several people disagree, and the disagreement is
+signal, not noise to average away. ``judge_trust`` and ``judge_agreement``
+read ``gold_reward`` and ``gold_kind``, and only a person's labels count as a
+measurement of the judge; a model's labels are marked as such.
 
 ``attach_labels`` takes labels from a file or a list (each with a row
 identity, a 0/1 label, and optionally an annotator, a note and a time),
@@ -168,7 +168,8 @@ def annotator_agreement(rows: Sequence[dict]) -> dict[str, Any]:
     every label matched; ``kappa`` Cohen's kappa when exactly two
     annotators labeled the same rows (``pair`` names them), else ``None``.
     ``disagreements`` lists the split rows (prompt, labels) so a person
-    can read the ones the guideline did not settle (rlhf-book ch. 11).
+    can read the ones the guideline did not settle (Lambert 2025, chapter
+    Preference Data).
     """
     per: dict[str, dict[str, int]] = {}
     multi = 0

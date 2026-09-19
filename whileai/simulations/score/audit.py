@@ -1,22 +1,23 @@
 """Is the verifier failing answers that are right?
 
 A verifier is a rule: execution match, exact match, a regex on the final
-number. Rules fail correct answers for reasons that have nothing to do
-with correctness (rounding, ordering, a column named differently, an
-equivalent row set), and every such false negative halves the
-separation on its task: the policy is told that a right answer was
-wrong. On 570 SEC XBRL tasks, fixing the grader moved mean reward from
-0.20 to 0.48 with no training at all. The RLHF book treats verifiers as
-solved (ch. 14: "a scoring function that returns a positive reward when
-the answer is correct and 0 otherwise"); this module is our own
-measurement of how often that function is wrong.
+number. Rules fail correct answers for reasons that have nothing to do with
+correctness (rounding, ordering, a column named differently, an equivalent row
+set), and every such false negative halves the separation on its task: the
+policy is told that a right answer was wrong. On 570 SEC XBRL tasks, fixing
+the grader moved mean reward from 0.20 to 0.48 with no training at all.
+Lambert 2025 (chapter Over-optimization) treats verifiers as solved: "a
+scoring function that returns a positive reward when the answer is correct and
+0 otherwise". This module is our own measurement of how often that function is
+wrong.
 
 ``audit_grades`` samples failed rows, asks a judge whether each reply is
 in fact correct given the reference, and reports the false-negative rate
 with a Wilson interval and the verifier reasons that dominate. The judge
-is a second opinion, not ground truth: the book's judge-prompt rules
-apply (ch. 7: length must not sway it, no position bias, temperature 0
-for stable ratings), and a rate near the threshold deserves a check of
+is a second opinion, not ground truth: the judge-prompt rules apply
+(length must not sway it, no position bias, temperature 0 for stable
+ratings; Zheng et al. 2023, arXiv:2306.05685; Lambert 2025, chapter
+Reward Modeling), and a rate near the threshold deserves a check of
 the judge itself on human labels (``judge_agreement``, ``judge_trust``).
 """
 

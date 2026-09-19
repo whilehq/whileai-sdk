@@ -54,7 +54,7 @@ def test_the_issue_repro_no_longer_answers_two():
     assert f"({MIN_HOLDOUT_TASKS} tasks), which is the model collapsing, not evidence" in line
     assert f"default base {defaults.BASE_PASS_RATE:.2f} with these rows' k=6" in line
     assert "harder situations" in line and "20%-80% difficulty band" in line
-    assert "hard_share" in line and "rlhfbook.com/c/14-reasoning.html" in line
+    assert "hard_share" in line and "Lambert 2025, chapter Reasoning" in line
 
 
 def test_both_arms_saturated_measure_a_zero_sd_and_get_the_same_answer():

@@ -76,7 +76,7 @@ shuffled noise floor, with `endorsed=["lookup_order"]` naming what it should
 be. There is no judge in this example, so no gold curve and no `divergence`
 alarm; the `length` and `feature` alarms run, `--stop-on feature` (or
 `length`) ends the run on one, and the summary lists every alarm. This is
-the over-optimization chapter's picture (rlhf-book ch. 14), drawn during
+the proxy-against-gold picture of over-optimization [1], drawn during
 the run instead of after it.
 
 Prompts come from `wai.simulate(simulator=False, ...)`: the template writer
@@ -91,7 +91,7 @@ truth.
   `wai.TrainerCallback`.
 - **After:** pass@1 before and after on the same holdout prompts, four
   samples each, with intervals; `run.delta` puts the paired comparison on
-  the run page (a bootstrap over prompts, rlhf-book ch. 16) and names
+  the run page (a paired bootstrap over prompts [2, 3]) and names
   `well_formed` if it regressed. The adapter and both
   holdout row files land on the `whileai-grpo-runs` volume under the run
   name.
@@ -175,7 +175,7 @@ stays paired.
 
 ## Variants as flags
 
-The loss variants are the policy-gradient chapter's (rlhf-book ch. 6).
+The loss variants come from the GRPO line of papers [4, 5].
 TRL's default loss is `bnpo` (token-level, batch-normalized), which these
 runs use. `--loss-type grpo` is the original per-sequence mean, which
 favors short completions (every token of a short reply carries more of the
@@ -188,7 +188,7 @@ step, and the mask keeps a completion that hit `max_completion_length`
 from being paid or punished for what it did not finish. DAPO's dynamic
 sampling (drop groups that all pass or all fail, since their advantage is
 zero) is what the platform's publish gate does to a dataset offline. `beta`
-is the KL term of the regularization chapter (ch. 15): small here because
+is the KL penalty to the reference policy [6]: small here because
 the reference is the base model with the adapter off and the rule is close
 to it. Every flag lands in the run's config on the dashboard.
 
@@ -293,3 +293,12 @@ interval that crosses zero, `flat`; the category table reads a trade. For
 DPO the fix has to put contrast on the no-id prompts themselves, for
 example a constructed rejected reply (the invented call) against the
 policy's own ask, rather than more of the same prompts.
+
+## References
+
+1. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
+2. Efron, B. Bootstrap Methods: Another Look at the Jackknife. Annals of Statistics 7(1), 1979.
+3. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.
+4. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+5. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
+6. Schulman, J. et al. Proximal Policy Optimization Algorithms. arXiv:1707.06347, 2017.

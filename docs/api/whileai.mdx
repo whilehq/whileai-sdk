@@ -38,7 +38,7 @@ description: "The platform client: sign in, push traces, read the account."
 | [`simulate`](#simulate) | Generate situations for an agent, roll them out, and return the rows. |
 | [`tool`](#tool) | Turn a typed function into a `Tool`: signature to schema, docstring to text. |
 | [`verifier`](#verifier) | Decorator: turn `fn(candidate, reference, row) -> score` into a Verifier. |
-| [`verify`](#verify) | Verifiers: programmatic, verifiable rewards (RLHF book ch. 7, 13). |
+| [`verify`](#verify) | Verifiers: programmatic, verifiable rewards (Lambert et al. 2024, arXiv:2411.15124; Lambert 2025, chapters Reasoning and Tool Use). |
 
 ## config
 
@@ -146,7 +146,7 @@ An LLM judge: a model, a rubric, and the context the agent was under.
   (principle, reference, hidden state) the agent never saw.
 * `name`: recorded on every graded row; defaults to the model name.
 
-Reference: LLM-as-a-judge, rlhfbook.com ch. 7 (reward models);
+Reference: LLM-as-a-judge, Lambert 2025, chapter Reward Modeling;
 Zheng et al. 2023, arXiv:2306.05685 (position and length bias, why
 `judge_trust` should follow).
 
@@ -274,9 +274,9 @@ describe it by hand::
 
     print(tracked.verdict())  # refunds: v4 beats v3 by 5 (interval excludes zero); 1 regression
 
-Every object is a pydantic model, validated before it leaves the
-process, and each one says which chapter of rlhfbook.com it comes from.
-Chapters are cited by title because the web book's numbering has moved.
+Every object is a pydantic model, validated before it leaves the process, and
+each one says which chapter of Lambert 2025 (arXiv:2504.12501) it comes from.
+Chapters are cited by title because the numbering has moved between editions.
 Logging never raises into a training loop: points are buffered, sent in
 batches, and a failed send is retried on the next flush.
 
@@ -351,7 +351,8 @@ Keep the rows worth training on, for SFT or RL: `optimize` as an object.
 * `mode`: `"rl"` or `"sft"`; defaults to the run's own mode, else `"rl"`.
 * `target`: about how many rows to keep.
 * `band`: the RL difficulty band as a pass-rate range, `(0.2, 0.8)` by
-  default (rlhfbook.com ch. 7; DAPO, arXiv:2503.14476).
+  default (Lambert 2025, chapter Reasoning; Yu et al. 2025 (DAPO),
+  arXiv:2503.14476).
 * `endorsed`: feature names the reward should track, so the hack scan
   can call a shortcut a hack.
 * `truncated`: `"drop"`, `"keep"` or `"penalize"` for rollouts cut
@@ -868,7 +869,7 @@ Arguments that matter:
   proxy moved up and the target did not, or the proxy's interval sits
   entirely above the target's, the report is `over_optimized` and
   fails: the policy learned something the target does not credit
-  (rlhf-book ch. 14).
+  (Gao et al. 2022, arXiv:2210.10760).
 * `must_not_regress`: metrics whose significant drop fails the
   report. Marker metrics go by marker name; pass@1 is `"pass_at_1"`.
 * `by`: split the target by a group on each row (a top-level row
@@ -921,8 +922,9 @@ true 0.05). Only re-running the short arm on its short tasks does,
 and `data.report()["rollouts_lost_by"]` says why the rows went
 missing.
 
-Noise floor. One evaluation is a draw, not a distribution (rlhf-book
-ch. 16, "why many comparisons are unreliable", and appendix C). With
+Noise floor. One evaluation is a draw, not a distribution (Lambert
+2025, chapter Evaluation, "why many comparisons are unreliable", and
+its evaluation-variance appendix). With
 one run on either side and no `run_std`, a target that moved reads
 `moved_unreplicated` and a warning says how to fix it. Pass
 `eval_variance(...)["run_std_by_metric"]` as `run_std` so pass@1
@@ -955,28 +957,26 @@ the headline band, `noise_rule` spells it out, and `eval_runs`
 says how many runs each side had.
 
 Comparability. `config` says what each side was produced with
-(`pass_at(...).config` per side: task count, k, temperature,
-max_tokens, policy and judge versions, prompt hash). A warning names
-each setting the two sides disagree on, and says so when both sides
-are the same policy version (rlhf-book ch. 16: a comparison is only
-as good as the settings it was run under).
-`config[side]["answered_share"]` is the share of rows per side with
-a spoken reply once `<think>` markup is gone, and every rate is
-conditional on it. The two shares are compared with a pooled
-two-proportion z test; when it clears `answered_alpha` the warning
-states p and the gap, and when the gap also exceeds the re-run band
-(or `answered_gap_points` with no band) the report fails with
-`answered` in `not_comparable` and names the mechanism: a
-reasoning base against a reasoning-suppressed adapter under one
-shared `max_tokens` runs out of budget inside `<think>` and never
-answers, so the adapter wins every row the base did not reply to.
-`not_comparable` lists every such cause under one prefix, `NOT
-COMPARABLE:`; none are raised here. A replay (`simulate(tasks=...)`
-or `runs=N`) keeps the writer of the run it replays on
-`writer_model`, so two runs of one call compare as one writer.
-Situations nobody's model wrote (a `seeds=` ask, the offline
-template writer, or a replay of either) count as one writer for this
-check: nothing there could have moved with the weights.
+(`pass_at(...).config` per side: task count, k, temperature, max_tokens,
+policy and judge versions, prompt hash). A warning names each setting the
+two sides disagree on, and says so when both sides are the same policy
+version (Lambert 2025, chapter Evaluation: a comparison is only as good as
+the settings it was run under). `config[side]["answered_share"]` is the
+share of rows per side with a spoken reply once `<think>` markup is
+gone, and every rate is conditional on it. The two shares are compared
+with a pooled two-proportion z test; when it clears `answered_alpha` the
+warning states p and the gap, and when the gap also exceeds the re-run
+band (or `answered_gap_points` with no band) the report fails with
+`answered` in `not_comparable` and names the mechanism: a reasoning
+base against a reasoning-suppressed adapter under one shared
+`max_tokens` runs out of budget inside `<think>` and never answers, so
+the adapter wins every row the base did not reply to. `not_comparable`
+lists every such cause under one prefix, `NOT COMPARABLE:`; none are
+raised here. A replay (`simulate(tasks=...)` or `runs=N`) keeps the
+writer of the run it replays on `writer_model`, so two runs of one call
+compare as one writer. Situations nobody's model wrote (a `seeds=` ask,
+the offline template writer, or a replay of either) count as one writer
+for this check: nothing there could have moved with the weights.
 
 `ceiling` is set when the before side already passes
 `ceiling_pass_rate` of its tasks, or when fewer than
@@ -1118,7 +1118,7 @@ given, `disagreements` (the review queue of rows the judge and the
 humans disagree on), `floors`, `n_labeled` and `n_rows`.
 `print(report)` writes the whole thing
 (`format_judge_trust(report)` is the same string). The module
-docstring lays out each check and its rlhf-book chapter.
+docstring lays out each check and its source.
 The floors and flags are keywords with their defaults in
 `whileai.simulations.defaults`: `min_agreement` (0.8, the
 human-human agreement of MT-Bench, arXiv:2306.05685), `min_kappa`
@@ -1154,7 +1154,8 @@ kappa reached `min_kappa`, and nothing else was flagged. With no
 labels every check has `n=0`, so `ok` is false with a warning
 saying the judge is unmeasured, not failed. The perturbation pass is
 not a substitute: a judge that passes everything is perfectly
-consistent (rlhf-book ch. 5, ch. 12).
+consistent (Lambert 2025, chapters Reward Modeling and Synthetic Data
+and Distillation).
 
 ```python
 >>> rows = [{"task_id": str(i), "reward": i % 2, "gold_reward": i % 2} for i in range(20)]
@@ -1384,11 +1385,11 @@ agree on the same rows. Only binary `reward` (or `qwen_reward`)
 rows count; partial and unjudged rows are skipped, the same rule
 `group_signal` uses.
 
-The intervals resample tasks, never rows (rlhf-book ch. 16), so they
-need at least `MIN_CI_TASKS` (3) tasks. Under that, `ci95` is
-`None` and the `note` says why and what to change. Ten rows that
-all carry one `task_id` are one task, not ten, and get no interval;
-when they are ten separate items, give each its own `task_id`.
+The intervals resample tasks, never rows (Miller 2024, arXiv:2411.00640),
+so they need at least `MIN_CI_TASKS` (3) tasks. Under that, `ci95` is
+`None` and the `note` says why and what to change. Ten rows that all
+carry one `task_id` are one task, not ten, and get no interval; when
+they are ten separate items, give each its own `task_id`.
 
 * `rows`: graded rows, or the `SimulationData` holding them.
 * `k`: the draw size for the k-way numbers. It defaults to the
@@ -1470,21 +1471,22 @@ Defined in [`whileai/simulations/score/stats.py`](https://github.com/whilehq/whi
 
 Drop training rows whose prompt overlaps an evaluation set.
 
-Reach for it before any train-versus-holdout comparison: a held-out
-task that also sits in the training data measures memory, not the
-change (rlhf-book ch. 16). It returns `(clean_rows, report)`: the
-rows that survived, and a report with the count under each rule
-(`n_contaminated` in total), hits per field, the eval text count,
-and the first offenders with their coverage (or `similarity` for
-semantic hits).
+Reach for it before any train-versus-holdout comparison: a held-out task
+that also sits in the training data measures memory, not the change
+(Lambert 2025, chapter Evaluation). It returns `(clean_rows, report)`:
+the rows that survived, and a report with the count under each rule
+(`n_contaminated` in total), hits per field, the eval text count, and
+the first offenders with their coverage (or `similarity` for semantic
+hits).
 
 * `rows`: the training rows.
 * `against`: one or more evaluation sources: row lists, JSONL paths,
   or platform dataset ids (`ds_...`). Evaluation prompts, answers
   and references are the texts compared (not the eval set's own
   replies).
-* `fields` (`("prompt",)`): which row texts are checked, the
-  book's method. Add `"final_text"` to ask the stricter question of
+* `fields` (`("prompt",)`): which row texts are checked; prompts
+  only is what Lambert 2025, chapter Evaluation, checks. Add
+  `"final_text"` to ask the stricter question of
   whether replies reproduce eval answers or references.
 * `n` (8) and `overlap` (0.8): the near-copy rule, the Llama 2
   rule of 8-grams covering 80% of tokens. `overlap=0` restores
@@ -1511,11 +1513,11 @@ rows dropped:
   similarity between the row's text and an evaluation prompt is at
   least `similarity`, and the two carry different task ids or none.
 
-One shared n-gram is the book's test for free-form sets. Situations
-written from templates share whole sentences that say nothing about
-which question was asked, so any-n-gram flags every row of a
-template-written set; the coverage rule counts a row when one eval
-text accounts for most of it.
+One shared n-gram is the test Lambert 2025, chapter Evaluation, uses for
+free-form sets. Situations written from templates share whole sentences
+that say nothing about which question was asked, so any-n-gram flags every
+row of a template-written set; the coverage rule counts a row when one
+eval text accounts for most of it.
 
 Word overlap does not see a paraphrase. A holdout written by
 re-running the generator on the same briefs was 70% within 0.85
@@ -1714,20 +1716,19 @@ What the situations come from:
   (`stopped_because="tasks_done"`) or the budget is spent.
 * `runs`: replay the same task set that many times in one call and
   stamp `lineage.eval_run` (0, 1, 2, ...) on every row, which is what
-  `delta_report` needs before it will call a change real (rlhf-book
-  ch. 16 and appendix C: one evaluation is a draw, three give a
-  standard deviation). `simulate(tasks=base, runs=3)` is the usual
-  form; without `tasks=` the first run draws the task set (from
-  `seeds=` when given) and the rest replay it. Between runs nothing
-  changes but the agent's own sampling (same tasks, faults, world
-  state and seed), so a deterministic agent gives identical runs and
+  `delta_report` needs before it will call a change real (Lambert 2025,
+  chapter Evaluation and its evaluation-variance appendix: one evaluation
+  is a draw, three give a standard deviation). `simulate(tasks=base,
+  runs=3)` is the usual form; without `tasks=` the first run draws the
+  task set (from `seeds=` when given) and the rest replay it. Between
+  runs nothing changes but the agent's own sampling (same tasks, faults,
+  world state and seed), so a deterministic agent gives identical runs and
   a zero re-run band. All rows come back in one `SimulationData`
-  (`output=` holds them all); `search["eval_runs"]` lists the rows
-  and stop reason per run, and `eval_variance(data.rows())` splits
-  by `eval_run` on its own. Replayed rows keep the writer of the
-  run they replay on `writer_model` and say
-  `lineage.replayed_from_run`, so `delta_report` on two runs of
-  one call sees one writer.
+  (`output=` holds them all); `search["eval_runs"]` lists the rows and
+  stop reason per run, and `eval_variance(data.rows())` splits by
+  `eval_run` on its own. Replayed rows keep the writer of the run they
+  replay on `writer_model` and say `lineage.replayed_from_run`, so
+  `delta_report` on two runs of one call sees one writer.
 
 What steers the search and answers the tools:
 
@@ -1788,20 +1789,20 @@ What steers the search and answers the tools:
   lands wherever the run happens to be. Without the flag, which rows
   land before the cap depends on thread timing.
 
-What every row records. `sampling` (`temperature`, `max_tokens`
-and `model` as the model backend resolved them), because a result
-is only comparable with its sampling settings on record (rlhf-book
-ch. 16); a callable agent samples however it samples, so its rows
+What every row records. `sampling` (`temperature`, `max_tokens` and
+`model` as the model backend resolved them), because a result is only
+comparable with its sampling settings on record (Lambert 2025, chapter
+Evaluation); a callable agent samples however it samples, so its rows
 carry `sampling: None` unless you pass `sampling={...}`, which is
-recorded as given. Three models can take part, the agent (`agent=`
-or `backend=`), the situation writer (`simulator=`) and the
-simulated user (`user_model=`), and every row names all three next
-to `model_version`: `writer_model`, `user_model`, and
+recorded as given. Three models can take part, the agent (`agent=` or
+`backend=`), the situation writer (`simulator=`) and the simulated
+user (`user_model=`), and every row names all three next to
+`model_version`: `writer_model`, `user_model`, and
 `judge_meta.model` once graded. When the agent model also wrote the
 situations or played the user, the run's `degraded` list carries
 `same_model` and `warnings` says which call separates them, since
 training on a model's own unfiltered output teaches it its own habits
-(rlhf-book ch. 12).
+(Lambert 2025, chapter Synthetic Data and Distillation).
 
 ``python
 import whileai.simulations as wai
@@ -1845,14 +1846,16 @@ docstring `Args:` block gives a parameter its description.
 
 ## simulations.verify
 
-Verifiers: programmatic, verifiable rewards (RLHF book ch. 7, 13).
+Verifiers: programmatic, verifiable rewards (Lambert et al. 2024,
+arXiv:2411.15124; Lambert 2025, chapters Reasoning and Tool Use).
 
 
 ### verify
 
 Module `whileai.simulations.verify`.
 
-Verifiers: programmatic, verifiable rewards (RLHF book ch. 7, 13).
+Verifiers: programmatic, verifiable rewards (Lambert et al. 2024,
+arXiv:2411.15124; Lambert 2025, chapters Reasoning and Tool Use).
 
 A verifier is a checker, not a judge: it reads a rollout and decides pass,
 fail, or a partial score in [0, 1], with no model call. Every verifier

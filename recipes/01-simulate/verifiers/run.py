@@ -1,7 +1,7 @@
 """Verifiable rewards, end to end, offline. No model, no key.
 
 A verifier is a checker, not a judge: it reads a rollout and returns a
-reward with no model call (RLHF book ch. 7, 13). Because every verifier
+reward with no model call (RLHF book chapter Reasoning, 13). Because every verifier
 honors the judge contract, it drops into `data.grade(judge=...)`,
 `evaluate`, `optimize` and a gated `push` exactly where an LLM judge would.
 

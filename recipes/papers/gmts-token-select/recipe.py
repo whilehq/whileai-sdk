@@ -53,11 +53,11 @@ import modal
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 METRIC = "pass@1"
-BOOK = "ch. 6 Policy gradients"  # per-token aggregation, and the sequence-level advantage
+BOOK = "Reinforcement Learning Policy gradients"  # per-token aggregation, and the sequence-level advantage
 # The training reward here *is* the target: both are the same binary check
 # against the GSM8K gold, so there is no proxy to over-optimize against.
 PROXY = None
-EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (ch. 16)
+EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (chapter Evaluation)
 
 # The paper's selection fraction, the same one the entropy result uses.
 TOP_FRACTION = 0.20
@@ -165,7 +165,7 @@ def make_reward(recorder: list[dict]):
     counts as right.
 
     `recorder` is refilled with the batch it just graded, so after training
-    `hack_scan` can be run on the last one (rlhf-book ch. 14) without keeping
+    `hack_scan` can be run on the last one (Lambert 2025, chapter Over-optimization) without keeping
     every step in memory.
     """
 
@@ -503,7 +503,7 @@ def run_arm(
     questions = [t["question"] for t in holdout]
     # The base is evaluated EVAL_RUNS times, not once. The spread across those
     # re-runs is the eval's own noise, and a delta smaller than it is not a
-    # result (rlhf-book ch. 16). Only the first arm pays for this.
+    # result (Lambert 2025, chapter Evaluation). Only the first arm pays for this.
     base_runs = []
     if eval_base:
         for i in range(EVAL_RUNS):
@@ -536,8 +536,9 @@ def run_arm(
         # TRL's default, and load-bearing here: bnpo normalizes by the batch's
         # kept-token count, so giving a high-advantage answer more of the 20%
         # gives it more of the gradient. loss_type "grpo" would divide each
-        # sequence by its own kept count and undo exactly that (rlhf-book
-        # ch. 6 on per-sequence against per-token aggregation). The trainer
+        # sequence by its own kept count and undo exactly that (Lambert 2025,
+        # chapter Reinforcement Learning, per-sequence against per-token
+        # aggregation). The trainer
         # subclass refuses "grpo" rather than quietly testing nothing.
         loss_type="bnpo",
         max_completion_length=max_completion_length,
@@ -610,7 +611,7 @@ def run_arm(
     after = wai.pass_at(after_rows)
     print(f"{arm}: {after}")
 
-    # What the reward actually paid for in the last training batch (ch. 14).
+    # What the reward actually paid for in the last training batch (chapter Over-optimization).
     # Nothing here is endorsed: the reward is the answer being right, and any
     # surface feature that correlates with it is the thing to be suspicious of.
     scan = wai.hack_scan(last_batch) if last_batch else {}
@@ -823,7 +824,7 @@ def main() -> None:
     train_tasks, holdout = data(args.seed, args.n_train, args.n_holdout)
     # GSM8K's train and test splits are already disjoint, so this should drop
     # nothing. It runs anyway, and the count goes in the Checks table, because
-    # "should" is not a measurement (rlhf-book ch. 16).
+    # "should" is not a measurement (Lambert 2025, chapter Evaluation).
     train_tasks, decon = wai.decontaminate(train_tasks, against=holdout)
     print(f"decontaminate: {decon['n_contaminated']} of {decon['n']} train rows dropped")
     arms = ["baseline", "recipe"] if args.arm == "both" else [args.arm]

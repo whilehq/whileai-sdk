@@ -113,8 +113,9 @@ def rubric_prompt(rubric: str) -> str:
 
 
 # Appended to the judge prompt when the row's privileged block is shown
-# (rlhf-book ch. 12, constitutional AI: the critic reads the principle;
-# ch. 5: a reference answer makes the grade nearly verifiable).
+# (constitutional AI, Bai et al. 2022, arXiv:2212.08073: the critic reads
+# the principle; Lambert 2025, chapter Reward Modeling: a reference answer
+# makes the grade nearly verifiable).
 JUDGE_PRIVILEGED = (
     " The payload may carry a judge_only block the agent never saw: a "
     "principle to grade against, a reference answer, hidden world state. "
@@ -869,8 +870,8 @@ def apply_grade_llm(
 
     The judge is warmed once (``warm_judge``) before rows fan out; the report
     carries ``warmup`` with how long that took. ``use_privileged`` shows the
-    judge each row's ``privileged`` block (principle, reference, hidden
-    state; rlhf-book ch. 12) and folds that into the judge version.
+    judge each row's ``privileged`` block (principle, reference, hidden state;
+    Bai et al. 2022, arXiv:2212.08073) and folds that into the judge version.
 
     After grading, the judge is checked against any human gold on the rows
     (``trust_after_grade``): the summary lands on every graded row's
@@ -1013,8 +1014,9 @@ def apply_grade_llm(
             degraded.append(note)
 
     n_called = len(targets)
-    # A judge grading its own model's rollouts prefers them (rlhf-book
-    # ch. 5, 12). Report it; the caller may have chosen it on purpose.
+    # A judge grading its own model's rollouts prefers them (Panickssery et
+    # al. 2024, arXiv:2404.13076). Report it; the caller may have chosen it on
+    # purpose.
     policies = {
         str(r.get("model_version"))
         for r in targets
@@ -1098,14 +1100,15 @@ def audit_grades(
     rolls those up per grader reason, which is what points at a rubric hole
     (one reason accounting for most of the disagreements is a rule that is
     firing where it should not, or missing where it should). Counting
-    agreement alone cannot say what to fix (rlhf-book ch. 5, ch. 12).
+    agreement alone cannot say what to fix (Lambert 2025, chapters Reward
+    Modeling and Synthetic Data and Distillation).
 
-    The auditor is never the grader (rlhf-book ch. 14: a separate model
-    is what detects over-optimization of the first). When the resolved
-    spec names the model that wrote the rows' labels, the other hosted
-    model audits instead (the hosted agent for the hosted judge and the
-    reverse), and the report's ``grader`` and ``auditor`` say which; when
-    no different model is available it raises ``ValueError``.
+    The auditor is never the grader (Gao et al. 2022, arXiv:2210.10760: a
+    separate model is what detects over-optimization of the first). When the
+    resolved spec names the model that wrote the rows' labels, the other
+    hosted model audits instead (the hosted agent for the hosted judge and the
+    reverse), and the report's ``grader`` and ``auditor`` say which; when no
+    different model is available it raises ``ValueError``.
     """
     import concurrent.futures
 
@@ -1200,7 +1203,8 @@ def audit_grades(
     # False passes first: a row the grader passed and the auditor fails goes
     # straight into training data as a demonstration of the behavior you are
     # trying to remove, and that rate is what decides whether training teaches
-    # the behavior or the judge's blind spot (rlhf-book ch. 5, ch. 14). A
+    # the behavior or the judge's blind spot (Lambert 2025, chapters Reward
+    # Modeling and Over-optimization). A
     # false fail only costs rows.
     false_pass = [d for d in disagreements if d["graded"] == 1 and d["auditor"] == 0]
     false_fail = [d for d in disagreements if d["graded"] == 0 and d["auditor"] == 1]

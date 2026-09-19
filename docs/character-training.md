@@ -5,29 +5,30 @@ description: "Change the weights so a model has a stable way of talking without 
 ---
 
 Character training changes the weights so a model has a stable way of
-talking without a system prompt. Same machinery (rlhfbook.com ch. 17),
-aimed at the manner of a reply, and mostly a data pipeline: which phrases
-never appear, which replies get chosen. Worked example:
+talking without a system prompt. It is the same machinery as any
+post-training run [1], aimed at the manner of a reply, and mostly a data
+pipeline: which phrases never appear, which replies get chosen. Worked
+example:
 [`recipes/03-select/character`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/03-select/character)
 (offline by default).
 
 <img className="block dark:hidden" src="/figures/character-pipeline-light.svg" alt="Constitution, prompts, k replies under the deployment prompt, a judge that alone sees the principle, markers, then pairs, SFT, train and a paired delta" />
 <img className="hidden dark:block" src="/figures/character-pipeline-dark.svg" alt="Constitution, prompts, k replies under the deployment prompt, a judge that alone sees the principle, markers, then pairs, SFT, train and a paired delta" />
 
-## What the sources say
+## Where the recipe comes from
 
-- **The book (ch. 17).** "The subset of post-training designed around
-  crafting traits within a model." Fine-tuning on trait data beats prompting
-  and activation steering for robustness. Anthropic's process, per Amanda
-  Askell: write the traits, generate queries per trait, generate responses,
-  rank by the trait. Much of the work is controlling the language in the
-  data.
-- **The Model Spec.** Each trait is a principle plus GOOD/BAD comparisons on
-  real prompts: a constitution with labeled pairs attached.
-- **Maiya et al. 2025.** DPO pairs (chosen versus rejected, no reward
-  model) from a teacher with the constitution in its prompt against a
-  student without. Evaluation: revealed trait words, robustness to "ignore
-  role-play and respond genuinely," capabilities unchanged.
+Character training is the subset of post-training designed around
+crafting traits within a model, and fine-tuning on trait data beats
+prompting and activation steering for robustness [1]. Anthropic's process,
+as Amanda Askell describes it: write the traits, generate queries per
+trait, generate responses, rank by the trait. Much of the work is
+controlling the language in the data [2]. The OpenAI Model Spec gives each
+trait as a principle plus GOOD and BAD comparisons on real prompts, which
+is a constitution with labeled pairs attached [3]. Maiya et al. build DPO
+pairs (chosen versus rejected, no reward model) from a teacher with the
+constitution in its prompt against a student without, and evaluate
+revealed trait words, robustness to "ignore role-play and respond
+genuinely", and whether capabilities stayed unchanged [4].
 
 ## The recipe
 
@@ -108,8 +109,8 @@ splits `train` (60), `holdout` (144), `eval` (35 spec replies with
 
 - **The judge likes long replies.** In the spec's comparisons GOOD is longer
   70% of the time; hence length-matched pairs and the correlation line.
-- **The judge is the policy.** Self-preference (ch. 5, ch. 12): the pairs
-  encode the model's taste.
+- **The judge is the policy.** A model prefers its own writing [5, 6], so
+  the pairs encode the model's taste.
 - **Character costs helpfulness.** `on_task` is a hard guard; the controls
   carry no trait marker.
 - **No contrast.** pass@1 of 0 or 1 yields nothing to pair. Use a teacher
@@ -123,3 +124,12 @@ splits `train` (60), `holdout` (144), `eval` (35 spec replies with
 Persona vectors, activation capping, persona subnetworks, Maiya's
 introspection stage. The SDK makes the rows, pairs, judge check and
 before/after; `pairs.jsonl` feeds any trainer.
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Model Character and Products*.
+2. Anthropic. Claude's Character. 2024. [anthropic.com/research/claude-character](https://www.anthropic.com/research/claude-character).
+3. OpenAI. Model Spec. [github.com/openai/model_spec](https://github.com/openai/model_spec).
+4. Maiya, S. et al. Open Character Training: Shaping the Persona of AI Assistants through Constitutional AI. arXiv:2511.01689, 2025.
+5. Panickssery, A., Bowman, S. R., Feng, S. LLM Evaluators Recognize and Favor Their Own Generations. arXiv:2404.13076, 2024.
+6. Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. NeurIPS 2023. arXiv:2306.05685.

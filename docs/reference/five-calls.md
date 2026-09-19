@@ -42,7 +42,7 @@ rows.push("my-agent-rl-v1")  # 5 publish, gated (whileai.platform)
 
 A spec folder is `spec.json` (tools and policy) plus `rubric.md`: what doing the job means, in prose. `grade()` scores against it. The hosted judge writes `reward` and `reason` onto the run's rows and returns the judge report (a dict), so the numbers are read off `data`. `grade(judge=your_callable)` instead returns a `ScoredData` of graded copies, leaves the run untouched, and has its own `.push(name, ...)`. Without a rubric the hosted judge grades the conduct floor only (nothing invented, nothing skipped) and the report says so; pass `rubric=` to `simulate` or `data.grade` to supply one.
 
-After training, measure whether it landed: `wai.delta_report(before=scored.rows, after=after_rows, target="pass_at_1")`. Name the training reward too, `proxy="marker:first_action"`, and the report says whether the run over-optimized it: proxy up while the target did not follow fails the report (rlhf-book ch. 14). `wai.hack_scan_diff(before, after, endorsed=[...])` names what the update moved toward, and withholds the name when either side came back `degenerate`.
+After training, measure whether it landed: `wai.delta_report(before=scored.rows, after=after_rows, target="pass_at_1")`. Name the training reward too, `proxy="marker:first_action"`, and the report says whether the run over-optimized it: proxy up while the target did not follow fails the report [5]. `wai.hack_scan_diff(before, after, endorsed=[...])` names what the update moved toward, and withholds the name when either side came back `degenerate`.
 
 Character training is the same loop aimed at how the model talks: a constitution in, graded replies, length-matched pairs and SFT rows out, and the judge checked against the constitution's own labels. Worked example [`recipes/03-select/character`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/03-select/character), guide [Character training](/character-training).
 
@@ -83,7 +83,7 @@ Writing the judge is half of it; knowing whether to believe it is the other half
 
 ## Verifiers: when the reward is a program, not a judge
 
-For a verifiable task the reward is a checker, not an opinion (RLHF book ch. 7, 13). `whileai.simulations.verify` gives you one, and because a verifier honors the same judge contract it drops into `grade`, `evaluate`, `optimize` and a gated `push` exactly where an LLM judge would.
+For a verifiable task the reward is a checker, not an opinion [1]. `whileai.simulations.verify` gives you one, and because a verifier honors the same judge contract it drops into `grade`, `evaluate`, `optimize` and a gated `push` exactly where an LLM judge would.
 
 ```python
 from whileai.simulations.verify import MathEqual, CodeExec, JSONSchema, Regex, All
@@ -112,23 +112,23 @@ wai.export_environment(data, "envs/my-agent", reward=my_verifier)
 
 The package is `pyproject.toml`, a README, and a module named after the environment holding `spec.json` (system prompt, the tool schemas verbatim, the turn cap, and dotted references to the reward and the world) and `data/train.jsonl` plus `data/holdout.jsonl` (one task per prompt in the verifiers shape, with the task's fault plan, world state, privileged reference and calibration in `info`, read on the server and never in the prompt). The README carries the gate: the difficulty band applied when the rows were graded (prompts the policy always or never solved carry no advantage and are dropped), the split by scenario, and the train-against-holdout decontamination. A run whose prompts all fall outside the band raises `no train tasks` instead of writing an empty environment.
 
-The environment class lives in the SDK and is tested there: a `StatefulToolEnv` whose world is the mock world seeded per task, or your own `execute=`, and whose rubric is the reward through the judge contract, so a `Verifier` such as `CodeExec`, your judge callable, or `conduct_grade` all work unchanged. The default reward is `task_checklist`: the conduct grade as an honesty gate, times an outcome the world can verify from the task's own coordinates on the grid. A target tool must succeed; a missing entity must be reported and not acted on; an already-done action must be acknowledged and not repeated; an adversarial ask must not produce a write; an unrelated ask must produce no call; a vague ask must be asked back; prior partial action needs a read before the write; a fault on the target must be acknowledged. No model in the loop, and `markers` say which check ran (rlhf-book ch. 12 rubrics, computed from state rather than written by a judge). When the rows carry none of that metadata the export warns: the reward reduces to `conduct_grade`, a process reward, and a policy trained on it alone learns to call nothing ([`recipes/03-select/prime-intellect-rl`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/03-select/prime-intellect-rl)). `wai.load_environment(spec)` builds the environment in a process that has `verifiers` (`uv add 'whileai[rl]'`). The [tool-call-efficiency](https://huggingface.co/datasets/zero-proof-ai/tool-call-efficiency) dataset is the same shape built by hand over an executable world with a hidden test suite.
+The environment class lives in the SDK and is tested there: a `StatefulToolEnv` whose world is the mock world seeded per task, or your own `execute=`, and whose rubric is the reward through the judge contract, so a `Verifier` such as `CodeExec`, your judge callable, or `conduct_grade` all work unchanged. The default reward is `task_checklist`: the conduct grade as an honesty gate, times an outcome the world can verify from the task's own coordinates on the grid. A target tool must succeed; a missing entity must be reported and not acted on; an already-done action must be acknowledged and not repeated; an adversarial ask must not produce a write; an unrelated ask must produce no call; a vague ask must be asked back; prior partial action needs a read before the write; a fault on the target must be acknowledged. No model in the loop, and `markers` say which check ran (a rubric computed from state rather than written by a judge [2]). When the rows carry none of that metadata the export warns: the reward reduces to `conduct_grade`, a process reward, and a policy trained on it alone learns to call nothing ([`recipes/03-select/prime-intellect-rl`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/03-select/prime-intellect-rl)). `wai.load_environment(spec)` builds the environment in a process that has `verifiers` (`uv add 'whileai[rl]'`). The [tool-call-efficiency](https://huggingface.co/datasets/zero-proof-ai/tool-call-efficiency) dataset is the same shape built by hand over an executable world with a hidden test suite.
 
 <Warning>
 Install `whileai` from PyPI, not from a path or a git URL, if you build a Prime Intellect environment on it. The Environments Hub installs a pushed env with plain pip, so a `[tool.uv.sources]` git pin resolves locally and then fails on their runtime with a `ModuleNotFoundError`.
 </Warning>
 
-Training notes, each with the chapter of rlhfbook.com behind it:
+Training notes:
 
-- Calibrate difficulty with 8 to 16 rollouts per task before exporting, so the band is a measurement, not a guess (ch. 7). The export report's `graded_mixed` is the number of tasks that carry an advantage at all (ch. 6).
-- Sample at temperature near 1.0 with 8 or more generations per prompt; within-group contrast is what the update learns from (ch. 6).
-- A rollout cut at the turn or token cap scores 0 and is logged as `truncated` (ch. 6).
-- Use per-token loss aggregation rather than per-sequence, so long rollouts are not favoured or punished by length alone (ch. 6).
-- Keep a small KL to the reference or, if the recipe drops it, watch KL drift on the dashboard (ch. 15).
-- `n_calls`, `judge_ok`, `truncated` and `trace_clean` are logged at weight 0: they are the over-optimization symptoms to watch, never the objective (ch. 14).
-- Retire tasks the policy now always solves and re-export between rounds (`curriculum`, `retire_solved`; ch. 7).
-- If `reward=` is a judge rather than a program, validate it first with `judge_trust` and `judge_agreement`, and keep it in a different model family from the policy (ch. 5, 12).
-- Measure the held-out set before and after with `delta_report` and a `must_not_regress` list, and report pass^k (every one of k tries right) alongside pass@1 for reliability (ch. 13, 16).
+- Calibrate difficulty with 8 to 16 rollouts per task before exporting, so the band is a measurement, not a guess [2]. The export report's `graded_mixed` is the number of tasks that carry an advantage at all [3].
+- Sample at temperature near 1.0 with 8 or more generations per prompt; within-group contrast is what the update learns from [3].
+- A rollout cut at the turn or token cap scores 0 and is logged as `truncated` [4].
+- Use per-token loss aggregation rather than per-sequence, so long rollouts are not favoured or punished by length alone [4].
+- Keep a small KL to the reference or, if the recipe drops it, watch KL drift on the dashboard [2].
+- `n_calls`, `judge_ok`, `truncated` and `trace_clean` are logged at weight 0: they are the over-optimization symptoms to watch, never the objective [5].
+- Retire tasks the policy now always solves and re-export between rounds (`curriculum`, `retire_solved`) [2, 4].
+- If `reward=` is a judge rather than a program, validate it first with `judge_trust` and `judge_agreement`, and keep it in a different model family from the policy, because a model prefers its own writing [6, 7].
+- Measure the held-out set before and after with `delta_report` and a `must_not_regress` list, and report pass^k (every one of k tries right) alongside pass@1 for reliability [8, 9].
 
 ## Where the tools and policy come from
 
@@ -153,3 +153,15 @@ The full list is on [Parameters](/reference/parameters). These are the ones that
 | `reproducible` | `False` | Same seed, same concurrency, same agent: same rows. Runs batch by batch, so uneven latency costs throughput. Needs the clock off. `concurrency: 1` always runs this way |
 | `grade` | `False` | Legacy: `True` writes the deterministic conduct score at simulation time. Grade after with `data.grade(...)` instead |
 | `llm_grade` | `False` | Extra LLM judge. Needs `OPENAI_API_KEY` |
+
+## References
+
+1. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024. Reinforcement learning with verifiable rewards.
+2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Synthetic Data and Constitutional AI*, *Reasoning* and *Regularization*.
+3. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+4. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
+5. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
+6. Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. NeurIPS 2023. arXiv:2306.05685.
+7. Panickssery, A., Bowman, S. R., Feng, S. LLM Evaluators Recognize and Favor Their Own Generations. arXiv:2404.13076, 2024.
+8. Yao, S. et al. τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains. arXiv:2406.12045, 2024.
+9. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.

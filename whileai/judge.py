@@ -36,7 +36,7 @@ class Judge:
       (principle, reference, hidden state) the agent never saw.
     * ``name``: recorded on every graded row; defaults to the model name.
 
-    Reference: LLM-as-a-judge, rlhfbook.com ch. 7 (reward models);
+    Reference: LLM-as-a-judge, Lambert 2025, chapter Reward Modeling;
     Zheng et al. 2023, arXiv:2306.05685 (position and length bias, why
     ``judge_trust`` should follow).
     """

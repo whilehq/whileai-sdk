@@ -1,8 +1,8 @@
 """Confidence intervals, paired run comparison, and decontamination.
 
-The numbers an engineer needs before believing a result (rlhf-book ch. 16:
-labs win by raising the statistical power of the few evaluations they
-track; contamination is found by n-gram overlap between training prompts
+The numbers an engineer needs before believing a result (Lambert 2025, chapter
+Evaluation: labs win by raising the statistical power of the few evaluations
+they track; contamination is found by n-gram overlap between training prompts
 and evaluation prompts, 8-gram in the Tulu 3 decontamination).
 
 * Every score gets an interval. Per-task pass rates and per-rollout marker
@@ -250,8 +250,8 @@ def noise_band(
     *,
     level: float = CI_LEVEL,
 ) -> float:
-    """The re-run band a before/after delta has to clear (rlhf-book ch. 16,
-    appendix C).
+    """The re-run band a before/after delta has to clear (Lambert 2025,
+    chapter Evaluation and its evaluation-variance appendix).
 
     ``run_std`` is the standard deviation of ONE run's mean when the same
     model is evaluated again. A delta is the mean of ``n_a`` before runs
@@ -388,13 +388,13 @@ def eval_power(
     ``resolvable`` is ``detectable_effect(n_tasks, base=, k=)``, the
     smallest gain this many tasks at this ``k`` can prove at ``power``
     (Miller 2024, arXiv:2411.00640, section 5, the power calculation;
-    rlhfbook.com/c/16-evaluation.html, the point of a better eval is
+    Lambert 2025, chapter Evaluation, the point of a better eval is
     statistical power when comparing training runs). One model, one home:
     ``_paired_task_sd``.
 
     Beside the sizing, where the tasks sit. ``in_band`` counts tasks the
     base passes between ``band[0]`` and ``band[1]`` of the time
-    (``DIFFICULTY_BAND``, rlhfbook.com/c/14-reasoning.html: the 20-80 band
+    (``DIFFICULTY_BAND``, Lambert 2025, chapter Reasoning: the 20-80 band
     difficulty filtering keeps, measured from N=16 there); ``tied_pass``,
     ``tied_fail`` and ``single_rollout`` are the rest. Measured on one
     agent, same world and rubric, base model on both sides: the default
@@ -528,15 +528,14 @@ def holdout_size(
 ) -> dict[str, Any]:
     """How many paired tasks a holdout needs to prove a gain of ``effect``.
 
-    Models the test ``delta_report`` runs: each task's pass rate over
-    ``k`` rollouts on each side, the delta as the mean of the paired
-    differences, the interval from a bootstrap over tasks. The usual
-    two-sided power calculation then gives ``n = ((z_{1-alpha/2} +
-    z_power) * sd / effect) ** 2`` with ``sd`` the standard deviation of
-    one task's paired difference (rlhf-book ch. 16: the point of a
-    better eval is statistical power when comparing training runs).
-    Where ``sd`` comes from is the whole question, and there are three
-    ways to answer it, best first:
+    Models the test ``delta_report`` runs: each task's pass rate over ``k``
+    rollouts on each side, the delta as the mean of the paired differences,
+    the interval from a bootstrap over tasks. The usual two-sided power
+    calculation then gives ``n = ((z_{1-alpha/2} + z_power) * sd / effect) **
+    2`` with ``sd`` the standard deviation of one task's paired difference
+    (Lambert 2025, chapter Evaluation: the point of a better eval is
+    statistical power when comparing training runs). Where ``sd`` comes from
+    is the whole question, and there are three ways to answer it, best first:
 
     * ``before`` and ``after``, the graded arms of a previous eval on the
       same tasks (the two row lists ``delta_report(before, after)``
@@ -594,7 +593,7 @@ def holdout_size(
     ``BASE_PASS_RATE`` and the rows' ``k``, ``sd_source`` is ``"model"``,
     ``saturated`` is ``True``, and ``warnings`` names the ceiling and the
     fix: harder situations, so the baseline sits inside the 20-80
-    difficulty band (rlhfbook.com/c/14-reasoning.html; DAPO, arXiv
+    difficulty band (Lambert 2025, chapter Reasoning; DAPO, arXiv
     2503.14476, drops prompts at accuracy 0 and 1 because they carry no
     signal), then size again on those rows.
 
@@ -664,7 +663,8 @@ def holdout_size(
             f"the default base {BASE_PASS_RATE:.2f} with these rows' k={int(k)}, not a "
             "measurement. Fix: harder situations, so the baseline sits inside the "
             f"{band_lo:.0%}-{band_hi:.0%} difficulty band (simulate(hard_share=...) or a higher "
-            "fault_rate; rlhfbook.com/c/14-reasoning.html), then size again on those rows."
+            "fault_rate; Lambert 2025, chapter Reasoning), then size again on those "
+            "rows."
         )
         sd = _paired_task_sd(BASE_PASS_RATE, effect, k)
         source = "model"
@@ -794,14 +794,14 @@ def no_interval_note(n_tasks: int, *, quantity: str = "the mean") -> str:
 def task_key(row: dict) -> str:
     """The one name every report groups a row's rollouts under.
 
-    A task is a situation, not a string: ``scenario_id`` when the row has
-    one (the engine's situation id, shared by the repeats of one opener
-    and by the textured phrasings of one situation), else ``task_id``
-    (rows from elsewhere), else the prompt text. ``pass_at``,
-    ``compare_runs``, ``delta_report``, ``eval_variance``, ``curriculum``,
-    ``group_signal`` and the exporters all count tasks with this key, so
-    the same rows give the same task count everywhere (rlhf-book ch. 16:
-    intervals and paired comparisons are over tasks, never rows).
+    A task is a situation, not a string: ``scenario_id`` when the row has one
+    (the engine's situation id, shared by the repeats of one opener and by the
+    textured phrasings of one situation), else ``task_id`` (rows from
+    elsewhere), else the prompt text. ``pass_at``, ``compare_runs``,
+    ``delta_report``, ``eval_variance``, ``curriculum``, ``group_signal`` and
+    the exporters all count tasks with this key, so the same rows give the
+    same task count everywhere (Miller 2024, arXiv:2411.00640: intervals and
+    paired comparisons are over tasks, never rows).
     """
     return str(row.get("scenario_id") or row.get("task_id") or row.get("prompt") or "")
 
@@ -938,12 +938,12 @@ def marker_summary(
 
 # VARIANCE_BANDS = (0.35, 0.7) points: where ``eval_variance`` places a
 # ``run_std`` on Olmo 3's bands for the standard deviation of a benchmark
-# across re-runs of one model, on a 0-100 scale: MMLU/MATH/PopQA sit near
-# 0.2, GPQA/AlpacaEval above 1.2. rlhf-book ch. 16, "Why Many External
-# Evaluation Comparisons Are Unreliable", puts most post-training
-# evaluations between 0.25 and 1.5 points with the setup held constant;
-# 0.35 and 0.7 split that range so the three labels each cover a third
-# of it (convention on the cut points).
+# across re-runs of one model, on a 0-100 scale: MMLU/MATH/PopQA sit near 0.2,
+# GPQA/AlpacaEval above 1.2. Lambert 2025, chapter Evaluation ("Why Many
+# External Evaluation Comparisons Are Unreliable"), puts most post-training
+# evaluations between 0.25 and 1.5 points with the setup held constant; 0.35
+# and 0.7 split that range so the three labels each cover a third of it
+# (convention on the cut points).
 VARIANCE_BANDS = (("very_stable", 0.35), ("stable", 0.7), ("high_variance", float("inf")))
 # POINTS_PER_UNIT = 100: pass rates are 0-1, the bands above are in points.
 POINTS_PER_UNIT = 100
@@ -1007,7 +1007,7 @@ def eval_variance(
     by: str | None = None,
 ) -> dict[str, Any]:
     """How much an evaluation moves when the same model is evaluated
-    again (rlhf-book ch. 16, Evaluation).
+    again (Lambert 2025, chapter Evaluation).
 
     Pass each re-run's rows as its own argument, or one row list whose
     rows say which run they belong to: ``lineage.eval_run`` (what
@@ -1269,7 +1269,7 @@ def _eval_texts(row: dict) -> list[str]:
     or reference. Not its ``final_text``: on a rollout-shaped eval set
     that is a policy's reply, and tool boilerplate shared between any two
     replies would flag training rows that never saw the eval question
-    (rlhf-book ch. 16 decontaminates on prompt overlap)."""
+    (Lambert 2025, chapter Evaluation, decontaminates on prompt overlap)."""
     out = [str(row.get("prompt") or "")]
     for key in ("answer", "reference"):
         if row.get(key):
@@ -1347,21 +1347,22 @@ def decontaminate(
 ) -> tuple[list[dict], dict[str, Any]]:
     """Drop training rows whose prompt overlaps an evaluation set.
 
-    Reach for it before any train-versus-holdout comparison: a held-out
-    task that also sits in the training data measures memory, not the
-    change (rlhf-book ch. 16). It returns ``(clean_rows, report)``: the
-    rows that survived, and a report with the count under each rule
-    (``n_contaminated`` in total), hits per field, the eval text count,
-    and the first offenders with their coverage (or ``similarity`` for
-    semantic hits).
+    Reach for it before any train-versus-holdout comparison: a held-out task
+    that also sits in the training data measures memory, not the change
+    (Lambert 2025, chapter Evaluation). It returns ``(clean_rows, report)``:
+    the rows that survived, and a report with the count under each rule
+    (``n_contaminated`` in total), hits per field, the eval text count, and
+    the first offenders with their coverage (or ``similarity`` for semantic
+    hits).
 
     * ``rows``: the training rows.
     * ``against``: one or more evaluation sources: row lists, JSONL paths,
       or platform dataset ids (``ds_...``). Evaluation prompts, answers
       and references are the texts compared (not the eval set's own
       replies).
-    * ``fields`` (``("prompt",)``): which row texts are checked, the
-      book's method. Add ``"final_text"`` to ask the stricter question of
+    * ``fields`` (``("prompt",)``): which row texts are checked; prompts
+      only is what Lambert 2025, chapter Evaluation, checks. Add
+      ``"final_text"`` to ask the stricter question of
       whether replies reproduce eval answers or references.
     * ``n`` (8) and ``overlap`` (0.8): the near-copy rule, the Llama 2
       rule of 8-grams covering 80% of tokens. ``overlap=0`` restores
@@ -1388,11 +1389,11 @@ def decontaminate(
       similarity between the row's text and an evaluation prompt is at
       least ``similarity``, and the two carry different task ids or none.
 
-    One shared n-gram is the book's test for free-form sets. Situations
-    written from templates share whole sentences that say nothing about
-    which question was asked, so any-n-gram flags every row of a
-    template-written set; the coverage rule counts a row when one eval
-    text accounts for most of it.
+    One shared n-gram is the test Lambert 2025, chapter Evaluation, uses for
+    free-form sets. Situations written from templates share whole sentences
+    that say nothing about which question was asked, so any-n-gram flags every
+    row of a template-written set; the coverage rule counts a row when one
+    eval text accounts for most of it.
 
     Word overlap does not see a paraphrase. A holdout written by
     re-running the generator on the same briefs was 70% within 0.85

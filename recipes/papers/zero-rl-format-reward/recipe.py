@@ -50,11 +50,11 @@ import modal
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen3.5-4B-Base"
 METRIC = "pass@1"
-BOOK = "ch. 7 Reasoning"  # zero RL on a base model with a verifiable reward
+BOOK = "Reasoning Reasoning"  # zero RL on a base model with a verifiable reward
 # The baseline trains on the strict reward and is scored on the lenient one;
 # delta_report(proxy=) names that gap so an over-optimized verdict can fire.
 PROXY = "strict_reward"
-EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (ch. 16)
+EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (chapter Evaluation)
 NO_BOX_PENALTY = -1.0  # section 3.1: "a reward of -1 if they fail to adhere to the required format"
 
 # The prompt SimpleRL-Zoo uses for the Qwen family (their Figure 10 "simple"
@@ -139,7 +139,7 @@ def make_reward(strict: bool, recorder: list[dict]):
     """Build the TRL reward function for one arm.
 
     `recorder` is refilled with the batch it just graded, so after training
-    `hack_scan` can be run on the last one (rlhf-book ch. 14) without keeping
+    `hack_scan` can be run on the last one (Lambert 2025, chapter Over-optimization) without keeping
     every step in memory.
     """
     score = strict_reward if strict else lenient_reward
@@ -339,7 +339,7 @@ def _platform_callback(prun):
     """``wai.TrainerCallback`` with one more key: TRL logs the share of
     rollouts that hit ``max_completion_length`` as
     ``completions/clipped_ratio``, and the platform's Rollouts tile reads it
-    as ``clip_ratio`` (the length-cap curve; rlhf-book ch. 7 on length
+    as ``clip_ratio`` (the length-cap curve; Lambert 2025, chapter Reasoning on length
     growth). The SDK maps TRL's ``clip_ratio/*`` (the policy-ratio clip),
     not this key, so the recipe folds it into the same point."""
     import whileai.simulations as wai
@@ -516,7 +516,7 @@ def run_arm(
 
     # The base is evaluated EVAL_RUNS times, not once. The spread across those
     # re-runs is the eval's own noise, and a delta smaller than it is not a
-    # result (rlhf-book ch. 16). Only the first arm pays for this. Before the
+    # result (Lambert 2025, chapter Evaluation). Only the first arm pays for this. Before the
     # first step the adapter's B matrix is zero, so the engine holds the base.
     base_runs = []
     if eval_base:
@@ -553,7 +553,7 @@ def run_arm(
     after = wai.pass_at(after_rows)
     print(f"{arm}: {after} boxed {boxed_share(after_rows):.2f}")
 
-    # What the reward actually paid for in the last training batch (ch. 14).
+    # What the reward actually paid for in the last training batch (chapter Over-optimization).
     scan = wai.hack_scan(last_batch) if last_batch else {}
     hack_top = (scan.get("top_feature") or {}) if isinstance(scan, dict) else {}
     hack_scan_top = hack_top.get("name", "") if isinstance(hack_top, dict) else str(hack_top)
@@ -719,7 +719,7 @@ def main() -> None:
     train_tasks, holdout = data(args.seed, args.n_train, args.n_holdout)
     # MATH-500 is a subset of the MATH test split, so this should drop nothing
     # from the train split. It runs anyway, and the count goes in the Checks
-    # table, because "should" is not a measurement (rlhf-book ch. 16).
+    # table, because "should" is not a measurement (Lambert 2025, chapter Evaluation).
     train_tasks, decon = wai.decontaminate(train_tasks, against=holdout)
     print(f"decontaminate: {decon['n_contaminated']} of {decon['n']} train rows dropped")
     arms = ["baseline", "recipe"] if args.arm == "both" else [args.arm]

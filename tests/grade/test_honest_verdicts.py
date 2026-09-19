@@ -1,5 +1,6 @@
-"""delta_report says ``moved`` only when the eval was repeated (rlhf-book
-ch. 16, appendix C), and flags a ceiling the training cannot show a gain
+"""delta_report says ``moved`` only when the eval was repeated (Lambert
+2025, chapter Evaluation and its evaluation-variance appendix), and
+flags a ceiling the training cannot show a gain
 over."""
 
 from __future__ import annotations

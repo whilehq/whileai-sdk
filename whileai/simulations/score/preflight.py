@@ -441,7 +441,8 @@ def dataset_report(
             "simulate(..., hard_share=0.7) asks for 70% from the hard tiers (rows the "
             "mixer never sees keep the drawn share below the ask); "
             "dimensions={'stance': ['boundary', 'ambiguous', 'adversarial']} pins the axis "
-            "to hard tiers only (rlhf-book ch. 7 on difficulty filtering)."
+            "to hard tiers only (difficulty filtering, Lambert 2025, chapter "
+            "Reasoning)."
         )
     if tiers.get("unlabelled") and tiers["unlabelled"] / max(1, len(rows)) > UNLABELLED_SHARE_WARN:
         report["warnings"].append(

@@ -3,8 +3,8 @@
 Successive allocation: every prompt is probed, a prompt whose rollouts
 disagree is filled to k, a prompt that stays unanimous stops once a fresh
 prompt is the better bet, and the clock finishes groups instead of cutting
-them. rlhf-book ch. 6 (dynamic sampling) and ch. 7 (difficulty filtering)
-at generation time.
+them. Dynamic sampling (Yu et al. 2025 (DAPO), arXiv:2503.14476) and
+difficulty filtering (Lambert 2025, chapter Reasoning) at generation time.
 """
 
 from __future__ import annotations

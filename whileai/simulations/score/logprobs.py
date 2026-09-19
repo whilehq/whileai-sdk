@@ -1,10 +1,10 @@
 """What the policy's own log-probabilities buy you.
 
-``simulate(logprobs=True)`` asks the rollout model for the log-probability
-of every token it generated and stamps each agent turn with the sum and
-the token count (``step["logprob"]``, ``step["n_tokens"]``), and the row
-with the totals. Two things need them (rlhf-book ch. 6 on off-policy
-correction, ch. 15 on the KL penalty):
+``simulate(logprobs=True)`` asks the rollout model for the log-probability of
+every token it generated and stamps each agent turn with the sum and the token
+count (``step["logprob"]``, ``step["n_tokens"]``), and the row with the
+totals. Two things need them (off-policy correction, Noukhovitch et al. 2024,
+arXiv:2410.18252; the KL penalty, Lambert 2025, chapter Regularization):
 
 * **Importance ratios.** A trainer that updates on rollouts sampled from
   an older policy corrects with ``exp(new_logprob - logprob)``; without the
@@ -96,7 +96,7 @@ def logprob_report(rows: Sequence[dict]) -> dict[str, Any]:
     if corr is not None and corr >= HACK_THRESHOLD:
         warnings.append(
             f"reward tracks the policy's confidence (r={corr:.2f}); a judge that pays for "
-            "fluency is a reward hack (rlhf-book ch. 14)"
+            "fluency is a reward hack (Gao et al. 2022, arXiv:2210.10760)"
         )
     if with_lp and truncated:
         warnings.append(f"{truncated} rollout(s) hit the token cap; their logprob is partial")
@@ -171,14 +171,14 @@ def mean_kl(rows: Sequence[dict], ref: str | Sequence[dict] = "ref_logprob") -> 
 def staleness_report(rows: Sequence[dict], *, base_model: str | None = None) -> dict[str, Any]:
     """Which policies produced these rows, and can an update still use them.
 
-    rlhf-book ch. 6 (asynchronous RL, truncated importance sampling): rows
-    sampled by an older policy are usable when the row carries the
-    sampler's version and its logprobs so the ratio can be formed; rows
-    from an unknown sampler are not. ``versions`` counts rows per
+    Noukhovitch et al. 2024, arXiv:2410.18252 (asynchronous RL, truncated
+    importance sampling): rows sampled by an older policy are usable when the
+    row carries the sampler's version and its logprobs so the ratio can be
+    formed; rows from an unknown sampler are not. ``versions`` counts rows per
     ``policy_version`` (``model_version`` when the row predates it);
     ``base_model`` names the model about to be trained, and rows whose
-    ``model_version`` differs are ``stale``. Coverage says how many rows
-    carry ``sampling``, ``logprob`` and ``token_logprobs``.
+    ``model_version`` differs are ``stale``. Coverage says how many rows carry
+    ``sampling``, ``logprob`` and ``token_logprobs``.
     """
     versions: dict[str, int] = {}
     models: dict[str, int] = {}

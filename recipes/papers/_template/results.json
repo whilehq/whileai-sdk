@@ -2,7 +2,7 @@
   "recipe": "_template",
   "title": "<Recipe name>",
   "paper": "https://arxiv.org/abs/XXXX.XXXXX",
-  "book": "ch. 6",
+  "book": "Reinforcement Learning",
   "base_model": "Qwen/Qwen3-4B",
   "metric": "pass@1",
   "n_holdout": 0,

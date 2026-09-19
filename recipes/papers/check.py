@@ -155,13 +155,15 @@ def check_recipe(d: Path) -> dict:
         fail(f"{d.name}: verified must be YYYY-MM-DD")
     if r["delta"].get("verdict") not in ("moved", "flat"):
         fail(f"{d.name}: delta.verdict must be moved or flat")
-    if not re.fullmatch(r"ch\. \d+.*", str(r["book"])):
-        fail(f"{d.name}: book must name an rlhfbook.com chapter, like 'ch. 6'")
+    if not re.fullmatch(r"[A-Z][A-Za-z ,-]+", str(r["book"])):
+        fail(
+            f"{d.name}: book must be a chapter title of Lambert 2025, like 'Reinforcement Learning'"
+        )
     if CHECK_KEYS - set(r["checks"]):
         fail(f"{d.name}: checks missing {sorted(CHECK_KEYS - set(r['checks']))}")
     # The science bar: "moved" needs an interval that excludes zero AND a delta
-    # larger than the eval's own re-run band (rlhf-book ch. 16, app. C), and no
-    # over-optimization verdict (ch. 14). Otherwise it is "flat". The band is
+    # larger than the eval's own re-run band (Lambert 2025, chapter Evaluation, appendix C), and no
+    # over-optimization verdict (chapter Over-optimization). Otherwise it is "flat". The band is
     # noise_band(run_std), the same number as whileai's eval_variance
     # noise_band and delta_report(run_std=) within_noise test.
     runs = r["checks"]["run_std_runs"]

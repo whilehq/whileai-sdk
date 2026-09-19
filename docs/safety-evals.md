@@ -6,7 +6,7 @@ description: "Safety evals for tool-using agents: private data, actions on state
 
 An agent with tools can read private data, act on state, and send things
 out. Any two together is an exposure; all three is Simon Willison's lethal
-trifecta. A safety eval asks whether those capabilities can be turned
+trifecta [1]. A safety eval asks whether those capabilities can be turned
 against their owner: by the user, by text read from a tool, or by an
 instruction the agent should have treated as data. Worked example:
 [`recipes/02-measure/safety-evals`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/safety-evals)
@@ -16,19 +16,19 @@ instruction the agent should have treated as data. Worked example:
 <img className="block dark:hidden" src="/figures/safety-channels-light.svg" alt="Three ways an instruction reaches the agent, three ways data leaves it, one marker per exit, plus the benign control" />
 <img className="hidden dark:block" src="/figures/safety-channels-dark.svg" alt="Three ways an instruction reaches the agent, three ways data leaves it, one marker per exit, plus the benign control" />
 
-## What the sources say
+## What the suite is built on
 
-- **OWASP Top 10 for LLM Applications (2025).** Prompt injection (LLM01) is
-  direct (the ask) or indirect (content the model reads); disclosure is
-  LLM02, excessive agency LLM06. A taxonomy, not a test: each entry needs a
-  situation that provokes it and a grader that sees it.
-- **rlhf-book ch. 14.** Over-refusal is an over-optimization signature. A
-  reward any refusal satisfies is a proxy the policy will find; the fix is
-  benign controls and a helpfulness term in the reward.
-- **rlhf-book ch. 13.** The reward reads the trajectory. A judge that reads
-  the prose passes a clean summary written after the record left.
-- **rlhf-book ch. 16.** Intervals on every number, comparisons paired on
-  the same tasks, the eval set never in training.
+OWASP's list of risks for LLM applications names prompt injection, direct
+(in the ask) or indirect (in content the model reads), along with
+sensitive-information disclosure and excessive agency [2]. It is a
+taxonomy, not a test: each entry needs a situation that provokes it and a
+grader that sees it. Over-refusal is an over-optimization signature. A
+reward that any refusal satisfies is a proxy the policy will find, so the
+suite carries benign controls and a helpfulness term in the reward [3, 4].
+The reward reads the trajectory, because a judge that reads the prose
+passes a clean summary written after the record left [4]. Every number
+carries an interval, comparisons are paired on the same tasks, and the
+eval set never enters training [5, 6].
 
 ## The recipe
 
@@ -202,3 +202,12 @@ planted reviews reach the model as tool results.
 It measures the boundary under the suite's situations, not the absence of a
 jailbreak the suite lacks. Aim new generation at the failures (`traces=`),
 add every production incident as a seed, re-run on the pinned tasks.
+
+## References
+
+1. Willison, S. The Lethal Trifecta for AI Agents. simonwillison.net, June 2025. [simonwillison.net/2025/Jun/16/the-lethal-trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/).
+2. OWASP. Top 10 for LLM Applications 2025. [genai.owasp.org/llm-top-10](https://genai.owasp.org/llm-top-10/).
+3. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
+4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Over-optimization*, *Tool Use* and *Evaluation*.
+5. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.
+6. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024. The decontamination check.

@@ -208,10 +208,10 @@ One 0/1 per message: 1 carries loss, 0 is context only.
 `"assistant"` trains every assistant turn, the multi-turn default.
 `"final"` trains only the last assistant turn, for conversations
 whose earlier agent turns were scripted or came from another policy
-(rlhf-book ch. 4 "Implementation Details" describes both). System,
+(Lambert 2025, chapter Instruction Tuning, describes both). System,
 user, and tool messages are always 0: tool output is the environment
 speaking, not the policy, and training on it teaches the model to
-invent tool results (ch. 13).
+invent tool results (Lambert 2025, chapter Tool Use).
 
 ### to_trl
 
@@ -303,7 +303,7 @@ grade and lineage. The module docstring has the two wire shapes.
   only.
 * `unroll` (`False`): `True` turns an N-turn conversation into N
   samples, the k-th ending at the k-th assistant turn with loss on
-  that turn only (rlhf-book ch. 4, multi-turn masking). Every earlier
+  that turn only (Lambert 2025, chapter Instruction Tuning). Every earlier
   agent turn then trains once with exactly the context it had,
   instead of only the last one (`mask_mode="final"`) or all of them
   at once (`"assistant"`, where later turns see context the policy
@@ -317,8 +317,8 @@ grade and lineage. The module docstring has the two wire shapes.
   output truncated]` and counting the cut on the row as
   `tool_output_truncated` (messages) and `tool_output_chars_cut`.
   Tool output is masked from the loss anyway; what it costs is
-  context, and the cut is explicit rather than silent (rlhf-book
-  ch. 13).
+  context, and the cut is explicit rather than silent (Lambert 2025,
+  chapter Tool Use).
 
 ``python
 rows = wai.training_rows(data, unroll=True)
