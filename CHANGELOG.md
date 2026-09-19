@@ -5,6 +5,9 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Dataset and adapter links point at the while-ai Hugging Face org, where the
+  sets live; the old org name is gone from recipes, results and docs.
+
 ## 0.97 (2026-09-19)
 
 - `whileai init` sets a repository up for a coding agent: a block under
