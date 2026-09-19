@@ -81,12 +81,13 @@ tools, answers each tool call from the mock world, and lets a separate
 model play the customer.
 
 ```python
-wai.configure(agent=wai.OpenAI("gpt-4.1-mini"))  # a Backend goes through configure
-data = wai.simulate(tools=TOOLS, system_prompt=POLICY)
+data = wai.simulate(wai.OpenAI("gpt-4.1-mini"), tools=TOOLS, system_prompt=POLICY)
 ```
 
-Leave `agent=` out and the run uses what `configure` set, else the model
-While hosts on the key from `whileai login`. Useful for a policy that does
+`agent=` takes the same backend object `configure(agent=)` takes, and a
+key given on it (`wai.OpenAI("gpt-4.1-mini", api_key="sk-...")`) reaches
+that provider the same way. Leave `agent=` out and the run uses what
+`configure` set, else the model While hosts on the key from `whileai login`. Useful for a policy that does
 not have an agent yet: pass only `system_prompt=` and `tools=` and see how
 a capable open model behaves under it. The judge is never the model it is
 judging: the hosted judge is a different family from the hosted agent.

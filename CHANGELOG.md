@@ -5,6 +5,13 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `simulate(agent=wai.OpenAI("gpt-4.1-mini"), ...)` works, positional or
+  keyword: a backend object is resolved the way `configure(agent=)` resolves
+  it (its spec string, its key kept for the provider), instead of raising
+  "cannot detect a transport". `backend=` takes one too. The transport error
+  for an object the SDK cannot place now lists what `agent=` accepts and no
+  longer tells you to pass `tools=` when you already did (#472).
+
 ## 1.00 (2026-09-20)
 
 - `whileai init` runs the evals check from any working directory; 0.99 resolved the script path against the skill folder and printed a can't-open-file error.

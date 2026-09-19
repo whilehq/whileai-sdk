@@ -82,10 +82,13 @@ hook), or grade later with `data.grade(...)` or `grade()`.
 The agent and the budget:
 
 * `agent`: a callable `message -> trajectory`, played single-turn
-  (one message in, one trajectory out). Leave it `None` to have the
-  SDK play a multi-turn agent from `tools`, `system_prompt`
-  (alias `policy`) and `backend` (its model); `spec=` is the
-  third way in.
+  (one message in, one trajectory out); or a backend object
+  (`wai.OpenAI("gpt-4.1-mini")`) or spec string
+  (`"openai:gpt-4.1-mini"`), which the SDK plays multi-turn from
+  `tools` and `system_prompt`. Leave it `None` to play the
+  model `configure(agent=)` set, else the model While hosts, from
+  `tools`, `system_prompt` (alias `policy`) and `backend`
+  (its model); `spec=` is the third way in.
 * `budget`: rows the run may produce, 1000 by default, a per-run cap
   when `runs` is above 1 (`runs=3, budget=100` returns up to 300
   rows, and `report()["budget_per_run"]` carries the cap).

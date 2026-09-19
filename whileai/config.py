@@ -174,6 +174,25 @@ def _absorb(target: Settings, role: str, value: Any) -> None:
     setattr(target, role, spec)
 
 
+def resolve_backend(value: Any, *, kwarg: str = "") -> Any:
+    """``configure(<role>=value)`` for one call: a backend object becomes
+    the spec string the engine reads, and a key given on it is kept for
+    its provider in the settings in force, exactly as ``configure`` keeps
+    it. The role default is not touched. Anything that is not a backend
+    object (a spec string, a URL, a callable, a wrapped agent, ``None``)
+    comes back as given, so ``simulate(agent=wai.OpenAI("gpt-4.1-mini"))``
+    and ``simulate(agent="openai:gpt-4.1-mini")`` are the same call.
+    """
+    from .models import Backend
+
+    if not isinstance(value, Backend):
+        return value
+    spec = spec_of(value, kwarg=kwarg)
+    if value.provider and value.api_key:
+        current().keys[str(value.provider)] = str(value.api_key)
+    return spec
+
+
 def configure(
     *,
     agent: Any = None,
@@ -258,4 +277,13 @@ class _SettingsProxy:
 
 settings = _SettingsProxy()
 
-__all__ = ["Settings", "configure", "context", "current", "reset", "settings", "spec_of"]
+__all__ = [
+    "Settings",
+    "configure",
+    "context",
+    "current",
+    "reset",
+    "resolve_backend",
+    "settings",
+    "spec_of",
+]

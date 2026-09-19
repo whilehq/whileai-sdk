@@ -319,9 +319,27 @@ SUPPORTED = (
 )
 
 
+def _backend_target(target: Any) -> Any:
+    """A backend object as the spec string the engine reads; anything
+    else as given. ``wai.Hosted()`` has no spec (it is the default route),
+    so it is refused with the call that means it."""
+    from ...models import Backend
+
+    if not isinstance(target, Backend):
+        return target
+    spec = target.spec
+    if spec is None:
+        raise ValueError(
+            f"{target!r} is the default route; leave agent= unset to play tools= and "
+            "system_prompt= on the model While hosts"
+        )
+    return spec
+
+
 def detect(target: Any) -> str:
     if isinstance(target, ConnectedAgent):
         return target.transport
+    target = _backend_target(target)
     if isinstance(target, str):
         if target.startswith(("http://", "https://")):
             return "http"
@@ -349,7 +367,12 @@ def detect(target: Any) -> str:
     if callable(target) and not _inspect.isclass(target):
         return "callable"
     raise ValueError(
-        f"cannot detect a transport for {type(target).__name__}; pass a callable, URL, or tools=."
+        f"cannot detect a transport for {type(target).__name__}; agent= takes a callable "
+        "(message -> trajectory), an http(s) URL, a backend object such as "
+        "wai.OpenAI('gpt-4.1-mini'), a spec string such as 'openai:gpt-4.1-mini', a "
+        "LangChain, LangGraph, OpenAI Agents or Claude SDK agent, or a subprocess "
+        "command list; leave it unset to play tools= and system_prompt= on the "
+        "configured or hosted model."
     )
 
 
@@ -378,6 +401,7 @@ def resolve(
 ) -> tuple[Any, str]:
     if isinstance(target, ConnectedAgent):
         return target.run, target.transport
+    target = _backend_target(target)
     kind = transport or detect(target)
     loop_kw: dict[str, Any] = {"max_turns": max_turns}
     if temperature is not None:
