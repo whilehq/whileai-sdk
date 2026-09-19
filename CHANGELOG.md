@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.95 (2026-09-19)
+
 - `tracked.run(version, harness=Harness(...))` ties a run to the exact
   prompt, tools and model it ran under: the label becomes the run's harness
   version and the fingerprint (sha256 over model + instructions + sorted
