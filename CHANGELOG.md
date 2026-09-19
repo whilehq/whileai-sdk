@@ -5,6 +5,20 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `whileai init` sets a repository up for a coding agent: a block under
+  twenty lines in `AGENTS.md` (Codex, Cursor, Copilot), an `@AGENTS.md`
+  include in `CLAUDE.md` (Claude Code), the tested skills copied under
+  `.claude/skills/` (from the checkout, else from `main`), and the evals
+  skill's `check.py` run so the verdict line shows before the agent
+  touches your code. Re-running replaces the block in place; `whileai
+  status` reports the block, its version and the installed skills, and
+  says when it is stale. `whileai.init_repo` is the module.
+- PyPI keywords name what people search for: llm-evals, llm-as-a-judge,
+  pass-at-k, post-training, rlhf, sft, dpo, claude-code, agents-md.
+- The `ZEROPROOF_*` fallback and `~/.zeroproof` migration stay until 1.0, not
+  0.95: releases moved past 0.95 the night the deadline was written. Belief 9
+  no longer lists app.withwhile.com; that host was retired the same day.
+
 ## 0.96 (2026-09-19)
 
 - Run and dataset links point at withwhile.com (`/platform/runs`,
