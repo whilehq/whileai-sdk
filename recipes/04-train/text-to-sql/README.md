@@ -325,6 +325,7 @@ reply budget, same verifier, k=4.
 | Qwen3.5-4B, default template | 0.14 (0.13..0.16) | 0.00 | 0.43 | 0.46 | 0.36 | 79% |
 | Qwen3.5-9B **r1, step 25** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | 0.56 (0.52..0.59) | 0.29 | 0.78 | 0.10 | 0.17 | - |
 | Qwen3.5-9B r1, step 50 | 0.55 (0.52..0.59) | 0.30 | 0.77 | 0.11 | 0.18 | 21% |
+| Qwen3.5-9B r1, step 75 (the round's result; stopped at step 78) | 0.55 (0.51..0.58) | 0.26 | 0.78 | 0.10 | 0.19 | 21% |
 
 Neither Qwen3.5 checkpoint emits `<think>` tags here; both reason in plain
 text before the query. The 4B does it at such length that 79% of replies
@@ -344,8 +345,13 @@ they carry no gradient and no penalty either; the policy is never told to
 stop. For a base that runs away this often, masking is the wrong default:
 the next round unmasks truncation (scored 0, the DAPO overlong penalty in
 its blunt form) with a 3,072-token cap, and this is the case for a soft
-penalty option in the SDK (whilehq/whileai-sdk#253). Step 75 and 100 rows
-follow as the checkpoints land.
+penalty option in the SDK (whilehq/whileai-sdk#253). Step 75: +0.012
+(-0.011..+0.035) vs base, flat vs step 50, so the round was stopped at
+step 78 rather than spend four more GPU-hours on a flat curve; its result
+is the step-75 adapter. Round 2 is running from that checkpoint with the
+one change the curve asked for: truncated replies scored 0 instead of
+masked, and a 3,072-token cap (`--no-mask-truncated
+--max-completion-length 3072`). Its rows follow.
 
 ## Other bases on the same holdout (140 tasks, k=4)
 
