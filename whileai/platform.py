@@ -1162,16 +1162,40 @@ class Tracked:
         self,
         version: str | RunSpec,
         *,
+        harness: Harness | str | None = None,
         flush_every: int = FLUSH_EVERY,
         flush_seconds: float = FLUSH_SECONDS,
         **fields: Any,
     ) -> Run:
-        """Open a training run that will produce ``version``. See ``RunSpec``."""
+        """Open a run that will produce ``version``. See ``RunSpec``.
+
+        ``harness=`` is the ``Harness`` this version runs under: the run
+        carries its label as the harness version and its fingerprint under
+        ``record.provenance.pins["harness"]`` (the model under
+        ``pins["model"]``), so a score stays tied to the exact prompt, tools
+        and model that produced it. A string is a label only. Left out, the
+        agent's harness from ``track()`` is used.
+        """
         spec = version if isinstance(version, RunSpec) else RunSpec(version=version, **fields)
         if spec.base is None and self.model:
             spec.base = self.model
-        if spec.harness is None and self.harness is not None:
-            spec.harness = self.harness.version
+        pinned = (
+            harness if isinstance(harness, Harness) else self.harness if harness is None else None
+        )
+        if isinstance(harness, str):
+            spec.harness = harness
+        if pinned is not None:
+            if spec.harness is None:
+                spec.harness = pinned.version
+            record = spec.record or RunRecord()
+            prov = record.provenance or Provenance()
+            pins = dict(prov.pins)
+            pins.setdefault("harness", pinned.fingerprint)
+            if pinned.model:
+                pins.setdefault("model", pinned.model)
+            prov.pins = pins
+            record.provenance = prov
+            spec.record = record
         body = {"agent": self.id, **spec.wire()}
         out = self._call("POST", "/runs", body)
         return Run(self, out["id"], spec, flush_every=flush_every, flush_seconds=flush_seconds)
