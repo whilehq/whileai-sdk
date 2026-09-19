@@ -8,12 +8,12 @@ build-backend = "setuptools.build_meta"
 # publish gate (.github/scripts/check_version.py) checks that.
 [project]
 name = "zeroproof"
-version = "0.89"
+version = "0.90"
 description = "Renamed: the ZeroProof SDK is now whileai. Installs whileai and keeps `import zeroproof` working."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
-dependencies = ["whileai>=0.89"]
+dependencies = ["whileai>=0.90"]
 authors = [{name = "While"}]
 classifiers = [
     "Development Status :: 7 - Inactive",
