@@ -6,16 +6,41 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 ## Unreleased
 
 - The default API host is `https://api.withwhile.com`. `api.zeroproofai.com`
-  still answers the same routes; `WHILEAI_API_URL` and `WHILEAI_TRACE_URL`
-  override as before. A login saved against the old host migrates on its
-  own: no sign-in needed.
+  still answers the same routes; `WHILEAI_API_URL` overrides as before. A
+  login saved against the old host migrates on its own: no sign-in needed.
 - Run and docs links point at withwhile.com (runs), app.withwhile.com (the
   data platform) and docs.withwhile.com; the public dataset catalog is
   huggingface.co/while-ai.
-- The `zeroproof` PyPI name is retired at 0.89. `pip install zeroproof`
+- The `zeroproof` PyPI name is retired at 0.91. `pip install zeroproof`
   still installs `whileai` through that last shim; the release workflow no
   longer builds or uploads it, and `compat/` is gone from the repo.
 
+## 0.91 (2026-09-19)
+
+- The offline situation writer names records the world has. Ids in a tool
+  description or a parameter description ("Orders on file: A1001, A1002")
+  are drawn into the asks, one per situation, deterministically; before, it
+  hashed an invented `ORD-4017` for every situation, so a scripted agent
+  answered "not found" on all of them and 57 of 63 held-out asks sat off
+  every policy branch. `whileai.simulations.generate.scenarios.known_ids`
+  is the reader. Docs promised this since 0.5x; now it is true.
+- `skills/strengthen-your-evals` is rewritten for the agent you already run,
+  on a frontier model or your own weights, and tested: coverage gap, frozen
+  held-out set named by its content, judge checked against sixty human
+  labels, pass@1 with an interval per policy branch, failure-capable count,
+  noise floor, holdout size, and the report to the platform (`method="eval"`,
+  one run per harness version, promote the one in production). Its
+  `check.py` runs offline in seconds and CI holds every block to it.
+
+## 0.90 (2026-09-19)
+
+- OpenTelemetry stays on your machine. The server-side trace ingest is gone:
+  `whileai.ingest` (`otel_env`, `ingest_traces`, `send_traces`, `send_runs`,
+  `list_traces`, `WhileIngestError`), `wai.send_score`, `wai.cuts`,
+  `wai.format_cuts`, `wai.cut`, and the `01-simulate/agent-behavior` recipe
+  that streamed spans to `/v1/traces`. The platform holds scores, not traces.
+  `wai.rows_from_otel` and `wai.load_traces` still read an OTLP export or
+  JSONL locally into `simulate(traces=)`; nothing is uploaded.
 - README banner is wai the whale; the ring is gone.
 - Docs logo and favicon are wai the whale, the mark the site ships.
 - Docs cite the way a paper does. Every "What the book says" section and

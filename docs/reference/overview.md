@@ -8,7 +8,7 @@ The long form of the SDK, split over six pages in the order a post-training run 
 
 One package, two importable modules:
 
-- `whileai`: the platform client. OTLP trace ingest and trace-dataset listing against the token gate.
+- `whileai`: the platform client. Sign in, keys, tracked agents, runs and verdicts. Traces never leave your machine; `whileai.simulations.rows_from_otel` reads an OTLP export locally.
 - `whileai.simulations`: post-training data for an agent. Give it the agent's traces, or its tools and system prompt; it simulates the situations, the people, and the world, plays the agent through multi-turn tool-calling conversations, and returns rows for your grader.
 
 Have an agent and want a pass rate with an interval? Start at [Evals](/evals): offline, seconds, and `coverage_gap` names what your tests miss.

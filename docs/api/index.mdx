@@ -16,7 +16,7 @@ When to use which call, in the order a run happens, is on
 
 | Page | Names | What it holds |
 |---|---|---|
-| [whileai](/api/whileai) | 29 | The platform client: sign in, push traces, read the account. |
+| [whileai](/api/whileai) | 29 | The platform client: sign in, tracked agents, runs, verdicts. |
 | [data](/api/data) | 6 | SimulationData: the object simulate() returns, and what it can do next. |
 | [score](/api/score) | 99 | Grading, judge checks, pass@k, selection for SFT and RL, hack scans. |
 | [generate](/api/generate) | 18 | Situation writers, coverage axes, agent adapters, model backends. |
@@ -25,7 +25,7 @@ When to use which call, in the order a run happens, is on
 | [constants](/api/constants) | 7 | Module-level constants and their defaults. |
 | [environment](/api/environment) | 3 | A verifiers environment for on-policy trainers. |
 | [export](/api/export) | 7 | JSONL, preference pairs, and RL environments out of graded rows. |
-| [ingest](/api/ingest) | 39 | Platform calls: datasets, traces, cuts, training runs, hosted models. |
+| [ingest](/api/ingest) | 35 | Local trace loading, OTLP rows, and the dataset calls. |
 | [monitor](/api/monitor) | 2 | Watch a live training run for reward hacking. |
 | [run](/api/run) | 1 | The search loop that spends the budget. |
 | [schema](/api/schema) | 10 | The typed row schema and its conversions. |

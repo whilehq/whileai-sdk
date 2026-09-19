@@ -144,7 +144,7 @@ All take `--json` and `--api-key`; errors exit 1 with the reason on stderr.
 Thin calls into `whileai.platform`. The old `whileai purge` (traces and
 datasets on the data platform) is gone; `wai.purge_agent("demo-agent")` and
 `wai.delete_empty_datasets(max_rows=2)` remain in Python, both with
-`dry_run=True`, until the ingest module is retired.
+`dry_run=True`.
 
 ### Train, holdout, eval
 
@@ -159,26 +159,9 @@ wai.preview("ds_...")  # three sample rows + the analyzer report
 wai.profile("ds_...")  # pass rate, support, mixed tasks, tool use, per task
 ```
 
-The Datasets page groups sets by purpose (train, holdout, eval) and records the simulation mode on each. A push is train unless it says otherwise; ingested traces are eval until training data is cut from them. Holdout is split by `scenario_id`, so a task is wholly on one side, and the same task lands on the same side every run. A `purpose="holdout"` push warns when the set is too small to prove a 5-point gain at 80% power.
+The Datasets page groups sets by purpose (train, holdout, eval) and records the simulation mode on each. A push is train unless it says otherwise. Holdout is split by `scenario_id`, so a task is wholly on one side, and the same task lands on the same side every run. A `purpose="holdout"` push warns when the set is too small to prove a 5-point gain at 80% power.
 
 A task's identity is its cell in the coverage grid: the tools, the situation axes, and at most one clause of the policy. Each clause owns its own block of cells and the cells that pair the other axes carry no clause, so editing the system prompt keeps every task except the ones for the clause that changed. Rewording one rule, adding one, or swapping the model leaves the rest of the eval paired for `compare_runs`.
-
-### Training data out of traces
-
-The platform's "Make training data" button, as one line:
-
-```python
-wai.send_score("4bf92f3577b34da6", 1.0)  # this run passed
-summary = wai.cuts(agent="my-agent")  # what a cut would hold
-print(wai.format_cuts(summary))  # the traces page's sentence
-made = wai.cut(agent="my-agent", kind="rl")  # make it
-wai.pull(made["train"]["datasetId"], "train.jsonl")
-made["holdout"]["datasetId"]  # measure on this, never train on it
-```
-
-A cut needs a pass or a fail on every run, and a judge answers after the run it is judging has closed. `send_score(trace_id, value)` grades a run that already ran. **1.0 or above is a pass**, so a 0-to-1 quality number never reads as one; send that under its own `name=` and keep `score` for the verdict. Re-sending the same name is a correction. Emitting `whileai.reward` on the span does the same thing when your grader runs inline.
-
-Runs of the same prompt are grouped by `zeroproof.scenario_id`. `kind="rl"` keeps the prompts the agent passes some of the time and not always (20% to 80% by default); `kind="sft"` keeps the best run of every prompt that ever passed. Either way the prompts are split into a train set and a held-out set. `since="7d"` narrows the window, `band=` and `holdout=` move the defaults, and any other keyword is a trace filter (`model=`, `tool=`, `evalSet=`).
 
 ## Trust the numbers
 
@@ -438,23 +421,3 @@ wai.profile(row["datasetId"])  # profiled before you train on it
 
 Every push is one commit tagged `zp-<id>`, so `load_dataset(repo, split, revision="zp-ds_...")` pins the exact push; the repo's `whileai.json` maps each split to its While dataset with history. Worked example: [`recipes/05-export/hugging-face`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/05-export/hugging-face).
 
-## Rows without OpenTelemetry
-
-A loop that calls a model `k` times a prompt and scores it has rows, not
-spans. `whileai.send_runs(rows, agent="refunds")` writes the OTLP envelope
-for you: each row is `{scenario_id, prompt, final_text, reward}`, repeats of
-one prompt group by `scenario_id` (or by the prompt text when there is none),
-and `reward` is judged against `pass_at` (1.0 by default). A row without a
-reward stays ungraded. It is the inverse of `rows_from_otel`, so an agent
-that emits no OpenTelemetry still lands on the traces page and `wai.cuts()`
-can answer what is worth training on. `send_traces` remains the call for
-OTLP bytes you already have.
-
-## References
-
-1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Training Overview*, *Instruction Tuning*, *Reasoning*, *Tool Use*, *Evaluation* (and its appendix on evaluation variance) and *Model Character and Products*.
-2. Yuan, Z. et al. Scaling Relationship on Learning Mathematical Reasoning with Large Language Models. arXiv:2308.01825, 2023. Rejection-sampling fine-tuning.
-3. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.
-4. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
-5. OpenAI. Model Spec. [github.com/openai/model_spec](https://github.com/openai/model_spec).
-6. Ouyang, L. et al. Training Language Models to Follow Instructions with Human Feedback. NeurIPS 2022. arXiv:2203.02155. The reward model trained on preference pairs.

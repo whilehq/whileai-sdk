@@ -120,7 +120,6 @@
               {
                 "group": "Simulate",
                 "pages": [
-                  "recipes/01-simulate/agent-behavior",
                   "recipes/01-simulate/bring-your-own-agent",
                   "recipes/01-simulate/verifiers"
                 ]

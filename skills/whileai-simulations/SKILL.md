@@ -63,23 +63,10 @@ an agent definition.
 
 When traces are the starting point, follow this sequence:
 
-1. Locate the exact trace dataset. If OTEL is already sending to While,
-   list the account's trace datasets and pull the intended `datasetId`; do not
-   guess from a local file or silently combine different agents/days:
-
-   ```python
-   import whileai
-   import whileai.simulations as wai
-
-   # the key resolves like every platform call: WHILEAI_API_KEY, else
-   # the key `whileai login` or `whileai signup` saved
-   inventory = whileai.list_traces()["traces"]
-   matches = [t for t in inventory if t["name"] == requested_dataset]
-   if len(matches) != 1:
-       raise RuntimeError(f"select one trace dataset explicitly: {matches}")
-   selected = matches[0]
-   traces = wai.pull(selected["datasetId"])
-   ```
+1. Locate the exact traces. They stay in the customer's own logs; the
+   platform never receives them. Read the OTLP export or JSONL the deployment
+   writes for the one agent and window asked about; do not guess from an
+   unrelated file or silently combine different agents/days.
 
 2. Load local inputs with `wai.load_traces(...)`. JSONL paths and common message,
    rollout, tool-trace, and platform-export shapes are accepted. Use

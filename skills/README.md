@@ -18,7 +18,7 @@ that passed this morning.
 | `character/` | how the model talks, from a constitution | trait judge checked against spec labels, pairs + SFT |
 | `tool-call-efficiency/` | the agent solves tasks but spends too many calls | GRPO, reward = solved within budget |
 | `watch/` | a version is serving and the Live tile needs a number a day | nothing; it scores yesterday's traffic |
-| `strengthen-your-evals/` | the held-out set is too easy or too small to show a gain | nothing; it sizes and hardens the test |
+| `strengthen-your-evals/` | an agent on a frontier model or your own weights needs evals that can fail and a number with an interval | nothing; it builds the frozen test, checks the judge, and reports every behavior |
 | `whileai-simulations/` | you need more situations than the traces contain | nothing; it is the simulate-grade-select loop |
 
 ## Every skill ends the same way

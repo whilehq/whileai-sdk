@@ -1103,7 +1103,7 @@ def tracked_agents(api_key: str | None = None) -> list[TrackedInfo]:
 
 # ---------------------------------------------------------------------
 # The rest of the platform: sign in, datasets, hosted training and
-# serving, traces. Loaded on first use so ``from whileai import platform``
+# serving. Loaded on first use so ``from whileai import platform``
 # stays cheap and the engine is not imported for a login.
 # ---------------------------------------------------------------------
 
@@ -1123,8 +1123,6 @@ _LAZY: dict[str, tuple[str, str]] = {
     "unpublish": ("whileai.simulations.ingest.platform", "unpublish"),
     "agents": ("whileai.simulations.ingest.platform", "agents"),
     "register_agent": ("whileai.simulations.ingest.platform", "register_agent"),
-    "cuts": ("whileai.simulations.ingest.platform", "cuts"),
-    "cut": ("whileai.simulations.ingest.platform", "cut"),
     "hf_publish": ("whileai.simulations.ingest.platform", "hf_publish"),
     "import_hf": ("whileai.simulations.ingest.platform", "import_hf"),
     "train": ("whileai.simulations.training", "train"),
@@ -1137,9 +1135,6 @@ _LAZY: dict[str, tuple[str, str]] = {
     "reward_model": ("whileai.simulations.training", "reward_model"),
     "TrainerCallback": ("whileai.simulations.training", "TrainerCallback"),
     "TrainingRun": ("whileai.simulations.training", "TrainingRun"),
-    "send_traces": ("whileai.ingest", "send_traces"),
-    "list_traces": ("whileai.ingest", "list_traces"),
-    "otel_env": ("whileai.ingest", "otel_env"),
 }
 
 
@@ -1161,12 +1156,9 @@ def __dir__() -> list[str]:
 
 if TYPE_CHECKING:  # the lazy names above, visible to editors and mypy
     from .auth import LoginError, account, login, logout, signup
-    from .ingest import list_traces, otel_env, send_traces
     from .simulations.ingest.platform import (
         agents,
         catalog,
-        cut,
-        cuts,
         datasets,
         hf_publish,
         import_hf,
@@ -1224,18 +1216,14 @@ __all__ = [
     "account",
     "agents",
     "catalog",
-    "cut",
-    "cuts",
     "datasets",
     "describe",
     "get_run",
     "hf_publish",
     "import_hf",
-    "list_traces",
     "login",
     "logout",
     "models",
-    "otel_env",
     "platform_url",
     "preview",
     "publish",
@@ -1245,7 +1233,6 @@ __all__ = [
     "register_agent",
     "reward_model",
     "runs",
-    "send_traces",
     "serve",
     "signup",
     "track",
