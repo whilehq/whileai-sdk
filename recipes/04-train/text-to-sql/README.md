@@ -324,6 +324,7 @@ reply budget, same verifier, k=4.
 | Qwen3.5-9B, default template | 0.53 (0.50..0.57) | 0.25 | 0.76 | 0.10 | 0.20 | 21% |
 | Qwen3.5-4B, default template | 0.14 (0.13..0.16) | 0.00 | 0.43 | 0.46 | 0.36 | 79% |
 | Qwen3.5-9B **r1, step 25** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | 0.56 (0.52..0.59) | 0.29 | 0.78 | 0.10 | 0.17 | - |
+| Qwen3.5-9B r1, step 50 | 0.55 (0.52..0.59) | 0.30 | 0.77 | 0.11 | 0.18 | 21% |
 
 Neither Qwen3.5 checkpoint emits `<think>` tags here; both reason in plain
 text before the query. The 4B does it at such length that 79% of replies
@@ -334,9 +335,17 @@ verifier reward fixes fastest. The 9B is the one being trained.
 
 Round 1 on the 9B, step 25, paired against its own base on the 459 tasks:
 **+0.024 (95% +0.002..+0.047)**, medium +0.04 (+0.00..+0.08), easy and hard
-flat. The same shape Qwen3-4B showed at its step 25 (+0.044) before the
-jump at step 50; the step-50 and step-75 rows follow as the checkpoints
-land (12.7 min a step at micro-batch 1 with gradient checkpointing).
+flat. Step 50: +0.020 (-0.005..+0.044) vs base, -0.004 vs step 25. No
+jump where Qwen3-4B had one. The reply lengths say why: the 9B's replies
+are bimodal, a median of 600 tokens and 21% that run to the 4,096 cap
+(27% past the 2,048 training cap), and that share is the same at the base,
+step 25 and step 50. Those runaway samples are masked in training, so
+they carry no gradient and no penalty either; the policy is never told to
+stop. For a base that runs away this often, masking is the wrong default:
+the next round unmasks truncation (scored 0, the DAPO overlong penalty in
+its blunt form) with a 3,072-token cap, and this is the case for a soft
+penalty option in the SDK (whilehq/whileai-sdk#253). Step 75 and 100 rows
+follow as the checkpoints land.
 
 ## Other bases on the same holdout (140 tasks, k=4)
 
