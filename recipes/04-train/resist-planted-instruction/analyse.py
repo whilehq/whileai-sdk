@@ -3,7 +3,7 @@
 pass@1 per arm with a bootstrap over PROMPTS, every pairwise delta with its
 interval, an exact sign test over discordant prompts, graded count per arm,
 attack rows and clean control rows apart, the false-flag rate, and the effect
-this eval can resolve at its own measured spread (rlhf-book ch. 16).
+this eval can resolve at its own measured spread (Lambert 2025, chapter Evaluation).
 
 Run: python analyse.py --out out
 """

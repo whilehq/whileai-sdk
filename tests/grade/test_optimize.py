@@ -233,8 +233,9 @@ def _scored(prompt, reward, final="ok"):
 
 
 def test_select_for_sft_ranks_partial_credit_by_reward():
-    """rlhf-book ch. 9: argmax per prompt over a scalar reward. A 0.9 used
-    to be dropped as not-pass because only exact 1s qualified."""
+    """Lambert 2025, chapter Rejection Sampling: argmax per prompt over a
+    scalar reward. A 0.9 used to be dropped as not-pass because only exact 1s
+    qualified."""
     from whileai.simulations.score.optimize import select_for_sft
 
     rows = [_scored("a", 0.3), _scored("a", 0.9), _scored("a", 0.6), _scored("b", 0.7)]

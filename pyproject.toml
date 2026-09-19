@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "whileai"
-version = "0.89"
+version = "0.91"
 description = "Post-training data and evaluation for tool-using LLM agents: simulate, grade, measure, select, train, export, with the checks from rlhfbook.com."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -116,7 +116,6 @@ allow-magic-value-types = ["str", "bytes"]
 # gate limits. Named one by one: a `whileai/*.py` glob would match the
 # whole package.
 "whileai/auth.py" = ["PLR2004"]
-"whileai/ingest.py" = ["PLR2004"]
 "whileai/init_evals.py" = ["PLR2004"]
 "whileai/platform.py" = ["PLR2004"]
 "whileai/cli.py" = ["PLR2004"]

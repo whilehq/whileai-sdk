@@ -71,8 +71,9 @@ _VALID_STATUSES = ("ok", "missing_reward", "invalid_result", "error", "timeout")
 # reply being the longer one in three quarters of eight or more pairs is
 # flagged as a length confound; LENGTH_CONFOUND_ALL_FROM = 3: in every pair
 # once there are three, since a total confound is one at any size
-# (length is the confound rlhfbook.com/c/07-reward-models.html tells a
-# judge to ignore). The numbers are a convention, untested.
+# (length is the confound a judge is told to ignore: Zheng et al. 2023,
+# arXiv:2306.05685; Lambert 2025, chapter Reward Modeling). The numbers
+# are a convention, untested.
 LENGTH_CONFOUND_MIN_PAIRS = 8
 LENGTH_CONFOUND_SHARE = 0.75
 LENGTH_CONFOUND_ALL_FROM = 3
@@ -80,8 +81,8 @@ LENGTH_CONFOUND_ALL_FROM = 3
 
 def _scaled(value: float, scale: tuple[float, float]) -> tuple[float | int, dict[str, Any]]:
     """A rating on ``scale`` (lo, hi) as a [0, 1] reward, with the raw
-    rating kept as judge_meta (rlhf-book ch. 11: ratings are metadata
-    worth keeping next to the normalized preference)."""
+    rating kept as judge_meta (Lambert 2025, chapter Preference Data:
+    ratings are metadata worth keeping next to the normalized preference)."""
     lo, hi = float(scale[0]), float(scale[1])
     reward = (value - lo) / (hi - lo)
     out: float | int = int(reward) if reward in (0.0, 1.0) else round(reward, 6)
@@ -708,10 +709,10 @@ def _model_of(row: dict) -> str | None:
 def length_confound_warning(chosen_longer: int, n: int) -> str | None:
     """The length-confound note ``build_preference_pairs`` and ``export_preference`` share.
 
-    Fires when the chosen side is longer in three quarters of eight or
-    more pairs, or in *every* pair once there are at least three: a
-    total confound is a confound at any size, and a small hand-built
-    set is exactly where it goes unnoticed (rlhf-book ch. 8).
+    Fires when the chosen side is longer in three quarters of eight or more
+    pairs, or in *every* pair once there are at least three: a total confound
+    is a confound at any size, and a small hand-built set is exactly where it
+    goes unnoticed (Lambert 2025, chapter Direct Alignment).
     """
     if n <= 0:
         return None
@@ -721,7 +722,8 @@ def length_confound_warning(chosen_longer: int, n: int) -> str | None:
     ):
         return (
             f"chosen is the longer reply in {chosen_longer}/{n} pairs; a preference "
-            "trainer learns length before behavior (rlhf-book ch. 8)"
+            "trainer learns length before behavior (Lambert 2025, chapter Direct "
+            "Alignment)"
         )
     return None
 
@@ -789,7 +791,7 @@ def build_preference_pairs(
       contribute.
     * ``length_match`` (``True``): each chosen row takes the rejected row
       closest to it in length. DPO exploits a length gap faster than it
-      learns the behavior (rlhf-book ch. 8).
+      learns the behavior (Lambert 2025, chapter Direct Alignment).
 
     Each pair keeps what the trainer and the reviewer need to trust it:
 
@@ -798,7 +800,8 @@ def build_preference_pairs(
       and a reviewer can see how far apart the two really are.
     * ``chosen_model`` / ``rejected_model`` / ``same_policy``: which policy
       produced each side. Preference data works best when both sides
-      come from the policy being trained (Tulu 3, rlhf-book ch. 11); a
+      come from the policy being trained (Lambert et al. 2024, Tulu 3,
+      arXiv:2411.15124; Lambert 2025, chapter Preference Data); a
       mixed pair is still a pair, but it is labeled as off-policy.
     * ``length_delta``: chosen reply chars minus rejected, and the report
       says how often chosen is still the longer side.
@@ -896,7 +899,8 @@ def build_preference_pairs(
     if mixed_policy:
         warnings.append(
             f"{mixed_policy}/{n} pairs mix policies (chosen and rejected from different "
-            "models); on-policy pairs train better (rlhf-book ch. 11)"
+            "models); on-policy pairs train better (Lambert 2025, chapter "
+            "Preference Data)"
         )
     from .optimize import _eval_sourced_warning, eval_sourced
 

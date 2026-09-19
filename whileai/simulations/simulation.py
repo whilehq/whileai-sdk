@@ -206,20 +206,19 @@ def simulate(
       (``stopped_because="tasks_done"``) or the budget is spent.
     * ``runs``: replay the same task set that many times in one call and
       stamp ``lineage.eval_run`` (0, 1, 2, ...) on every row, which is what
-      ``delta_report`` needs before it will call a change real (rlhf-book
-      ch. 16 and appendix C: one evaluation is a draw, three give a
-      standard deviation). ``simulate(tasks=base, runs=3)`` is the usual
-      form; without ``tasks=`` the first run draws the task set (from
-      ``seeds=`` when given) and the rest replay it. Between runs nothing
-      changes but the agent's own sampling (same tasks, faults, world
-      state and seed), so a deterministic agent gives identical runs and
+      ``delta_report`` needs before it will call a change real (Lambert 2025,
+      chapter Evaluation and its evaluation-variance appendix: one evaluation
+      is a draw, three give a standard deviation). ``simulate(tasks=base,
+      runs=3)`` is the usual form; without ``tasks=`` the first run draws the
+      task set (from ``seeds=`` when given) and the rest replay it. Between
+      runs nothing changes but the agent's own sampling (same tasks, faults,
+      world state and seed), so a deterministic agent gives identical runs and
       a zero re-run band. All rows come back in one ``SimulationData``
-      (``output=`` holds them all); ``search["eval_runs"]`` lists the rows
-      and stop reason per run, and ``eval_variance(data.rows())`` splits
-      by ``eval_run`` on its own. Replayed rows keep the writer of the
-      run they replay on ``writer_model`` and say
-      ``lineage.replayed_from_run``, so ``delta_report`` on two runs of
-      one call sees one writer.
+      (``output=`` holds them all); ``search["eval_runs"]`` lists the rows and
+      stop reason per run, and ``eval_variance(data.rows())`` splits by
+      ``eval_run`` on its own. Replayed rows keep the writer of the run they
+      replay on ``writer_model`` and say ``lineage.replayed_from_run``, so
+      ``delta_report`` on two runs of one call sees one writer.
 
     What steers the search and answers the tools:
 
@@ -280,20 +279,20 @@ def simulate(
       lands wherever the run happens to be. Without the flag, which rows
       land before the cap depends on thread timing.
 
-    What every row records. ``sampling`` (``temperature``, ``max_tokens``
-    and ``model`` as the model backend resolved them), because a result
-    is only comparable with its sampling settings on record (rlhf-book
-    ch. 16); a callable agent samples however it samples, so its rows
+    What every row records. ``sampling`` (``temperature``, ``max_tokens`` and
+    ``model`` as the model backend resolved them), because a result is only
+    comparable with its sampling settings on record (Lambert 2025, chapter
+    Evaluation); a callable agent samples however it samples, so its rows
     carry ``sampling: None`` unless you pass ``sampling={...}``, which is
-    recorded as given. Three models can take part, the agent (``agent=``
-    or ``backend=``), the situation writer (``simulator=``) and the
-    simulated user (``user_model=``), and every row names all three next
-    to ``model_version``: ``writer_model``, ``user_model``, and
+    recorded as given. Three models can take part, the agent (``agent=`` or
+    ``backend=``), the situation writer (``simulator=``) and the simulated
+    user (``user_model=``), and every row names all three next to
+    ``model_version``: ``writer_model``, ``user_model``, and
     ``judge_meta.model`` once graded. When the agent model also wrote the
     situations or played the user, the run's ``degraded`` list carries
     ``same_model`` and ``warnings`` says which call separates them, since
     training on a model's own unfiltered output teaches it its own habits
-    (rlhf-book ch. 12).
+    (Lambert 2025, chapter Synthetic Data and Distillation).
 
     ```python
     import whileai.simulations as wai

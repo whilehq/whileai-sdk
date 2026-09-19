@@ -1,5 +1,6 @@
 """select_for_rl(truncated=): drop, keep, or penalize rollouts cut at the
-token cap (rlhf-book ch. 6 DAPO overlong handling, ch. 7 overlong filtering)."""
+token cap (DAPO overlong handling, Yu et al. 2025, arXiv:2503.14476;
+overlong filtering, Lambert 2025, chapter Reasoning)."""
 
 from __future__ import annotations
 

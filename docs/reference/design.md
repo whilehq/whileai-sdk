@@ -136,8 +136,8 @@ left out, the interval column never is.
 That row set is the offline quickstart on `whileai` 0.82; the library prints the same values as
 `pass@1 0.67 [0.55..0.78] | pass^4 (pass_pow_k) 0.19 [0.00..0.38] | pass@4 1.00 [1.00..1.00]`. Rules:
 
-- `n` counts tasks, never rollouts; the interval is a bootstrap over tasks (rlhfbook.com ch. 16).
-  Say so once per page.
+- `n` counts tasks, never rollouts; the interval is a bootstrap over tasks, cited as [n] with the
+  source in the page's references. Say so once per page.
 - In prose the interval reads "0.67 (0.55 to 0.78)". In a printed line it is `[lo..hi]`, as the
   library prints it. Never a bare mean.
 - A before and after is one table: `Metric | Before | After | Delta | 95% interval | n paired |

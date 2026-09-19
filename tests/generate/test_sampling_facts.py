@@ -1,5 +1,5 @@
 """Sampling facts on every row: policy_version, sampling, token_logprobs
-(rlhf-book ch. 6 async RL, ch. 9), and staleness_report."""
+(async RL, Noukhovitch et al. 2024, arXiv:2410.18252), and staleness_report."""
 
 from __future__ import annotations
 

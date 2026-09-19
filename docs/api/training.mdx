@@ -377,7 +377,7 @@ Which rows survive is checked before the GPU is spent (`check`,
 default `"require"`): `train` reads `wai.profile(dataset)` and
 runs `selection_report` on it. SFT with failing rows is refused
 (`TrainingSelectionError`): the trainer clones every row and the
-model learns the failure (rlhfbook.com/c/10-rejection-sampling.html;
+model learns the failure (Lambert 2025, chapter Rejection Sampling;
 #396 measured it, tool use 0.99 to 0.49). A grouped method with no
 mixed task is refused too, since a unanimous group carries no
 advantage (#397 trained on 6 of 84 rows and ended at grad_norm 0).
@@ -397,7 +397,8 @@ after which `run.adapter` names the weights and `run.training`
 carries before, after, rows and seconds. `serve` puts the adapter on
 an endpoint.
 
-The knobs a run is reproduced and compared by (rlhf-book ch. 6, 7):
+The knobs a run is reproduced and compared by (Lambert 2025, chapters
+Reinforcement Learning and Reasoning):
 `generations` is the group size per prompt for GRPO (the `k` the
 advantage is taken over; a pushed set's `repeats` is the natural
 value), `beta` the KL coefficient for GRPO and DPO, `learning_rate`
@@ -416,7 +417,7 @@ teaches the task, so `"zero"` is the knob to reach for only when the
 cap itself is the behavior under training (#253). Each has a
 trainer default when left `None`; the range each is accepted in and
 the value the cited paper used are in `TRAINING_KNOBS` (defaults.py:
-DAPO, Dr. GRPO, ProRL, DPO and the rlhf-book chapters), and a rejected
+DAPO, Dr. GRPO, ProRL, DPO and Lambert 2025), and a rejected
 value is told the reference. `config` passes further host keys as
 given (`epsilonHigh`, `scaleRewards`, `balance`).
 Every knob lands on the run's `config` so the run page shows it.

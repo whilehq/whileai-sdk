@@ -70,7 +70,7 @@ def test_every_knob_has_a_reason_next_to_it():
         assert f"{name} =" in comments, f"{name} has no `# {name} = <value>:` comment"
         assert (
             "arXiv" in comments
-            or "rlhf-book" in comments
+            or "Lambert 2025" in comments
             or "measured" in comments
             or "observed" in comments
             or "convention, untested" in comments

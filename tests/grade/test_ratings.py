@@ -1,5 +1,5 @@
 """run_judge(scale=(lo, hi)): a rating judge, reward normalized, rating kept
-(rlhf-book ch. 11, ratings vs rankings)."""
+(Lambert 2025, chapter Preference Data, ratings vs rankings)."""
 
 from __future__ import annotations
 

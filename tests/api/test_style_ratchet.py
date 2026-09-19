@@ -25,13 +25,13 @@ MAX_PARAMS = 8
 
 # Today's counts. Each is a ceiling; the test names the rule it guards.
 PINS = {
-    "exports": 212,  # rule 1: names in whileai.simulations.__all__
+    "exports": 208,  # rule 1: names in whileai.simulations.__all__
     # rule 1: names in whileai.__all__. The rule says "under thirty"; `tool`
     # (#447) made it exactly thirty, so this pin is the line itself and the
     # next name added has to take one off. See #456.
     "front_door": 30,
     "wide_calls": 27,  # rule 3: public calls with more than MAX_PARAMS parameters
-    "format_twins": 13,  # rule 5: format_* functions instead of __str__ on a report
+    "format_twins": 12,  # rule 5: format_* functions instead of __str__ on a report
     "bare_returns": 3,  # rule 5: front-door calls returning a bare dict or tuple
     "in_place_mutators": 6,  # rule 4: attach_* / stamp_* free functions over rows
     "implementation_names": 17,  # rule 6: build_/load_/run_ prefixes, _of/_rows suffixes

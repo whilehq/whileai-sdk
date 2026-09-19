@@ -70,7 +70,7 @@ What a researcher changes between runs: who plays the user and how patient they 
 
 ## Engine internals
 
-You should not need these. Every other number the engine uses is an `advanced` key too, named after its field on `whileai.simulations.defaults.RunKnobs`, where a comment above each states why the default is what it is (a measurement, an rlhfbook.com chapter by URL, an arXiv id, or "convention, untested"). They are here so nothing in the engine is a number you cannot change, and so a report (`data.report()["knobs"]`) can say what a run ran under. A value outside its bounds is a `ValueError` that names the floor or ceiling and the default.
+You should not need these. Every other number the engine uses is an `advanced` key too, named after its field on `whileai.simulations.defaults.RunKnobs`, where a comment above each states why the default is what it is (a measurement, the paper or textbook chapter it follows, or "convention, untested"). They are here so nothing in the engine is a number you cannot change, and so a report (`data.report()["knobs"]`) can say what a run ran under. A value outside its bounds is a `ValueError` that names the floor or ceiling and the default.
 
 | `advanced` key | Default | |
 |---|---|---|
@@ -157,7 +157,7 @@ When groups are uneven (the `rl` default allocates rollouts where groups split),
 
 `.per_task` is a **dict**, `{task: pass rate over that task's rollouts}`, keyed by `task_key(row)` (the `scenario_id`, else `task_id`, else the prompt string), not indexed, so `per_task[0]` is a `KeyError` and not the first task. Iterate `.per_task.items()`; `.per_task.values()` is the pass-rate vector pass@1 averages.
 
-**Which of these carry an interval.** All three pass numbers: `pass_at(rows).ci95` is a bootstrap over tasks on pass@1, and `pass_pow_k_ci95` / `pass_at_k_ci95` bootstrap the per-group unbiased estimates over the k-eligible groups, so the reliability line is read with the uncertainty of the tasks behind it (rlhf-book ch. 16). Fewer than three groups gives `None`, and `pass_at(rows).note` then says how many tasks there were, how many a bootstrap needs, and the fix: the resampling is over tasks, so rows that all carry one `task_id` are one task however many rows they are. What else carries one: `metric_summary` / `marker_summary` over markers, `trace_flag_report` over each trajectory marker's clean share, `refusal_report` and `judge_trust` a Wilson interval, `compare_runs` / `delta_report` a bootstrap interval on the paired *difference*. If a number is not in that list and is not one of the three pass numbers, assume it is a point estimate.
+**Which of these carry an interval.** All three pass numbers: `pass_at(rows).ci95` is a bootstrap over tasks on pass@1, and `pass_pow_k_ci95` / `pass_at_k_ci95` bootstrap the per-group unbiased estimates over the k-eligible groups, so the reliability line is read with the uncertainty of the tasks behind it [2]. Fewer than three groups gives `None`, and `pass_at(rows).note` then says how many tasks there were, how many a bootstrap needs, and the fix: the resampling is over tasks, so rows that all carry one `task_id` are one task however many rows they are. What else carries one: `metric_summary` / `marker_summary` over markers, `trace_flag_report` over each trajectory marker's clean share, `refusal_report` and `judge_trust` a Wilson interval, `compare_runs` / `delta_report` a bootstrap interval on the paired *difference*. If a number is not in that list and is not one of the three pass numbers, assume it is a point estimate.
 
 ### Logprobs and off-policy checks
 
@@ -174,7 +174,7 @@ wai.staleness_report(
 )  # policy versions, stale rows, logprob coverage
 ```
 
-`staleness_report` is the off-policy check (rlhf-book ch. 6): rows sampled by an older policy are usable only when they carry the sampler's version and its logprobs, so the importance ratio can be formed; rows whose `model_version` differs from `base_model` are `stale`.
+`staleness_report` is the off-policy check [1]: rows sampled by an older policy are usable only when they carry the sampler's version and its logprobs, so the importance ratio can be formed; rows whose `model_version` differs from `base_model` are `stale`.
 
 ### The judge on the row
 
@@ -185,3 +185,8 @@ A judge is a reward model, so two things ride with every label. Provenance: rows
 ### Schema
 
 Every row carries `schema_version` (`"1"`). A row is a projection of four objects in `whileai.simulations.schema`: `Task` (the situation), `Rollout` (one episode), `Judgment` (a scorer's verdict), `Marker` (a behavior measurement). `wai.from_row(row)` splits a row into them and `wai.to_row(...)` flattens them back. The wire contract is [`whileai/simulations/schemas/row-v1.json`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/schemas/row-v1.json). Rows written before the stamp are version 0 and load by shape, so older files still work.
+
+## References
+
+1. Noukhovitch, M. et al. Asynchronous RLHF: Faster and More Efficient Off-Policy RL for Language Models. ICLR 2025. arXiv:2410.18252.
+2. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.

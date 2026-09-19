@@ -48,14 +48,14 @@ HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 METRIC = "pass@1"
 
-# ch. 14 is the chapter this recipe lives in: the shaped score is a proxy, and
+# chapter Over-optimization is the chapter this recipe lives in: the shaped score is a proxy, and
 # the paper's failure is that proxy being optimized while the target does not
-# move. The filter itself belongs to ch. 6 (policy gradients, group baselines).
-BOOK = "ch. 14 Over-optimization"
+# move. The filter itself belongs to chapter Reinforcement Learning (policy gradients, group baselines).
+BOOK = "Over-optimization Over-optimization"
 # The training reward is not the target metric, so it is named as the proxy and
 # `delta_report` gets to call over-optimization when the two come apart.
 PROXY = "marker:shaped_reward"
-EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (ch. 16)
+EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (chapter Evaluation)
 
 # The shaped reward, straight from the paper: outcome minus a length penalty
 # normalized at 512 characters. LAMBDA is the "phantom strength" knob; the
@@ -145,7 +145,7 @@ def make_reward(filter_metric: str, sink: list | None = None):
     """The reward function TRL calls, closed over the arm's filter metric.
 
     `sink` keeps the most recent batch in graded-row shape, so `hack_scan` can
-    read the last training batch after `trainer.train()` returns (ch. 14)."""
+    read the last training batch after `trainer.train()` returns (chapter Over-optimization)."""
 
     def reward(completions, prompts, answer, **kwargs):
         texts = [c[0]["content"] if isinstance(c, list) else str(c) for c in completions]
@@ -175,12 +175,12 @@ def make_reward(filter_metric: str, sink: list | None = None):
 
 
 def mean_length(rows: list[dict]) -> float:
-    """Mean completion length, the ch. 14 tell that a length term is winning."""
+    """Mean completion length, the chapter Over-optimization tell that a length term is winning."""
     return statistics.fmean(len(r.get("final_text") or "") for r in rows) if rows else 0.0
 
 
 def top_hack_feature(rows: list[dict]) -> str:
-    """What the reward actually paid for in the last training batch (ch. 14)."""
+    """What the reward actually paid for in the last training batch (chapter Over-optimization)."""
     import whileai.simulations as wai
 
     try:
@@ -283,7 +283,7 @@ def _sample(model, tokenizer, questions, *, n, max_new_tokens, batch=8):
 
 def _base_runs(model, tokenizer, holdout, runs, eval_samples, max_new_tokens) -> list[list[dict]]:
     """`runs` evaluations of the same untrained model on the same holdout:
-    the spread between them is the eval's own noise (rlhf-book ch. 16)."""
+    the spread between them is the eval's own noise (Lambert 2025, chapter Evaluation)."""
     sys.path.insert(0, "/root")
     from recipe_mod import graded_rows
 
@@ -594,7 +594,7 @@ def selftest() -> None:
 
 
 def selftest_science_bar() -> None:
-    """The ch. 16 and ch. 14 plumbing, on synthetic rows. This does not check
+    """The chapter Evaluation and chapter Over-optimization plumbing, on synthetic rows. This does not check
     the recipe's numbers -- there are none until it runs -- only that every
     check is wired to something real and reads the field it thinks it reads."""
     import random
@@ -614,7 +614,7 @@ def selftest_science_bar() -> None:
         ]
         return graded_rows(holdout, replies)
 
-    # ch. 16, decontaminate: the holdout must be handed over prompt-keyed, or
+    # chapter Evaluation, decontaminate: the holdout must be handed over prompt-keyed, or
     # `against=` reads nothing and the check silently passes. Assert it bites.
     train = [{"question": "shared prompt", "answer": "#### 1", "scenario_id": "train-0"}]
     kept, report = wai.decontaminate(
@@ -625,13 +625,13 @@ def selftest_science_bar() -> None:
     assert report["n_contaminated"] == 1 and not kept, "decontaminate is not reading the prompt"
     print(f"decontaminate: catches a shared prompt ({report['n_contaminated']} dropped)")
 
-    # ch. 16, eval noise: three re-runs of the same model give a run_std.
+    # chapter Evaluation, eval noise: three re-runs of the same model give a run_std.
     runs = [fake(0.35) for _ in range(EVAL_RUNS)]
     noise = wai.eval_variance(*runs)
     assert "run_std" in noise and noise["n_runs"] == EVAL_RUNS
     print(f"eval_variance: {EVAL_RUNS} re-runs -> run_std {float(noise['run_std']):.4f}")
 
-    # ch. 14, proxy vs target: rows carry the shaped reward as a marker, so a
+    # chapter Over-optimization, proxy vs target: rows carry the shaped reward as a marker, so a
     # proxy that climbs while the target sits still is an over-optimized verdict.
     d = wai.delta_report(
         runs[0],
@@ -649,7 +649,7 @@ def selftest_science_bar() -> None:
         f"over_optimized {d['over_optimized']}"
     )
 
-    # ch. 14, hack scan: the top feature comes back named, not as a crash.
+    # chapter Over-optimization, hack scan: the top feature comes back named, not as a crash.
     top = top_hack_feature(runs[0])
     assert isinstance(top, str) and top
     print(f"hack_scan: top feature {top}")
@@ -683,7 +683,7 @@ def main() -> None:
     from whileai.simulations.score.stats import noise_band
 
     train_tasks, holdout = data(args.seed, args.n_train, args.n_holdout)
-    # ch. 16: drop any train prompt that is a holdout prompt. `against=` reads
+    # chapter Evaluation: drop any train prompt that is a holdout prompt. `against=` reads
     # the eval texts from `prompt`/`answer`, so the holdout is handed over
     # prompt-keyed; passing it question-keyed silently finds nothing.
     train_tasks, decon = wai.decontaminate(
@@ -732,7 +732,7 @@ def main() -> None:
     run_url = ""
 
     def record_base(base_runs: list[list[dict]]) -> None:
-        # ch. 16: the floor is the sample std over the re-runs, and it is an
+        # chapter Evaluation: the floor is the sample std over the re-runs, and it is an
         # estimate from `n_runs` draws, so the band on it is the t quantile
         # at df = n_runs - 1, not 1.96. Both numbers go to results.json.
         arm_rows["base"] = base_runs[0]

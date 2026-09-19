@@ -1,5 +1,5 @@
-"""Evaluation re-run variance (rlhf-book ch. 16) and the noise band on
-delta_report."""
+"""Evaluation re-run variance (Lambert 2025, chapter Evaluation) and the noise
+band on delta_report."""
 
 from __future__ import annotations
 

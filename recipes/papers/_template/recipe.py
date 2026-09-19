@@ -5,12 +5,12 @@
 
 Shape of every recipe:
   1. data():      tasks + a task-disjoint holdout (public data or a seeded env in this dir),
-                  decontaminated: train rows that overlap the holdout are dropped (rlhf-book ch. 16)
+                  decontaminated: train rows that overlap the holdout are dropped (Lambert 2025, chapter Evaluation)
   2. evaluate():  the untrained base, k samples per task, THREE times -> eval_variance run_std,
-                  so a delta smaller than the eval's own noise is never called a result (ch. 16)
+                  so a delta smaller than the eval's own noise is never called a result (chapter Evaluation)
   3. train(arm):  "baseline" or "recipe"; the recipe arm is the baseline plus ONE change
   4. evaluate():  each arm on the same holdout; delta_report with run_std and the training
-                  reward named as proxy, so over-optimization is a verdict, not a vibe (ch. 14)
+                  reward named as proxy, so over-optimization is a verdict, not a vibe (chapter Over-optimization)
   5. results.json + the checks the README table reads
 
 Training runs on Modal (TRL + LoRA, see recipes/04-train/grpo/train_modal.py)
@@ -32,7 +32,7 @@ import whileai.simulations as wai
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen3-4B"
 METRIC = "pass@1"
-BOOK = "ch. 6"  # the rlhfbook.com chapter this recipe tests or relies on
+BOOK = "Reinforcement Learning"  # the chapter title of Lambert 2025 this recipe tests or relies on
 PROXY = None  # e.g. "marker:shaped_reward" when the training reward differs from the target
 EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor
 

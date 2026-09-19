@@ -1,7 +1,7 @@
 # Adaptive clip: the upper bound follows how rare a correct answer was
 
 **Paper:** Group Adaptive Clipping Policy Optimization, Sheng Jia et al., arXiv:2609.00444, August 2026. https://arxiv.org/abs/2609.00444
-**Book:** rlhfbook.com ch. 6 Policy gradients: the clipped surrogate objective, and what the width of the clip range does to an update the group thinks is worth making.
+**Book:** the clipped surrogate objective of PPO [1] as GRPO applies it [2], and what the width of the clip range does to an update the group thinks is worth making [3].
 **Claim:** GRPO clips every rollout against the same upper bound, so the one correct answer in a hard group and the seventh correct answer in an easy group are held back equally; letting the bound widen as correct answers get rarer gives the informative rollouts more room and raises pass@1 and pass@k on math and code.
 **The change:** the upper clip bound is computed per group from how many of its rollouts were right, instead of being one fixed number.
 
@@ -9,7 +9,7 @@
 
 1. Base: `Qwen/Qwen2.5-1.5B-Instruct`. Data: GSM8K, 512 train prompts from the train split, 120 held out from the test split (different splits, so there is no overlap to check for).
 2. Reward, both arms: the binary outcome, `MathEqual` against the GSM8K gold number. A program, not a judge. The paper changes the clip, not the reward, so nothing here is shaped.
-3. Baseline arm: GRPO with `epsilon` 0.20 and `epsilon_high` 0.28, fixed for every rollout. That pair is DAPO's clip-higher and it is the paper's own token-level default.
+3. Baseline arm: GRPO with `epsilon` 0.20 and `epsilon_high` 0.28, fixed for every rollout. That pair is DAPO's clip-higher [4] and it is the paper's own token-level default.
 4. Recipe arm: same 0.20 floor and the same 0.28 ceiling, but the upper bound slides per group, `eps_hi(c) = eps_lo + (eps_hi_max - eps_lo) * (k - c) / (k - 1)` with `c` correct out of `k = 8` rollouts. One right out of eight keeps the full 0.28; seven right gets 0.2114.
 5. Eval: pass@1 on the same 120 held-out tasks, 4 samples per task. The untrained base is evaluated three times first, and that spread is the noise floor a delta has to clear; the train set is decontaminated against the holdout before any training. Paired delta with a 95% interval (`wai.pass_at`, `wai.delta_report`).
 
@@ -80,15 +80,15 @@ ceiling instead of over it.
 Nothing in this table is ticked by hand: every cell is written by `recipe.py`
 into `results.json`. These are today's numbers.
 
-| Check | Book | Result |
+| Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | **run_std 0.0087**, so a delta under **0.024** is noise. This measures re-running the eval, not re-running the training — and the training is where this recipe's variance turned out to live |
-| Holdout is clean: `decontaminate(train, against=holdout)` | ch. 16 | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits — measured, not assumed |
-| Reward is a program, not a judge | ch. 7, 13 | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
-| Proxy vs target: `delta_report(proxy=)` | ch. 14 | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize |
-| Length: mean completion length before -> after, per arm | ch. 14 | **725 chars base -> 413 baseline, 542 recipe.** Both arms got shorter and more right, so neither is winning on length |
-| Hack scan on the last training batch: `hack_scan` | ch. 14 | top feature `n:digits` (baseline batch: `contains:week`) — GSM8K arithmetic surface, not a reward surface. Nothing is endorsed, so this is the scan reporting it found nothing |
-| Pinned: seed, torch, transformers, trl, peft | app. C | seed 17 in the trainer, `--seed 0` for the data split; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [5] | **run_std 0.0087**, so a delta under **0.024** is noise. This measures re-running the eval, not re-running the training — and the training is where this recipe's variance turned out to live |
+| Holdout is clean: `decontaminate(train, against=holdout)` | [6] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits — measured, not assumed |
+| Reward is a program, not a judge | [6] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
+| Proxy vs target: `delta_report(proxy=)` | [7] | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize |
+| Length: mean completion length before -> after, per arm | [7] | **725 chars base -> 413 baseline, 542 recipe.** Both arms got shorter and more right, so neither is winning on length |
+| Hack scan on the last training batch: `hack_scan` | [7] | top feature `n:digits` (baseline batch: `contains:week`) — GSM8K arithmetic surface, not a reward surface. Nothing is endorsed, so this is the scan reporting it found nothing |
+| Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | seed 17 in the trainer, `--seed 0` for the data split; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
 
 The two arms share the data, the holdout, the reward and every trainer knob
 except the clip bound. In rounds 1 to 3 they did not share the LoRA init (see
@@ -105,14 +105,14 @@ above); from the next verify run they do.
 **Round 1 could not have tested the paper, and the trainer's own logs say so.**
 TRL takes one policy update per batch of rollouts by default. On that update
 the sampling policy and the trained policy are the same, so the importance
-ratio is exactly 1 — rlhfbook ch. 6: "the policy ratio starts at 1 for the
-first gradient step for that batch". A ratio of 1 never reaches a bound of
+ratio is exactly 1: "the policy ratio starts at 1 for the
+first gradient step for that batch" [3]. A ratio of 1 never reaches a bound of
 1.20 or 1.28, so `epsilon_high` is dead weight and a *per-group*
 `epsilon_high` is dead weight per group. `clip_ratio/high_mean` was 0.0 in all
 40 logged steps of round 1. The -0.013 it reported was generation
 nondeterminism between two arms running the same arithmetic.
 
-Round 2 takes the chapter's "1-4 gradient steps per batch" at 2, which is the
+Round 2 takes the usual "1-4 gradient steps per batch" [3] at 2, which is the
 smallest change that lets the second update be off-policy. The clip does then
 fire. How hard it fires is itself unstable between runs: round 2 logged
 `clip_ratio/high_mean` between 0 and 0.0003, round 3 logged a mean of 0.0021
@@ -141,3 +141,13 @@ measure is a few points.
 - **A two-arm delta at one training seed per arm is not a measurement, and this is what that looks like.** Re-running this recipe unchanged moved the delta from -0.065 [-0.117, -0.013] to +0.050 [0.000, 0.100]: 11.5 points, sign flipped, and the first run's interval excluded zero on the wrong side. Nothing in the recipe changed; the differences were whileai 0.53 -> 0.64, ordinary nondeterminism in generation and kernel scheduling, and, on the baseline arm only, an unseeded LoRA init (TRL builds the adapter before it seeds; fixed in `recipe.py` after this round). The eval-noise floor this directory enforces (0.024 here) is the noise of *re-running the eval on a fixed model*, and it says nothing about the noise of re-running the training. Where a recipe's whole claim is a delta between two trained models, that second source is the one that decides whether there is a result, and it needs several training seeds per arm to see at all. Read every one-seed delta in this directory — including the ones with tight intervals — with that in mind.
 
 Verified 2026-09-18, whileai 0.64, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 20.4 GPU minutes, $0.68 on one L40S (round 2: 32.6 minutes, $1.09; round 1: 43.1 minutes, $1.44). Run page: https://www.zeroproofai.com/platform/training/run_000dac972e53b532
+
+## References
+
+1. Schulman, J. et al. Proximal Policy Optimization Algorithms. arXiv:1707.06347, 2017.
+2. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+3. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Reinforcement Learning*.
+4. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
+5. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+6. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
+7. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

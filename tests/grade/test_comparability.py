@@ -2,7 +2,8 @@
 (who was graded, who played the user) under one prefix and one key, the
 re-run band is ``noise_band`` everywhere (1.96 or the t quantile, times
 ``run_std * sqrt(1/n_a + 1/n_b)``), and the multiplicity note is an upper
-bound (rlhf-book ch. 16, appendix C)."""
+bound (Lambert 2025, chapter Evaluation and its evaluation-variance
+appendix)."""
 
 from __future__ import annotations
 

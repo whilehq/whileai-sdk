@@ -1,4 +1,5 @@
-"""training_rows(max_tool_output_chars=): tool output is cut out loud (rlhf-book ch. 13)."""
+"""training_rows(max_tool_output_chars=): tool output is cut out loud
+(Lambert 2025, chapter Tool Use)."""
 
 from __future__ import annotations
 

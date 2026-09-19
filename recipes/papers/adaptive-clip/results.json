@@ -2,7 +2,7 @@
   "recipe": "adaptive-clip",
   "title": "Adaptive clip: the upper bound follows how rare a correct answer was",
   "paper": "https://arxiv.org/abs/2609.00444",
-  "book": "ch. 6 Policy gradients",
+  "book": "Reinforcement Learning",
   "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
   "metric": "pass@1",
   "n_holdout": 120,

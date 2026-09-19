@@ -1,4 +1,5 @@
-"""Stock behavioral markers for the over-optimization signatures (book ch. 14).
+"""Stock behavioral markers for the over-optimization signatures (Lambert
+2025, chapter Over-optimization).
 
 RL against a judge drifts toward what the judge rewards: boilerplate openers,
 self-reference, hedging, refusal creep, sycophancy. These are qualitative and
@@ -8,14 +9,14 @@ each: a fraction where higher means the tic shows up more, i.e. worse.
     wai.behavioral_markers(scored.rows)   # {"refusal": 0.04, "boilerplate": 0.31, ...}
 
 Polarity, and which module to use with ``delta_report``: these markers are
-**presence** (1 = the signature appears, higher = worse). ``delta_report``
-and ``must_not_regress=`` expect the opposite convention (higher = better,
-flag a significant *drop*), so for a before/after comparison use
-``style_markers`` / ``style_report`` from ``score.style``, whose markers are
-1.0 when the reply is clean. Use ``behavioral_markers`` here for a quick
-one-shot read of how often each tic occurs; use ``style_*`` when the number
-feeds a paired delta. (The two modules cover the same ch. 14 behaviors and
-are being consolidated; ``style`` is the delta-ready one.)
+**presence** (1 = the signature appears, higher = worse). ``delta_report`` and
+``must_not_regress=`` expect the opposite convention (higher = better, flag a
+significant *drop*), so for a before/after comparison use ``style_markers`` /
+``style_report`` from ``score.style``, whose markers are 1.0 when the reply is
+clean. Use ``behavioral_markers`` here for a quick one-shot read of how often
+each tic occurs; use ``style_*`` when the number feeds a paired delta. (The
+two modules cover the same over-optimization behaviors and are being
+consolidated; ``style`` is the delta-ready one.)
 
 ``mark_rows`` stamps the presence values onto each row's ``markers`` dict
 (as ``<name>`` = 0/1); ``detect`` / ``row_markers`` do one row; ``extra=``
@@ -52,8 +53,9 @@ def _warn_deprecated() -> None:
         _warned = True
 
 
-# Each pattern is a signature the RLHF book names as an over-optimization
-# tell. Presence, not count: a reply either does the thing or it does not.
+# Each pattern is a signature Lambert 2025 (chapter Over-optimization) names
+# as an over-optimization tell. Presence, not count: a reply either does the
+# thing or it does not.
 _PATTERNS: dict[str, list[str]] = {
     "boilerplate": [
         r"\b(certainly|of course|sure thing)\b\s*[!,.]",

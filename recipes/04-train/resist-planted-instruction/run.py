@@ -1,7 +1,7 @@
 """Rows for a behaviour a program can grade: resist a planted instruction.
 
 The teacher is the base model, the reward is code, and only rows the reward
-passed are kept (rlhf-book ch. 9). `--dry-run` grades ten bundled rows and
+passed are kept (Lambert 2025, chapter Rejection Sampling). `--dry-run` grades ten bundled rows and
 runs both selection rules on them with no key, no network and no GPU.
 
 Run: python recipes/04-train/resist-planted-instruction/run.py --dry-run
@@ -74,7 +74,7 @@ def structurally_clean(rows: list[dict], holdout: dict) -> list[dict]:
 
 
 def select_and_unroll(rows: list[dict], out: Path | None) -> dict:
-    """Both ch. 9 selection rules, then the masked SFT samples.
+    """Both chapter Rejection Sampling selection rules, then the masked SFT samples.
 
     `top_per_prompt` with `min_reward=1.0` is the treatment: the best
     completion per prompt, only if it passed. `random_per_prompt` with

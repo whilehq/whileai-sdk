@@ -56,9 +56,9 @@ above comes from the scored evals::
     tracked.figure("reward-by-step", fig, caption="Training reward, v4")  # plotly Figure or dict
     run.note("Reward flattened at step 300; the last 100 steps bought nothing.")
 
-Every object is a pydantic model, validated before it leaves the
-process, and each one says which chapter of rlhfbook.com it comes from.
-Chapters are cited by title because the web book's numbering has moved.
+Every object is a pydantic model, validated before it leaves the process, and
+each one says which chapter of Lambert 2025 (arXiv:2504.12501) it comes from.
+Chapters are cited by title because the numbering has moved between editions.
 Logging never raises into a training loop: points are buffered, sent in
 batches, and a failed send is retried on the next flush.
 """
@@ -136,12 +136,12 @@ class _Wire(BaseModel):
 class Frontier(_Wire):
     """The model you pay for today, drawn on every screen as the line to beat.
 
-    rlhfbook.com, "Synthetic Data and Distillation": a stronger model's
+    Lambert 2025, chapter Synthetic Data and Distillation: a stronger model's
     outputs are the usual teacher for a smaller open one, so the
     comparison the platform makes is teacher vs student on the same
     held-out test. ``score`` is on the same test as the versions;
     ``cost_per_1k`` replies and ``p50_s`` latency are the deployment
-    numbers the book does not cover and a buyer asks about first.
+    numbers that chapter does not cover and a buyer asks about first.
     """
 
     name: str
@@ -155,7 +155,7 @@ class Harness(_Wire):
     name. Changing any of it changes what the agent does, so it is
     versioned like weights and the fingerprint is the version.
 
-    rlhfbook.com, "Evaluation": scores move with the prompt and sampling
+    Lambert 2025, chapter Evaluation: scores move with the prompt and sampling
     setup, not only the weights, so a result is only comparable with its
     setup held constant. The fingerprint is how the platform knows two
     versions were measured under the same harness.
@@ -194,7 +194,7 @@ class Harness(_Wire):
 class Judge(_Wire):
     """How the scores on a behavior were produced, and whether to trust them.
 
-    rlhfbook.com, "Evaluation": LLM-as-a-judge replaced human raters for
+    Lambert 2025, chapter Evaluation: LLM-as-a-judge replaced human raters for
     most post-training evals; a judge is only as good as its agreement
     with people on a labeled slice (``agreement`` over ``human_n`` items,
     after Zheng et al. 2023, "Judging LLM-as-a-Judge with MT-Bench and
@@ -212,7 +212,7 @@ class Judge(_Wire):
 class Behavior(_Wire):
     """One thing you measure, with its own frozen held-out test and judge.
 
-    rlhfbook.com, "Evaluation": labs keep train, dev and held-out sets
+    Lambert 2025, chapter Evaluation: labs keep train, dev and held-out sets
     apart, and post-training evals move 0.25 to 1.5 points between runs
     of the same setup. So ``test_version`` names a frozen set (bump it
     when the set changes), ``noise_floor`` is that run-to-run spread
@@ -220,9 +220,9 @@ class Behavior(_Wire):
     were found in the training data, and ``n`` is the size the interval
     comes from.
 
-    rlhfbook.com, "Over-Optimization" and "Reward Modeling": a judge that
-    is also the reward gets exploited and cannot see it happen, which is
-    what ``reward_is_judge`` records and warns about.
+    Gao et al. 2022, arXiv:2210.10760, and Lambert 2025, chapter Reward
+    Modeling: a judge that is also the reward gets exploited and cannot see it
+    happen, which is what ``reward_is_judge`` records and warns about.
     """
 
     name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -285,10 +285,10 @@ class Data(_Wire):
     """What the run trained on and what it was scored against, as ids and
     counts a reader can check, not as a sentence.
 
-    rlhfbook.com, "Evaluation": a score means nothing without the held-out
-    set it came from and proof the training data did not contain it.
-    ``decontaminated_dropped`` is that proof as a count; ``hash`` fields
-    pin the exact rows (sha256 of the ordered ids, or a dataset revision).
+    Lambert 2025, chapter Evaluation: a score means nothing without the
+    held-out set it came from and proof the training data did not contain it.
+    ``decontaminated_dropped`` is that proof as a count; ``hash`` fields pin
+    the exact rows (sha256 of the ordered ids, or a dataset revision).
     """
 
     train: str | None = None
@@ -305,7 +305,8 @@ class Optimizer(_Wire):
     """The knobs that decide what the policy gradient does, named the way
     the papers name them so two runs can be compared knob by knob.
 
-    rlhfbook.com, "Policy Gradients": ``epsilon`` and ``epsilon_high`` are
+    Schulman et al. 2017, arXiv:1707.06347, and Yu et al. 2025 (DAPO),
+    arXiv:2503.14476: ``epsilon`` and ``epsilon_high`` are
     the clip range (DAPO's clip-higher when they differ), ``beta`` the KL
     coefficient, ``loss_type`` which normalisation the objective uses (GRPO's
     per-sequence mean, Dr. GRPO / DAPO's token sum). ``num_generations`` is
@@ -333,11 +334,11 @@ class EvalSetup(_Wire):
     """How the held-out score was produced: the metric, samples per task,
     and the eval's own re-run noise.
 
-    rlhfbook.com, "Evaluation": one evaluation is one draw. ``run_std`` is
-    the standard deviation of the untrained base's score over
-    ``run_std_runs`` re-runs of the same eval, the floor a delta has to
-    clear before it is a result. ``reader`` names how the answer span was
-    read (``boxed``, ``lenient``, a judge name).
+    Lambert 2025, chapter Evaluation: one evaluation is one draw. ``run_std``
+    is the standard deviation of the untrained base's score over
+    ``run_std_runs`` re-runs of the same eval, the floor a delta has to clear
+    before it is a result. ``reader`` names how the answer span was read
+    (``boxed``, ``lenient``, a judge name).
     """
 
     metric: str | None = None
@@ -351,7 +352,7 @@ class Provenance(_Wire):
     """What it takes to run this again: library versions, the image, the
     recipe and commit, the paper, where the weights landed.
 
-    rlhfbook.com, appendix C (practical): pin the seed and the versions;
+    Lambert 2025, evaluation-variance appendix: pin the seed and the versions;
     a run that cannot be repeated is not a result.
     """
 
@@ -381,9 +382,10 @@ class RunSpec(_Wire):
     from, the method, which behaviors it aims at, and which datasets it
     trained on.
 
-    rlhfbook.com, "Policy Gradients" for GRPO and "Direct Alignment" for
-    DPO; ``method`` is recorded, not interpreted. ``targets`` are the
-    claim, every other behavior is the check (see ``Score``).
+    GRPO is Shao et al. 2024, arXiv:2402.03300, and DPO is Rafailov et al.
+    2023, arXiv:2305.18290; ``method`` is recorded, not interpreted.
+    ``targets`` are the claim, every other behavior is the check (see
+    ``Score``).
     """
 
     version: str = Field(min_length=1, max_length=40)
@@ -400,12 +402,13 @@ class RunSpec(_Wire):
 class TrainPoint(_Wire):
     """One point on the training curve.
 
-    rlhfbook.com, "Policy Gradients": the group-normalised reward is what
-    GRPO climbs, and the KL penalty to the reference model is the brake.
-    "Over-Optimization": KL distance from the start is the measure of how
-    far the policy has moved, and a run whose reward climbs while KL runs
-    away is the picture of a proxy being gamed. ``loss`` is the SFT and
-    DPO curve. Other finite numbers are kept under their own names.
+    The group-normalised reward is what GRPO climbs (Shao et al. 2024,
+    arXiv:2402.03300), and the KL penalty to the reference model is the brake
+    (Schulman et al. 2017, arXiv:1707.06347). KL distance from the start is
+    the measure of how far the policy has moved, and a run whose reward climbs
+    while KL runs away is the picture of a proxy being gamed (Gao et al. 2022,
+    arXiv:2210.10760). ``loss`` is the SFT and DPO curve. Other finite numbers
+    are kept under their own names.
     """
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="allow")
@@ -419,12 +422,12 @@ class TrainPoint(_Wire):
 class Score(_Wire):
     """One version scored on one behavior's frozen held-out test.
 
-    rlhfbook.com, "Evaluation": one evaluation is one draw; the interval
-    is the result. ``ci`` is the half-width of the 95% interval and ``n``
-    the number of held-out items it came from. Score every behavior the
-    agent has, not only the ones the run trained: "Over-Optimization" is
-    the chapter on why the untrained ones move (verbosity, sycophancy,
-    refusals) and the platform's regressions tile is that check.
+    Lambert 2025, chapter Evaluation: one evaluation is one draw; the interval
+    is the result. ``ci`` is the half-width of the 95% interval and ``n`` the
+    number of held-out items it came from. Score every behavior the agent has,
+    not only the ones the run trained: the untrained ones move too (verbosity,
+    sycophancy, refusals; Lambert 2025, chapter Over-optimization) and the
+    platform's regressions tile is that check.
     """
 
     behavior: str = Field(min_length=1, max_length=64)
@@ -510,7 +513,7 @@ class LiveSeries(_Wire):
 class Verdict(_Wire):
     """The one line a person reads before Promote.
 
-    rlhfbook.com, "Evaluation": a difference inside the run-to-run
+    Lambert 2025, chapter Evaluation: a difference inside the run-to-run
     spread is not a result. ``excludes_zero`` is whether the difference
     interval, ``delta +- sqrt(ci_candidate^2 + ci_served^2)``, excludes
     zero. "beats" or "trails" is said only when it does and the delta
@@ -1354,7 +1357,7 @@ def tracked_agents(api_key: str | None = None) -> list[TrackedInfo]:
 
 # ---------------------------------------------------------------------
 # The rest of the platform: sign in, datasets, hosted training and
-# serving, traces. Loaded on first use so ``from whileai import platform``
+# serving. Loaded on first use so ``from whileai import platform``
 # stays cheap and the engine is not imported for a login.
 # ---------------------------------------------------------------------
 
@@ -1374,8 +1377,6 @@ _LAZY: dict[str, tuple[str, str]] = {
     "unpublish": ("whileai.simulations.ingest.platform", "unpublish"),
     "agents": ("whileai.simulations.ingest.platform", "agents"),
     "register_agent": ("whileai.simulations.ingest.platform", "register_agent"),
-    "cuts": ("whileai.simulations.ingest.platform", "cuts"),
-    "cut": ("whileai.simulations.ingest.platform", "cut"),
     "hf_publish": ("whileai.simulations.ingest.platform", "hf_publish"),
     "import_hf": ("whileai.simulations.ingest.platform", "import_hf"),
     "train": ("whileai.simulations.training", "train"),
@@ -1388,9 +1389,6 @@ _LAZY: dict[str, tuple[str, str]] = {
     "reward_model": ("whileai.simulations.training", "reward_model"),
     "TrainerCallback": ("whileai.simulations.training", "TrainerCallback"),
     "TrainingRun": ("whileai.simulations.training", "TrainingRun"),
-    "send_traces": ("whileai.ingest", "send_traces"),
-    "list_traces": ("whileai.ingest", "list_traces"),
-    "otel_env": ("whileai.ingest", "otel_env"),
 }
 
 
@@ -1412,12 +1410,9 @@ def __dir__() -> list[str]:
 
 if TYPE_CHECKING:  # the lazy names above, visible to editors and mypy
     from .auth import LoginError, account, login, logout, signup
-    from .ingest import list_traces, otel_env, send_traces
     from .simulations.ingest.platform import (
         agents,
         catalog,
-        cut,
-        cuts,
         datasets,
         hf_publish,
         import_hf,
@@ -1477,18 +1472,14 @@ __all__ = [
     "account",
     "agents",
     "catalog",
-    "cut",
-    "cuts",
     "datasets",
     "describe",
     "get_run",
     "hf_publish",
     "import_hf",
-    "list_traces",
     "login",
     "logout",
     "models",
-    "otel_env",
     "platform_url",
     "preview",
     "publish",
@@ -1498,7 +1489,6 @@ __all__ = [
     "register_agent",
     "reward_model",
     "runs",
-    "send_traces",
     "serve",
     "signup",
     "track",

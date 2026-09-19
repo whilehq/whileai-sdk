@@ -1,13 +1,14 @@
 """Over-optimization signatures on replies: the things a reward pays for
 by accident.
 
-rlhf-book ch. 14 ("Managing Proxy Objectives") lists what a policy drifts
-into when it optimizes a proxy reward: verbosity, hedging, boilerplate
-openers and closers, apology, sycophancy, and refusing benign asks. Ch. 17
-names the phrases character pipelines exist to remove ("Certainly",
-"as an AI model"). Length and tool count already have a reward
-correlation scan (``reward_correlations``); this module gives the
-qualitative signatures the same treatment, as behavioral markers.
+Lambert 2025, chapter Over-optimization ("Managing Proxy Objectives"), lists
+what a policy drifts into when it optimizes a proxy reward: verbosity,
+hedging, boilerplate openers and closers, apology, sycophancy, and refusing
+benign asks. The chapter Model Character and Products names the phrases
+character pipelines exist to remove ("Certainly", "as an AI model"). Length
+and tool count already have a reward correlation scan
+(``reward_correlations``); this module gives the qualitative signatures the
+same treatment, as behavioral markers.
 
 Each marker is 1.0 when the reply is clean and 0.0 when a phrase from its
 list appears, so ``marker_summary``, ``delta_report(must_not_regress=)``
@@ -160,14 +161,14 @@ def style_report(
     """How much of each signature the replies carry, and whether the reward
     pays for it. Does not mutate ``rows``.
 
-    Per marker: ``clean`` (share of rows without a hit, with a task-
-    bootstrap 95% interval), ``hits`` (rows with a hit), ``top_phrases``
-    (the phrases that fired, most common first) and ``reward_corr``
-    (Pearson between "phrase present" and the binary reward over graded
-    rows). A positive correlation at or above ``threshold`` is flagged:
-    the judge is rewarding the tic, and a policy trained on these rewards
-    will produce more of it (rlhf-book ch. 14). ``warnings`` says so in
-    one line per flag.
+    Per marker: ``clean`` (share of rows without a hit, with a task-bootstrap
+    95% interval), ``hits`` (rows with a hit), ``top_phrases`` (the phrases
+    that fired, most common first) and ``reward_corr`` (Pearson between
+    "phrase present" and the binary reward over graded rows). A positive
+    correlation at or above ``threshold`` is flagged: the judge is rewarding
+    the tic, and a policy trained on these rewards will produce more of it
+    (Gao et al. 2022, arXiv:2210.10760). ``warnings`` says so in one line per
+    flag.
     """
     table = dict(STYLE_MARKERS)
     if phrases:
@@ -223,7 +224,8 @@ def refusal_report(
     phrases: Sequence[str] = REFUSAL,
     examples: int = 5,
 ) -> dict[str, Any]:
-    """Over-refusal on a benign set (rlhf-book ch. 14 "Over-Refusal").
+    """Over-refusal on a benign set (Lambert 2025, chapter Over-optimization,
+    "Over-Refusal").
 
     Pass the rows whose asks the agent should have answered; the report is
     the share it refused anyway, with a Wilson 95% interval, the phrases

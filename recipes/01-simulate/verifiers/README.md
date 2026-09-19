@@ -1,10 +1,10 @@
 # Verifiers: verifiable rewards
 
-A verifier is a reward that is a program, not an opinion (RLHF book ch. 7
-Reasoning, ch. 13 Tools/RLVR). It reads a rollout and returns pass, fail, or
-a partial score, with no model call. Every verifier honors the judge
-contract, so it plugs into `data.grade(judge=...)`, `evaluate`, `optimize`
-and a gated `push` exactly where an LLM judge would.
+A verifier is a reward that is a program, not an opinion, the reward of
+reinforcement learning with verifiable rewards [1]. It reads a rollout and
+returns pass, fail, or a partial score, with no model call. Every verifier
+honors the judge contract, so it plugs into `data.grade(judge=...)`,
+`evaluate`, `optimize` and a gated `push` exactly where an LLM judge would.
 
 From the repo root:
 
@@ -83,3 +83,7 @@ private temp directory, a wall-clock timeout, and CPU/memory caps on POSIX.
 That stops runaway loops and accidents. It is **not** a security boundary
 against hostile code — for untrusted policies, run the verifier inside a
 container or the hosted sandbox.
+
+## References
+
+1. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.

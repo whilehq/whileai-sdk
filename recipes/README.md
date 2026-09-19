@@ -55,7 +55,6 @@ fork's pull request gets no secrets from this repository, by design.
 | Recipe | What you learn | Needs | Takes |
 |---|---|---|---|
 | [`bring-your-own-agent`](01-simulate/bring-your-own-agent) | the `agent(message) -> {steps, final_text}` contract, what a run says when the agent raises, why an `evaluate()` score must not become the reward | nothing | seconds |
-| [`agent-behavior`](01-simulate/agent-behavior) | a coding agent with instructed bad habits, every turn on the platform as OTLP spans, a held-out test suite and an LLM judge disagreeing about the same turn, rows grouped by `scenario_id` for RL | `WHILEAI_API_KEY` and a model endpoint (`--dry-run` needs neither) | 8 min for 40 runs |
 | [`verifiers`](01-simulate/verifiers) | rewards that are programs: `MathEqual`, `All` (answer and format), `CodeExec` against hidden tests, `JSONSchema`, each honoring the judge contract | nothing | seconds |
 
 ## 02-measure
@@ -122,8 +121,7 @@ each README names the version it ran against. Index in
 ## Where the main README's pieces live
 
 - **Simulate and grade:** `01-simulate/bring-your-own-agent` (callable),
-  `01-simulate/agent-behavior` (traces), `01-simulate/verifiers` (program as
-  reward). Every recipe grades with a callable so it runs without a key;
+  `01-simulate/verifiers` (program as reward). Every recipe grades with a callable so it runs without a key;
   `data.grade(judge=...)` is the same call with the hosted judge.
 - **pass@k and headroom:** `02-measure/pass-at-k`. The same `PassAt` object is
   `data.pass_at`, `ScoredData.pass_at`, and the per-trait lines in `character`.
@@ -141,8 +139,8 @@ each README names the version it ran against. Index in
   by refusing fails. Every delta is a paired bootstrap over tasks with a 95%
   interval.
 - **Trust checks:** judge trust against gold labels in `character`
-  (`judge_vs_spec`), `safety-evals` (hand-labeled transcripts, the refusal
-  probe) and `agent-behavior` (held-out suite vs judge); reward hacking in
+  (`judge_vs_spec`) and `safety-evals` (hand-labeled transcripts, the refusal
+  probe); reward hacking in
   `prime-intellect-rl` (effort correlation), `grpo` (`HackMonitor`) and `dpo`
   (constructed negatives); the `evaluate()` provenance guard in
   `bring-your-own-agent`.
@@ -160,9 +158,6 @@ each README names the version it ran against. Index in
 4. Data files it ships are ignored by default (`*.jsonl`); unignore them by
    path in `.gitignore`. Output folders go in `.gitignore` too.
 
-RLHF-book chapter numbers in these READMEs were checked against the book's
-chapter files on 2026-09-14 (ch. 3 training overview, 4 instruction tuning,
-5 reward modeling, 6 reinforcement learning, 7 reasoning, 8 direct
-alignment, 9 rejection sampling, 11 preference data, 12 synthetic data and
-Constitutional AI, 13 tool use, 14 over-optimization, 15 regularization, 16
-evaluation, 17 model character and products).
+Recipe READMEs cite primary papers as numbered references, resolved in a
+"References" list at the end of the page, and cite the RLHF textbook
+(Lambert 2025) by chapter title, never by chapter number.

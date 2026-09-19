@@ -47,11 +47,11 @@ from .quality import _IDISH, _QUESTION_END, _STRONG_ACTION, load_jsonl, write_js
 from .stats import task_key
 
 # DEFAULT_BAND = DIFFICULTY_BAND (0.2, 0.8): keep asks the policy passes
-# between 20% and 80% of the time (rlhfbook.com/c/07-reasoning, difficulty filtering
-# from N=16 samples; DAPO arXiv:2503.14476 drops accuracy 0 and 1 groups;
-# Seed-Thinking, ORZ, Phi-4, INTELLECT-2, MiMo, Skywork-OR1 all report a
-# form of it). A reported practice with no published ablation on the
-# edges, so every selector takes ``band=``.
+# between 20% and 80% of the time (Lambert 2025, chapter Reasoning, difficulty
+# filtering from N=16 samples; DAPO arXiv:2503.14476 drops accuracy 0 and 1
+# groups; Seed-Thinking, ORZ, Phi-4, INTELLECT-2, MiMo, Skywork-OR1 all report
+# a form of it). A reported practice with no published ablation on the edges,
+# so every selector takes ``band=``.
 DEFAULT_BAND: tuple[float, float] = DIFFICULTY_BAND
 # SFT_TARGET_DEFAULT = 800 and SELECTION_SURPLUS = 3: ``recommend`` sizes
 # an SFT run for 800 selected rows (curated agent SFT lands at 500 to
@@ -483,15 +483,15 @@ def select_for_sft(
     qualify; unanimity is not a problem here. A grader with partial
     credit ranks by its score: lower ``min_reward`` to admit it.
 
-    ``select`` is the rejection-sampling rule (rlhf-book ch. 9, "Scoring
-    Completions"): ``"top_per_prompt"`` keeps each prompt's highest-reward
-    completion and then round-robins across behavior signatures (tool
-    sequence, argument provenance, outcome shape) so every distinct way
-    of being right appears before any repeats; ``"top_k_overall"`` keeps
-    the ``k`` highest-reward completions across all prompts, several per
-    prompt allowed; the two ``random_*`` rules are the book's control
-    (same counts, seeded random picks) so a claimed gain from selection
-    can be checked against chance. ``k`` defaults to ``target``.
+    ``select`` is the rejection-sampling rule (Lambert 2025, chapter Rejection
+    Sampling, "Scoring Completions"): ``"top_per_prompt"`` keeps each prompt's
+    highest-reward completion and then round-robins across behavior signatures
+    (tool sequence, argument provenance, outcome shape) so every distinct way
+    of being right appears before any repeats; ``"top_k_overall"`` keeps the
+    ``k`` highest-reward completions across all prompts, several per prompt
+    allowed; the two ``random_*`` rules are the control that chapter asks for
+    (same counts, seeded random picks) so a claimed gain from selection can be
+    checked against chance. ``k`` defaults to ``target``.
     """
     if select not in SFT_SELECTIONS:
         raise ValueError(f"select must be one of {', '.join(SFT_SELECTIONS)}; got {select!r}")
@@ -607,16 +607,16 @@ def _sft_report(
         report["k"] = k
     if report["eval_sourced"]:
         report["warning"] = _eval_sourced_warning(report["eval_sourced"], "selected row(s)")
-    # Rejection sampling picks the best of N completions per prompt, and
-    # the published recipes use 10 to 30 (REJECTION_SAMPLING_MIN_K,
-    # rlhfbook.com/c/10-rejection-sampling.html); fewer makes the pick
-    # biased or noisy. The note reads the MEAN, not the max: the max is the
-    # most optimistic statistic in the pool, and one prompt with 12
-    # completions silenced it for 500 prompts with one each (a measured
-    # pool ran mean k=1.07 and produced a null). When the median prompt has
-    # one completion there is no pick on most prompts, only a pass/fail
-    # filter, and ``top_per_prompt`` and ``random_per_prompt`` (the book's
-    # chance control) return the same rows; ``selection_effective`` says
+    # Rejection sampling picks the best of N completions per prompt, and the
+    # published recipes use 10 to 30 (REJECTION_SAMPLING_MIN_K, Lambert 2025,
+    # chapter Rejection Sampling); fewer makes the pick biased or noisy. The
+    # note reads the MEAN, not the max: the max is the most optimistic
+    # statistic in the pool, and one prompt with 12 completions silenced it
+    # for 500 prompts with one each (a measured pool ran mean k=1.07 and
+    # produced a null). When the median prompt has one completion there is no
+    # pick on most prompts, only a pass/fail filter, and ``top_per_prompt``
+    # and ``random_per_prompt`` (the chance control of Lambert 2025, chapter
+    # Rejection Sampling) return the same rows; ``selection_effective`` says
     # which operation ran so a card cannot claim a selection that did not
     # happen.
     per_prompt: dict[str, int] = {}
@@ -640,7 +640,7 @@ def _sft_report(
             f"completions per prompt: mean {mean_k}, median {median_k}, max {max_k}; "
             f"{singles} of {len(counts)} prompts have one. Rejection-sampling selection "
             f"wants {REJECTION_SAMPLING_MIN_K} to 30 so the pick is not biased "
-            "(rlhfbook.com/c/10-rejection-sampling.html; Llama 3 samples 10 to 30)"
+            "(Lambert 2025, chapter Rejection Sampling; Llama 3 samples 10 to 30)"
             + (
                 ", and with one completion on the median prompt there is no pick at all, "
                 "only a pass/fail filter: top_per_prompt and random_per_prompt return the "
@@ -740,19 +740,19 @@ def next_round(
     """The prompt set for the next round, from the last round's graded
     rollouts.
 
-    A round trained on the file it started from keeps paying for groups
-    that give no gradient: at a 0.65 training reward about half the
-    groups are all-pass or all-fail. The band is the fix the book already
-    names (rlhf-book ch. 7: filter to the 20-80% band; ch. 6, DAPO's
-    dynamic sampling drops groups with no contrast), applied to what the
-    *current* policy does rather than what the base did. ``prior`` is
-    round N's graded rollouts (``simulate(tasks=..., repeats=k)`` on the
-    round-N policy, or the trainer's own sampled rows); each task's pass
-    rate over them decides: inside ``[lo, hi]`` it is kept, above ``hi``
-    it is solved and dropped, below ``lo`` it is unsolved and dropped.
-    ``tasks`` restricts the candidates (rows, task dicts with a
-    ``prompt``, or prompt strings); a task with no prior rollouts is
-    ``unknown`` and kept, since nothing says it is flat.
+    A round trained on the file it started from keeps paying for groups that
+    give no gradient: at a 0.65 training reward about half the groups are
+    all-pass or all-fail. The band is the published fix (Lambert 2025, chapter
+    Reasoning: filter to the 20-80% band; Yu et al. 2025 (DAPO),
+    arXiv:2503.14476: dynamic sampling drops groups with no contrast), applied
+    to what the *current* policy does rather than what the base did. ``prior``
+    is round N's graded rollouts (``simulate(tasks=..., repeats=k)`` on the
+    round-N policy, or the trainer's own sampled rows); each task's pass rate
+    over them decides: inside ``[lo, hi]`` it is kept, above ``hi`` it is
+    solved and dropped, below ``lo`` it is unsolved and dropped. ``tasks``
+    restricts the candidates (rows, task dicts with a ``prompt``, or prompt
+    strings); a task with no prior rollouts is ``unknown`` and kept, since
+    nothing says it is flat.
 
     Returns ``tasks`` (one representative row per kept task: the prior
     row, with ``calibration.pass_rate`` and the band), the counts
@@ -846,12 +846,14 @@ def select_for_rl(
     policy already solves (pass rate above ``hi`` on ``prior``) or never
     solves (below ``lo``) are dropped before anything else, so round N+1
     trains on what that policy gets right 20-80% of the time rather than
-    on the file round 1 started from (``next_round``; rlhf-book ch. 7).
+    on the file round 1 started from (``next_round``; Lambert 2025, chapter
+    Reasoning).
     The report's ``prior`` block counts kept, dropped_solved,
     dropped_unsolved and unknown.
 
     ``truncated`` says what happens to a rollout cut at the token cap
-    (rlhf-book ch. 6, DAPO's overlong handling; ch. 7 overlong filtering):
+    (DAPO's overlong handling, Yu et al. 2025, arXiv:2503.14476; overlong
+    filtering, Lambert 2025, chapter Reasoning):
     ``"drop"`` removes it (the default; ``drop_truncated=False`` is the old
     spelling of ``"keep"``), ``"keep"`` leaves it in with ``overlong=True``
     and its own reward, riding with its ask rather than deciding it (the
@@ -865,24 +867,23 @@ def select_for_rl(
     and a 0 under ``"penalize"``.
 
     After the row gates, duplicate and truncated rollouts (``dedupe``,
-    ``truncated``), the unanimous trim, and (``enforce_band``) the
-    difficulty band, remaining asks are taken round-robin across observed
-    fault kinds, so the dataset keeps a grounded spread of no-fault, miss,
-    timeout, and already-done situations rather than one over-represented
-    failure. Within a fault kind, ``order="spread"`` (the default) takes
-    asks round-robin across their pass rates, so a 25% ask, a 50% ask
-    and a 75% ask are picked in turn with no preference for the middle
-    (rlhf-book ch. 7 filters to the 20-80% band and stops there; nothing
-    in it says 50% is better than 30%). ``order="middle"`` is the older
-    ranking by closeness to a 50% pass rate. The last group may overshoot
-    ``target``; an RL update wants the complete group or none of it.
-    ``enforce_band=False`` keeps out-of-band asks and only ranks them
-    last. The report's ``hack_scan`` block is the reward-hack
-    scan over the selection (``hack_scan``: what separates reward within
-    an ask, against a permutation floor; ``endorsed`` names what it
-    should be), ``correlations`` the older pooled scan. Reward tracking
-    a shortcut is a judge problem, flagged in ``hygiene_warnings``, not
-    pruned.
+    ``truncated``), the unanimous trim, and (``enforce_band``) the difficulty
+    band, remaining asks are taken round-robin across observed fault kinds, so
+    the dataset keeps a grounded spread of no-fault, miss, timeout, and
+    already-done situations rather than one over-represented failure. Within a
+    fault kind, ``order="spread"`` (the default) takes asks round-robin across
+    their pass rates, so a 25% ask, a 50% ask and a 75% ask are picked in turn
+    with no preference for the middle (Lambert 2025, chapter Reasoning,
+    filters to the 20-80% band and stops there; nothing in it says 50% is
+    better than 30%). ``order="middle"`` is the older ranking by closeness to
+    a 50% pass rate. The last group may overshoot ``target``; an RL update
+    wants the complete group or none of it. ``enforce_band=False`` keeps
+    out-of-band asks and only ranks them last. The report's ``hack_scan``
+    block is the reward-hack scan over the selection (``hack_scan``: what
+    separates reward within an ask, against a permutation floor; ``endorsed``
+    names what it should be), ``correlations`` the older pooled scan. Reward
+    tracking a shortcut is a judge problem, flagged in ``hygiene_warnings``,
+    not pruned.
 
     Selected rows are stamped in place with the ``calibration`` measured
     on the rows as they arrived, before dedupe and the trims: the pass
@@ -1126,7 +1127,7 @@ def select_for_rl(
                 f"Difficulty was measured from {median_n:g} rollouts per task, so a task's "
                 f"band assignment can be off by about ±{statistics.median(halves):.1f}. "
                 f"Use repeats={DIFFICULTY_BAND_ROLLOUTS} for a firmer band (the count the "
-                "20-80 band is measured from, rlhfbook.com/c/07-reasoning)."
+                "20-80 band is measured from, Lambert 2025, chapter Reasoning)."
             )
     if report["eval_sourced"]:
         report["hygiene_warnings"].append(
@@ -1367,12 +1368,12 @@ def optimize(
       report), so ``export_dataset`` never refuses what was kept.
     * ``target``: about how many rows to keep, 1000 by default.
     * ``band``: the RL difficulty band as a pass-rate range, ``(0.2, 0.8)``
-      by default: asks the policy always or never solves carry no
-      advantage (rlhf-book ch. 7, difficulty filtering at 20 to 80
+      by default: asks the policy always or never solves carry no advantage
+      (Lambert 2025, chapter Reasoning, difficulty filtering at 20 to 80
       percent; DAPO's dynamic sampling, arXiv:2503.14476).
       ``enforce_band=False`` only ranks out-of-band asks last instead of
-      dropping them. ``order`` is ``"spread"`` across pass rates (default)
-      or ``"middle"`` first.
+      dropping them. ``order`` is ``"spread"`` across pass rates (default) or
+      ``"middle"`` first.
     * ``select`` (``"top_per_prompt"``) and ``min_reward`` (1.0): the SFT
       picker and the reward a demonstration needs, as in
       ``select_for_sft``.
@@ -1380,10 +1381,10 @@ def optimize(
       names (``"tool:lookup_order"``), so the RL report's ``hack_scan`` can
       call a shortcut a hack.
     * ``truncated``: what happens to a rollout cut at the token cap
-      (rlhf-book ch. 6, DAPO's overlong handling): ``"drop"`` removes it
-      (the default), ``"keep"`` leaves it in with ``overlong=True`` and its
-      own reward, ``"penalize"`` keeps it as a failure that counts (reward
-      0, the judged score under ``reward_before_penalty``).
+      (DAPO's overlong handling, Yu et al. 2025, arXiv:2503.14476): ``"drop"``
+      removes it (the default), ``"keep"`` leaves it in with ``overlong=True``
+      and its own reward, ``"penalize"`` keeps it as a failure that counts
+      (reward 0, the judged score under ``reward_before_penalty``).
 
     ```python
     rows, report = wai.optimize(data, mode="rl", endorsed=["tool:lookup_order"])

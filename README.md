@@ -295,14 +295,6 @@ If you train with your own code, `platform.TrainerCallback` reports into
 the same run page. Traces from production come back through `traces=`, which
 points the next simulation at the situations that failed.
 
-Already ran your own eval? Send the rows you scored and the platform groups
-them into prompts, so you can see what is worth training on.
-
-```python
-whileai.send_runs(rows, agent="refunds")  # {scenario_id, prompt, final_text, reward}
-print(wai.format_cuts(wai.cuts("refunds"), agent="refunds"))
-```
-
 ## Documentation
 
 This README is the shape of the loop. The docs are the depth, in the same order:

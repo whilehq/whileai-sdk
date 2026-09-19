@@ -22,7 +22,8 @@ pass^k inflates on false negatives. pass@1 is the least sensitive of the
 three, which is why it carries the headline.
 
 Intervals: all three carry a 95% percentile bootstrap over tasks
-(rlhf-book ch. 16: intervals come from resampling prompts, never rows).
+(Miller 2024, arXiv:2411.00640; Lambert 2025, chapter Evaluation:
+intervals come from resampling prompts, never rows).
 ``.ci95`` is pass@1's; ``.pass_pow_k_ci95`` and ``.pass_at_k_ci95``
 resample the per-group unbiased estimates of the k-eligible groups, so
 the reliability line is reported with the uncertainty of the tasks it
@@ -76,10 +77,11 @@ CONFIG_KEYS = (
     "judge_version",
     "prompt_hash",
     # Who played the simulated user and who wrote the situations. In an
-    # agentic eval every layer moves the score (rlhf-book ch. 16), and these
-    # two are the layers that silently follow the policy: with no
-    # ``user_model=``/``simulator=`` they run on the agent's own model, so a
-    # before/after comparison changes the environment along with the weights.
+    # agentic eval every layer moves the score (Lambert 2025, chapter
+    # Evaluation), and these two are the layers that silently follow the
+    # policy: with no ``user_model=``/``simulator=`` they run on the agent's
+    # own model, so a before/after comparison changes the environment along
+    # with the weights.
     "user_model",
     "writer_model",
 )
@@ -124,15 +126,15 @@ def _row_config_values(row: dict) -> dict[str, Any]:
 def run_config(
     rows: Sequence[dict], *, n_tasks: int | None = None, k: int | None = None
 ) -> dict[str, Any]:
-    """What the rows say about how they were produced (rlhf-book ch. 16:
-    a number without its sampling settings, prompt and judge is not
-    comparable to another). ``temperature`` and ``max_tokens`` come from
-    each row's ``sampling``, ``policy_version`` and ``prompt_hash`` from
-    its policy stamp, ``judge_version`` from its judge stamp, and
+    """What the rows say about how they were produced (Lambert 2025, chapter
+    Evaluation: a number without its sampling settings, prompt and judge is
+    not comparable to another). ``temperature`` and ``max_tokens`` come from
+    each row's ``sampling``, ``policy_version`` and ``prompt_hash`` from its
+    policy stamp, ``judge_version`` from its judge stamp, and
     ``user_model``/``writer_model`` from the row's record of who played the
-    simulated user and who wrote the situations. A field is
-    the one value every row agrees on; rows that lack it are skipped, and
-    a field the rows disagree on is ``None`` and listed in ``mixed``."""
+    simulated user and who wrote the situations. A field is the one value
+    every row agrees on; rows that lack it are skipped, and a field the rows
+    disagree on is ``None`` and listed in ``mixed``."""
     seen: dict[str, set[Any]] = {key: set() for key in CONFIG_KEYS}
     for row in rows:
         if not isinstance(row, dict):
@@ -169,16 +171,16 @@ def run_config(
     else:
         out["answered_share"] = None
         out["unclosed_think_share"] = None
-    # The share of rows that carry a verdict at all. A row the judge could
-    # not grade leaves the denominator entirely, and the rows that fail to
-    # grade are not a random sample: long trajectories are both more likely
-    # to break a judge payload and more likely to have failed, so the
-    # surviving rate is biased upward. Two arms that lose different shares
-    # are not scored on comparable denominators, which is a selection effect
-    # no interval can see (rlhf-book ch. 16). ``delta_report`` warns when
-    # they differ; here it is only counted. Graded means a numeric reward,
-    # however partial: a rubric score of 0.75 is a verdict the judge
-    # reached, even though pass@1 (binary by definition) does not count it.
+    # The share of rows that carry a verdict at all. A row the judge could not
+    # grade leaves the denominator entirely, and the rows that fail to grade
+    # are not a random sample: long trajectories are both more likely to break
+    # a judge payload and more likely to have failed, so the surviving rate is
+    # biased upward. Two arms that lose different shares are not scored on
+    # comparable denominators, which is a selection effect no interval can see
+    # (Lambert 2025, chapter Evaluation). ``delta_report`` warns when they
+    # differ; here it is only counted. Graded means a numeric reward, however
+    # partial: a rubric score of 0.75 is a verdict the judge reached, even
+    # though pass@1 (binary by definition) does not count it.
     gradeable = [r for r in rows if isinstance(r, dict)]
     out["graded_share"] = (
         round(sum(1 for r in gradeable if _graded_reward(r) is not None) / len(gradeable), 4)
@@ -407,11 +409,11 @@ def pass_at(
     rows count; partial and unjudged rows are skipped, the same rule
     ``group_signal`` uses.
 
-    The intervals resample tasks, never rows (rlhf-book ch. 16), so they
-    need at least ``MIN_CI_TASKS`` (3) tasks. Under that, ``ci95`` is
-    ``None`` and the ``note`` says why and what to change. Ten rows that
-    all carry one ``task_id`` are one task, not ten, and get no interval;
-    when they are ten separate items, give each its own ``task_id``.
+    The intervals resample tasks, never rows (Miller 2024, arXiv:2411.00640),
+    so they need at least ``MIN_CI_TASKS`` (3) tasks. Under that, ``ci95`` is
+    ``None`` and the ``note`` says why and what to change. Ten rows that all
+    carry one ``task_id`` are one task, not ten, and get no interval; when
+    they are ten separate items, give each its own ``task_id``.
 
     * ``rows``: graded rows, or the ``SimulationData`` holding them.
     * ``k``: the draw size for the k-way numbers. It defaults to the

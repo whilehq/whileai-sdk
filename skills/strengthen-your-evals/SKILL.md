@@ -1,254 +1,256 @@
 ---
 name: strengthen-your-evals
 description: >
-  Make an eval set hard enough to measure a real gain, and tell a real gain from
-  a measurement artifact. Use when building a held-out set, choosing the
-  situation mix with arm_weights= and dimensions=, sizing a holdout, reporting a
-  base-versus-trained delta, or deciding whether a straddling result needs more
-  data. Covers how to find which knobs make YOUR agent fail and steer toward
-  them, eval sizing and per-criterion power, the five ways an eval silently
-  lies, how to read a tie count, and what belongs on a card.
+  Turn the tests an agent already has into an eval that can fail, measure it
+  the way a paper would, and report it so the platform can tell a fix from a
+  fluctuation. Use when a coding agent is asked to build or improve evals for
+  an agent that runs on a frontier model (Claude, GPT, Gemini) or on its own
+  weights: find what the suite never reaches, build a frozen held-out set,
+  check the judge against people, read pass@1 with an interval and the
+  failure-capable count, measure the noise floor, size the set, and post
+  every behavior to while.ai/platform/runs. No GPU, no key until you want
+  the hosted writer.
 metadata:
-  version: "2.1.0"
+  version: "3.0.0"
 ---
 
 # Strengthen your evals
 
-An eval set that the base model already passes cannot show you anything. Most
-reported nulls on simulated agent data are measurement, not modelling: the
-holdout was too easy, too small, or scored on rows that never reached the judge.
+Every step below is in `check.py`, which runs offline in seconds. Its setup
+defines the names the blocks use: `TOOLS`, `POLICY`, `OLD_TESTS` (the
+three-ask suite the team has), `SEEDS` (one ask per policy branch),
+`refund_judge` (the policy as a program), `VERSIONS` (`v1` the agent as
+shipped, `v2` after a prompt fix; you have one entry today), `LABELS` (hand
+labels for sixty replies), `MODEL`, and `fake` (a recording transport).
+Your agent is any callable `message -> {"steps": [...], "final_text": ...}`
+that runs its own tools; `whileai init-evals` writes that wrapper.
 
-This skill is about finding which knobs make a holdout hard FOR YOUR AGENT, and
-the checks that keep the number honest once it is. It does not tell you which
-knob to turn: the direction reverses between agents, so the method is measure,
-steer, re-measure.
+## 1. Find what the suite never reaches
 
-## 1. Simulate the holdout differently from the training set
-
-They have opposite jobs. Training data wants coverage and volume. A holdout
-wants the situations a base model gets **wrong**, because only those can move.
-
-The single most useful measurement to make before you train: **what fraction of
-your holdout prompts can the base fail at all?** In a paired comparison a prompt
-the base already passes contributes exactly nothing.
+Ask what the old tests miss before writing new ones: which policy rule,
+which tool, what stance, and whether any ask runs more than once.
 
 ```python
-fails = {p for p, rs in by_prompt.items() if any(r["reward"] < 1 for r in rs)}
-print(f"failure-capable: {len(fails)}/{len(by_prompt)}")  # this is your ceiling
+gap = wai.coverage_gap(OLD_TESTS, tools=TOOLS, system_prompt=POLICY)
+print(wai.format_coverage_gap(gap))
 ```
 
-One measured lane had 52 of 219 (23.7%). Its effective sample was 52, not 219,
-its ceiling on any delta was 0.237, and it nulled. A sibling lane on the same
-world with a harder rubric had 54.8% and was worth training.
+A suite that passes on a good day only is the usual finding: every ask
+ordinary, every ask run once, one rule no ask reaches.
 
-## 2. Measure first, then steer. Do not inherit a mix.
+## 2. Build the frozen test
 
-**Which arm or axis is hardest is a property of your agent and your rubric, not
-a constant.** Measured across five sets, every axis reversed on at least one:
-
-| | set A | set B | set C | set D |
-|---|---|---|---|---|
-| structured vs open_ended | 16 pts harder | 9 pts harder | 14 pts **easier** | - |
-| adversarial vs ordinary | 21 pts harder | 32 pts harder | 18 pts harder | 8 pts **easier** |
-| boundary vs ordinary | 10 pts harder | 1 pt easier | no rows | no rows |
-
-Anyone who hands you a ranking of knobs is generalising from their agent. Run
-the loop instead.
-
-### The loop
-
-**1. Probe.** Generate a small set across the mix, a few hundred rows is enough,
-and roll the BASE model on it with no constitution and no scaffold.
-
-**2. Measure base pass rate per cell**, on the axes you can actually set:
+The held-out set is one artifact, named, and the same for every version.
+`seeds=` keeps your asks on the policy branches; the writer varies the
+wording and the stance and adds asks of its own. The offline writer reads
+the record ids off your tool descriptions ("Orders on file: A1001, ..."),
+so put them there or every rollout ends at "not found".
 
 ```python
-for cell, rows in by(probe, lambda r: r.get("arm")).items():
-    print(cell, sum(r["reward"] for r in rows) / len(rows), len(rows))
-for cell, rows in by(probe, lambda r: r.get("tier")).items():
-    print(cell, sum(r["reward"] for r in rows) / len(rows), len(rows))
+K, N = 4, 64  # rollouts per ask, asks
+
+
+def holdout(agent, seed=0):
+    """The same N asks for every version, each rolled K times."""
+    return wai.simulate(
+        agent,
+        tools=TOOLS,
+        system_prompt=POLICY,
+        seeds=SEEDS,
+        situations=N,
+        budget=N * K,
+        simulator=False,  # offline writer, no key; drop it for the hosted writer
+        mode="rl",
+        repeats=K,
+        repeat_policy="fixed",
+        reproducible=True,
+        seed=seed,
+        fault_rate=0.0,
+        avg_turns=1,
+    )
+
+
+data = {v: holdout(agent) for v, agent in VERSIONS.items()}
+asks = sorted({r["prompt"] for r in data["v1"].rows()})
+for d in data.values():
+    assert sorted({r["prompt"] for r in d.rows()}) == asks, "every version must face the same asks"
+TEST_VERSION = "t-" + hashlib.sha256("\n".join(asks).encode()).hexdigest()[:8]
+print(f"held-out test {TEST_VERSION}: {len(asks)} asks x {K} rollouts")
 ```
 
-Read two things: which cells the base fails most, and how many prompts are
-**failure-capable** at all. A cell needs enough rows to be worth reading, 20 is
-a floor and the interval is still wide there.
+**Name the set by its content.** `TEST_VERSION` changes when the asks
+change, so two scores are comparable only when they carry the same name
+("Evaluation": a result is comparable with its setup held constant). Steer
+with `hard_share=` or `dimensions={"stance": [...]}` before you freeze, and
+never by hand-picking the asks the agent failed: a prompt chosen for a bad
+draw scores better on the re-draw with no change at all.
 
-**3. Steer toward the cells that were hard for YOUR base.**
+## 3. Check the judge against people
+
+The judge reads the trajectory, not the prose: which tools ran, with what.
+A model judge is only as good as its agreement with people on a labeled
+slice, and a program judge is held to the same bar. Label sixty replies by
+hand, attach them as human labels, and measure.
 
 ```python
-wai.simulate(..., arm_weights={"structured": 0.70, "llm_guided": 0.20, "open_ended": 0.10})
-wai.simulate(..., hard_share=0.7)  # 70% of cards from ambiguous, boundary, adversarial
-wai.simulate(..., dimensions={"stance": ["adversarial", "boundary"]})  # pin the axis
+scored = {v: wai.evaluate(d.rows(), refund_judge, tools=TOOLS) for v, d in data.items()}
+LABELS = hand_labels(scored["v1"].rows[:60])
+
+labeled, _ = wai.attach_labels(scored["v1"].rows[:60], LABELS, kind="human")
+trust = wai.judge_trust(labeled, refund_judge)
+print(trust)
+JUDGE = Judge(
+    name="refund policy, as a program",
+    agreement=trust["agreement"]["agreement"],
+    human_n=trust["agreement"]["n"],
+)
 ```
 
-Arms: `structured`, `llm_guided`, `open_ended`, `behavior_targeted`,
-`failure_mutation`. A caller's weights win and stay won, because a stated intent
-about an eval is not a hypothesis for the search to relearn. `open_ended` is held
-to a 5-10% band whatever is asked.
+`judge_trust` also reports the two-half split, length sensitivity and
+re-judge flips. Under 0.8 agreement, fix the judge before quoting any number
+it produced (Zheng et al. 2023, MT-Bench).
 
-Tiers are set through the `stance` axis (`ordinary`, `ambiguous`, `boundary`,
-`adversarial`, plus `hurried`, `unsure`, `retry`, `mistaken`, `exploratory`,
-`conflicting`). `dimensions=` overrides the axis you name and keeps the tool,
-rule and world axes, so a pinned set is still a covering grid. There is no
-`tier` axis; passing one is refused with the fix. `hard_share=` is a dial,
-`dimensions={"stance": [...]}` is a pin. Open-ended probes carry no stance;
-`dataset_report` counts them `unlabelled`, not ordinary.
+## 4. The number, and what it rests on
 
-**4. Re-measure.** The steered set should have a lower base pass rate and a
-higher failure-capable fraction than the probe. If it does not, the knob did not
-bite on your agent and the next one is worth trying instead.
+Scores are in points, with the half-width of a 95% interval bootstrapped
+over asks, not rollouts: raising `K` sharpens each ask and does not narrow
+the interval. Every policy branch is its own behavior, so a fix to one shows
+up next to what it did to the others.
 
-### What not to assume
+```python
+def score(rows):
+    """pass@1 in points, the half-width of its 95% interval, and the asks it rests on."""
+    pa = wai.pass_at(rows, k=K)
+    lo, hi = pa.ci95
+    return round(100 * pa.pass_at_1, 1), round(100 * (hi - lo) / 2, 1), pa.n_groups
 
-**Card richness is not the mechanism.** Counting populated scenario fields
-against base pass rate: one set trends harder with more fields, one is flat, and
-on a third the *emptiest* cards are hardest. It is which axes are set, not how
-many, so do not reach for "more detail" as a proxy for "harder".
 
-### Steer by axis, then freeze
+def behaviors(rows):
+    """The headline and every policy branch as its own behavior."""
+    out = {"refund_policy": score(rows)}
+    for name, m in wai.marker_summary(rows).items():
+        if m["n_tasks"] < 3:
+            continue  # unmeasured: under three asks reach it, and the card says so
+        lo, hi = m["ci95"] or (m["mean"], m["mean"])  # no interval when every row agrees
+        out[name] = (round(100 * m["mean"], 1), round(100 * (hi - lo) / 2, 1), m["n_tasks"])
+    return out
 
-Steer with the two knobs above, on axes, before training, and freeze the
-steered set. Do not hand-pick the prompts the base failed into the holdout:
-a prompt selected for a bad draw scores better on the re-draw with no
-training at all, and the gain you report is that regression, not the
-policy (the winner's curse in adaptive benchmarking, arXiv 2605.05973).
-Keep an ordinary slice in the holdout as the control: it is where
-over-refusal and regressions show up, and a set with no easy rows cannot
-see them.
 
-## 3. Size the holdout before you run it
+for v, s in scored.items():
+    pa = wai.pass_at(s.rows, k=K)
+    capable = sum(1 for p in pa.per_task.values() if p < 1)
+    print(f"{v}: pass@1 {score(s.rows)}  failure-capable asks {capable}/{pa.n_groups}")
+    for name, (pts, ci, n) in behaviors(s.rows).items():
+        print(f"   {name:<26} {pts:>5} +- {ci:<5} n={n}")
+```
 
-Work out the resolvable effect first: `holdout_size(effect, base=, k=, rows=)`.
-Pass `rows=` so it reads the spread off your own data.
+**Read the failure-capable count first.** An ask the agent always passes
+contributes exactly zero to a paired comparison. That count is the ceiling
+on any gain the set can show; a 90% pass rate on a set with six such asks
+means the eval needs steering, not that the agent needs nothing ("Policy
+Gradients": groups whose rollouts all score alike carry no signal).
 
-Per-prompt paired spread has measured 0.233 to 0.453 across lanes. A lane that
-assumed the middle planned for 6.5 points resolvable when its own data resolved
-4.4. **Effective sample is PROMPTS, not rollouts** — raising `repeats` sharpens
-each prompt's estimate and does not narrow a bootstrap over prompts.
+## 5. The noise floor
 
-**Size per criterion, not per row.** Count how many times each criterion
-actually FAILS in the source set. Under about 30 failures it cannot be
-measured, so it cannot show improvement either: a model could fix it
-completely and the eval would not move. One 12-criterion rubric had six
-criteria failing 0-9 times in 337 trajectories — half the rubric invisible to
-its own holdout while the aggregate pass rate looked healthy. Over-sample those
-situations deliberately, or say on the card that the criterion is unmeasured.
+Score the same version twice on the same frozen set. The spread is the
+floor a difference has to clear before it is a result. A scripted agent
+gives 0; a model at temperature gives 1 to 3 points.
 
-## 4. The five ways an eval silently lies
+```python
+first = score(scored["v1"].rows)
+again = score(wai.evaluate(holdout(VERSIONS["v1"]).rows(), refund_judge, tools=TOOLS).rows)
+NOISE = round(abs(first[0] - again[0]), 1)  # points; a scripted agent gives 0, a model 1 to 3
+print(f"noise floor {NOISE} points (same test, rolled twice)")
+```
 
-**The simulated user runs on the model under test.** Pin it: `user_model=`, the
-same on both arms. Unpinned, the two arms face different customers and the delta
-measures the pair. Symptom: different mean user-turn counts per arm.
+## 6. How big the test has to be
 
-**Rows vanish from the denominator.** If the grader can fail on a row, that row
-must still be counted. Long trajectories fail to grade and long correlates with
-failing, so the loss is never random and always flatters. One lane's base moved
-0.717 to 0.603 when the dropped rows came back. **Report graded-count per arm.**
+Ask for the gain you care about and read how many asks it takes. With two
+scored versions the spread is measured off your own paired rows; with one,
+pass `rows=` and the model spread is used.
 
-**A fixed task set pins less than you think.** `tasks=` pins the opening prompt;
-everything after it is still generated. Check turn counts across arms.
+```python
+need = wai.holdout_size(0.05, before=scored["v1"].rows, after=scored["v2"].rows, k=K)
+print(f"asks to prove 5 points: {need['n_tasks']} (you have {need['n_paired']})")
+```
 
-**An arm answered but did not FINISH.** Checking that both arms produced text
-is not enough. One run had both arms answer 150/150 with zero empty replies and
-passed its gate, while the base was cut off mid-sentence on **96 of 150 rows
-(64%)** against 16 for the trained arm. A judge reads an unfinished reply as
-worse, so a 53-point completion gap is a confound wearing the shape of a result.
+When the estimate keeps sitting under what the set can resolve, stop
+buying asks: "the effect is smaller than 5 points on this test" is a
+finding.
 
-Record `finish_reason` **at generation time**; it cannot be recovered from text
-afterwards. Gate on three numbers per arm, not one: answer rate, truncation
-rate, and the **gap between arms** (fail above 10 points). A per-arm threshold
-alone will pass 14/139 against 0/139.
+## 7. Report
 
-Raising the budget once is usually not enough: one lane measured 64% base
-truncation at 512 tokens, 10.7% at 1024, and 0.0% only at 2048. And when the
-trait being judged is itself about length, the cap bounds the quantity under
-measurement — too low clips the base toward brevity, too high lets it ramble.
-The only defensible cap is one **neither arm reaches**.
+Post the behaviors once with what their scores rest on, then one run per
+version. `method="eval"` says nothing was trained; the version is the
+harness label, and `Harness.fingerprint` changes when the prompt, tools or
+model do. Promote the version in production so the next one is the
+candidate. The platform's verdict uses the rule this file uses: the
+difference interval excludes zero and clears the noise floor.
 
-**The world confirms what the agent claims.** A mocked world that echoes call
-arguments back as record fields will confirm any assertion, and a grounding
-rubric then scores the fabrication as grounded. This is a reward hack living in
-the world rather than the reward, so scanning the reward will not find it.
-Prefer a real `execute=` world.
+```python
+tracked = track(
+    "refund-agent",
+    model=MODEL,
+    harness=Harness(label="v1", instructions=POLICY, tools=TOOLS),
+    transport=fake,  # drop this line to talk to the platform
+)
+for name, (_pts, _ci, n) in behaviors(scored["v1"].rows).items():
+    tracked.behavior(
+        Behavior(
+            name=name,
+            test_version=TEST_VERSION,
+            n=n,
+            judge=JUDGE,
+            noise_floor=NOISE,
+            contamination=0,  # nothing trained, nothing to leak
+            reward_is_judge=False,
+        )
+    )
+for version, s in scored.items():
+    run = tracked.run(version, method="eval", targets=["refund_policy"], harness=version)
+    for name, (pts, ci, n) in behaviors(s.rows).items():
+        run.score(name, pts, ci=ci, n=n, test_version=TEST_VERSION)
+    run.finish(
+        record=RunRecord(
+            data=Data(holdout=TEST_VERSION, n_holdout=len(asks)),
+            eval=EvalSetup(metric="pass@1", k=K, run_std=NOISE, run_std_runs=2, reader=JUDGE.name),
+        )
+    )
+tracked.promote("v1")  # what is in production today; the next version is the candidate
+print(tracked.verdict())
+```
 
-## 5. Reading the result
+```text
+refund_policy: v2 beats v1 by 71.4 (interval excludes zero, clears the noise floor of 0); judge agreement 1 on 60, n=63
+```
 
-**"Straddles zero" means the eval cannot tell, not that the model did not
-improve.** Say which. Adding prompts narrows the interval; the point estimate
-moving is noise. Removing a confound genuinely changes the estimate.
+Drop `transport=fake` and set `WHILEAI_API_KEY` (`whileai signup --email
+you@example.com`), and the same calls draw the Runs page: one dot per
+version with its interval on the same held-out scale, the noise band, the
+judge block, and the run record.
 
-When the estimate keeps sitting below what your eval can resolve, stop buying
-sample size: "the effect is smaller than +0.045 on this task" is a finding.
+## What makes the number lie
 
-On binary rewards, report how many prompts actually moved alongside the interval.
-
-### A narrow interval around zero is the one to distrust
-
-Normally that is the strongest null there is: measured precisely, no effect.
-It is also what a **diluted** eval looks like, and then it means the opposite.
-
-Rows where the criterion cannot fail add no variance, so they narrow the
-interval while shrinking the estimate. At fixed n the mean scales as `(1-f)`
-and the width as `sqrt(1-f)`, so the effect shrinks FASTER than the interval
-and significance goes in both the bootstrap and the sign test. Measured on 118
-real paired deltas: at f=0 the delta was +0.071 excluding zero with 53 ties; at
-f=0.4, +0.048 and no longer excluding zero, with 76 ties.
-
-**Report the tie count next to every interval.** It is the only thing that
-separates the readings, and it is usually already in your sign test, unread.
-A high tie count has three causes and the count alone cannot tell them apart:
-
-| ties mostly at | cause | what to do |
-|---|---|---|
-| **1** | saturation, nothing could fail | you need a HARDER eval |
-| **0**, criterion could not fire | dilution, no information | recompose; more prompts buys more ties |
-| **0**, criterion COULD fire, both arms fail | **floor — a real shared failure** | **report it. This is a result.** |
-
-The last two are identical in the count. Only knowing whether the criterion
-could fire separates "we asked a question the situation could not answer" from
-"both models genuinely cannot do this". Getting it wrong is expensive in one
-direction: a lane that hits a floor effect and files it as dilution will
-recompose its eval and delete a true negative.
-
-### Never average a measure the model should pass with one it is expected to fail
-
-This presents identically — high ties, narrow straddling interval — and has a
-different fix. A voice eval of 150 prompts read **+0.067 with a failing sign
-test (p=0.064)** and 126 ties. Split by kind:
-
-| subset | n | base -> trained | sign test |
-|---|---|---|---|
-| ask: does it hold the trait | 97 | 0.062 -> 0.186 | **p=0.017, clears** |
-| strip: does it survive being told to drop it | 53 | 0.038 -> **0.000** | p=1 |
-
-The headline failed only because a robustness probe the trained model fails
-**by construction** sat in the denominator: 51 of its 53 rows tied. Recomposing
-would not have helped — both measures are legitimate and they point opposite
-ways. Report them separately and say which is the headline. The strip half was
-also the more interesting result: training COST the model the ability to drop
-the trait on request.
-
-## 6. On the card
-
-The numbers, the eval size, the resolvable effect at that size, the arm and tier
-mix the set was drawn with, graded-count per arm, **truncation rate per arm**,
-and **the tie count next to the interval**. That mix is what lets a
-reader know whether a 0.95 pass rate means a strong model or an easy holdout.
+- **Rows vanish from the denominator.** A row the grader failed on still
+  counts. Report graded-count per version.
+- **Both versions answered, one did not finish.** Record `finish_reason` at
+  generation time; gate on the truncation gap between versions; pick a
+  length cap neither reaches.
+- **The simulated user runs on the model under test.** Pin `user_model=`,
+  the same on both sides.
+- **The world confirms what the agent claims.** A mock that echoes call
+  arguments back grounds any fabrication. Prefer a real `execute=` world.
+- **Ties.** Report the tie count next to every interval. Ties at 1: the set
+  is saturated. Ties at 0 where the criterion could not fire: dilution.
+  Ties at 0 where both versions genuinely fail: a result.
+- **A trait score averaged with a robustness probe.** They point opposite
+  ways by construction. Two behaviors; say which is the headline.
 
 ## Grounding
 
-- **ch. 6 (policy gradients)**: filter out groups whose rollouts all score alike
-  (DAPO dynamic sampling) — they carry no signal. This is why the
-  failure-capable fraction in section 1 is the ceiling, not a nice-to-have.
-- **ch. 7 (reasoning)**: difficulty-filter to the 0.2-0.8 solve band, since 0%
-  and 100% solve rates give no gradient. This backs sections 1 and 2.
-- **ch. 9 (rejection sampling)**: a score-selected run needs a random-selection
-  control at the same row count. Without it, "the base had no headroom" and
-  "our selection carried no signal" are the same observation. Measured on one
-  lane: reward-selected beat random-selected by **+0.246 [+0.185, +0.307]**
-  while random-selected did not beat base at all.
-- ch. 16 (evaluation): bootstrap over prompts, pass@1 with pass^k, decontamination.
-- ch. 14 (over-optimization): the symptoms to watch beside any delta.
-- ch. 5 and ch. 12: a judge is a reward model; measure agreement, length bias and
-  self-preference before quoting a number it produced. Prefer a program grader
-  wherever a program can decide the criterion.
+rlhfbook.com, "Evaluation": held-out sets, run-to-run spread, bootstrap over
+prompts, judge agreement. "Policy Gradients": groups that all score alike
+carry no signal (DAPO dynamic sampling), which is why the failure-capable
+count is the ceiling. "Over-Optimization": what moves on the behaviors you
+did not aim at. Zheng et al. 2023 for judge agreement; arXiv 2605.05973 for
+the winner's curse in adaptive benchmarking.

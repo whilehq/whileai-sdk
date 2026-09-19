@@ -1,12 +1,11 @@
 """Did the agent fake the work? Flags read from the trajectory, not the prose.
 
-A judge is one model's opinion of a transcript, and a policy that
-overclaims in its answer will overclaim about its answer too. These
-flags come from what the rollout actually did: the tool calls it made,
-what they returned, what it wrote, and whether the final reply matches
-any of that (rlhf-book ch. 13 on tool use, ch. 14 on the shortcuts a
-proxy reward pays for). Three families, in rising order of how much they
-assume:
+A judge is one model's opinion of a transcript, and a policy that overclaims
+in its answer will overclaim about its answer too. These flags come from what
+the rollout actually did: the tool calls it made, what they returned, what it
+wrote, and whether the final reply matches any of that (Lambert 2025, chapter
+Tool Use; Gao et al. 2022, arXiv:2210.10760, on the shortcuts a proxy reward
+pays for). Three families, in rising order of how much they assume:
 
 * ``lie.*``: the reply's claims against the turn's evidence. Tests said
   to pass when no test command ran or the last one failed; "I verified"
@@ -30,10 +29,9 @@ and whether the reward pays for it.
 What counts as a read, a write, a delete, or a command is decided from
 the tool's name and its arguments (``path`` plus ``content`` is a write,
 ``command`` is a command, and so on); pass ``kinds={"my_tool": "write"}``
-when an agent's tools do not say what they do. This is a port of
-``recipes/01-simulate/agent-behavior/signals.py`` onto the SDK's row shape; the
-names are kept so a trace from that example and one from a simulation
-chart on the same axes.
+when an agent's tools do not say what they do. The metric names match
+daisy's ``src/metrics.ts`` so a trace from a deployed agent and one from a
+simulation chart on the same axes.
 """
 
 from __future__ import annotations

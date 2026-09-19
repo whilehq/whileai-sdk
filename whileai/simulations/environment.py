@@ -1,14 +1,13 @@
 """Export a simulation as an RL environment a trainer can install and drive.
 
-A dataset is rollouts; an environment is what produces them. On-policy
-RL (GRPO, RLOO, PPO) samples its own rollouts from the policy under
-training, so what it needs from us is not rows but the three things a
-row came from: the task set, the world that answers tool calls, and the
-reward that grades the finished trajectory
-(rlhfbook.com/c/11-policy-gradients.html on on-policy sampling,
-rlhfbook.com/c/07-reasoning on multi-turn tool use with a single
-end-of-trajectory reward). ``export_environment`` writes those three as an installable
-``verifiers`` package, the shape Prime Intellect and TRL consume::
+A dataset is rollouts; an environment is what produces them. On-policy RL
+(GRPO, RLOO, PPO) samples its own rollouts from the policy under training, so
+what it needs from us is not rows but the three things a row came from: the
+task set, the world that answers tool calls, and the reward that grades the
+finished trajectory (Lambert 2025, chapter Reinforcement Learning on on-policy
+sampling and chapter Reasoning on multi-turn tool use with a single
+end-of-trajectory reward). ``export_environment`` writes those three as an
+installable ``verifiers`` package, the shape Prime Intellect and TRL consume::
 
     import whileai.simulations as wai
     data = wai.simulate(tools=my_tools, system_prompt=my_policy, mode="rl", repeats=8)
@@ -75,8 +74,8 @@ DEFAULT_BAND = DIFFICULTY_BAND
 #: ``n_calls``, ``judge_ok``, ``truncated`` and ``trace_clean`` are logged at
 #: weight 0 as monitors. Training on a symptom of over-optimization turns
 #: it into a proxy the policy games (Gao et al., arXiv:2210.10760;
-#: rlhfbook.com/c/14-over-optimization lists the symptoms); the book
-#: does not prescribe weight-0 logging, that is this package's choice.
+#: Lambert 2025, chapter Over-optimization, lists the symptoms); neither
+#: source prescribes weight-0 logging, that is this package's choice.
 RUBRIC_WEIGHTS = (1.0, 0.0, 0.0, 0.0, 0.0)
 #: The version an export claims when the package is not installed as a
 #: distribution: the first release that carried this module.
@@ -258,14 +257,14 @@ def build_tasks(
     When a prompt has two or more graded rollouts its solve rate is known
     (partial credit counts as it is) and, with ``band``, prompts the policy
     always or never solved are dropped: they carry no advantage
-    (rlhfbook.com/c/07-reasoning, difficulty filtering at 20 to 80
+    (Lambert 2025, chapter Reasoning, difficulty filtering at 20 to 80
     percent; DAPO's dynamic sampling drops accuracy 0 and 1,
     arXiv:2503.14476). Ungraded prompts and single
     rollouts are kept as they are. ``holdout`` is a fraction, split by
     scenario id (or the prompt) so a task is wholly on one side, or an
     explicit list of holdout prompts. Train and holdout are decontaminated
     against each other at ``ngram``-grams (8: the overlap size
-    rlhfbook.com/c/16-evaluation.html found its contaminations with) and
+    Lambert 2025, chapter Evaluation, found its contaminations with) and
     the report says what overlapped.
     """
     by_prompt: dict[str, list[dict]] = {}
@@ -533,11 +532,11 @@ def export_environment(
       list of holdout prompts.
     * ``band`` (``(0.2, 0.8)``): the pass-rate band a graded prompt must
       sit in; prompts the policy always or never solved carry no
-      advantage and are dropped (rlhf-book ch. 7, difficulty filtering at
-      20 to 80 percent; DAPO's dynamic sampling, arXiv:2503.14476).
+      advantage and are dropped (Lambert 2025, chapter Reasoning, difficulty
+      filtering at 20 to 80 percent; DAPO's dynamic sampling, arXiv:2503.14476).
       ``None`` keeps them all.
     * ``ngram`` (8): the train-versus-holdout decontamination size, the
-      overlap rlhf-book ch. 16 found its contaminations with.
+      overlap Lambert 2025, chapter Evaluation, found its contaminations with.
     * ``name``, ``description``, ``max_turns``: the package name, its
       README line, and the rollout turn cap (the SDK default when
       ``None``).
@@ -806,7 +805,7 @@ def _make_env_class() -> type:
             """1.0 when none of the SDK's trace flags fired (fabricated test
             claims, phantom edits, test tampering, ...). Logged, not
             trained on: a monitor for over-optimization symptoms
-            (rlhfbook.com/c/14-over-optimization)."""
+            (Lambert 2025, chapter Over-optimization)."""
             from .score.trace import trace_flags
 
             row = _row_from_state(state, state.get("zp_info") or {})

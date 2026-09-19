@@ -43,7 +43,6 @@ recipes/04-train/text-to-sql/pg/
 recipes/04-train/text-to-sql/author.done.txt
 # the old location; a stub README points at recipes/
 !recipes/03-select/prime-intellect-rl/
-!recipes/01-simulate/agent-behavior/
 !recipes/04-train/identity/
 !recipes/03-select/schema/
 !recipes/02-measure/pass-at-k/
