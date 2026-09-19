@@ -5,6 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Docs logo and favicon are wai the whale, the mark the site ships.
 - The six guides (Simulations, The engine, Evals, Reward hacking, Safety
   evals, Character training) each open with a figure of their mechanism,
   light and dark, drawn by `scripts/gen_guide_figures.py` into
