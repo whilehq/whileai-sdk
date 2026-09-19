@@ -5,6 +5,13 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The "generation knobs did not deliver what was set" warning fires only on
+  knobs the call passed by name. A `fault_rate` or `avg_turns` left at its
+  default is not a setting the run failed, and `avg_turns` is not checked
+  when the agent is played single-turn (a callable or HTTP agent), so the
+  offline no-key examples on the docs run clean. `report()["requested"]`
+  and `report()["delivered"]` are unchanged (#476).
+
 ## 0.97 (2026-09-19)
 
 - `whileai init` sets a repository up for a coding agent: a block under
