@@ -132,8 +132,8 @@ the first it finds:
 | 2 | Environment | `export WHILEAI_API_KEY=zp_...` |
 | 3 | Saved credentials | `whileai login`, or `whileai signup --email you@example.com` |
 
-Keys start with `zp_`. Every `WHILEAI_*` variable also reads its old
-`ZEROPROOF_*` name.
+Keys start with `zp_`. A `ZEROPROOF_*` variable from before the rename is
+still read when its `WHILEAI_*` name is unset.
 
 ## What reaches While
 

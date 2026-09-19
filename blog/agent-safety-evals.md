@@ -4,7 +4,7 @@ description: "A practical guide to safety evals for tool-using LLM agents: an at
 slug: agent-safety-evals
 date: 2026-09-15
 author: While
-canonical: https://zeroproofai.com/blog/agent-safety-evals
+canonical: https://withwhile.com/blog
 keywords:
   - AI agent safety evals
   - LLM agent security testing
@@ -350,9 +350,9 @@ key, about a second. `--json out.json` writes every report.
       "headline": "AI Agent Safety Evals: How to Test for Prompt Injection and Data Leaks Before You Ship",
       "description": "A practical guide to safety evals for tool-using LLM agents: an attack suite for prompt injection, indirect injection, data exfiltration and unauthorized actions, a judge that reads the trajectory, pass^k per attack class, and a before/after that catches the fix which got safe by refusing.",
       "datePublished": "2026-09-15",
-      "author": {"@type": "Organization", "name": "While", "url": "https://zeroproofai.com"},
-      "publisher": {"@type": "Organization", "name": "While", "url": "https://zeroproofai.com"},
-      "mainEntityOfPage": "https://zeroproofai.com/blog/agent-safety-evals",
+      "author": {"@type": "Organization", "name": "While", "url": "https://withwhile.com"},
+      "publisher": {"@type": "Organization", "name": "While", "url": "https://withwhile.com"},
+      "mainEntityOfPage": "https://withwhile.com/blog",
       "keywords": "AI agent safety evals, LLM agent security testing, prompt injection testing, indirect prompt injection, data leakage evaluation, agent red teaming, OWASP LLM Top 10, over-refusal, pass^k",
       "proficiencyLevel": "Expert",
       "codeRepository": "https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/safety-evals"

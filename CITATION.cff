@@ -7,7 +7,7 @@ authors:
     given-names: Jacob
     affiliation: While
 repository-code: "https://github.com/whilehq/whileai-sdk"
-url: "https://zeroproofai.com"
+url: "https://withwhile.com"
 license: Apache-2.0
 keywords:
   - post-training

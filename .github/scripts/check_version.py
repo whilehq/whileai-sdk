@@ -31,10 +31,10 @@ PYPI = "https://pypi.org/pypi/{name}/json"
 # above, so it answers within seconds of an upload the list will not show
 # for many minutes.
 PYPI_RELEASE = "https://pypi.org/pypi/{name}/{version}/json"
-# The old name of this package. Its releases count as prior releases of
-# the new name (the numbering continues across the rename), and every
-# release ships a shim under it that must carry the same version.
-COMPAT = "compat/zeroproof/pyproject.toml"
+# The old name of this package, retired at 0.89. Its releases count as
+# prior releases of the new name (the numbering continues across the
+# rename) when the new name has none of its own yet.
+OLD_NAME = "zeroproof"
 
 
 def local_version(path: str = "pyproject.toml") -> tuple[str, str]:
@@ -68,18 +68,6 @@ def published(name: str) -> list[tuple[int, ...]]:
         if len(release) == 2:
             out.append(release)
     return sorted(out)
-
-
-def compat_check(name: str, version: str) -> tuple[str, list[tuple[int, ...]]]:
-    """The shim's name and published releases; fail if it is out of step."""
-    old_name, old_version = local_version(COMPAT)
-    if old_version != version:
-        fail(f"{COMPAT} is at {old_version}, pyproject.toml is at {version}; keep them equal")
-    with open(COMPAT, "rb") as fh:
-        deps = tomllib.load(fh)["project"]["dependencies"]
-    if f"{name}>={version}" not in deps:
-        fail(f"{COMPAT} must depend on {name}>={version}, has {deps}")
-    return old_name, published(old_name)
 
 
 def on_pypi(name: str, version: str) -> bool:
@@ -142,10 +130,9 @@ def main() -> int:
         fail(f"{version!r} has a pre/post/dev/local segment; releases must be plain.")
 
     prior = published(name)
-    old_name, old_prior = compat_check(name, version)
     if not prior:
-        prior = old_prior  # continue the numbering from the old name
-    print(f"package        : {name} (was {old_name})")
+        prior = published(OLD_NAME)  # continue the numbering from the old name
+    print(f"package        : {name} (was {OLD_NAME})")
     print(f"local version  : {version}  (normalized {current})")
     shown = [".".join(map(str, p)) for p in prior[-5:]] or "none"
     print(f"published      : {shown}")

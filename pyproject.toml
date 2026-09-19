@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dependencies = ["requests>=2.25.0", "pydantic>=2.0"]
 authors = [{name = "Jacob Weiss"}]
 keywords = [
-    "zp", "zeroproof", "while", "evals", "agent-evals",
+    "zp", "while", "evals", "agent-evals",
     "rl", "reinforcement-learning", "grpo", "synthetic-data", "agents",
     "tool-use", "evaluation", "simulation", "llm",
 ]
@@ -31,10 +31,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/whilehq/whileai-sdk"
+Homepage = "https://withwhile.com"
+Documentation = "https://docs.withwhile.com"
 Repository = "https://github.com/whilehq/whileai-sdk"
 Issues = "https://github.com/whilehq/whileai-sdk/issues"
-Datasets = "https://huggingface.co/datasets/zero-proof-ai/agent-simulations"
+Datasets = "https://huggingface.co/while-ai"
 
 [project.scripts]
 whileai = "whileai.cli:main"

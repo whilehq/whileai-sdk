@@ -17,8 +17,7 @@ What it does, in order:
    ``## Unreleased`` still lands under ``## Unreleased`` when it merges a
    minute after a cut, instead of sliding under a version that shipped
    without it.
-3. Sets the same version in ``compat/zeroproof/pyproject.toml`` and its
-   ``whileai>=`` floor, then runs ``uv lock`` so ``uv.lock`` agrees.
+3. Runs ``uv lock`` so ``uv.lock`` agrees.
 
 It refuses to cut when ``## Unreleased`` is missing or has no entries
 (exit code 3), so a run with nothing to ship is a no-op, not an empty
@@ -38,13 +37,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = ROOT / "pyproject.toml"
-COMPAT = ROOT / "compat" / "zeroproof" / "pyproject.toml"
 CHANGELOG = ROOT / "CHANGELOG.md"
 UNRELEASED = "## Unreleased"
 NOTHING_TO_SHIP = 3
 
 VERSION_LINE = re.compile(r'^version = "(\d+)\.(\d\d)"$', re.MULTILINE)
-FLOOR = re.compile(r'"whileai>=\d+\.\d\d"')
 
 
 def next_version(current: str) -> str:
@@ -83,15 +80,11 @@ def cut_changelog(text: str, version: str, today: str) -> str:
     return text.replace(f"{UNRELEASED}\n", f"{UNRELEASED}\n\n{header}\n", 1)
 
 
-def bump(path: Path, version: str, *, floor: bool = False) -> None:
+def bump(path: Path, version: str) -> None:
     text = path.read_text(encoding="utf-8")
     text, n = VERSION_LINE.subn(f'version = "{version}"', text, count=1)
     if n != 1:
         sys.exit(f"{path}: no version line to bump")
-    if floor:
-        text, n = FLOOR.subn(f'"whileai>={version}"', text, count=1)
-        if n != 1:
-            sys.exit(f"{path}: no `whileai>=` floor to bump")
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
@@ -103,11 +96,6 @@ def main() -> int:
     args = ap.parse_args()
 
     current = read_version(PYPROJECT)
-    compat = read_version(COMPAT)
-    if compat != current:
-        sys.exit(
-            f"pyproject.toml is at {current}, {COMPAT.name} (compat) at {compat}; fix that first"
-        )
     version = next_version(current)
     changelog = cut_changelog(CHANGELOG.read_text(encoding="utf-8"), version, args.date)
     entries = unreleased_entries(CHANGELOG.read_text(encoding="utf-8")) or ""
@@ -121,7 +109,6 @@ def main() -> int:
 
     CHANGELOG.write_text(changelog, encoding="utf-8", newline="\n")
     bump(PYPROJECT, version)
-    bump(COMPAT, version, floor=True)
     if not args.no_lock:
         subprocess.run(["uv", "lock"], cwd=ROOT, check=True)
     print(f"version={version}")

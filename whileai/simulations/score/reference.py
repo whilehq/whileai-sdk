@@ -29,7 +29,7 @@ from collections.abc import Callable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any
 
-from whileai._env import getenv
+from whileai._env import getenv, is_platform_host
 
 from ..defaults import MESSAGE_EXAMPLES
 from ..generate.agents import parse_backend_spec, resolve_completion_key
@@ -205,7 +205,7 @@ def reference_logprobs(
     if transport is None:
         key = (
             str(api_key or "").strip()
-            or (getenv("API_KEY", "").strip() if "zeroproof" in base_url else "")
+            or (getenv("API_KEY", "").strip() if is_platform_host(base_url) else "")
             or resolve_completion_key(base_url, api_key)
         )
         url = _chat_url(base_url)

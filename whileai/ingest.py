@@ -46,9 +46,10 @@ import requests
 
 from whileai._env import getenv
 
-# Where the gate lives. Override with WHILEAI_TRACE_URL to point at a
-# different deployment.
-_DEFAULT_TRACE_URL = "https://api.zeroproofai.com"
+# Where the gate lives (api.withwhile.com; the older api.zeroproofai.com
+# still answers). Override with WHILEAI_TRACE_URL to point at a different
+# deployment.
+_DEFAULT_TRACE_URL = "https://api.withwhile.com"
 _GZIP_MAGIC = b"\x1f\x8b"
 
 # The resource attribute that names the dataset. The gate reads

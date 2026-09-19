@@ -47,17 +47,17 @@ cd recipes/01-simulate/agent-behavior
 python run.py --runs 40 --days 3
 ```
 
-The platform defaults to https://api.zeroproofai.com. Set `WHILEAI_API_URL`
+The platform defaults to https://api.withwhile.com. Set `WHILEAI_API_URL`
 or pass `--gate` to point at a different one.
 
-Sign in at https://www.zeroproofai.com/platform for your key. For the
+Sign in at https://app.withwhile.com/platform for your key. For the
 model, ask While for an endpoint and token, or point it at anything that
 speaks the OpenAI chat-completions API.
 
 No dependencies and nothing to install: seven stdlib-only files in this
 directory. About eight minutes for 40 runs at the default concurrency of 4.
 
-Then open [the traces page](https://www.zeroproofai.com/platform/traces) and
+Then open [the traces page](https://app.withwhile.com/platform/traces) and
 pick the `demo-agent` row.
 
 Try it without sending anything first. This still needs the model endpoint,
@@ -246,7 +246,7 @@ If you already have an OTel exporter, you do not need `gate.py` at all. Three
 environment variables and your existing spans arrive:
 
 ```bash
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://api.zeroproofai.com/v1/traces
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://api.withwhile.com/v1/traces
 OTEL_EXPORTER_OTLP_HEADERS=x-api-key=zp_...
 OTEL_EXPORTER_OTLP_PROTOCOL=http/json     # protobuf is a 415 by design
 ```

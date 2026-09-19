@@ -668,3 +668,30 @@ def test_grader_must_be_callable():
 
     with pytest.raises(TypeError, match="grader= takes a callable"):
         wai.simulate(scripted_agent, budget=2, grader="hosted", **offline())
+
+
+def test_is_platform_host_matches_both_domains_and_the_served_models():
+    """The URLs a zp_ key goes to: the gate and the site on either domain,
+    and the Modal endpoints the platform serves models from. Nothing else."""
+    from whileai._env import is_platform_host
+
+    for url in (
+        "https://api.withwhile.com",
+        "https://app.withwhile.com/platform/traces",
+        "withwhile.com",
+        "https://api.zeroproofai.com/v1/traces",
+        "https://serve.zeroproofai.com/v1",
+        "https://zeroproofai--zeroproof-serve-qwen.modal.run/v1",
+        "HTTPS://API.WITHWHILE.COM",
+    ):
+        assert is_platform_host(url), url
+    for url in (
+        None,
+        "",
+        "https://api.openai.com/v1",
+        "https://zeroproofai--stressd-vllm-serve.modal.run/v1",
+        "https://notwithwhile.com",
+        "https://withwhile.com.evil.example",
+        "http://localhost:8000/v1",
+    ):
+        assert not is_platform_host(url), url

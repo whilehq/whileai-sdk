@@ -5,6 +5,17 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The default API host is `https://api.withwhile.com`. `api.zeroproofai.com`
+  still answers the same routes; `WHILEAI_API_URL` and `WHILEAI_TRACE_URL`
+  override as before. A login saved against the old host migrates on its
+  own: no sign-in needed.
+- Run and docs links point at withwhile.com (runs), app.withwhile.com (the
+  data platform) and docs.withwhile.com; the public dataset catalog is
+  huggingface.co/while-ai.
+- The `zeroproof` PyPI name is retired at 0.89. `pip install zeroproof`
+  still installs `whileai` through that last shim; the release workflow no
+  longer builds or uploads it, and `compat/` is gone from the repo.
+
 - Docs logo and favicon are wai the whale, the mark the site ships.
 - The six guides (Simulations, The engine, Evals, Reward hacking, Safety
   evals, Character training) each open with a figure of their mechanism,

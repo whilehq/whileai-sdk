@@ -47,7 +47,7 @@ def _capture_post(monkeypatch, reply):
 def test_otel_env_points_the_exporter_at_the_gate_with_the_key_as_a_header(monkeypatch):
     monkeypatch.delenv("WHILEAI_TRACE_URL", raising=False)
     env = ingest.otel_env("zp_abc", dataset="prod-refunds")
-    assert env["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] == "https://api.zeroproofai.com/v1/traces"
+    assert env["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] == "https://api.withwhile.com/v1/traces"
     assert env["OTEL_EXPORTER_OTLP_HEADERS"] == "x-api-key=zp_abc"
     assert env["OTEL_EXPORTER_OTLP_PROTOCOL"] == "http/json"
     # The gate names the dataset from zeroproof.dataset only: without it the

@@ -13,9 +13,8 @@ version is
 <img className="block dark:hidden" src="/figures/evals-loop-light.svg" alt="Your callable, simulate with fixed repeats, evaluate with your judge, pass_at, a CI gate; hand labels feed judge_trust" />
 <img className="hidden dark:block" src="/figures/evals-loop-dark.svg" alt="Your callable, simulate with fixed repeats, evaluate with your judge, pass_at, a CI gate; hand labels feed judge_trust" />
 
-**zp, ZeroProof and While are the same product.** The package is `whileai`
-(`uv add zeroproof` still works as a shim), the import is
-`whileai.simulations`, keys start with `zp_`.
+The package is `whileai`, the import is `whileai.simulations`, keys start
+with `zp_`.
 
 ## 1. Install and sign in
 
@@ -25,10 +24,9 @@ whileai signup --email you@example.com   # new account, no browser; or: whileai 
 whileai status                            # which key the SDK will use
 ```
 
-Nothing below needs the key until you drop `simulator=False`. The old names
-still count: `ZEROPROOF_API_KEY` is read when `WHILEAI_API_KEY` is unset
-and `~/.zeroproof/credentials.json` counts as a login; set
-`WHILEAI_HOME=/some/fresh/dir` to isolate a new account.
+Nothing below needs the key until you drop `simulator=False`. `WHILEAI_API_KEY`
+in the environment or the login saved at `~/.whileai/credentials.json` both
+count; set `WHILEAI_HOME=/some/fresh/dir` to isolate a new account.
 
 **The trial.** A fresh `signup` key gets 25,000 input and 50,000 output
 tokens a day, about twelve hosted situations of a four-tool agent; a run

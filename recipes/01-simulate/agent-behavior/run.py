@@ -398,7 +398,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\n{time.time() - began:.0f}s")
     if not args.dry_run:
         print(
-            f"\nhttps://www.zeroproofai.com/platform/traces  (agent {args.agent!r}, last {args.days:g} days)"
+            f"\nhttps://app.withwhile.com/platform/traces  (agent {args.agent!r}, last {args.days:g} days)"
         )
     return 0
 

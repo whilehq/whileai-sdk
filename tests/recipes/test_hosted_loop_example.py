@@ -176,7 +176,7 @@ def test_data_step_simulates_grades_splits_and_pushes(hl, monkeypatch, capsys):
 class _FakeRun:
     def __init__(self, status="done", error=None):
         self.run_id = "run_1"
-        self.url = "https://www.zeroproofai.com/platform/training/run_1"
+        self.url = "https://app.withwhile.com/platform/training/run_1"
         self.method = "sft"
         self.adapter = "volume whileai-train-runs:/run_1/adapter"
         self.training = {"before": 5.0, "after": 4.1, "holdoutRows": 72}

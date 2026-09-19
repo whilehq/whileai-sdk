@@ -55,16 +55,16 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md pyproject.toml compat/zeroproof/pyproject.toml uv.lock
+          git add CHANGELOG.md pyproject.toml uv.lock
           git commit -m "whileai $V"
           # main takes changes only through a pull request (ruleset), so the
           # bump lands as a PR this run merges itself: no review is required
-          # and a release PR touches only the four release files.
+          # and a release PR touches only the three release files.
           git push -f origin "HEAD:release/$V"
           # A re-run after a failed merge finds its PR still open; only then skip create.
           if [ -z "$(gh pr list --head "release/$V" --state open --json number -q '.[0].number')" ]; then
             gh pr create --base main --head "release/$V" --title "whileai $V" \
-              --body "Cut by the release workflow from \`## Unreleased\`. Touches only CHANGELOG.md, both pyprojects and uv.lock."
+              --body "Cut by the release workflow from \`## Unreleased\`. Touches only CHANGELOG.md, pyproject.toml and uv.lock."
           fi
           # Mergeability is computed a moment after the PR opens.
           for i in 1 2 3 4 5; do

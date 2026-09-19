@@ -823,7 +823,7 @@ class Run:
 
     @property
     def url(self) -> str:
-        return f"https://while.ai/platform/runs?agent={self.tracked.id}"
+        return f"https://withwhile.com/platform/runs?agent={self.tracked.id}"
 
     def __repr__(self) -> str:
         return (

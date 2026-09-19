@@ -39,7 +39,7 @@ import urllib.request
 #: base was infrastructure that could move; it is now a hostname we own, which
 #: is the whole point of naming it, so the example asks for one less thing.
 #: Override with ``WHILEAI_API_URL`` or ``--gate`` for a staging gate.
-DEFAULT_API_URL = "https://api.zeroproofai.com"
+DEFAULT_API_URL = "https://api.withwhile.com"
 API_URL_ENV = "WHILEAI_API_URL"
 API_KEY_ENV = "WHILEAI_API_KEY"
 
@@ -301,7 +301,7 @@ class Client:
         if not self.api_key:
             raise GateError(
                 f"No API key. Set {API_KEY_ENV} or pass --api-key. "
-                "Get one at https://www.zeroproofai.com/platform"
+                "Get one at https://app.withwhile.com/platform"
             )
 
     def send_trace(self, body: dict) -> dict:
