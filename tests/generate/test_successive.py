@@ -173,8 +173,12 @@ def test_rl_reports_time_spent_idle_waiting_on_verdicts():
                 if landed >= first_wave:
                     probes_landed.set()
 
-    started = time.monotonic()
-    hold_s: list[float] = []
+    # The pool sleeps collect_wait_s per idle round, so a hold longer than
+    # one round is enough for the accounting to show a whole round; the
+    # reported figure is rounded to 0.1 s. Only the first wave holds: the
+    # later verdicts land after the last rollout and would only lengthen
+    # the run.
+    hold_s = 0.5
     judged = 0
 
     def blocking_judge(row: dict) -> dict:
@@ -184,19 +188,14 @@ def test_rl_reports_time_spent_idle_waiting_on_verdicts():
         with lock:
             judged += 1
             first_wave_verdict = judged <= first_wave
-            if not hold_s:
-                # The note fires only when idle time is over a tenth of the
-                # whole run (engine.py: idle_on_judge_s > 0.1 * elapsed).
-                # Under load the rollouts stretch the run while a fixed hold
-                # would not, so hold for a multiple of what has elapsed so
-                # far; the floor clears the 0.1s rounding on the reported
-                # figure. Only the first wave holds: the later verdicts land
-                # after the last rollout and would only lengthen the run.
-                hold_s.append(max(0.3, 3.0 * (time.monotonic() - started)))
         if first_wave_verdict:
-            time.sleep(hold_s[0])
+            time.sleep(hold_s)
         return _judge(row)
 
+    # The note's threshold is a share of the wall clock (idle_judge_share,
+    # default 0.1 of the run), and the run stretches under a loaded box
+    # while the hold does not (#461). The test is about the accounting, so
+    # set the share to zero: any recorded idle time earns the note.
     data = wai.simulate(
         counted_agent,
         mode="rl",
@@ -204,14 +203,15 @@ def test_rl_reports_time_spent_idle_waiting_on_verdicts():
         rollouts_per_request=4,
         budget=8,
         grader=blocking_judge,
-        **offline(),
+        **offline(advanced={"idle_judge_share": 0.0}),
     )
     groups = data.search["groups"]
     # two situations cannot keep four rollout slots busy: every probe lands,
     # then the pool waits on the judge before it can decide the next rollout
-    assert groups["idle_on_judge_s"] > 0
+    idle = groups["idle_on_judge_s"]
+    assert 0 < idle <= data.elapsed_seconds, (groups, data.elapsed_seconds)
     note = [s for s in data.stages if s.startswith("rl pool idle on judge")]
-    assert note and "situations>=2" in note[0], (groups, hold_s, data.stages)
+    assert note and "situations>=2" in note[0], (groups, data.stages)
 
 
 def test_truncated_rollouts_are_not_judged_and_do_not_stall_their_group():

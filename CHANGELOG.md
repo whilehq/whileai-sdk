@@ -5,6 +5,15 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Every unsourced default in `defaults.py` now says the exact words
+  "(convention, untested" (nine said "(convention)", two qualified the
+  opener), and `scripts/check_no_hardcoding.py` fails when one does not, so
+  one grep finds every unsourced number (#461).
+- `test_rl_reports_time_spent_idle_waiting_on_verdicts` no longer races the
+  wall clock under `pytest -n auto`: it sets `idle_judge_share=0` and
+  asserts on the accounting, so `uv run pytest -q` is green on a loaded box
+  (#461).
+
 ## 0.96 (2026-09-19)
 
 - Run and dataset links point at withwhile.com (`/platform/runs`,
