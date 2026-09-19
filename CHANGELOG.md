@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.94 (2026-09-19)
+
 - `skills/strengthen-your-evals` writes the held-out asks once and replays
   them with `tasks=<that run>` for every other version and for the noise
   floor. The writer steers toward what the agent it watches gets wrong, so
