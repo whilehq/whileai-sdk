@@ -132,7 +132,8 @@ def test_decontaminate_by_ngram_and_exact_match(tmp_path):
             final="please look up order ORD-4017 and tell me whether the refund has been issued yet",
         ),
     ]
-    # the default reads prompts only (rlhf-book ch. 16): verbatim, the
+    # the default reads prompts only (Lambert 2025, chapter Evaluation):
+    # verbatim, the
     # paraphrase (14 of 16 words under one eval prompt), the short exact
     kept, report = decontaminate(rows, evals)
     assert report["n_contaminated"] == 3 and len(kept) == 2

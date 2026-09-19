@@ -1,4 +1,5 @@
-"""Pairwise judging with position swap and ties (rlhf-book ch. 5, 11)."""
+"""Pairwise judging with position swap and ties (Lambert 2025, chapters
+Reward Modeling and Preference Data)."""
 
 from __future__ import annotations
 

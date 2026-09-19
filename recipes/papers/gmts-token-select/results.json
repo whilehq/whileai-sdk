@@ -2,7 +2,7 @@
   "recipe": "gmts-token-select",
   "title": "GMTS: rank tokens by entropy times advantage, not by entropy alone",
   "paper": "https://arxiv.org/abs/2608.30632",
-  "book": "ch. 6 Policy gradients",
+  "book": "Reinforcement Learning",
   "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
   "metric": "pass@1",
   "n_holdout": 120,

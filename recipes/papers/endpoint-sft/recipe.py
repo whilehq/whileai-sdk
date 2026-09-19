@@ -20,7 +20,7 @@ shorter.
 
 Shape of the run:
   1. data():     OpenR1-Math-220k traces to train on, MATH-500 held out,
-                 decontaminated against it before anything is trained (ch. 16)
+                 decontaminated against it before anything is trained (chapter Evaluation)
   2. run_arm():  TRL SFTTrainer + LoRA on Modal, one arm per call
   3. evaluate(): the same 64 held-out problems, k samples each, graded by
                  MathEqual against the public gold answer
@@ -44,13 +44,13 @@ import modal
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 METRIC = "pass@1"
-BOOK = "ch. 4 Instruction tuning"  # what SFT learns from, and the prompt mask
+BOOK = "Instruction Tuning Instruction tuning"  # what SFT learns from, and the prompt mask
 # SFT has no per-rollout reward to point at, but it does have a form it
 # teaches: a closed <think> block ending in \boxed{}. That form is what the
 # likelihood objective credits whether or not the answer is right, so it is
-# the proxy, and pass@1 is the target (rlhf-book ch. 14).
+# the proxy, and pass@1 is the target (Lambert 2025, chapter Over-optimization).
 PROXY = "marker:trace_form"
-EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (ch. 16)
+EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (chapter Evaluation)
 
 # The paper's own heuristic: choose the retained step count so that about this
 # much of the dataset's trace tokens is removed. §C.3, and Figure B says
@@ -143,7 +143,7 @@ def choose_n(
 
 def trace_form(text: str) -> int:
     """1 when the completion has the shape SFT was shown: a closed thinking
-    block and a boxed answer at the end. The proxy (ch. 14) -- it says the
+    block and a boxed answer at the end. The proxy (chapter Over-optimization) -- it says the
     model learned the form, not that it got the answer right."""
     return int(
         "<think>" in text and "</think>" in text and "\\boxed{" in text.split("</think>")[-1]
@@ -443,7 +443,7 @@ def run_arm(
     problems = [t["problem"] for t in holdout]
     # The base is evaluated EVAL_RUNS times, not once. The spread across those
     # re-runs is the eval's own noise, and a delta smaller than it is not a
-    # result (rlhf-book ch. 16). Only the first arm pays for this.
+    # result (Lambert 2025, chapter Evaluation). Only the first arm pays for this.
     base_runs = []
     if eval_base:
         for i in range(EVAL_RUNS):
@@ -455,7 +455,7 @@ def run_arm(
             print(f"base run {i + 1}/{EVAL_RUNS}: {wai.pass_at(rows)}")
 
     # A prompt-completion dataset, so TRL masks the prompt and takes the loss
-    # on the trace alone -- the book's instruction-tuning rule (ch. 4): the
+    # on the trace alone -- the book's instruction-tuning rule (chapter Instruction Tuning): the
     # model is not learning to predict the question.
     dataset = Dataset.from_list(
         [
@@ -529,7 +529,7 @@ def run_arm(
     after = wai.pass_at(after_rows)
     print(f"{arm}: {after}")
 
-    # What separates a rewarded rollout from an unrewarded one (ch. 14). SFT
+    # What separates a rewarded rollout from an unrewarded one (chapter Over-optimization). SFT
     # has no per-rollout training reward to scan, so this runs on the arm's
     # graded holdout rollouts: the features that track being marked right.
     # Nothing is endorsed -- the reward is the answer being correct, and any
@@ -726,7 +726,7 @@ def main() -> None:
     # OpenR1-Math-220k is built from NuminaMath, which draws on the MATH
     # training set, and MATH-500 is a slice of the MATH test set. Nothing says
     # a problem cannot appear in both, so this is measured, not assumed
-    # (rlhf-book ch. 16), and the count goes in the Checks table.
+    # (Lambert 2025, chapter Evaluation), and the count goes in the Checks table.
     train_rows, decon = wai.decontaminate(train_rows, against=holdout)
     print(f"decontaminate: {decon['n_contaminated']} of {decon['n']} train rows dropped")
     arms = ["baseline", "recipe"] if args.arm == "both" else [args.arm]
@@ -807,7 +807,7 @@ def main() -> None:
     if "baseline" in arm_rows and "recipe" in arm_rows:
         # run_std makes "moved" mean bigger than the eval's own re-run noise;
         # proxy names what SFT actually optimizes, the shape of the trace, so
-        # a run that only taught the form shows up as over-optimized (ch. 14).
+        # a run that only taught the form shows up as over-optimized (chapter Over-optimization).
         d = wai.delta_report(
             arm_rows["baseline"],
             arm_rows["recipe"],

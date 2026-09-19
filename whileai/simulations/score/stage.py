@@ -1,11 +1,12 @@
-"""Stage lineage: which post-training stage consumed each row (book ch. 3).
+"""Stage lineage: which post-training stage consumed each row (Lambert 2025,
+chapter Training Overview).
 
-The book's training overview is a pipeline of stages: instruction tuning
-(SFT), reward modeling (RM), reinforcement learning (RL), and the held-out
-evaluation that judges the result. Rows carry a ``purpose`` (train / holdout
-/ eval) and a grading ``lineage.source``, but nothing records the *stage* a
-row fed. Without it you cannot audit the one mistake the pipeline most needs
-caught: a prompt used to evaluate that was also used to train.
+Lambert 2025 lays out post-training as a pipeline of stages: instruction
+tuning (SFT), reward modeling (RM), reinforcement learning (RL), and the
+held-out evaluation that judges the result. Rows carry a ``purpose`` (train /
+holdout / eval) and a grading ``lineage.source``, but nothing records the
+*stage* a row fed. Without it you cannot audit the one mistake the pipeline
+most needs caught: a prompt used to evaluate that was also used to train.
 
 ``stamp_stage(rows, "sft")`` writes ``row["stage"]``; ``stage_report(rows)``
 counts rows per stage and flags any task that appears in both ``eval`` and a

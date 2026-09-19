@@ -50,7 +50,7 @@ DEFAULT_AGENT = (
 DEFAULT_SIMULATOR = DEFAULT_AGENT
 # The judge is a different model family from the policy on purpose: a
 # judge grading its own writing prefers it (self-preference bias,
-# rlhfbook.com/c/07-reward-models.html, LLM-as-a-judge). Phi-4
+# Panickssery et al. 2024, arXiv:2404.13076). Phi-4
 # on its own vLLM app in the same Modal workspace, same VLLM_API_KEY.
 DEFAULT_JUDGE = "vllm:microsoft/phi-4@https://zeroproofai--zeroproof-judge-serve.modal.run/v1"
 # The account route. These two endpoints sit behind the zeroproof-serve

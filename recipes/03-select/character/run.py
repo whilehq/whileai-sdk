@@ -41,10 +41,10 @@ CONSTITUTION = HERE / "constitution.json"
 
 # What ships. The persona has a name and nothing else; the trait has to
 # live in the weights, which is the whole point of character training over
-# a system prompt (rlhf-book ch. 17, Maiya et al. 2025).
+# a system prompt (Lambert 2025, chapter Model Character and Products, Maiya et al. 2025).
 DEPLOY_PROMPT = "You are Sol, an assistant."
 
-# The phrases character pipelines exist to remove (rlhf-book ch. 17:
+# The phrases character pipelines exist to remove (Lambert 2025, chapter Model Character and Products:
 # "removing common phrases like `Certainly` or `as an AI model built by`").
 FILLER = (
     "Certainly!",

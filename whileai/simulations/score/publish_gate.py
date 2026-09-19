@@ -1,9 +1,10 @@
 """The gate a dataset passes before it leaves for the platform.
 
-Two jobs, both from the RLVR playbook (rlhf-book ch. 6 and 7: dynamic
-sampling drops all-pass / all-fail groups; offline difficulty filtering
-keeps prompts the start policy solves 20-80% of the time, measured with
-N samples; curricula need that per-prompt difficulty stored with the data).
+Two jobs, both from the RLVR playbook (Yu et al. 2025 (DAPO),
+arXiv:2503.14476: dynamic sampling drops all-pass / all-fail groups; Lambert
+2025, chapter Reasoning: offline difficulty filtering keeps prompts the start
+policy solves 20-80% of the time, measured with N samples; curricula need that
+per-prompt difficulty stored with the data).
 
 * ``calibrate`` writes the measured difficulty on every graded row: the
   per-task pass rate over its k rollouts, the sample count, and the

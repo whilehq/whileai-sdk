@@ -810,11 +810,11 @@ def cut(
     data" button, as one line.
 
     Runs of the same prompt are grouped by ``zeroproof.scenario_id``.
-    ``kind="rl"`` keeps the prompts the agent passes some of the time and
-    not always (20% to 80% by default, RLHF book ch. 7); ``kind="sft"``
-    keeps the best run of every prompt that ever passed. Either way the
-    prompts are split into a train set and a held-out set, so a prompt you
-    measure on is never a prompt you trained on.
+    ``kind="rl"`` keeps the prompts the agent passes some of the time and not
+    always (20% to 80% by default, Lambert 2025, chapter Reasoning);
+    ``kind="sft"`` keeps the best run of every prompt that ever passed. Either
+    way the prompts are split into a train set and a held-out set, so a prompt
+    you measure on is never a prompt you trained on.
 
     ``since`` is the trace window (``"all"``, ``"24h"``, ``"7d"``); any
     other keyword is a trace filter, the same ones the traces page has

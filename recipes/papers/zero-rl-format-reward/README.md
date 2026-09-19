@@ -1,14 +1,14 @@
 # Zero RL on a base model: a rigid format reward costs accuracy
 
 **Paper:** SimpleRL-Zoo: Investigating and Taming Zero Reinforcement Learning for Open Base Models in the Wild, Weihao Zeng et al., arXiv:2503.18892, March 2025. https://arxiv.org/abs/2503.18892
-**Book:** rlhfbook.com ch. 7 Reasoning: RL with a verifiable reward straight on a base model, and what the reward is allowed to depend on.
+**Book:** RL with a verifiable reward, a program that checks the answer [1], run straight on a base model with no SFT first [2], and what the reward is allowed to depend on.
 **Claim:** A base model trained with GRPO and a rule reward gains accuracy on math without any SFT first, but only if the reward pays for the answer and not the format; requiring `\boxed{}` and punishing its absence "penalizes many correct explorations" early and shrinks the chain of thought late (section 3.1).
 **The change:** the baseline arm is paid the R1-style strict reward (+1 for the gold inside the last `\boxed{}`, -1 with no box, 0 otherwise); the recipe arm is paid +1 for a correct answer however it is written and 0 otherwise, the paper's default. Nothing else differs.
 
 ## Recipe
 
 1. Base: `Qwen/Qwen3.5-4B-Base`, a hybrid model (24 gated DeltaNet blocks, 8 full-attention blocks), no chat turns, plain-text prompt. Data: MATH train at levels 3 to 5 (the paper's "Hard" tier, the one it pairs with Qwen-class bases), 1,024 train prompts; MATH-500, 160 held out, drawn from the MATH test split so the two are disjoint by construction.
-2. Baseline: TRL 1.13 `GRPOTrainer` with a LoRA adapter (rank 32, every linear layer), rollouts from a colocated vLLM engine, 30 steps of 6 prompts x 8 rollouts, up to 1,536 completion tokens, lr 5e-5, clip 0.2, KL 1e-4 (the paper's coefficient for models up to 14B), temperature 1.0, `loss_type="dapo"` (the paper removes GRPO's length normalisation, appendix B.5). Reward: strict.
+2. Baseline: TRL 1.13 `GRPOTrainer` with a LoRA adapter (rank 32, every linear layer), rollouts from a colocated vLLM engine, 30 steps of 6 prompts x 8 rollouts, up to 1,536 completion tokens, lr 5e-5, clip 0.2, KL 1e-4 (the paper's coefficient for models up to 14B), temperature 1.0, `loss_type="dapo"` [3] (the paper removes GRPO's length normalisation, appendix B.5). Reward: strict.
 3. Recipe: the same run, reward lenient.
 4. Eval: pass@1 on the same 160 held-out tasks, 4 samples per task, read leniently for both arms (`MathEqual` on `\boxed{}`, "the answer is", or the last line), so the target is one number. The untrained base is evaluated three times first and that spread is the noise floor; the train set is decontaminated against the holdout before training. Paired delta with a 95% interval (`wai.pass_at`, `wai.delta_report`).
 5. `delta_report(proxy="strict_reward")`: the baseline trained on a reward that is not the target metric, and the report says whether it over-optimised it.
@@ -47,18 +47,18 @@ Where the accuracy came from is in the training curves. The strict arm's rollout
 Nothing in this table is ticked by hand: every cell is written by `recipe.py`
 into `results.json`.
 
-| Check | Book | Result |
+| Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | **run_std 0.011** from 3 re-runs (0.51, 0.49, 0.50); a delta under **0.067** is noise (`noise_band(run_std, df=2)` = 4.30 x sqrt(2) x 0.011) |
-| Holdout is clean: `decontaminate(train, against=holdout)` | ch. 16 | **0 of 1,024** train rows dropped; MATH-500 is a subset of the MATH test split |
-| Reward is a program, not a judge | ch. 7, 13 | `MathEqual` against the MATH gold; the arms differ only in how the answer span is read and whether a missing box is punished |
-| Proxy vs target: `delta_report(proxy=)` | ch. 14 | `proxy="strict_reward"`: 0.58 -> 0.53, -0.052 [-0.119, +0.014], noise; **over_optimized false** |
-| Length: mean completion length before -> after, per arm | ch. 14 | base 1,387 chars; baseline **1,336**, recipe **1,928** |
-| Format: share of replies with a `\boxed{}` before -> after, per arm | ch. 14 | base 0.91; baseline **0.96**, recipe **0.83** |
-| Hack scan on the last training batch: `hack_scan` | ch. 14 | recipe top feature `contains:let`, baseline `contains:1 }`: surface features of MATH derivations, not of the reward. Nothing is endorsed |
-| Pinned: seed, torch, transformers, trl, peft, vllm | app. C | seed 17 in the trainer, `--seed 0` for the data split; torch 2.13.0, transformers 5.17.0, trl 1.13.0, peft 0.21.0, vllm 0.29.0, whileai 0.83 |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [4] | **run_std 0.011** from 3 re-runs (0.51, 0.49, 0.50); a delta under **0.067** is noise (`noise_band(run_std, df=2)` = 4.30 x sqrt(2) x 0.011) |
+| Holdout is clean: `decontaminate(train, against=holdout)` | [1] | **0 of 1,024** train rows dropped; MATH-500 is a subset of the MATH test split |
+| Reward is a program, not a judge | [1] | `MathEqual` against the MATH gold; the arms differ only in how the answer span is read and whether a missing box is punished |
+| Proxy vs target: `delta_report(proxy=)` | [5] | `proxy="strict_reward"`: 0.58 -> 0.53, -0.052 [-0.119, +0.014], noise; **over_optimized false** |
+| Length: mean completion length before -> after, per arm | [5] | base 1,387 chars; baseline **1,336**, recipe **1,928** |
+| Format: share of replies with a `\boxed{}` before -> after, per arm | [5] | base 0.91; baseline **0.96**, recipe **0.83** |
+| Hack scan on the last training batch: `hack_scan` | [5] | recipe top feature `contains:let`, baseline `contains:1 }`: surface features of MATH derivations, not of the reward. Nothing is endorsed |
+| Pinned: seed, torch, transformers, trl, peft, vllm | [the contract](../README.md#the-contract) | seed 17 in the trainer, `--seed 0` for the data split; torch 2.13.0, transformers 5.17.0, trl 1.13.0, peft 0.21.0, vllm 0.29.0, whileai 0.83 |
 
-Training-curve numbers above are from the trainer's own log (`completions/mean_length`, `completions/clipped_ratio`, `reward`, `kl`), which the run page carries as the reward, KL and length curves. Zero-variance groups (`frac_reward_zero_std`) averaged 0.29 on the strict arm and 0.41 on the lenient arm: at a 0.57 mean reward the lenient arm wastes more of its groups on all-correct prompts, which is what DAPO's dynamic sampling is for and the next knob to turn.
+Training-curve numbers above are from the trainer's own log (`completions/mean_length`, `completions/clipped_ratio`, `reward`, `kl`), which the run page carries as the reward, KL and length curves. Zero-variance groups (`frac_reward_zero_std`) averaged 0.29 on the strict arm and 0.41 on the lenient arm: at a 0.57 mean reward the lenient arm wastes more of its groups on all-correct prompts, which is what DAPO's dynamic sampling [3] is for and the next knob to turn.
 
 ## Climb
 
@@ -74,6 +74,14 @@ Round 1 died on the recipe arm's first loss forward: TRL upcasts the full 248k-t
 - The gap is real at this size and it is not about the box. Base replies already box 91% of the time, so the -1 penalty rarely fires on the holdout; it fires during training on every rollout that runs out of room, and that is enough to change what the policy learns to do with its budget.
 - Score the target, not the reward. `delta_report(proxy="strict_reward")` shows the lenient arm losing on the baseline's own reward while winning on accuracy; without that row the baseline's 96% boxed share would look like the better-trained model.
 - Qwen3.5's hybrid architecture trains under TRL 1.13 with vLLM colocated and LoRA on every linear layer, at 70 to 85 s a step for 48 rollouts of 1.5k tokens on one H100. The memory ceiling is the fp32 logits in the loss forward, not the engine; keep the per-device batch at half a group.
-- Next: three seeds per arm, and DAPO's dynamic sampling on the lenient arm, whose groups saturate at a 0.57 mean reward.
+- Next: three seeds per arm, and DAPO's dynamic sampling [3] on the lenient arm, whose groups saturate at a 0.57 mean reward.
 
-Verified 2026-09-18, whileai 0.83, TRL 1.13.0 GRPOTrainer + vLLM 0.29.0 on Modal. Run page: https://app.withwhile.com/platform/training/run_064f9185fdf88eef (recipe arm), https://app.withwhile.com/platform/training/run_42f97ae9878c4621 (baseline arm); Runs page: https://withwhile.com/platform/runs?agent=zero-rl-qwen3.5-4b
+Verified 2026-09-18, whileai 0.83, TRL 1.13.0 GRPOTrainer + vLLM 0.29.0 on Modal. Run page: https://app.withwhile.com/platform/training/run_064f9185fdf88eef (recipe arm), https://app.withwhile.com/platform/training/run_42f97ae9878c4621 (baseline arm); Runs page: https://while.ai/platform/runs?agent=zero-rl-qwen3.5-4b
+
+## References
+
+1. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
+2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Reasoning*.
+3. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
+4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+5. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

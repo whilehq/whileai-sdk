@@ -1,5 +1,6 @@
 """grade(use_privileged=True): the judge reads the row's privileged block
-(principle, reference, hidden state) the agent never saw (rlhf-book ch. 12)."""
+(principle, reference, hidden state) the agent never saw (Bai et al. 2022,
+arXiv:2212.08073)."""
 
 from __future__ import annotations
 

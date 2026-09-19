@@ -16,7 +16,16 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   still installs `whileai` through that last shim; the release workflow no
   longer builds or uploads it, and `compat/` is gone from the repo.
 
+- README banner is wai the whale; the ring is gone.
 - Docs logo and favicon are wai the whale, the mark the site ships.
+- Docs cite the way a paper does. Every "What the book says" section and
+  inline "rlhf-book ch. N" pointer in the guides, the reference pages, the
+  recipe READMEs and the docstrings behind the API reference is gone; each
+  claim is stated in plain words with a numbered citation, resolved in a
+  References list that names the primary paper (Gao 2022 for
+  over-optimization, DeepSeekMath for GRPO, DAPO, Zheng 2023 for judge
+  bias, Miller 2024 for eval error bars, and so on). The textbook is one
+  entry, cited by chapter title.
 - The six guides (Simulations, The engine, Evals, Reward hacking, Safety
   evals, Character training) each open with a figure of their mechanism,
   light and dark, drawn by `scripts/gen_guide_figures.py` into

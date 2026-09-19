@@ -1,4 +1,5 @@
-"""Human labels with annotator records (rlhf-book ch. 10, 11)."""
+"""Human labels with annotator records (Lambert 2025, chapter Preference
+Data)."""
 
 from __future__ import annotations
 

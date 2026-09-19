@@ -501,7 +501,7 @@ def leakage_report(
 
     A generated row whose prompt sits at or above ``threshold`` cosine
     similarity to any source prompt is flagged (0.9 by default: the 8-gram
-    exact-overlap test of rlhfbook.com/c/16-evaluation.html with a small
+    exact-overlap test of Lambert 2025, chapter Evaluation, with a small
     paraphrase allowance). Exact matches always flag, whatever the embedder
     thinks. ``leaky`` lists the first ``examples`` offenders; ``n_leaky`` is
     the full count.

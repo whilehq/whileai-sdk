@@ -1,10 +1,10 @@
 """Code-execution verifier: run the candidate against tests, reward = pass.
 
-Book ch. 13 (RLVR): the strongest verifiable reward for coding is executing
-the code against a test suite. The candidate's code is pulled from the
-final answer (a ```python fence, else the whole text). Tests come from, in
-order: the ``tests=`` argument, ``privileged.tests`` on the row, or the
-reference.
+RLVR (Lambert et al. 2024, arXiv:2411.15124; Lambert 2025, chapter Tool Use):
+the strongest verifiable reward for coding is executing the code against a
+test suite. The candidate's code is pulled from the final answer (a ```python
+fence, else the whole text). Tests come from, in order: the ``tests=``
+argument, ``privileged.tests`` on the row, or the reference.
 
 Isolation: the code runs in a fresh subprocess with ``-I`` (isolated mode),
 a private temp working directory, a wall-clock timeout, and, on POSIX, CPU

@@ -10,7 +10,7 @@ description: "Paper: GMTS: Gradient Magnitude-based Token Selection Improves RLV
 then `cd recipes/papers/gmts-token-select` before running the commands below. [Browse this recipe on GitHub](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/gmts-token-select).</Note>
 
 **Paper:** GMTS: Gradient Magnitude-based Token Selection Improves RLVR Training, Outongyi Lv et al., arXiv:2608.30632, August 2026. https://arxiv.org/abs/2608.30632
-**Book:** rlhfbook.com ch. 6 Policy gradients: group-relative methods "assign the same sequence-level advantage (or reward) to every token when computing the loss", and the chapter's aggregation choices decide whether each token or each sequence contributes equally — which is what decides whether a token *selection* can matter at all.
+**Book:** group-relative methods "assign the same sequence-level advantage (or reward) to every token when computing the loss" [1], and how the loss aggregates over tokens decides whether each token or each sequence contributes equally [1, 2], which is what decides whether a token *selection* can matter at all.
 **Claim:** training on only the top 20% highest-entropy tokens beats training on all of them, but entropy is read one answer at a time: two tokens can carry the same entropy in answers the group scored very differently. Ranking instead by entropy times the answer's learning signal picks a better 20% and raises accuracy.
 **The change:** the score the top 20% is taken by. The baseline ranks tokens by entropy; the recipe ranks them by |entropy x advantage|.
 
@@ -100,16 +100,16 @@ comparing the two rankings at one learning rate is not comparing the rankings.
 Nothing in this table is ticked by hand: every cell is written by `recipe.py`
 into `results.json`. These are the round 1 numbers.
 
-| Check | Book | Result |
+| Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | **run_std 0.0115**, so a delta under **0.032** is noise. The -0.310 here is ten times that, which is the one thing about this result that is not in doubt |
-| Holdout is clean: `decontaminate(train, against=holdout)` | ch. 16 | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits — measured, not assumed |
-| Reward is a program, not a judge | ch. 7, 13 | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
-| Proxy vs target: `delta_report(proxy=)` | ch. 14 | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize. `over_optimized` false |
-| Length: mean completion length before -> after, per arm | ch. 14 | **700 chars base -> 636 baseline, 374 recipe.** The recipe arm nearly halved, alongside its accuracy — degeneration, not brevity |
-| Hack scan on the last training batch: `hack_scan` | ch. 14 | recipe batch top feature `frac:upper`; baseline batch `contains:: AND contains:calculate the`. Nothing is endorsed. `frac:upper` on a collapsed arm is the scan seeing the wreckage, not a reward surface worth optimizing |
-| **Was the change reachable: `selection_overlap`** | ch. 6 | **0.703 in both arms**, with `kept` exactly 0.200. The two rankings chose different tokens for 30% of the budget, every step. The change was reachable, and the arms really did train on different tokens |
-| Pinned: seed, torch, transformers, trl, peft | app. C | seed 17 in the trainer, `--seed 0` for the data split; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [3] | **run_std 0.0115**, so a delta under **0.032** is noise. The -0.310 here is ten times that, which is the one thing about this result that is not in doubt |
+| Holdout is clean: `decontaminate(train, against=holdout)` | [4] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits — measured, not assumed |
+| Reward is a program, not a judge | [4] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
+| Proxy vs target: `delta_report(proxy=)` | [5] | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize. `over_optimized` false |
+| Length: mean completion length before -> after, per arm | [5] | **700 chars base -> 636 baseline, 374 recipe.** The recipe arm nearly halved, alongside its accuracy — degeneration, not brevity |
+| Hack scan on the last training batch: `hack_scan` | [5] | recipe batch top feature `frac:upper`; baseline batch `contains:: AND contains:calculate the`. Nothing is endorsed. `frac:upper` on a collapsed arm is the scan seeing the wreckage, not a reward surface worth optimizing |
+| **Was the change reachable: `selection_overlap`** | [1] | **0.703 in both arms**, with `kept` exactly 0.200. The two rankings chose different tokens for 30% of the budget, every step. The change was reachable, and the arms really did train on different tokens |
+| Pinned: seed, torch, transformers, trl, peft | [the contract](/recipes/papers#the-contract) | seed 17 in the trainer, `--seed 0` for the data split; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
 
 The last row is not in the template. It is here because the recipe next door
 ([adaptive-clip](/recipes/papers/adaptive-clip)) spent a GPU hour on a change that was
@@ -168,10 +168,18 @@ is untested is itself the result.
 
 ## Learned
 
-- **A token selection is also a stability change, and comparing two selections at one learning rate does not compare the selections.** Ranking by `|E * advantage|` cannot reorder tokens inside an answer, since the advantage is constant along it (rlhfbook ch. 6); all it can do is move slots between answers, toward the ones with the largest |advantage|. At lr 1e-4 that difference was enough for one ranking to train and the other to diverge. Anyone reproducing this paper should establish each arm's stable learning-rate range first and compare at a rate both survive, or report gradient norms alongside the scores, or the number they publish is a step-size result wearing a token-selection label.
+- **A token selection is also a stability change, and comparing two selections at one learning rate does not compare the selections.** Ranking by `|E * advantage|` cannot reorder tokens inside an answer, since the advantage is constant along it [1]; all it can do is move slots between answers, toward the ones with the largest |advantage|. At lr 1e-4 that difference was enough for one ranking to train and the other to diverge. Anyone reproducing this paper should establish each arm's stable learning-rate range first and compare at a rate both survive, or report gradient norms alongside the scores, or the number they publish is a step-size result wearing a token-selection label.
 - **Do not read a gradient norm from a diverging run as a property of the method.** Round 1 showed grad_norm 60.1 against the baseline's 11.5 and the obvious story was "GMTS takes 5x the step". Round 2 killed that story: at a stable learning rate the two arms sit at 10.1 and 9.9. The 5x was the divergence, not its cause. One extra run at one changed knob was the difference between a clean mechanism and a confident wrong one.
 - **Check that your change is reachable, then check what else it changed.** `selection_overlap` 0.703 confirmed the arms trained on genuinely different tokens, which is the check the recipe next door was missing. It is necessary and it is not sufficient: the change was reachable and still did not isolate what it meant to, because the thing it touched carries a second effect.
 - **Computing the entropy is the expensive part of this recipe.** The score needs the full next-token distribution, so the trainer takes an extra no-grad forward and materializes a `(rows, tokens, 151936)` float32 tensor for a `log_softmax`. TRL's own scoring pass never does this — `selective_log_softmax` gathers one logprob per position. This ran at about 20 seconds a step at 8 rollouts x 256 tokens, and that pass is the bulk of it. A cheaper entropy (bf16, or fused) would be the first thing to change if this were run at any size.
 - **A flat verdict and a collapse are not the same news, and the table says the same word for both.** This recipe maps `delta_report`'s `moved_the_wrong_way` to "flat" (`check.py` itself only rejects intervals that cover zero), so an arm that ends below the untrained base reads as "flat" in the index. That is the correct verdict by the rule and it is worth knowing that the rule compresses it; the Result table above says what actually happened.
 
 Verified 2026-09-18, whileai 0.64, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. Round 1, the numbers above: 45.3 GPU minutes, $1.51 on one L40S; round 2: 45.9 minutes, $1.53. Run page: https://app.withwhile.com/platform/training/run_5198278ad1c4d851 (round 2: https://app.withwhile.com/platform/training/run_93e11a46757d3f56)
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Reinforcement Learning*.
+2. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
+3. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+4. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
+5. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

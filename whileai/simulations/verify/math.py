@@ -1,6 +1,7 @@
 """Math verifiers: numeric closeness and symbolic equality.
 
-Book ch. 7 (Reasoning) and ch. 13 (RLVR): the canonical verifiable reward.
+The canonical verifiable reward (Lambert et al. 2024, arXiv:2411.15124;
+Lambert 2025, chapters Reasoning and Tool Use).
 Handles the common answer envelopes: ``\\boxed{...}``, "the answer is X",
 trailing number. Symbolic equality uses sympy when installed and falls back
 to normalized-string plus numeric comparison so the verifier still runs with

@@ -2,7 +2,7 @@
   "recipe": "zero-rl-format-reward",
   "title": "Zero RL on a base model: a rigid format reward costs accuracy",
   "paper": "https://arxiv.org/abs/2503.18892",
-  "book": "ch. 7 Reasoning",
+  "book": "Reasoning",
   "base_model": "Qwen/Qwen3.5-4B-Base",
   "metric": "pass@1",
   "n_holdout": 160,

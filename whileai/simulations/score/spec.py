@@ -1,11 +1,13 @@
-"""Model spec as a versioned object (RLHF book ch. 17).
+"""Model spec as a versioned object (Lambert 2025, chapter Model Character and
+Products).
 
 A model spec (or constitution) is a living document: a set of named traits,
-each with a principle the model should follow. The book's point is that it is
-versioned and measured — you track adherence to *this* version across model
-releases, and you notice when an edit to the spec, not the model, moved a
-number. Character training already grades replies against a constitution;
-what was missing is the constitution as an object with an identity.
+each with a principle the model should follow. Lambert 2025 makes the point
+that it is versioned and measured — you track adherence to *this* version
+across model releases, and you notice when an edit to the spec, not the model,
+moved a number. Character training already grades replies against a
+constitution; what was missing is the constitution as an object with an
+identity.
 
 ``Spec`` wraps the ``{source, traits: [{id, name, authority, principle,
 examples}]}`` shape the character example already writes. Its ``version`` is

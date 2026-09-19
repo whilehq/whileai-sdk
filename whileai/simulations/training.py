@@ -137,7 +137,8 @@ def _holdout_block(
     intervals and one verdict word from ``delta_report`` (``moved``,
     ``moved_unreplicated``, ``within_eval_noise``, ``no_change_detected``,
     ...), so the run page's opening line can carry the same caveats the
-    report does (rlhf-book ch. 16, appendix C)."""
+    report does (Lambert 2025, chapter Evaluation and its evaluation-variance
+    appendix)."""
     from .score.delta import _verdict_word
 
     metric = (report.get("metrics") or {}).get("pass_at_1") or {}
@@ -630,7 +631,7 @@ def selection_report(
 
     ``sft`` clones every row it is given, so a failing row is a refusal
     (rejection sampling keeps the passes,
-    rlhfbook.com/c/10-rejection-sampling.html). ``grpo``, ``dpo`` and
+    Lambert 2025, chapter Rejection Sampling). ``grpo``, ``dpo`` and
     ``rm`` learn from prompts with both a pass and a fail; none is a
     refusal, fewer than ``min_mixed_tasks`` (``TRAIN_MIN_MIXED_TASKS``,
     32) is a warning with the count.
@@ -651,7 +652,7 @@ def selection_report(
                 f"sft on {dataset} would train on all {rows} rows, {n_fail} of which fail "
                 f"(reward under {PASS_THRESHOLD:g}){ungraded}. The hosted trainer clones every "
                 "row it is given, so the model learns the failure; rejection sampling keeps the "
-                "passing completions (rlhfbook.com/c/10-rejection-sampling.html). Push "
+                "passing completions (Lambert 2025, chapter Rejection Sampling). Push "
                 f"scored.passes() (the rows with reward >= {PASS_THRESHOLD:g}) as the train set, "
                 f"or pass {knob} to train on the failures on purpose."
             )
@@ -687,13 +688,15 @@ def selection_report(
     if method == "grpo":
         why = (
             "a group with one reward has zero advantage: GRPO's baseline is the group mean "
-            "(rlhfbook.com/c/11-policy-gradients.html), which is why DAPO (arXiv 2503.14476) "
+            "(Shao et al. 2024, arXiv:2402.03300), which is why DAPO "
+            "(arXiv 2503.14476) "
             "drops prompts at accuracy 0 and 1"
         )
     else:
         why = (
             f"{method} learns from a pass paired with a fail of the same prompt "
-            "(rlhfbook.com/c/12-direct-alignment.html), so a unanimous prompt gives no pair"
+            "(Lambert 2025, chapter Direct Alignment), so a unanimous prompt gives "
+            "no pair"
         )
     size = (
         f"wai.profile({dataset!r})['mixed_tasks'] is how to size the set: simulate(mode='rl') "
@@ -840,7 +843,7 @@ def train(
     default ``"require"``): ``train`` reads ``wai.profile(dataset)`` and
     runs ``selection_report`` on it. SFT with failing rows is refused
     (``TrainingSelectionError``): the trainer clones every row and the
-    model learns the failure (rlhfbook.com/c/10-rejection-sampling.html;
+    model learns the failure (Lambert 2025, chapter Rejection Sampling;
     #396 measured it, tool use 0.99 to 0.49). A grouped method with no
     mixed task is refused too, since a unanimous group carries no
     advantage (#397 trained on 6 of 84 rows and ended at grad_norm 0).
@@ -860,7 +863,8 @@ def train(
     carries before, after, rows and seconds. ``serve`` puts the adapter on
     an endpoint.
 
-    The knobs a run is reproduced and compared by (rlhf-book ch. 6, 7):
+    The knobs a run is reproduced and compared by (Lambert 2025, chapters
+    Reinforcement Learning and Reasoning):
     ``generations`` is the group size per prompt for GRPO (the ``k`` the
     advantage is taken over; a pushed set's ``repeats`` is the natural
     value), ``beta`` the KL coefficient for GRPO and DPO, ``learning_rate``
@@ -879,7 +883,7 @@ def train(
     cap itself is the behavior under training (#253). Each has a
     trainer default when left ``None``; the range each is accepted in and
     the value the cited paper used are in ``TRAINING_KNOBS`` (defaults.py:
-    DAPO, Dr. GRPO, ProRL, DPO and the rlhf-book chapters), and a rejected
+    DAPO, Dr. GRPO, ProRL, DPO and Lambert 2025), and a rejected
     value is told the reference. ``config`` passes further host keys as
     given (``epsilonHigh``, ``scaleRewards``, ``balance``).
     Every knob lands on the run's ``config`` so the run page shows it.
@@ -989,7 +993,8 @@ def train(
 
 
 class RewardModel:
-    """A finished ``method="rm"`` run as a judge (rlhf-book ch. 5).
+    """A finished ``method="rm"`` run as a judge (Lambert 2025, chapter
+    Reward Modeling).
 
     Calling it with one rollout row honors the judge contract: ``reward``
     is 1 when the model's score clears the run's pass threshold, 0

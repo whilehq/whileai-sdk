@@ -1,14 +1,15 @@
 """Score rollouts under a reference model, so ``mean_kl`` has its other side.
 
-``simulate(logprobs=True)`` records what the sampling policy thought of
-its own tokens (``row["logprob"]``, ``row["n_tokens"]``). The KL penalty
-an RL update pays (rlhf-book ch. 8, ch. 15) and the importance ratio an
-off-policy update forms (ch. 6) both need the same tokens scored under a
-second model: the reference the policy is being kept close to, or the
-policy version about to be trained. ``reference_logprobs`` does that
-scoring against any OpenAI-compatible endpoint that returns prompt
-logprobs (vLLM does), and stamps ``ref_logprob`` / ``ref_n_tokens`` /
-``ref_model`` on each row. ``mean_kl(rows)`` then reads them.
+``simulate(logprobs=True)`` records what the sampling policy thought of its
+own tokens (``row["logprob"]``, ``row["n_tokens"]``). The KL penalty an RL
+update pays (Lambert 2025, chapters Direct Alignment and Regularization) and
+the importance ratio an off-policy update forms (Noukhovitch et al. 2024,
+arXiv:2410.18252) both need the same tokens scored under a second model: the
+reference the policy is being kept close to, or the policy version about to be
+trained. ``reference_logprobs`` does that scoring against any
+OpenAI-compatible endpoint that returns prompt logprobs (vLLM does), and
+stamps ``ref_logprob`` / ``ref_n_tokens`` / ``ref_model`` on each row.
+``mean_kl(rows)`` then reads them.
 
 How a turn is scored. The conversation up to the turn is sent once with
 the generation prompt appended, only to learn how many tokens the prefix

@@ -1,13 +1,13 @@
 """Rubrics: prompt-specific criteria as an object, a judge that scores
 them one by one, and a writer that drafts them.
 
-rlhf-book ch. 12 ("Rubrics: Prompt-Specific AI Feedback for Training"):
-for prompts with no verifiable answer, the reward is a checklist. Each
-item is a hard rule (miss it and the reply fails), a principle (weighted
-quality), or a pitfall (a common mistake that costs points). A general
-rubric per domain seeds it; a supervising model writes the fine-grained
-items per prompt, and a judge marks each item rather than guessing one
-number.
+Lambert 2025, chapter Synthetic Data and Distillation ("Rubrics:
+Prompt-Specific AI Feedback for Training"): for prompts with no verifiable
+answer, the reward is a checklist. Each item is a hard rule (miss it and the
+reply fails), a principle (weighted quality), or a pitfall (a common mistake
+that costs points). A general rubric per domain seeds it; a supervising model
+writes the fine-grained items per prompt, and a judge marks each item rather
+than guessing one number.
 
 Here a ``Rubric`` is a tuple of ``Criterion`` with a content hash as its
 ``version``; it lives on the row's ``privileged`` block, which the judge
@@ -15,7 +15,7 @@ sees and no export ever carries. ``rubric_judge`` asks the model for one
 verdict per criterion, turns them into a reward with ``Rubric.score``,
 and puts every criterion on the row as a marker (``rubric:<slug>``), so
 ``marker_summary`` and ``delta_report`` read which items moved.
-``write_rubrics`` is the book's rubric-writer prompt: the question, a
+``write_rubrics`` is that chapter's rubric-writer prompt: the question, a
 reference answer when there is one, and the domain's guidance in; a JSON
 list of criteria out.
 """
@@ -45,7 +45,8 @@ from .grade_llm import (
 Kind = Literal["hard", "principle", "pitfall"]
 KINDS: tuple[str, ...] = ("hard", "principle", "pitfall")
 
-#: the book's category prefixes, mapped onto the three kinds
+#: the category prefixes of Lambert 2025, chapter Synthetic Data and
+#: Distillation, mapped onto the three kinds
 _PREFIX_KIND = {
     "essential": "hard",
     "hard rule": "hard",
@@ -60,7 +61,8 @@ _PREFIX = re.compile(
 )
 
 
-#: the book's bracketed tags, anywhere in a title: "Five items [Hard Rule]"
+#: the same chapter's bracketed tags, anywhere in a title: "Five items
+#: [Hard Rule]"
 _TAG = re.compile(r"\[(essential|important|optional|pitfall|hard rule|principle)\]", re.I)
 
 
@@ -101,7 +103,8 @@ class Criterion:
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> Criterion:
-        """Accepts this shape, and the book's: a ``weight`` below zero or a
+        """Accepts this shape, and the one Lambert 2025 (chapter Synthetic
+        Data and Distillation) writes: a ``weight`` below zero or a
         description starting ``Pitfall Criteria:`` is a pitfall, ``Essential``
         or ``[Hard Rule]`` is hard, ``Important`` / ``Optional`` / ``[Principle]``
         a principle."""
@@ -558,7 +561,7 @@ def write_rubrics(
 
     The writer sees the request, the row's reference answer when there is
     one (``privileged.reference`` or ``row[reference_key]``), and the
-    ``domain`` guidance you give it (the general rubric the book seeds
+    ``domain`` guidance you give it (the general rubric Lambert 2025 seeds
     from). Rows that already carry a rubric are skipped unless
     ``overwrite``. ``writer(user_message) -> str`` replaces the model call
     for tests and for a writer of your own. Report: prompts seen, rubrics

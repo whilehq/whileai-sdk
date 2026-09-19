@@ -73,7 +73,7 @@ sft selection: kept 16 of 64 rows
   eligible 16 (reward >= 1.0), junk 0, not passing 17
   privileged leaks dropped: 4
   distinct behaviors: 6, covered: 6
-  completions per prompt: mean 4.0, median 4, max 4; 0 of 16 prompts have one. Rejection-sampling selection wants 10 to 30 so the pick is not biased (rlhfbook.com/c/10-rejection-sampling.html; Llama 3 samples 10 to 30). Raise repeats= if you mean to choose among completions rather than filter.
+  completions per prompt: mean 4.0, median 4, max 4; 0 of 16 prompts have one. Rejection-sampling selection wants 10 to 30 so the pick is not biased (Lambert 2025, chapter Rejection Sampling; Llama 3 samples 10 to 30). Raise repeats= if you mean to choose among completions rather than filter.
 rl selection: kept 27 of 64 rows
   band 20%..80% pass rate: 0 asks dropped (0 too easy, 0 too hard)
   unanimous groups dropped: 6; duplicates dropped: 27; truncated drop: 0
@@ -85,7 +85,7 @@ rl selection: kept 27 of 64 rows
   warning: reward punishes boilerplate (corr -0.32); check the judge before training
   warning: reward punishes hedging (corr -0.37); check the judge before training
   warning: 3 rollouts per ask at the median; the floor is coarse below 4, re-scan at repeats>=8 before acting on a close call
-  warning: Difficulty was measured from 4 rollouts per task, so a task's band assignment can be off by about ±0.3. Use repeats=16 for a firmer band (the count the 20-80 band is measured from, rlhfbook.com/c/07-reasoning).
+  warning: Difficulty was measured from 4 rollouts per task, so a task's band assignment can be off by about ±0.3. Use repeats=16 for a firmer band (the count the 20-80 band is measured from, Lambert 2025, chapter Reasoning).
 ```
 
 The gates are the point of the call, so read four of them.

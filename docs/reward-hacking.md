@@ -5,25 +5,27 @@ description: "How the SDK looks for over-optimization before a run, during it, a
 ---
 
 RL collects every bit of reward, including the bits the author did not mean
-to pay for. rlhfbook.com ch. 14 calls that over-optimization: training
-reward climbs while the eval you care about falls. Five checks look for the
-gap before, during and after a run. Worked example:
+to pay for. The result is over-optimization: training reward climbs while
+the eval you care about falls [1]. Five checks look for the gap before,
+during and after a run. Worked example:
 [`recipes/02-measure/reward-hacking`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/reward-hacking)
 (offline, no key, seconds).
 
 <img className="block dark:hidden" src="/figures/reward-hacking-curve-light.svg" alt="Proxy reward climbs with KL while gold reward turns over; the five checks sit before, during and after" />
 <img className="hidden dark:block" src="/figures/reward-hacking-curve-dark.svg" alt="Proxy reward climbs with KL while gold reward turns over; the five checks sit before, during and after" />
 
-## What the book says
+## Why the checks look where they look
 
-- **Ch. 14.** Proxy against gold reward over KL: both rise, then gold turns
-  over. Signatures: verbosity, boilerplate, hedging, sycophancy,
-  over-refusal.
-- **Ch. 6.** GRPO baselines each rollout against the others of the same
-  ask, so only what separates reward *within* an ask is gradient.
-- **Ch. 5.** A judge is a reward model, only as good as its accuracy on your
-  labels. Length must not move the score.
-- **Ch. 13.** The reward reads the trajectory; the reply can claim anything.
+Plot the training reward (the proxy) and the reward you care about (the
+gold) against how far the weights have moved, and both rise together
+until the gold turns over while the proxy keeps climbing [1]. The
+signatures are verbosity, boilerplate, hedging, sycophancy and
+over-refusal [1, 4]. GRPO baselines each rollout against the others of
+the same ask, so only what separates reward *within* an ask is gradient
+[2]. That is why every check here centers within ask. A judge is a reward
+model, only as good as its agreement with your labels, and it prefers
+long replies unless you check it [3]. The reward has to read the
+trajectory, because the reply can claim anything [4].
 
 ## Five checks
 
@@ -160,3 +162,10 @@ right and carry no gradient. A supply problem, not a hack.
    rank; they do not prune. Fix the rubric, re-grade, re-scan.
 3. **Keep the gold separate from the proxy**: hand labels, the hosted judge,
    or a rule the training reward does not read.
+
+## References
+
+1. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
+2. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+3. Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. NeurIPS 2023. arXiv:2306.05685.
+4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Over-optimization* and *Tool Use*.

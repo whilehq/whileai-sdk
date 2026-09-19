@@ -38,7 +38,7 @@ python recipe.py                    # both arms, writes results.json
 
 ## The contract
 
-- `README.md` in the shape of [`_template/README.md`](_template/README.md): Paper, Claim, The change, numbered steps, one command, the Result table, the Climb table, three Learned bullets, the Verified line.
+- `README.md` in the shape of [`_template/README.md`](_template/README.md): Paper, Claim, The change, numbered steps, one command, the Result table, the Climb table, three Learned bullets, the Verified line, the References list.
 - `recipe.py`: one file. Data, then train, then eval, then `results.json`. Two arms on the same holdout: the baseline and the paper's change. Paired delta with a 95% interval (`wai.delta_report`).
 - `results.json`: the numbers the table above reads. Shape in [`_template/results.json`](_template/results.json).
 - Default run: under 60 GPU minutes, under $10. Bigger runs behind a flag.
@@ -54,27 +54,19 @@ python recipe.py                    # both arms, writes results.json
 
 ## The science bar
 
-Every recipe is held to [rlhfbook.com](https://rlhfbook.com). The README names
-the chapter it rests on, and the `## Checks` table is run, not ticked:
+Every recipe is held to the same science bar. The README names the source
+each check rests on, and the `## Checks` table is run, not ticked:
 
-| Check | Chapter | What `check.py` enforces |
+| Check | Source | What `check.py` enforces |
 |---|---|---|
-| Eval noise | ch. 16 Evaluation | the base is evaluated `run_std_runs` times (3 by default, more with `--base-runs`); `eval_variance` run_std and `run_std_runs` are both recorded; "moved" needs a delta over `noise_band(run_std, df=run_std_runs - 1)` = t x run_std x sqrt(1/n_a + 1/n_b), which is t x sqrt(2) x run_std with one run per side (a delta is the difference of two re-run draws). t is the two-sided 95% quantile at df = run_std_runs - 1 because run_std is an estimate, not the eval's exact spread: 4.30 from 3 re-runs, 2.26 from 10; the old 1.96 read a three-run estimate as exact and let about one pure-noise delta in five through. `delta_report(run_std=, run_std_runs=)` applies the same quantile |
-| Paired interval | ch. 16 | "moved" needs a 95% interval that excludes zero, from `delta_report` over the same holdout tasks |
-| Clean holdout | ch. 16 | `decontaminate(train, against=holdout)` runs before training; dropped rows are counted |
-| Reward is a program | ch. 7 Reasoning, ch. 13 Tool use | a verifier or a public gold answer; a judge only when the paper is about judges |
-| Proxy vs target | ch. 14 Over-optimization | the training reward is named as `proxy=`; an over-optimized verdict forbids "moved" |
-| Length | ch. 14 | mean completion length before and after, per arm, in the table |
-| Hack scan | ch. 14 | `hack_scan` on the last training batch; the top feature is named |
-| Pinned | app. C | seed and library versions in results.json |
-
-Chapter map (source files under `book/chapters/` in
-[natolambert/rlhf-book](https://github.com/natolambert/rlhf-book); the site
-serves them at `rlhfbook.com/c/<file name without .md>`): 03 training
-overview, 04 instruction tuning, 05 reward models, 06 policy gradients, 07
-reasoning, 08 direct alignment, 09 rejection sampling, 10 preferences, 11
-preference data, 12 synthetic data, 13 tools, 14 over-optimization, 15
-regularization, 16 evaluation, 17 product, appendix-c practical.
+| Eval noise | [1] | the base is evaluated `run_std_runs` times (3 by default, more with `--base-runs`); `eval_variance` run_std and `run_std_runs` are both recorded; "moved" needs a delta over `noise_band(run_std, df=run_std_runs - 1)` = t x run_std x sqrt(1/n_a + 1/n_b), which is t x sqrt(2) x run_std with one run per side (a delta is the difference of two re-run draws). t is the two-sided 95% quantile at df = run_std_runs - 1 because run_std is an estimate, not the eval's exact spread: 4.30 from 3 re-runs, 2.26 from 10; the old 1.96 read a three-run estimate as exact and let about one pure-noise delta in five through. `delta_report(run_std=, run_std_runs=)` applies the same quantile |
+| Paired interval | [2] | "moved" needs a 95% interval that excludes zero, from `delta_report` over the same holdout tasks |
+| Clean holdout | [3] | `decontaminate(train, against=holdout)` runs before training; dropped rows are counted |
+| Reward is a program | [3] | a verifier or a public gold answer; a judge only when the paper is about judges |
+| Proxy vs target | [4] | the training reward is named as `proxy=`; an over-optimized verdict forbids "moved" |
+| Length | [4] | mean completion length before and after, per arm, in the table |
+| Hack scan | [4] | `hack_scan` on the last training batch; the top feature is named |
+| Pinned | [the contract](#the-contract) | seed and library versions in results.json |
 
 ## Maintenance
 
@@ -84,3 +76,10 @@ the last 60 days. Everything arrives as a pull request. One comment per run on
 the issue titled "Recipe log". Several agents can work at once: each recipe is
 its own directory and the table is generated, so two new recipes never touch
 the same line.
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+2. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.
+3. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
+4. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

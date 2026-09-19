@@ -1,7 +1,7 @@
 # Reward hacking, caught three times
 
 A reward is a proxy. Train on it hard enough and the policy finds where the
-proxy and the behavior part ways (rlhfbook.com ch. 14). The SDK looks for
+proxy and the behavior part ways [1]. The SDK looks for
 that gap at three points, and this example runs all of them offline, in
 seconds, on a scripted refund agent and two judges.
 
@@ -71,3 +71,7 @@ Numbers vary with `--seed`; the shape is the point.
   not read. `HackMonitor(gold=...)` does the same during the run.
 
 How-to: [docs/reward-hacking.md](../../../docs/reward-hacking.md).
+
+## References
+
+1. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

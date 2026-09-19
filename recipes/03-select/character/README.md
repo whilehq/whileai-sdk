@@ -3,7 +3,7 @@
 How a model talks when nobody told it how to talk. This example takes the
 style section of the [OpenAI Model Spec](https://github.com/openai/model_spec)
 as a constitution and runs it through the pipeline Anthropic describes for
-Claude's character ([rlhfbook.com ch. 17](https://rlhfbook.com/c/17-product))
+Claude's character [1]
 and [Maiya et al. 2025](https://arxiv.org/abs/2511.01689) open-sourced:
 traits, prompts that exercise each trait, several replies per prompt, a
 judge that reads the trait's principle, then preference pairs and SFT rows.
@@ -85,8 +85,8 @@ prompt, the distillation teacher of Maiya et al.; pairs then carry
 `same_policy=false` where the chosen side is the teacher's.
 
 Leave `--judge-url` off and the model grades itself. The report still runs;
-the `judge_vs_spec` line is where self-preference shows up (rlhf-book ch. 5
-and 12).
+the `judge_vs_spec` line is where self-preference shows up: a model grading
+its own replies favors them [2].
 
 One live run, hosted Qwen3-4B-Instruct as the student and hosted Phi-4 as
 the judge, `--no-texture --k 4`, 239 rows in 148 seconds:
@@ -134,19 +134,20 @@ markers:
 
 ## The pipeline
 
-| step | the book and the spec | here |
+| step | source | here |
 |---|---|---|
-| constitution | ch. 17, Askell: "constructing character traits that the model should have"; ch. 12, Constitutional AI | `from_model_spec.py` parses each style heading into a principle and its GOOD/BAD comparisons; `spec_id` on every row names the heading |
-| prompts | Askell: "get the model to generate queries that humans might give it that are relevant to that trait" | the spec's prompts, four wordings each; `--write-prompts` for model-written ones |
-| replies | ch. 6, ch. 9: sample k per prompt | `k` replies under the deployment prompt; `--teacher` for constitution-prompted chosen sides |
-| judge | ch. 5, ch. 12: separate judge, length-neutral, checked against labels | principle as privileged context, one few-shot comparison from another prompt of the same trait, `judge_agreement` on the spec rows |
-| markers | ch. 14, ch. 17: phrase monitors, "removing common phrases like `Certainly`" | `trait`, `on_task`, `no_filler` |
-| pairs and SFT | ch. 8, ch. 11: on-policy pairs, length-matched | `build_preference_pairs(length_match=True)` and `export_preference` with the deployment prompt; `export_training` on passes with a loss mask |
-| before and after | ch. 15: post-training on one thing forgets others | `measure.py`: `delta_report(target="marker:trait", must_not_regress=["on_task", "no_filler"])` |
+| constitution | Askell: "constructing character traits that the model should have" [1]; the principles come from a written constitution [3] | `from_model_spec.py` parses each style heading into a principle and its GOOD/BAD comparisons; `spec_id` on every row names the heading |
+| prompts | Askell: "get the model to generate queries that humans might give it that are relevant to that trait" [1] | the spec's prompts, four wordings each; `--write-prompts` for model-written ones |
+| replies | sample k per prompt, the group of GRPO [4] and the candidates of rejection sampling [5] | `k` replies under the deployment prompt; `--teacher` for constitution-prompted chosen sides |
+| judge | a separate judge that reads the principle [3], length-neutral [6], checked against labels | principle as privileged context, one few-shot comparison from another prompt of the same trait, `judge_agreement` on the spec rows |
+| markers | phrase monitors, "removing common phrases like `Certainly`" [1], because a proxy reward drifts toward cheap features [7] | `trait`, `on_task`, `no_filler` |
+| pairs and SFT | on-policy pairs for DPO [8], length-matched so length is not the first thing learned [6] | `build_preference_pairs(length_match=True)` and `export_preference` with the deployment prompt; `export_training` on passes with a loss mask |
+| before and after | post-training on one thing forgets others [9] | `measure.py`: `delta_report(target="marker:trait", must_not_regress=["on_task", "no_filler"])` |
 
 The reward on a trait prompt is `trait AND on_task`. The spec is explicit
-that style "enhances rather than distracts from" helpfulness, and the book's
-steroids example makes the same point: every persona still refuses. A reply
+that style "enhances rather than distracts from" helpfulness, and the
+steroids example in the character chapter makes the same point: every persona
+still refuses [1]. A reply
 that has the character and drops the task is a 0.
 
 ## What is not here
@@ -159,7 +160,7 @@ that has the character and drops the task is a 0.
 - **Maiya's third stage.** Introspective SFT (the trained model writing
   about its own values) needs the trained model. Run it after DPO with the
   same judge.
-- **Persona vectors, activation capping, persona subnetworks** (ch. 17).
+- **Persona vectors, activation capping, persona subnetworks** [1].
   No gradient, no data; a different tool.
 - **A prompt-disjoint holdout offline.** The adversarial set reuses the
   train prompts with a "drop the act" suffix (Maiya's robustness test).
@@ -176,3 +177,15 @@ that has the character and drops the task is a 0.
 | `out/` | `rows.jsonl`, `pairs.jsonl`, `sft.jsonl`, `holdout.jsonl`, `report.json` |
 
 Tests: `pytest tests/api/test_character_example.py tests/recipes/test_character.py -q`.
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Model Character and Products*.
+2. Panickssery, A., Bowman, S. R., Feng, S. LLM Evaluators Recognize and Favor Their Own Generations. arXiv:2404.13076, 2024.
+3. Bai, Y. et al. Constitutional AI: Harmlessness from AI Feedback. arXiv:2212.08073, 2022.
+4. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+5. Yuan, Z. et al. Scaling Relationship on Learning Mathematical Reasoning with Large Language Models. arXiv:2308.01825, 2023.
+6. Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. NeurIPS 2023. arXiv:2306.05685.
+7. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
+8. Rafailov, R. et al. Direct Preference Optimization: Your Language Model is Secretly a Reward Model. NeurIPS 2023. arXiv:2305.18290.
+9. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Regularization*.

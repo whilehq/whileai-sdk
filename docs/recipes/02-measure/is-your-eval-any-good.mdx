@@ -40,12 +40,12 @@ excludes zero anyway. That is the whole reason the other checks exist.
 
 | check | the question | why it decides whether the number is readable |
 |---|---|---|
-| room to move | does the model already pass nearly everything? | an eval at 0.95 has nowhere to show an improvement; this is benchmark saturation (ch. 16) |
+| room to move | does the model already pass nearly everything? | an eval at 0.95 has nowhere to show an improvement; this is benchmark saturation [1] |
 | headroom | `pass@k - pass@1` | what repeats find that one run missed. Near zero means a grouped update has nothing to learn, whatever the training does |
 | contains the behaviour | how often does each criterion actually fail? | a criterion that cannot fail here cannot show an improvement here. The most common reason a real gain measures as nothing |
-| self-noise | how far does the number move when nothing changes? | the book puts post-training evals at 0.25 to 1.5 points of run-to-run deviation. A claim under twice that is indistinguishable from re-running |
-| the judge | did grading succeed, and is reward tracking a cheap feature? | an ungraded eval scores nothing, and a judge that rewards length is measuring length (ch. 14) |
-| contamination | did the training prompts already contain the eval? | 8-gram overlap, the Tülu 3 method (ch. 16) |
+| self-noise | how far does the number move when nothing changes? | post-training evals move 0.25 to 1.5 points between runs where nothing changed [1]. A claim under twice that is indistinguishable from re-running |
+| the judge | did grading succeed, and is reward tracking a cheap feature? | an ungraded eval scores nothing, and a judge that rewards length is measuring length [2] |
+| contamination | did the training prompts already contain the eval? | 8-gram overlap, the Tülu 3 method [3] |
 
 ## The three the comparison gets
 
@@ -65,7 +65,7 @@ result outright rather than weakening it.
   either of the above failed. An interval that excludes zero is not a result
   when the arms differed in something other than the weights.
 
-This is the agentic-evaluation problem from chapter 16 stated as a check: every
+This is the agentic-evaluation problem stated as a check [1]: every
 layer (harness, sandbox, tools, system prompt, inference stack) moves the score,
 so every layer has to be pinned and recorded.
 
@@ -103,3 +103,9 @@ on room to move or contains the behaviour: the eval needs harder situations
 before another run means anything, and
 [`eval-your-agent`](/recipes/02-measure/eval-your-agent) is where the markers that make a
 criterion fail get written.
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+2. Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. NeurIPS 2023. arXiv:2306.05685.
+3. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.

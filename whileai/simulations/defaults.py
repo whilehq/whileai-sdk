@@ -1,10 +1,10 @@
 """Every number the run engine used to carry inline, named, explained and
 tunable.
 
-Each constant below has a comment of the form
-``# <name> = <value>: <why> (<source>)``. The source is a measurement, a
-chapter of https://rlhfbook.com, an arXiv id, or the honest words
-"convention, untested". A constant with no source is a bug.
+Each constant below has a comment of the form ``# <name> = <value>: <why>
+(<source>)``. The source is a measurement, a paper cited as author, year and
+arXiv id, a chapter title of Lambert 2025 (arXiv:2504.12501), or the honest
+words "convention, untested". A constant with no source is a bug.
 
 Two channels reach the code:
 
@@ -47,8 +47,8 @@ DEFAULT_BUDGET = 1000
 DEFAULT_CONCURRENCY = 32
 
 # PASS_THRESHOLD = 0.5: a reward under this is a failure. The outcome
-# label is binary, r in {0, 1} (rlhfbook.com/c/07-reward-models.html,
-# outcome reward models; rlhfbook.com/c/07-reasoning, verifiable
+# label is binary, r in {0, 1} (Lambert 2025, chapter Reward Modeling,
+# outcome reward models; Lambert et al. 2024, arXiv:2411.15124, verifiable
 # rewards gate on all assertions passing), so 0.5 is its midpoint and a
 # partial rubric score (or the conduct advisory 0.5 for a truncated reply)
 # rounds to the nearer verdict. No source names another cut. The run loop's
@@ -100,7 +100,7 @@ LEAK_MIN_QUOTE_CHARS = 12
 # ---------------------------------------------------------------------
 
 # RL_ROLLOUTS_PER_PROMPT = 8: k under mode="rl". A grouped update (GRPO,
-# rlhfbook.com/c/11-policy-gradients.html) needs enough samples per
+# Shao et al. 2024, arXiv:2402.03300) needs enough samples per
 # prompt for the group mean to be a usable baseline. 8 is what Dr. GRPO
 # trains with (arXiv 2503.20783, 8 responses per question) and the
 # agentic-RL recipe in arXiv 2603.21972 (G=8, section 4.1); DAPO (arXiv
@@ -125,13 +125,14 @@ SFT_PHRASINGS_PER_SITUATION = 3
 # one phrasing that ``select_for_sft(select="top_per_prompt")`` chooses
 # among. It was 1, and at k=1 there is nothing to choose: the pick is a
 # pass/fail filter, and ``random_per_prompt``, the control
-# rlhfbook.com/c/10-rejection-sampling.html asks for, returns the same rows,
+# Lambert 2025, chapter Rejection Sampling, asks for, returns the same rows,
 # so a claimed gain from selection could not be checked against chance.
 # With a binary judge best-of-k is a pass@k yield: a prompt the policy
 # passes 30% of the time ships a demonstration 30% of the time at k=1 and
 # 76% at k=4 (1 - 0.7^4), so the set keeps the prompts inside the 20-80
-# band instead of the easy ones (rlhfbook.com/c/14-reasoning.html,
-# difficulty filtering). Four is under the 10 to 30 the book and Llama 3
+# band instead of the easy ones (Lambert 2025, chapter Reasoning,
+# difficulty filtering). Four is under the 10 to 30 that Lambert 2025
+# (chapter Rejection Sampling) and Llama 3
 # (arXiv:2407.21783, section 4.2.2) sample per prompt, on purpose: it is
 # the smallest k the package already reports a k-way number on
 # (ROLLOUTS_PER_TASK, tau2-bench's pass^4) at four times the rollouts, not
@@ -165,7 +166,7 @@ DEFAULT_PROBE = 2
 DEFAULT_FAULT_RATE = 0.5
 
 # RL_FAULT_RATE = 0.8: the same share under mode="rl". RL raises it because
-# the faulted cells are where a base fails (rlhfbook.com/c/07-reasoning,
+# the faulted cells are where a base fails (Lambert 2025, chapter Reasoning,
 # difficulty filtering) and PALADIN trains on an 80/20 composition of
 # recovery-bearing to clean traces (arXiv 2509.25238, appendix I.4: a
 # dataset mix, not a keep rate), which is the shape 0.8 gives the tagged
@@ -362,7 +363,7 @@ SAMPLING_TEMPERATURE_MAX = 2.0
 # LOCAL_MODEL_TEMPERATURE = 0.8: sampling temperature of a model-backed
 # rollout unless simulate(advanced={"temperature": ...}) says otherwise,
 # recorded on every row under ``sampling``. Inside the 0.7 to 1.0 band
-# rejection sampling is run at (rlhfbook.com/c/10-rejection-sampling.html,
+# rejection sampling is run at (Lambert 2025, chapter Rejection Sampling,
 # "Implementation Details") and under the 1.0 RL rollouts use (DAPO
 # 2503.14476, group size 16); the agent benchmarks that want reproducible
 # scores run at 0 (tau-bench 2406.12045, tau2-bench 2506.07982), which is
@@ -412,7 +413,7 @@ CHARS_PER_TOKEN = 3
 # ALPHA = 0.05: two-sided false-positive rate behind every interval and
 # verdict. The convention the evaluation literature runs on (Miller 2024,
 # arXiv:2411.00640, section 5, plugs alpha=0.05 into its power example).
-# rlhfbook.com/c/16-evaluation.html names no level. Untested against any
+# Lambert 2025, chapter Evaluation, names no level. Untested against any
 # other value.
 ALPHA = 0.05
 # CI_LEVEL = 0.95: the interval every ``ci95`` key carries. ``1 - ALPHA`` so
@@ -426,7 +427,7 @@ CI_LEVEL = 1.0 - ALPHA
 Z_95 = 1.96
 # POWER = 0.8: the chance a holdout of the size ``holdout_size`` names
 # detects a real gain. beta = 0.20 is the example Miller 2024 (section 5)
-# and the classical power literature use; rlhfbook.com/c/16-evaluation.html
+# and the classical power literature use; Lambert 2025, chapter Evaluation,
 # says the point of a better eval is statistical power when comparing
 # training runs, without naming a number.
 POWER = 0.8
@@ -443,7 +444,7 @@ MIN_CI_TASKS = 3
 # MIN_RERUNS = 3: re-runs of one eval before ``run_std`` is read as a
 # spread. Two runs give one difference, not a distribution; three is the
 # fewest that give a sample sd with two degrees of freedom
-# (rlhfbook.com/c/16-evaluation.html: a held-constant eval moves 0.25 to
+# (Lambert 2025, chapter Evaluation: a held-constant eval moves 0.25 to
 # 1.5 points between runs; convention on the count).
 MIN_RERUNS = 3
 # BASE_PASS_RATE = 0.6: the before-side pass rate ``holdout_size`` assumes
@@ -470,7 +471,7 @@ ROLLOUTS_PER_TASK = 4
 # set to prove: ``eval_power(rows)`` reads it as the effect to size for,
 # and a pushed holdout is sized to it (PLATFORM_HOLDOUT_PROVE_EFFECT is
 # this value under the platform name). Five points is the package's proof
-# bar (a 5-point move on 50+ judged tasks); rlhfbook.com/c/16-evaluation.html
+# bar (a 5-point move on 50+ judged tasks); Lambert 2025, chapter Evaluation,
 # puts held-constant eval noise at 0.25 to 1.5 points, so five is several
 # noise floors. (convention above the measured noise)
 PROVE_EFFECT = 0.05
@@ -480,7 +481,7 @@ PROVE_EFFECT = 0.05
 # ---------------------------------------------------------------------
 #
 # DIFFICULTY_BAND = (0.2, 0.8): keep tasks the current policy passes between
-# 20% and 80% of the time. rlhfbook.com/c/07-reasoning ("Common
+# 20% and 80% of the time. Lambert 2025, chapter Reasoning ("Common
 # Practices in Training Reasoning Models"): difficulty filtering restricts
 # RL prompts to those
 # the starting model solves 20-80% of the time, measured from N=16
@@ -489,13 +490,13 @@ PROVE_EFFECT = 0.05
 # reported practice, not an ablation, so every selector takes ``band=``.
 DIFFICULTY_BAND: tuple[float, float] = (0.2, 0.8)
 # DIFFICULTY_BAND_ROLLOUTS = 16: rollouts per task the band is measured
-# from in the sources above (rlhfbook.com/c/07-reasoning N=16; DAPO
+# from in the sources above (Lambert 2025, chapter Reasoning, N=16; DAPO
 # G=16). Below it
 # a task's band assignment carries a Wilson half-width near 0.3 at k=8.
 DIFFICULTY_BAND_ROLLOUTS = 16
 # REJECTION_SAMPLING_MIN_K = 10: completions per prompt a best-of-N pick
 # wants. Llama 3 (arXiv:2407.21783, section 4.2.2) samples K between 10 and
-# 30 per prompt; rlhfbook.com/c/10-rejection-sampling.html ("Implementation
+# 30 per prompt; Lambert 2025, chapter Rejection Sampling ("Implementation
 # Details": 10 to 30 or more completions per prompt) repeats the range.
 # Fewer makes the pick a filter, not a choice.
 REJECTION_SAMPLING_MIN_K = 10
@@ -510,7 +511,7 @@ RL_ROLLOUTS_PER_ASK = RL_ROLLOUTS_PER_PROMPT
 #
 # DECONTAM_NGRAM = 8: word n-gram behind the near-copy rule. Tulu 3
 # (arXiv:2411.15124) decontaminates on 8-gram overlap between training
-# prompts and evaluation prompts; rlhfbook.com/c/16-evaluation.html found
+# prompts and evaluation prompts; Lambert 2025, chapter Evaluation, found
 # its own contaminations with the same 8-gram test.
 DECONTAM_NGRAM = 8
 # DECONTAM_OVERLAP = 0.8: share of a row's words one eval text has to
@@ -537,7 +538,7 @@ SEMANTIC_SIMILARITY = 0.85
 # ---------------------------------------------------------------------
 #
 # MIN_GOLD = 50: human labels before a judge's accuracy number means
-# anything. rlhfbook.com/c/07-reward-models.html ("Suggested
+# anything. Lambert 2025, chapter Reward Modeling ("Suggested
 # Experiments"): a 50- to 200-example held-out set is the size it asks
 # for to evaluate a reward model; below 50 the Wilson interval on
 # agreement is about +/-0.1 wide.
@@ -587,7 +588,7 @@ FLIP_FLAG = 0.10
 # agree with anyone, which biases agreement upward by construction (#345:
 # 40 of 80 labeled rows skipped, PASS at 100%). Held-out judge accuracy
 # is measured over the whole labeled set or not at all
-# (rlhfbook.com/c/07-reward-models.html, "Suggested Experiments"); one in
+# (Lambert 2025, chapter Reward Modeling, "Suggested Experiments"); one in
 # ten is the same tolerance FLIP_FLAG gives a re-judge. Convention on the
 # exact number; ``judge_trust(max_skipped_share=)`` moves it.
 MAX_SKIPPED_SHARE = 0.10
@@ -631,7 +632,7 @@ JUDGE_POLICY_CHARS = 2000
 # shape. Raise it for a judge asked to explain at length.
 JUDGE_MAX_TOKENS = 120
 # JUDGE_TEMPERATURE = 0.0: a judge is read at zero for stable ratings
-# (rlhfbook.com/c/07-reward-models.html, LLM-as-a-judge: "a common trick
+# (Lambert 2025, chapter Reward Modeling, LLM-as-a-judge: "a common trick
 # to improve the robustness of LLM-as-a-judge workflows is to use a
 # sampling temperature of 0").
 JUDGE_TEMPERATURE = 0.0
@@ -795,7 +796,7 @@ TRACE_EXEMPLAR_LIST_ITEMS = 2
 TRACE_EXEMPLAR_DICT_KEYS = 12
 # TRACE_LEAK_THRESHOLD = 0.9: cosine similarity at or above which a
 # generated prompt is a near copy of a source trace. Exact matches always
-# flag. rlhfbook.com/c/16-evaluation.html ("Contamination") uses 8-gram
+# flag. Lambert 2025, chapter Evaluation ("Contamination") uses 8-gram
 # overlap for exact leakage; 0.9 on hashed n-gram vectors is the same test
 # with a small paraphrase allowance. Convention for the exact number.
 TRACE_LEAK_THRESHOLD = 0.9
@@ -942,11 +943,11 @@ TRAINING_ERROR_CHARS = 2000
 #   advantage needs a pair); 32 is the hosted trainer's memory cap.
 # learning_rate: RL runs at 1e-6 (DAPO, Dr. GRPO) to 2e-6 (ProRL); SFT one
 #   to two orders below pretraining: 1e-5 (OLMo 2) to 5e-5 to 8e-5 (OLMo 3)
-#   full fine-tune (rlhfbook.com/c/09-instruction-tuning.html,
+#   full fine-tune (Lambert 2025, chapter Instruction Tuning,
 #   "Implementation Details"; the range stitches two models' settings, it
 #   is not one recipe), 2e-4 for a LoRA adapter (LoRA arXiv:2106.09685
 #   tunes at a higher rate than full fine-tuning). DPO wants "surprisingly low learning rates"
-#   (rlhfbook.com/c/12-direct-alignment.html); the DPO paper used 1e-6
+#   (Lambert 2025, chapter Direct Alignment); the DPO paper used 1e-6
 #   (arXiv:2305.18290, App. B).
 # beta: the KL coefficient. DAPO, Dr. GRPO and CISPO drop it (0.0;
 #   arXiv:2503.14476, 2503.20783, 2506.13585); ProRL keeps it with
@@ -955,9 +956,9 @@ TRAINING_ERROR_CHARS = 2000
 # max_completion_length: DAPO's soft overlong window is 4096 tokens under a
 #   16384 cap (arXiv:2503.14476); the hosted trainer serves up to 4096.
 # temperature: ProRL samples at 1.2 (arXiv:2505.24864); rejection sampling
-#   runs 0.7 to 1.0 (rlhfbook.com/c/10-rejection-sampling.html).
+#   runs 0.7 to 1.0 (Lambert 2025, chapter Rejection Sampling).
 # clip (host key epsilonHigh): PPO/GRPO clip 0.2
-#   (rlhfbook.com/c/11-policy-gradients.html shows ``eps = 0.2`` only as
+#   (Lambert 2025, chapter Reinforcement Learning, shows ``eps = 0.2`` only as
 #   an example in its code listing, not as a recommendation); DAPO
 #   clip-higher 0.28, ProRL 0.4.
 # Read-only: the table and every row are MappingProxyType, so a caller
@@ -1041,16 +1042,16 @@ TRAINING_KNOBS: Mapping[str, Mapping[str, Any]] = MappingProxyType(
 TRAINING_LORA_RANK = 16
 TRAINING_LORA_ALPHA = 32
 # TRAINING_BATCH_PROMPTS = 256: reference prompt batch. OLMo 2 post-trains
-# at 256 prompts (rlhfbook.com/c/09-instruction-tuning.html); ProRL at 256
+# at 256 prompts (Lambert 2025, chapter Instruction Tuning); ProRL at 256
 # (arXiv:2505.24864); DAPO at 512. Advisory.
 TRAINING_BATCH_PROMPTS = 256
-# TRAINING_SFT_EPOCHS = 2: reference SFT epochs; rlhfbook gives no number
+# TRAINING_SFT_EPOCHS = 2: reference SFT epochs; Lambert 2025 gives no number
 # and the hosted trainer owns its own. Convention, untested.
 TRAINING_SFT_EPOCHS = 2
 # TRAIN_MIN_MIXED_TASKS = 32: tasks with both a pass and a fail a grouped
 # or paired method (grpo, dpo, rm) should have before ``train`` starts a
 # hosted run without a warning. A unanimous group carries no advantage
-# (GRPO's baseline is the group mean, rlhfbook.com/c/11-policy-gradients.html),
+# (GRPO's baseline is the group mean, Shao et al. 2024, arXiv:2402.03300),
 # so DAPO (arXiv 2503.14476, eq. 11) and ProRL (arXiv 2505.24864) keep
 # only mixed prompts, and they draw them from tens of thousands; the
 # hosted trainer steps one prompt group at a time, so under this count a
@@ -1080,10 +1081,10 @@ MONITOR_EVERY = 10
 MONITOR_WINDOW = 3
 # MONITOR_DELTA = 0.1: proxy gain over the window that counts as climbing.
 # Ten points is well outside the 0.25 to 1.5 point eval noise
-# rlhfbook.com/c/16-evaluation.html reports; convention for the number.
+# Lambert 2025, chapter Evaluation, reports; convention for the number.
 MONITOR_DELTA = 0.1
 # MONITOR_LENGTH_PCT = 0.25: completion-length growth that counts.
-# rlhfbook.com/c/14-over-optimization lists the qualitative
+# Lambert 2025, chapter Over-optimization, lists the qualitative
 # signatures (stock phrases, hedging and repetition, sycophancy,
 # over-refusal) and does not name length; length growth is the bias Dr.
 # GRPO removes from the GRPO objective (arXiv:2503.20783), which is why
@@ -1441,8 +1442,9 @@ class RunKnobs:
     # (n + 2a), for the group hazard and the mixed rate; a = 1 is the
     # uniform prior on a rate, one pseudo-observation each way. Why
     # unanimous groups are stopped at all: they carry no gradient (DAPO,
-    # arXiv 2503.14476; rlhfbook.com/c/07-reasoning). No paper states a prior for
-    # the decision; this is the engine's own, untested against a = 0.5.
+    # arXiv 2503.14476; Lambert 2025, chapter Reasoning). No paper states a
+    # prior for the decision; this is the engine's own, untested against
+    # a = 0.5.
     smoothing_alpha: float = knob(1.0, lo=0.0)
 
     # --- run-level notes --------------------------------------------

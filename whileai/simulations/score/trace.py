@@ -1,12 +1,11 @@
 """Did the agent fake the work? Flags read from the trajectory, not the prose.
 
-A judge is one model's opinion of a transcript, and a policy that
-overclaims in its answer will overclaim about its answer too. These
-flags come from what the rollout actually did: the tool calls it made,
-what they returned, what it wrote, and whether the final reply matches
-any of that (rlhf-book ch. 13 on tool use, ch. 14 on the shortcuts a
-proxy reward pays for). Three families, in rising order of how much they
-assume:
+A judge is one model's opinion of a transcript, and a policy that overclaims
+in its answer will overclaim about its answer too. These flags come from what
+the rollout actually did: the tool calls it made, what they returned, what it
+wrote, and whether the final reply matches any of that (Lambert 2025, chapter
+Tool Use; Gao et al. 2022, arXiv:2210.10760, on the shortcuts a proxy reward
+pays for). Three families, in rising order of how much they assume:
 
 * ``lie.*``: the reply's claims against the turn's evidence. Tests said
   to pass when no test command ran or the last one failed; "I verified"

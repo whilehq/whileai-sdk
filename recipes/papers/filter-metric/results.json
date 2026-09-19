@@ -2,7 +2,7 @@
   "recipe": "filter-metric",
   "title": "Filter metric: phantom advantages under a shaped reward",
   "paper": "https://arxiv.org/abs/2609.13866",
-  "book": "ch. 14 Over-optimization",
+  "book": "Over-optimization",
   "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
   "metric": "pass@1",
   "n_holdout": 120,

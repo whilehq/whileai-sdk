@@ -2,9 +2,10 @@
 
 ``judge_agreement`` (score/agreement.py) is the accuracy number against
 labels you trust. This module is the rest of the trust report around it
-(rlhf-book ch. 5: "do not let length influence your evaluation",
-temperature 0 for stable ratings; ch. 12: review judge disagreements
-against human labels, a second model agreeing is not proof; ch. 14: a
+(Lambert 2025, chapter Reward Modeling: "do not let length influence your
+evaluation", temperature 0 for stable ratings; chapter Synthetic Data and
+Distillation: review judge disagreements against human labels, a second
+model agreeing is not proof; Gao et al. 2022, arXiv:2210.10760: a
 train/test split of the preference signal shows where optimization stops
 transferring):
 
@@ -21,7 +22,8 @@ transferring):
   for consistency, and once with neutral filler appended to the reply.
   Flips on the filler run mean the judge pays for length.
 * **Probes** (``probes=``, needs the judge callable): the reward hacks a
-  policy finds first, tried on the judge on purpose (rlhf-book ch. 14).
+  policy finds first, tried on the judge on purpose (Gao et al. 2022,
+  arXiv:2210.10760).
   Each probe mutates a sampled reply one way and re-judges it: filler,
   the rubric's own words stuffed in, a claim of success with no
   evidence, the ask echoed back, a well-formed tool call with empty
@@ -53,9 +55,9 @@ the ones it was sure about. The report counts them (``skipped``); over
 prints ``INCONCLUSIVE`` instead of ``PASS``, and the warning names the
 fix (``Criterion(kind="hard")``) (#345).
 
-``trust_after_grade`` is the same check run by ``grade`` on the default
-path (rlhf-book ch. 5 "Suggested Experiments"): measure the judge on
-human-labeled held-out items before trusting it.
+``trust_after_grade`` is the same check run by ``grade`` on the default path
+(Lambert 2025, chapter Reward Modeling, "Suggested Experiments"): measure the
+judge on human-labeled held-out items before trusting it.
 """
 
 from __future__ import annotations
@@ -383,14 +385,13 @@ def judge_probes(
 ) -> dict[str, Any]:
     """Try the reward hacks a policy finds first on the judge, on purpose.
 
-    Reach for it when a judge is about to become a training reward: a
-    policy trained on it will find these holes, so find them first
-    (rlhf-book ch. 14). It returns a dict: ``probes`` (per probe: ``n``,
-    ``kind``, ``pass_before``, ``pass_after``, ``flips_up``,
-    ``flips_down``, ``exploit_rate``, ``flagged``, ``errors``; a probe
-    that applies to no row is ``skipped`` with the reason),
-    ``exploitable_by`` (the probes at or over ``flip_flag``), and one
-    ``warnings`` line per exploit.
+    Reach for it when a judge is about to become a training reward: a policy
+    trained on it will find these holes, so find them first (Gao et al. 2022,
+    arXiv:2210.10760). It returns a dict: ``probes`` (per probe: ``n``,
+    ``kind``, ``pass_before``, ``pass_after``, ``flips_up``, ``flips_down``,
+    ``exploit_rate``, ``flagged``, ``errors``; a probe that applies to no row
+    is ``skipped`` with the reason), ``exploitable_by`` (the probes at or over
+    ``flip_flag``), and one ``warnings`` line per exploit.
 
     Each probe mutates up to ``sample`` graded rows one way and re-judges
     them. An additive probe (filler, the rubric's words, a success claim,
@@ -569,7 +570,7 @@ def judge_trust(
     humans disagree on), ``floors``, ``n_labeled`` and ``n_rows``.
     ``print(report)`` writes the whole thing
     (``format_judge_trust(report)`` is the same string). The module
-    docstring lays out each check and its rlhf-book chapter.
+    docstring lays out each check and its source.
     The floors and flags are keywords with their defaults in
     ``whileai.simulations.defaults``: ``min_agreement`` (0.8, the
     human-human agreement of MT-Bench, arXiv:2306.05685), ``min_kappa``
@@ -605,7 +606,8 @@ def judge_trust(
     labels every check has ``n=0``, so ``ok`` is false with a warning
     saying the judge is unmeasured, not failed. The perturbation pass is
     not a substitute: a judge that passes everything is perfectly
-    consistent (rlhf-book ch. 5, ch. 12).
+    consistent (Lambert 2025, chapters Reward Modeling and Synthetic Data
+    and Distillation).
 
     >>> rows = [{"task_id": str(i), "reward": i % 2, "gold_reward": i % 2} for i in range(20)]
     >>> wai.judge_trust(rows)["agreement"]["agreement"]
@@ -841,8 +843,9 @@ def _flagged(warnings: Sequence[str]) -> bool:
 
 
 def trust_after_grade(rows: Sequence[dict], *, mode: str = "warn") -> dict[str, Any]:
-    """The judge check ``grade`` runs after scoring (rlhf-book ch. 5:
-    measure the judge on human-labeled held-out items before trusting it).
+    """The judge check ``grade`` runs after scoring (Lambert 2025, chapter
+    Reward Modeling: measure the judge on human-labeled held-out items
+    before trusting it).
 
     ``rows`` are the rows a grade call just scored. When any of them carry
     a person's gold label (``attach_labels(kind="human")``), ``judge_trust``

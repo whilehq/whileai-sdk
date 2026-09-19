@@ -46,11 +46,13 @@ import modal
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 METRIC = "pass@1"
-BOOK = "ch. 6 Policy gradients"  # the clipped surrogate and what the clip range does
+BOOK = (
+    "Reinforcement Learning Policy gradients"  # the clipped surrogate and what the clip range does
+)
 # The training reward here *is* the target: both are the same binary check
 # against the GSM8K gold, so there is no proxy to over-optimize against.
 PROXY = None
-EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (ch. 16)
+EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (chapter Evaluation)
 
 # The paper's token-level importance sampling defaults. EPS_LOW is the lower
 # clip bound in both arms; EPS_HIGH_MAX is the upper bound the baseline uses
@@ -146,7 +148,7 @@ def make_reward(recorder: list[dict]):
     this untouched: the paper changes the clip, not the reward.
 
     `recorder` is refilled with the batch it just graded, so after training
-    `hack_scan` can be run on the last one (rlhf-book ch. 14) without keeping
+    `hack_scan` can be run on the last one (Lambert 2025, chapter Over-optimization) without keeping
     every step in memory.
     """
 
@@ -426,7 +428,7 @@ def run_arm(
     questions = [t["question"] for t in holdout]
     # The base is evaluated EVAL_RUNS times, not once. The spread across those
     # re-runs is the eval's own noise, and a delta smaller than it is not a
-    # result (rlhf-book ch. 16). Only the first arm pays for this.
+    # result (Lambert 2025, chapter Evaluation). Only the first arm pays for this.
     base_runs = []
     if eval_base:
         for i in range(EVAL_RUNS):
@@ -524,7 +526,7 @@ def run_arm(
     after = wai.pass_at(after_rows)
     print(f"{arm}: {after}")
 
-    # What the reward actually paid for in the last training batch (ch. 14).
+    # What the reward actually paid for in the last training batch (chapter Over-optimization).
     # Nothing here is endorsed: the reward is the answer being right, and any
     # surface feature that correlates with it is the thing to be suspicious of.
     scan = wai.hack_scan(last_batch) if last_batch else {}
@@ -700,7 +702,7 @@ def main() -> None:
     train_tasks, holdout = data(args.seed, args.n_train, args.n_holdout)
     # GSM8K's train and test splits are already disjoint, so this should drop
     # nothing. It runs anyway, and the count goes in the Checks table, because
-    # "should" is not a measurement (rlhf-book ch. 16).
+    # "should" is not a measurement (Lambert 2025, chapter Evaluation).
     train_tasks, decon = wai.decontaminate(train_tasks, against=holdout)
     print(f"decontaminate: {decon['n_contaminated']} of {decon['n']} train rows dropped")
     arms = ["baseline", "recipe"] if args.arm == "both" else [args.arm]

@@ -2,15 +2,15 @@
 asked both ways round.
 
 A preference pair built from two pointwise scores (``build_preference_
-pairs``) has never had a judge look at the two replies side by side.
-rlhf-book ch. 5 ("Generative Reward Modeling") and ch. 11 (Chatbot Arena
-ties) describe the pairwise form: show A and B, ask for a winner or a
-tie, and ask again with the positions swapped, because a judge that
-prefers whichever reply it read first has position bias, not a
+pairs``) has never had a judge look at the two replies side by side. Lambert
+2025, chapter Reward Modeling ("Generative Reward Modeling") and chapter
+Preference Data (Chatbot Arena ties) describe the pairwise form: show A and B,
+ask for a winner or a tie, and ask again with the positions swapped, because a
+judge that prefers whichever reply it read first has position bias, not a
 preference. ``judge_pairs`` does that and writes the answer on the pair:
-``pairwise`` (winner, whether the two orders agreed, the reasons) and
-``tie``. ``export_preference`` drops ties by default; a trainer that
-learns from ties can keep them.
+``pairwise`` (winner, whether the two orders agreed, the reasons) and ``tie``.
+``export_preference`` drops ties by default; a trainer that learns from ties
+can keep them.
 """
 
 from __future__ import annotations
