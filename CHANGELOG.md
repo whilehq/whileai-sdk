@@ -5,6 +5,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `drop_leaky_rows(sources=...)` and `leakage_report(..., sources)` accept
+  the shapes `decontaminate(against=...)` accepts: a list of rows, a list
+  of row lists (`[holdout]`), a list of prompt strings, or a single row.
+  Before, `sources=[holdout]` embedded the `repr` of the row list, scored
+  0.83 against a byte-identical holdout row and reported `n_leaky: 0`
+  without raising; now every shape drops it and gives the same report
+  (#479).
+
 ## 0.97 (2026-09-19)
 
 - `whileai init` sets a repository up for a coding agent: a block under
