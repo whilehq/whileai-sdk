@@ -40,7 +40,6 @@ def test_zeroproof_is_whileai(compat_path):
     assert importlib.import_module("zeroproof.simulations.run.engine") is importlib.import_module(
         "whileai.simulations.run.engine"
     )
-    assert old.ZeroProofIngestError is whileai.WhileIngestError
 
 
 def test_zeroproof_simulations_is_whileai_simulations(compat_path):

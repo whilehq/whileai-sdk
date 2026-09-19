@@ -73,13 +73,6 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "account": ("whileai.auth", "account"),
     "resolve_api_key": ("whileai.auth", "resolve_api_key"),
     "LoginError": ("whileai.auth", "LoginError"),
-    "send_traces": ("whileai.ingest", "send_traces"),
-    "send_runs": ("whileai.ingest", "send_runs"),
-    "ingest_traces": ("whileai.ingest", "ingest_traces"),
-    "list_traces": ("whileai.ingest", "list_traces"),
-    "otel_env": ("whileai.ingest", "otel_env"),
-    "WhileIngestError": ("whileai.ingest", "WhileIngestError"),
-    "ZeroProofIngestError": ("whileai.ingest", "ZeroProofIngestError"),
 }
 
 
@@ -100,14 +93,6 @@ def __dir__() -> list[str]:
 
 if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .auth import LoginError, account, login, logout, resolve_api_key, signup
-    from .ingest import (
-        WhileIngestError,
-        ZeroProofIngestError,
-        ingest_traces,
-        list_traces,
-        otel_env,
-        send_traces,
-    )
     from .judge import Judge
     from .selection import Selection, select
     from .simulations import platform, simulations, verify  # type: ignore[attr-defined]

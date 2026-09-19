@@ -116,7 +116,6 @@ allow-magic-value-types = ["str", "bytes"]
 # gate limits. Named one by one: a `whileai/*.py` glob would match the
 # whole package.
 "whileai/auth.py" = ["PLR2004"]
-"whileai/ingest.py" = ["PLR2004"]
 "whileai/init_evals.py" = ["PLR2004"]
 "whileai/platform.py" = ["PLR2004"]
 "whileai/cli.py" = ["PLR2004"]

@@ -22,7 +22,6 @@ EXAMPLES = REPO / "recipes"
 # Scripts that parse arguments. ``--help`` runs the whole module body up to
 # the parser, so it catches import-time breakage without a real run.
 CLI_EXAMPLES = [
-    "01-simulate/agent-behavior/run.py",
     "01-simulate/bring-your-own-agent/run.py",
     "04-train/hosted-loop/run.py",
     "04-train/report-run/run.py",
@@ -155,9 +154,6 @@ def test_modal_examples_are_listed_not_forgotten():
         assert (EXAMPLES / rel).exists(), f"{rel} is listed here but gone from disk"
 
 
-# The agent-behavior example's own checks live in test_agent_behavior.py.
-
-
 def test_hosted_loop_without_a_key_names_the_env_var(tmp_path):
     out = _run(EXAMPLES / "04-train/hosted-loop/run.py", cwd=tmp_path)
     assert out.returncode != 0
@@ -169,7 +165,6 @@ def test_hosted_loop_without_a_key_names_the_env_var(tmp_path):
 # Entry points that cannot do anything without a credential. Each must say so
 # in one line; --help passing proves only that the imports resolved.
 NEEDS_CREDENTIAL = [
-    "01-simulate/agent-behavior/run.py",
     "04-train/hosted-loop/run.py",
     "05-export/hugging-face/roundtrip.py",
     "03-select/prime-intellect-rl/generate.py",

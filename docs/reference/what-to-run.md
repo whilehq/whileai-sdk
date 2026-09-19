@@ -84,7 +84,7 @@ traces = [
 ]
 ```
 
-`prompt` (or `messages`) and `steps` are what matter. `reward` is optional (ungraded traces still focus the grid, they just carry less signal), and a JSONL path works anywhere a list does. `load_traces` normalizes the common variants (`tool_trace`/`trace` for `steps`, `final`/`output`/`response` for `final_text`, OpenAI-style `messages`), so exports from other stacks usually drop straight in. OTLP ingest and platform datasets are one way to get rows into this shape, not a prerequisite for it.
+`prompt` (or `messages`) and `steps` are what matter. `reward` is optional (ungraded traces still focus the grid, they just carry less signal), and a JSONL path works anywhere a list does. `load_traces` normalizes the common variants (`tool_trace`/`trace` for `steps`, `final`/`output`/`response` for `final_text`, OpenAI-style `messages`), so exports from other stacks usually drop straight in. `rows_from_otel` turns an OTLP export into this shape on your machine; nothing has to be sent anywhere first.
 
 ```python
 import whileai.simulations as wai
@@ -127,8 +127,6 @@ And the loop closes on itself: `evaluate(rollouts, judge).failed_traces()` hands
 
 **What traces can and cannot aim at.** Traces reproduce situations: the tools, faults and world states the deployed agent met. A failure that has a world-visible trigger (a tool timed out and the agent did not say so, a stale record was presented as current) is reproduced. A failure that lives in how the reply is worded (an unsupported claim, an estimate not labelled as one, two questions where one was asked for) has no trigger in the world, so traces alone cannot aim at it. Measured on a 12-rule grader, every rule with a tool-result trigger was reproduced and every rule about the reply's wording was not. For those, put the grader in the loop: with `simulate(..., grader=judge)` a row the grader fails is re-rolled and its ask mutated like a tool fault, and `data.search["mutation_aims"]` says how many parents and mutated rows each aim (`world_fault`, `graded_failure`) produced. The grader is the switch; to grade beside the loop and still steer by tool faults alone, pass `advanced={"mutate_graded_failures": False}`.
 
-If your traces are already on the platform, `wai.cut(agent="my-agent")` does the whole cut in one line: [the platform page](/reference/platform).
-
 ## Examples
 
 In the order a post-training run happens. The index at [`recipes/README.md`](https://github.com/whilehq/whileai-sdk/blob/main/recipes/README.md) has one line per recipe with what it needs and how long it takes. "Offline" below means no key and no network.
@@ -136,7 +134,6 @@ In the order a post-training run happens. The index at [`recipes/README.md`](htt
 | Step | Example | What it does |
 |---|---|---|
 | Simulate and grade | [`recipes/01-simulate/bring-your-own-agent`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/01-simulate/bring-your-own-agent) | Your own callable: the `agent(message) -> {steps, final_text}` contract, the `agent_failed` report when it raises or returns the wrong shape, and `eval_sourced` keeping a held-out score out of the reward. Offline. |
-| Simulate and grade | [`recipes/01-simulate/agent-behavior`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/01-simulate/agent-behavior) | Start here if the platform is new to you. Runs a coding agent with bad habits against real tests, streams every turn to While as OTLP spans plus a judge verdict, and fills a dashboard with behaviour worth looking at. Needs a key and a model endpoint; stdlib only. |
 | Simulate and grade | [`recipes/01-simulate/verifiers`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/01-simulate/verifiers) | Verifiable rewards: math (`MathEqual`), an answer-and-format gate (`All`), code run against hidden tests (`CodeExec`), and a JSON-schema check, each feeding `grade`/`optimize`. Offline. |
 | Measure | [`recipes/02-measure/pass-at-k`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/pass-at-k) | pass@1, pass^k and pass@k with their intervals for one agent, the per-ask histogram the mean hides, and what each number tells you to do next. Offline. |
 | Measure | [`recipes/02-measure/eval-your-agent`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/eval-your-agent) | Evals for the agent you already have: the callable wrapper, the policy as a judge that reads the trajectory, pass@1 with an interval and pass^k per policy branch, the coverage warnings that catch a hollow run, and a CI gate. Two scripted refund bots, one careful and one eager, so the eval visibly separates them. Offline, seconds. How-to: [Evals](/evals). |

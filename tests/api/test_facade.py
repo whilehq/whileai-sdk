@@ -42,9 +42,6 @@ def test_top_level_is_the_loop_and_under_the_cap():
     for name in ("simulate", "Judge", "select", "pass_at", "judge_trust", "configure", "platform"):
         assert name in wai.__all__
     # the platform client's old names still import, but are not the front door
-    assert wai.send_traces.__name__ == "send_traces"
-    assert "send_traces" not in wai.__all__
-    assert wai.WhileIngestError is wai.ZeroProofIngestError
 
 
 def test_platform_is_one_namespace():

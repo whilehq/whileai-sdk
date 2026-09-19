@@ -37,7 +37,7 @@ SOURCE_URL = "https://github.com/whilehq/whileai-sdk/blob/main"
 FIRST = ["whileai", "simulations", "data", "score", "generate", "world", "verify"]
 
 GROUP_BLURB = {
-    "whileai": "The platform client: sign in, push traces, read the account.",
+    "whileai": "The platform client: sign in, tracked agents, runs, verdicts.",
     "simulations": "The top-level calls: simulate, grade, optimize, export, train.",
     "simulation": "simulate(): the entry point, and every argument it takes.",
     "data": "SimulationData: the object simulate() returns, and what it can do next.",
@@ -46,7 +46,7 @@ GROUP_BLURB = {
     "world": "The mock world that answers tool calls and fails on schedule.",
     "verify": "Verifiable rewards: programmatic checks a judge cannot game.",
     "run": "The search loop that spends the budget.",
-    "ingest": "Platform calls: datasets, traces, cuts, training runs, hosted models.",
+    "ingest": "Local trace loading, OTLP rows, and the dataset calls.",
     "training": "Training runs, trainer callbacks, TRL export.",
     "export": "JSONL, preference pairs, and RL environments out of graded rows.",
     "environment": "A verifiers environment for on-policy trainers.",
