@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.91 (2026-09-19)
+
 - The offline situation writer names records the world has. Ids in a tool
   description or a parameter description ("Orders on file: A1001, A1002")
   are drawn into the asks, one per situation, deterministically; before, it
