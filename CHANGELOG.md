@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.89 (2026-09-19)
+
 - TrainerCallback forwards TRL's `completions/clipped_ratio` as `clip_ratio`,
   the length-cap share the platform's Rollouts tile draws.
 - `pass_at` says why pass@1 has no interval instead of printing the bare
