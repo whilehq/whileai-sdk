@@ -684,3 +684,21 @@ def test_run_note_patches_notes():
     assert run.notes == "Reward flattened at step 300."
     with pytest.raises(ValueError, match="8,192"):
         run.note("n" * 8193)
+
+
+def test_run_carries_the_harness_fingerprint():
+    fake = Fake()
+    t = track("refund-bot", model="claude-haiku-4-5", harness="h1", transport=fake)
+    h = Harness(label="v3", instructions="Refund within 30 days.", tools=["lookup_order"], model="claude-haiku-4-5")
+    t.run("v3", method="eval", harness=h)
+    body = next(b for m, p, b in fake.calls if p == "/runs")
+    assert body["harness"] == "v3"
+    assert body["record"]["provenance"]["pins"] == {"harness": h.fingerprint, "model": "claude-haiku-4-5"}
+    # A string is a label only: no fingerprint is invented for it.
+    t.run("v4", harness="v4")
+    body = [b for m, p, b in fake.calls if p == "/runs"][-1]
+    assert body["harness"] == "v4" and "record" not in body
+    # Left out, the agent's harness from track() is used; a label-only harness has a fingerprint too.
+    t.run("v5")
+    body = [b for m, p, b in fake.calls if p == "/runs"][-1]
+    assert body["harness"] == "h1" and body["record"]["provenance"]["pins"]["harness"] == t.harness.fingerprint
