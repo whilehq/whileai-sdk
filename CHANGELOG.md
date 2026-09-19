@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.92 (2026-09-19)
+
 - The default API host is `https://api.withwhile.com`. `api.zeroproofai.com`
   still answers the same routes; `WHILEAI_API_URL` overrides as before. A
   login saved against the old host migrates on its own: no sign-in needed.
