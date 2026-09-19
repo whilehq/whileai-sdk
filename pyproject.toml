@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "whileai"
-version = "0.93"
+version = "0.94"
 description = "Post-training data and evaluation for tool-using LLM agents: simulate, grade, measure, select, train, export, with the checks from rlhfbook.com."
 readme = "README.md"
 license = {text = "Apache-2.0"}
