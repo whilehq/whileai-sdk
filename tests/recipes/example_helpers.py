@@ -47,10 +47,10 @@ class _Chain:
 def install_modal_stub() -> types.ModuleType:
     """A ``modal`` module whose decorators return the function unchanged."""
     existing = sys.modules.get("modal")
-    if existing is not None and getattr(existing, "_zeroproof_stub", False):
+    if existing is not None and getattr(existing, "_whileai_stub", False):
         return existing
     modal = types.ModuleType("modal")
-    modal._zeroproof_stub = True  # type: ignore[attr-defined]
+    modal._whileai_stub = True  # type: ignore[attr-defined]
 
     class App:
         def __init__(self, *a: Any, **k: Any) -> None:

@@ -20,7 +20,7 @@ What happens:
 3. TRL's ``DPOTrainer`` with a LoRA adapter; the reference model is the
    same weights with the adapter off. ``wai.TrainerCallback`` puts the
    chosen/rejected reward margin, accuracy and loss on
-   app.withwhile.com/platform/training as it goes.
+   withwhile.com/platform/training as it goes.
 4. The holdout is sampled again: pass@1 after. ``run.delta`` puts the
    before/after comparison on the run page, and the adapter lands on the
    ``whileai-dpo-runs`` volume under the run name.

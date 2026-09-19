@@ -30,7 +30,7 @@ The table is generated: `python recipes/papers/check.py --write` reads every
 # the modal extra: needed when outbound traffic goes through an HTTPS proxy,
 # harmless when it does not.
 uv add whileai datasets 'modal[api-proxy-support]'
-export WHILEAI_API_KEY=...        # run page + datasets at app.withwhile.com/platform
+export WHILEAI_API_KEY=...        # run page + datasets at withwhile.com/platform
 modal token set --token-id ... --token-secret ...   # or MODAL_TOKEN_ID / _SECRET in the environment
 cd recipes/papers/<slug>
 python recipe.py                    # both arms, writes results.json

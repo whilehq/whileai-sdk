@@ -25,8 +25,7 @@ release tuples for this reason, so write either spelling.
 Before 0.51 this package was published as `zeroproof`. That name is retired:
 its last upload on PyPI is a shim that depends on `whileai`, nothing builds or
 uploads it any more, and `scripts/check_old_name.py` keeps the string out of
-new code. The gate reads the old name's release history only to continue the
-numbering.
+new code.
 
 ## Cutting a release
 

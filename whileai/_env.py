@@ -1,17 +1,12 @@
-"""Environment variables: ``WHILEAI_*``. The ``ZEROPROOF_*`` names from before
-the rename are read with a warning until 1.0, then not at all."""
+"""Environment variables: every setting the SDK reads is ``WHILEAI_<name>``."""
 
 from __future__ import annotations
 
 import os
-import warnings
 from typing import overload
 from urllib.parse import urlparse
 
-NEW_PREFIX = "WHILEAI_"
-OLD_PREFIX = "ZEROPROOF_"
-#: Release in which the old prefix stops being read.
-OLD_PREFIX_GONE = "1.0"
+PREFIX = "WHILEAI_"
 
 #: Hosts the platform answers on: the token gate and the site, old and new
 #: domains, and the hosted-model endpoints it serves from Modal.
@@ -28,25 +23,9 @@ def getenv(name: str, default: str) -> str: ...
 def getenv(name: str, default: str | None = None) -> str | None:
     """Read ``WHILEAI_<name>``, else ``default``.
 
-    A ``ZEROPROOF_<name>`` left from before the rename is still read when
-    the new name is unset, with a ``DeprecationWarning`` that says which
-    variable to set instead; that fallback goes away in 1.0. An empty
-    string counts as unset, which is how every caller treated these
-    variables (``os.environ.get(...) or fallback``).
+    An empty string counts as unset (``os.environ.get(...) or default``).
     """
-    value = os.environ.get(NEW_PREFIX + name)
-    if value:
-        return value
-    value = os.environ.get(OLD_PREFIX + name)
-    if value:
-        warnings.warn(
-            f"{OLD_PREFIX}{name} is the old name; set {NEW_PREFIX}{name} instead. "
-            f"The old name stops being read in whileai {OLD_PREFIX_GONE}.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return value
-    return default
+    return os.environ.get(PREFIX + name) or default
 
 
 def is_platform_host(url: str | None) -> bool:
@@ -71,8 +50,5 @@ def is_platform_host(url: str | None) -> bool:
 
 
 def env_name(name: str) -> str | None:
-    """Which variable ``getenv(name)`` would read, or ``None`` if neither is set."""
-    for prefix in (NEW_PREFIX, OLD_PREFIX):
-        if os.environ.get(prefix + name):
-            return prefix + name
-    return None
+    """The variable ``getenv(name)`` reads, or ``None`` if it is unset."""
+    return PREFIX + name if os.environ.get(PREFIX + name) else None

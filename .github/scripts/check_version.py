@@ -31,10 +31,6 @@ PYPI = "https://pypi.org/pypi/{name}/json"
 # above, so it answers within seconds of an upload the list will not show
 # for many minutes.
 PYPI_RELEASE = "https://pypi.org/pypi/{name}/{version}/json"
-# The package's name before 0.51, retired. Its releases count as prior
-# releases of the new name (the numbering continues across the rename)
-# when the new name has none of its own yet.
-OLD_NAME = "zeroproof"
 
 
 def local_version(path: str = "pyproject.toml") -> tuple[str, str]:
@@ -130,9 +126,7 @@ def main() -> int:
         fail(f"{version!r} has a pre/post/dev/local segment; releases must be plain.")
 
     prior = published(name)
-    if not prior:
-        prior = published(OLD_NAME)  # continue the numbering from the old name
-    print(f"package        : {name} (was {OLD_NAME})")
+    print(f"package        : {name}")
     print(f"local version  : {version}  (normalized {current})")
     shown = [".".join(map(str, p)) for p in prior[-5:]] or "none"
     print(f"published      : {shown}")

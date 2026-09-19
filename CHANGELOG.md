@@ -5,10 +5,13 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
-- The `ZEROPROOF_*` fallback and `~/.zeroproof` migration stay until 1.0, not
-  0.95: releases moved past 0.95 the night the deadline was written. Belief 9
-  no longer lists app.withwhile.com; that host was retired the same day.
-
+- Run and dataset links point at withwhile.com (`/platform/runs`,
+  `/platform/training/<id>`, `/platform/datasets`); app.withwhile.com is
+  gone.
+- The ZeroProof compatibility layer is removed. `ZEROPROOF_*` variables are
+  no longer read (set `WHILEAI_*`), `~/.zeroproof` is no longer consulted
+  (run `whileai login` again if you never had `~/.whileai`), and the release
+  gate no longer reads the old PyPI name.
 ## 0.95 (2026-09-19)
 
 - `tracked.run(version, harness=Harness(...))` ties a run to the exact

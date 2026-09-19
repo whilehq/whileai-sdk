@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 
@@ -295,12 +296,26 @@ def test_cli_exit_codes(gate):
     assert cli.main(["login", "--no-browser"]) == 1
 
 
+def test_config_dir_ignores_a_leftover_zeroproof_home(tmp_path, monkeypatch):
+    """``~/.zeroproof`` from the package's old name is no longer consulted, and
+    neither is ``$ZEROPROOF_HOME``: ``$WHILEAI_HOME``, else ``~/.whileai``."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("WHILEAI_HOME", raising=False)
+    monkeypatch.setenv("ZEROPROOF_HOME", str(tmp_path / "elsewhere"))
+    old = tmp_path / ".zeroproof"
+    old.mkdir()
+    (old / "credentials.json").write_text(json.dumps({"api_key": "zp_old"}), encoding="utf-8")
+    assert auth.config_dir() == tmp_path / ".whileai"
+    assert auth.stored_api_key() is None
+    monkeypatch.setenv("WHILEAI_HOME", str(tmp_path / "home"))
+    assert auth.config_dir() == tmp_path / "home"
+
+
 def test_login_saved_against_the_retired_gate_host_moves_to_the_default_api(tmp_path, monkeypatch):
     """A credentials file that pinned api.zeroproofai.com (the token gate the
     login moved off) still counts as a login and reads as the default API."""
     monkeypatch.setenv("WHILEAI_HOME", str(tmp_path))
     monkeypatch.delenv("WHILEAI_API_KEY", raising=False)
-    monkeypatch.delenv("ZEROPROOF_API_KEY", raising=False)
     (tmp_path / "credentials.json").write_text(
         json.dumps({"api_key": "zp_" + "c" * 48, "api_url": "https://api.zeroproofai.com"}),
         encoding="utf-8",

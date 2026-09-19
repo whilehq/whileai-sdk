@@ -89,7 +89,7 @@ def answer(message: str) -> str:
 
 def _offline_env(project: Path) -> dict[str, str]:
     env = dict(os.environ)
-    for key in ("OPENAI_API_KEY", "WHILEAI_API_KEY", "ZEROPROOF_API_KEY", "VLLM_API_KEY"):
+    for key in ("OPENAI_API_KEY", "WHILEAI_API_KEY", "VLLM_API_KEY"):
         env.pop(key, None)
     env["WHILEAI_HOME"] = str(project / "whileai-home")
     env["PYTHONPATH"] = str(REPO)

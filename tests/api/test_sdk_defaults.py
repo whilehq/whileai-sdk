@@ -670,6 +670,21 @@ def test_grader_must_be_callable():
         wai.simulate(scripted_agent, budget=2, grader="hosted", **offline())
 
 
+def test_getenv_reads_only_the_whileai_name(monkeypatch):
+    """The ZeroProof compatibility layer is gone: a ``ZEROPROOF_*`` variable
+    is never consulted, even when its ``WHILEAI_*`` twin is unset."""
+    from whileai._env import env_name, getenv
+
+    monkeypatch.delenv("WHILEAI_API_KEY", raising=False)
+    monkeypatch.setenv("ZEROPROOF_API_KEY", "zp_old")
+    assert getenv("API_KEY") is None
+    assert getenv("API_KEY", "fallback") == "fallback"
+    assert env_name("API_KEY") is None
+    monkeypatch.setenv("WHILEAI_API_KEY", "zp_new")
+    assert getenv("API_KEY") == "zp_new"
+    assert env_name("API_KEY") == "WHILEAI_API_KEY"
+
+
 def test_is_platform_host_matches_both_domains_and_the_served_models():
     """The URLs a zp_ key goes to: the gate and the site on either domain,
     and the Modal endpoints the platform serves models from. Nothing else."""
@@ -677,7 +692,7 @@ def test_is_platform_host_matches_both_domains_and_the_served_models():
 
     for url in (
         "https://api.withwhile.com",
-        "https://app.withwhile.com/platform/traces",
+        "https://withwhile.com/platform/traces",
         "withwhile.com",
         "https://api.zeroproofai.com/v1/traces",
         "https://serve.zeroproofai.com/v1",

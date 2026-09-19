@@ -75,8 +75,7 @@ service for hosted training and serving. The library needs no account.
    and table names) and the history in `CHANGELOG.md`. Those are pinned,
    not permitted: `scripts/old_name_baseline.json` counts them per file,
    a count may fall and never rise, and a new file may not add one. The
-   `ZEROPROOF_*` variables and `~/.zeroproof` are read with a warning
-   until 1.0 and then not at all.
+   `ZEROPROOF_*` variables and `~/.zeroproof` are not read.
 
 ## How it shows up
 
