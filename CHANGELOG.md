@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.99 (2026-09-19)
+
 - `whileai status` keeps stdout pure JSON; the `repo` block inside it (`agents_md`, `stale`, `skills`) says whether to run `whileai init`; no hint line (the 0.97 publish failed on a test that parses the JSON).
 
 ## 0.98 (2026-09-19)
