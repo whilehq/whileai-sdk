@@ -5,6 +5,21 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The offline situation writer names records the world has. Ids in a tool
+  description or a parameter description ("Orders on file: A1001, A1002")
+  are drawn into the asks, one per situation, deterministically; before, it
+  hashed an invented `ORD-4017` for every situation, so a scripted agent
+  answered "not found" on all of them and 57 of 63 held-out asks sat off
+  every policy branch. `whileai.simulations.generate.scenarios.known_ids`
+  is the reader. Docs promised this since 0.5x; now it is true.
+- `skills/strengthen-your-evals` is rewritten for the agent you already run,
+  on a frontier model or your own weights, and tested: coverage gap, frozen
+  held-out set named by its content, judge checked against sixty human
+  labels, pass@1 with an interval per policy branch, failure-capable count,
+  noise floor, holdout size, and the report to the platform (`method="eval"`,
+  one run per harness version, promote the one in production). Its
+  `check.py` runs offline in seconds and CI holds every block to it.
+
 ## 0.90 (2026-09-19)
 
 - OpenTelemetry stays on your machine. The server-side trace ingest is gone:
