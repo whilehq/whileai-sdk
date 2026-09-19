@@ -1,5 +1,5 @@
 ---
-title: "Safety evals for tool-using agents with whileai"
+title: "Safety evals"
 sidebarTitle: "Safety evals"
 description: "Safety evals for tool-using agents: private data, actions on state, and outbound sends, and whether they can be turned against their owner."
 ---
