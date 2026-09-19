@@ -128,9 +128,9 @@ that appears only in a tool result, and a row with no tool results at all.
 ## Reward the criterion the base fails
 
 The reward was chosen on data, and this section says so. A 100-rollout probe
-of the base model on a task-disjoint world came first (rlhf-book ch. 9: a
+of the base model on a task-disjoint world came first (a rejection-sampling
 filter can only keep what the policy already produces, so headroom is bounded
-by the base failure rate).
+by the base failure rate [1]).
 
 | criterion | base failures in 100 |
 |---|---|
@@ -149,7 +149,7 @@ criterion, not pass rates per row.
 
 The teacher is the base model. Demonstrations were sampled from `Qwen/Qwen3-4B`
 and only the ones the grader passed were kept, which is rejection sampling from
-the model's own successes (ch. 9). The ceiling is a behaviour the base already
+the model's own successes [1, 2]. The ceiling is a behaviour the base already
 does about half the time, done reliably. A generation-only reminder
 (`scaffold=`) was appended to the teacher's system prompt; it never enters the
 exported policy and every eval arm ran without it.
@@ -160,18 +160,18 @@ Two waves of `simulate(tasks=...)` over 700 authored scenarios at k=2 (seeds
 11 and 12): 2,796 rollouts, all 2,796 graded, pool pass@1 0.370 (0.379 and
 0.371 per wave). Then, in this order:
 
-1. `decontaminate` against the holdout (ch. 16). The SDK's coverage rule
+1. `decontaminate` against the holdout [3]. The SDK's coverage rule
    flagged 947 rows as near copies with 0 exact: shared opener frames, not
    shared questions, since the worlds use disjoint id blocks. The structural
    check (no holdout order id, no verbatim opener) dropped 0. Both numbers are
    reported; training used the structural filter.
 2. `select_for_sft(min_reward=1.0, select="top_per_prompt")`: 376 rows from
    the 395 that passed, one per prompt, round-robin over behaviour signatures
-   (ch. 9 top-per-prompt).
+   (top-per-prompt rejection sampling [2]).
 3. `training_rows(unroll=True)`: 1,568 samples, one per assistant turn, loss
    on that turn only. The system prompt, every user turn and every tool result
-   are masked (ch. 4 and ch. 13: a model trained on tool output learns to
-   invent tool results).
+   are masked, since a model trained on tool output learns to invent tool
+   results [4, 5].
 
 Only selected rows go to the trainer. Pushing a raw graded pool trains by
 imitation on the agent's own failures, and one such run had a better-looking
@@ -190,10 +190,10 @@ gradient checkpointing.
 ## The random-selection control, pre-registered
 
 Without a control, "reward selection carried signal" and "any fine-tuning on
-in-domain trajectories helps" are the same observation. Ch. 9 closes with the
-rule: always run a random-selection control next to reward-selected training,
-and if reward selection does not beat random the reward carried no signal on
-that data.
+in-domain trajectories helps" are the same observation. Rejection sampling
+comes with a rule [6]: always run a random-selection control next to
+reward-selected training, and if reward selection does not beat random the
+reward carried no signal on that data.
 
 The control is identical in every respect but one. Same pool, same
 decontamination, same one-per-prompt rule and signature round-robin, same
@@ -205,10 +205,10 @@ reward-selected set.
 
 The prediction was written on the published cards before the control finished
 training: near +0.216 means domain adaptation; well below means the reward
-filter did the work. Length was checked before reading the result (ch. 8 and
-ch. 11 on length matching): passing final replies run 13 characters shorter
-and are shorter on 62.4% of the 242 prompts that have both a pass and a fail,
-but whole-conversation assistant text shows no skew (48.8%) and passing rows
+filter did the work. Length was checked before reading the result, since
+length is the first thing a preference signal picks up [7]: passing final
+replies run 13 characters shorter and are shorter on 62.4% of the 242 prompts
+that have both a pass and a fail, but whole-conversation assistant text shows no skew (48.8%) and passing rows
 make more tool calls (2.90 against 2.40). A brevity signal is not what
 separates the two training sets.
 
@@ -235,7 +235,7 @@ trained arm after three attempts, and the worst-case bound below scores it 0.
 | reward-selected vs base | 119 | +0.216 | [+0.146, +0.286] | 55 / 9 |
 | reward-selected vs control | 119 | +0.242 | [+0.177, +0.307] | 56 / 7 |
 
-Intervals are a percentile bootstrap over prompts, never over rows (ch. 16).
+Intervals are a percentile bootstrap over prompts, never over rows [8, 9].
 The exact sign test over the 63 discordant prompts gives p below 1e-9. The
 measured paired-difference spread is 0.36, so at 119 prompts this eval
 resolves about 0.09 at 80% power; the observed effect is more than twice
@@ -304,3 +304,15 @@ wai.push_rows(selected, "resist-planted-instruction-sft-v1", gate=True, mode="sf
 Or move the same rubric to your own world: `rubric.py` only needs a
 `scenarios` map from order id to task and attack, and `world.py` shows what a
 world has to refuse for the grader to mean anything.
+
+## References
+
+1. Yuan, Z. et al. Scaling Relationship on Learning Mathematical Reasoning with Large Language Models. arXiv:2308.01825, 2023.
+2. Touvron, H. et al. Llama 2: Open Foundation and Fine-Tuned Chat Models. arXiv:2307.09288, 2023.
+3. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
+4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Tool Use*.
+5. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Instruction Tuning*.
+6. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Rejection Sampling*.
+7. Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. NeurIPS 2023. arXiv:2306.05685.
+8. Efron, B. Bootstrap Methods: Another Look at the Jackknife. Annals of Statistics 7(1), 1979.
+9. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.

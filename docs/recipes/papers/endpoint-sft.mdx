@@ -10,7 +10,7 @@ description: "Paper: Revisiting Complete Reasoning Traces for Post-Training, Jae
 then `cd recipes/papers/endpoint-sft` before running the commands below. [Browse this recipe on GitHub](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/endpoint-sft).</Note>
 
 **Paper:** Revisiting Complete Reasoning Traces for Post-Training, Jaehui Hwang et al., arXiv:2609.07103, September 2026. https://arxiv.org/abs/2609.07103
-**Book:** rlhfbook.com ch. 4 Instruction tuning: the prompt is masked and "the completions are what the model actually learns from", so editing the completion text is editing the whole training signal — this recipe changes nothing else.
+**Book:** in instruction tuning the prompt is masked and "the completions are what the model actually learns from" [1], so editing the completion text is editing the whole training signal; this recipe changes nothing else.
 **Claim:** the middle of a machine-written reasoning trace is weakly attended and carries little that the model cannot re-derive; training on the first and last steps only (about 20% of the tokens removed) matches full-trace SFT and sometimes beats it.
 **The change:** the assistant's trace is cut to its first `n` steps plus its last `n` steps before training. Same problems, same model, same learning rate, same optimizer steps, same prompt mask.
 
@@ -71,15 +71,15 @@ Also measured, on the CPU, before anything trained:
 
 Nothing here is ticked by hand: every cell is written by `recipe.py` into `results.json`. These are the round 2 numbers.
 
-| Check | Book | Result |
+| Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | ch. 16 | **run_std 0.0135**, so a delta under 0.027 is noise. The measured delta, 0.012, is inside that band twice over |
-| Holdout is clean: `decontaminate(train, against=holdout)` | ch. 16 | **run today, CPU: 0 of 600 train rows dropped** (also 0 against all 500 MATH-500 problems). OpenR1-Math-220k comes from NuminaMath and MATH-500 is a slice of the MATH test set, so this was worth measuring rather than assuming |
-| Reward is a program, not a judge | ch. 7, 13 | `MathEqual` against the public MATH-500 gold answer. No judge, no model in the loop |
-| Proxy vs target: `delta_report(proxy=)` | ch. 14 | `proxy="marker:trace_form"`: SFT optimizes the *shape* of the trace (a closed `<think>` block ending in `\boxed{}`) whether or not the answer is right. If that rises and pass@1 does not, the report says over-optimized and the verdict cannot be "moved" |
-| Length: mean completion length before -> after, per arm | ch. 14 | **1,619 chars base -> 5,473 baseline, 5,245 recipe.** Both arms more than tripled their output. The recipe arm is trained on shorter targets and still writes nearly as much, so the cut did not buy the brevity it looks like it should |
-| Hack scan on the last training batch: `hack_scan` | ch. 14 | SFT has no per-rollout training reward, so this scans the arm's graded holdout rollouts. Round 1's baseline named **`truncated`** as its top feature — the scan found the eval cap before I did. At 2048 tokens it names ordinary prose (`contains:approach AND contains:two`), which is the scan saying it has nothing |
-| Pinned: seed, torch, transformers, trl, peft | app. C | seed 17 in the trainer, `--seed 0` for the holdout draw; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [2] | **run_std 0.0135**, so a delta under 0.027 is noise. The measured delta, 0.012, is inside that band twice over |
+| Holdout is clean: `decontaminate(train, against=holdout)` | [3] | **run today, CPU: 0 of 600 train rows dropped** (also 0 against all 500 MATH-500 problems). OpenR1-Math-220k comes from NuminaMath and MATH-500 is a slice of the MATH test set, so this was worth measuring rather than assuming |
+| Reward is a program, not a judge | [3] | `MathEqual` against the public MATH-500 gold answer. No judge, no model in the loop |
+| Proxy vs target: `delta_report(proxy=)` | [4] | `proxy="marker:trace_form"`: SFT optimizes the *shape* of the trace (a closed `<think>` block ending in `\boxed{}`) whether or not the answer is right. If that rises and pass@1 does not, the report says over-optimized and the verdict cannot be "moved" |
+| Length: mean completion length before -> after, per arm | [4] | **1,619 chars base -> 5,473 baseline, 5,245 recipe.** Both arms more than tripled their output. The recipe arm is trained on shorter targets and still writes nearly as much, so the cut did not buy the brevity it looks like it should |
+| Hack scan on the last training batch: `hack_scan` | [4] | SFT has no per-rollout training reward, so this scans the arm's graded holdout rollouts. Round 1's baseline named **`truncated`** as its top feature — the scan found the eval cap before I did. At 2048 tokens it names ordinary prose (`contains:approach AND contains:two`), which is the scan saying it has nothing |
+| Pinned: seed, torch, transformers, trl, peft | [the contract](/recipes/papers#the-contract) | seed 17 in the trainer, `--seed 0` for the holdout draw; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
 
 Both arms share the seed, the problems, the holdout, the grader and every trainer knob. The target text is the only difference, so the delta has one cause available to it.
 
@@ -108,7 +108,14 @@ already move backwards.
 
 - **The eval budget decided round 1.** At 1024 tokens both trained arms were being graded on answers they had not finished, and the recipe arm looked +0.039 better for writing less. At 2048 the gap is -0.012. Nothing about the method changed between those two numbers. A length-changing intervention measured under a length cap reports the cap.
 - **Dropping 19.2% of the trace tokens cost nothing measurable, which is the paper's weaker claim and the one this budget can test.** Its stronger claim is a +1.07 average gain on Qwen3-4B, and a 64-problem holdout at k=4 cannot resolve a point — so read the flat verdict as "no cost detected", not as "no gain exists". The paper's dataset-wide single `n` also leaves 230 of 600 traces byte-identical between the arms, so the change is absent for 38% of the rows before anything trains.
-- **Both arms are worse than not training at all** (0.46 -> 0.29 / 0.28), and the proxy check says why: trace *form* moved +0.137 while pass@1 moved -0.012. The model learned the costume — a closed `<think>` block ending in a boxed answer — and not the reasoning inside it. This is ch. 14's over-optimization with an SFT loss instead of a reward model, and it is the reason the verdict here could not be "moved" even if the delta had been large.
+- **Both arms are worse than not training at all** (0.46 -> 0.29 / 0.28), and the proxy check says why: trace *form* moved +0.137 while pass@1 moved -0.012. The model learned the costume — a closed `<think>` block ending in a boxed answer — and not the reasoning inside it. This is over-optimization [4] with an SFT loss instead of a reward model, and it is the reason the verdict here could not be "moved" even if the delta had been large.
 - Gradient checkpointing is on here, unlike the GRPO recipes next door. Their rule is about trainers that generate while they train, where checkpointing corrupts Qwen generation on these pins. `SFTTrainer` is teacher-forced and never generates, so the rule does not reach it, and 4096-token sequences want the memory back.
 
 Verified 2026-09-17, whileai 0.53, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 69.4 GPU minutes, $2.31 on one L40S (round 1: 43.1 minutes, $1.42). Run page: https://www.zeroproofai.com/platform/training/run_aca24d9fdb020c5b
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Instruction Tuning*.
+2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+3. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
+4. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
