@@ -22,10 +22,11 @@ release tuples for this reason, so write either spelling.
 
 ## The old name
 
-Before 0.51 this package was published as `zeroproof`. Its last shim on PyPI
-(0.89) depends on `whileai>=0.89`, so `pip install zeroproof` keeps installing
-`whileai`; new releases ship only as `whileai`. The gate reads the old name's
-release history only to continue the numbering.
+Before 0.51 this package was published as `zeroproof`. That name is retired:
+its last upload on PyPI is a shim that depends on `whileai`, nothing builds or
+uploads it any more, and `scripts/check_old_name.py` keeps the string out of
+new code. The gate reads the old name's release history only to continue the
+numbering.
 
 ## Cutting a release
 

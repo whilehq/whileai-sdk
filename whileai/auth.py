@@ -22,6 +22,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import shutil
 import socket
 import sys
 import time
@@ -99,19 +100,24 @@ def _api_url() -> str:
 
 
 def config_dir() -> Path:
-    """``$WHILEAI_HOME`` (or the older ``$ZEROPROOF_HOME``), else ``~/.whileai``.
+    """``$WHILEAI_HOME``, else ``~/.whileai``.
 
-    A ``~/.zeroproof`` left by the package's old name is used as long as
-    ``~/.whileai`` holds no credentials, so an existing login survives
-    the rename without signing in again.
+    A ``~/.zeroproof/credentials.json`` left by the package's old name is
+    copied into ``~/.whileai`` the first time it is seen, so an existing
+    login survives the rename without signing in again; after that only
+    ``~/.whileai`` is read.
     """
     override = getenv("HOME")
     if override:
         return Path(override)
     new = Path.home() / ".whileai"
-    old = Path.home() / ".zeroproof"
-    if not (new / "credentials.json").exists() and (old / "credentials.json").exists():
-        return old
+    old = Path.home() / ".zeroproof" / "credentials.json"
+    if not (new / "credentials.json").exists() and old.exists():
+        try:
+            new.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(old, new / "credentials.json")
+        except OSError:
+            return old.parent
     return new
 
 

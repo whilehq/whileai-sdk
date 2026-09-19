@@ -1,13 +1,19 @@
-"""Environment variables: ``WHILEAI_*`` first, then the ``ZEROPROOF_*`` name from before the rename."""
+"""Environment variables: ``WHILEAI_*``. The ``ZEROPROOF_*`` names from before
+the rename are read with a warning until 0.95, then not at all."""
 
 from __future__ import annotations
 
 import os
+import warnings
 from typing import overload
 from urllib.parse import urlparse
 
 NEW_PREFIX = "WHILEAI_"
 OLD_PREFIX = "ZEROPROOF_"
+#: Release in which the old prefix stops being read.
+OLD_PREFIX_GONE = "0.95"
+#: Release in which the old prefix stops being read.
+OLD_PREFIX_GONE = "0.95"
 
 #: Hosts the platform answers on: the token gate and the site, old and new
 #: domains, and the hosted-model endpoints it serves from Modal.
@@ -22,15 +28,26 @@ def getenv(name: str, default: str) -> str: ...
 
 
 def getenv(name: str, default: str | None = None) -> str | None:
-    """Read ``WHILEAI_<name>``, else ``ZEROPROOF_<name>``, else ``default``.
+    """Read ``WHILEAI_<name>``, else ``default``.
 
-    An empty string counts as unset, which is how every caller treated the
-    old variables (``os.environ.get(...) or fallback``).
+    A ``ZEROPROOF_<name>`` left from before the rename is still read when
+    the new name is unset, with a ``DeprecationWarning`` that says which
+    variable to set instead; that fallback goes away in 0.95. An empty
+    string counts as unset, which is how every caller treated these
+    variables (``os.environ.get(...) or fallback``).
     """
-    for prefix in (NEW_PREFIX, OLD_PREFIX):
-        value = os.environ.get(prefix + name)
-        if value:
-            return value
+    value = os.environ.get(NEW_PREFIX + name)
+    if value:
+        return value
+    value = os.environ.get(OLD_PREFIX + name)
+    if value:
+        warnings.warn(
+            f"{OLD_PREFIX}{name} is the old name; set {NEW_PREFIX}{name} instead. "
+            f"The old name stops being read in whileai {OLD_PREFIX_GONE}.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return value
     return default
 
 

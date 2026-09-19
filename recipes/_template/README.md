@@ -4,7 +4,7 @@
 afternoon. No preamble.>
 
 What you will learn: <the two or three things a reader leaves with>. You need
-<`ZEROPROOF_API_KEY` / a model endpoint / a Modal account / nothing>; `--dry-run`
+<`WHILEAI_API_KEY` / a model endpoint / a Modal account / nothing>; `--dry-run`
 needs none of it. <Seconds / minutes / one A10G for ten minutes.>
 
 ## Run it

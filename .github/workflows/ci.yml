@@ -57,6 +57,7 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run python scripts/check_no_hardcoding.py
+      - run: uv run python scripts/check_old_name.py
 
   ty:
     name: types (ty)
