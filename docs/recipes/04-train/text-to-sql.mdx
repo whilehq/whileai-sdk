@@ -306,7 +306,7 @@ Rounds 1-4 (one prompt per optimizer step, every prompt, truncation scored
 (0.70..0.77), +0.207 (+0.181..+0.234) vs base: two of two. Steps 75 and 100
 add nothing the interval can see (0.74, 0.74): the round saturated by step
 50, which is 25,600 samples over 326 prompts, about four passes. The final
-adapter is `zero-proof-ai/text-to-sql-shop-r5` on Hugging Face with the
+adapter is `while-ai/text-to-sql-shop-r5` on Hugging Face with the
 holdout rollouts of every checkpoint as `eval-r5-step25/50/75` and `eval-r5`.
 Eval sets on the platform: step 25 `ds_215b1d5320a2d04a`, step 50
 `ds_99e38c55ac4eb56d`, step 75 `ds_b2fcbee3a747b4e3`.
@@ -404,7 +404,7 @@ three above zero. The adapter is served the same way as the base
 zeroproof-train-runs`, model id `nvidia/Llama-3.1-Nemotron-Nano-8B-v1-adapter`);
 eval sets `ds_34f0fbd9337ab519` (base) and `ds_2fbd036dd8597150` (r1) on the
 platform, Hugging Face configs `eval-nemotron-8b-base` / `eval-nemotron-8b-r1`
-and adapter `zero-proof-ai/text-to-sql-shop-nemotron-8b-r1`.
+and adapter `while-ai/text-to-sql-shop-nemotron-8b-r1`.
 
 Read next to the Qwen table: the same reward, task set, and trainer moved a
 weaker base by nine points in one 44-minute round and a stronger base by
@@ -436,9 +436,9 @@ proven climb by the SDK's rule (the pass@1 interval still covers zero). This
 is the clean re-measure after the drafted-tools fix (see lessons); the first
 measurement, 0.62 (0.55..0.68) with 42 tool-call replies, is in
 `raw/with-drafted-tools/`. Each checkpoint's holdout rollouts and adapter
-are on Hugging Face: dataset `zero-proof-ai/text-to-sql-shop` (configs
+are on Hugging Face: dataset `while-ai/text-to-sql-shop` (configs
 `eval-base`, `eval-r1`, `eval-r2`, `eval-sft-think`, `eval-r3`, `eval-r4`),
-adapters `zero-proof-ai/text-to-sql-shop-<checkpoint>`.
+adapters `while-ai/text-to-sql-shop-<checkpoint>`.
 
 r4 vs r3: -0.007 (95% -0.048..+0.034); vs base +0.021 (-0.029..+0.068), hard
 +0.08 (+0.00..+0.17), easy -0.03. A second thousand steps of the same recipe
