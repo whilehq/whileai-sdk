@@ -242,7 +242,7 @@ image = (
 runs_volume = modal.Volume.from_name("whileai-recipe-runs", create_if_missing=True)
 hf_cache = modal.Volume.from_name("whileai-hf-cache", create_if_missing=True)
 dashboard_secret = modal.Secret.from_dict(
-    {"WHILEAI_API_KEY": os.environ.get("WHILEAI_API_KEY", os.environ.get("ZEROPROOF_API_KEY", ""))}
+    {"WHILEAI_API_KEY": os.environ.get("WHILEAI_API_KEY", "")}
 )
 
 
@@ -404,7 +404,7 @@ def run_arm(
         "reward": "outcome(MathEqual) - 0.30 * min(len/512, 1)",
     }
     run = None
-    if os.environ.get("WHILEAI_API_KEY") or os.environ.get("ZEROPROOF_API_KEY"):
+    if os.environ.get("WHILEAI_API_KEY"):
         run = wai.training_run(
             run_name,
             base_model=base_model,

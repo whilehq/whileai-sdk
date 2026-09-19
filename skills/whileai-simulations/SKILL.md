@@ -316,8 +316,7 @@ developer already runs, do not start from training data. The path is
 7. Judge trust: `wai.attach_labels(rows, labels, kind="human")` then
    `wai.judge_trust(rows, judge)`. FAIL on eight labels means label more.
 
-Names: install `whileai`; before 0.51 the package was `zeroproof` and that
-name still installs it. Two spellings per concept:
+Names: install `whileai`. Two spellings per concept:
 `data.rows` (exported, also `data.rows()`) beside `data.trajectories` (the
 same rollouts before export), and `scored.failures()` beside
 `scored.failed_traces()` / `scored.traces`.

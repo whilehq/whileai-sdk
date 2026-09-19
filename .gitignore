@@ -74,6 +74,9 @@ recipes/04-train/identity/out/
 # helpers, not the product
 /scripts/*
 !/scripts/check_no_hardcoding.py
+# ...and the old-name ratchet with its baseline: CI lint runs it on every PR.
+!/scripts/check_old_name.py
+!/scripts/old_name_baseline.json
 # ...except the golden-output harness, which every contributor needs to prove
 # an engine change left simulate() alone. See CONTRIBUTING.md.
 !/scripts/golden.py

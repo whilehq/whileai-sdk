@@ -76,9 +76,8 @@ jobs:
           # The PyPI project must accept this workflow: either the token
           # covers it, or it lists this workflow as a trusted publisher
           # (owner whilehq, repo whileai-sdk, publish.yml, env pypi).
-          # The old `zeroproof` name is retired at 0.89: its last shim on
-          # PyPI depends on whileai>=0.89, so `pip install zeroproof` keeps
-          # installing this package without a new upload.
+          # Only whileai is built and uploaded. The package's old name is
+          # retired; its last upload on PyPI is a shim that installs whileai.
           if [ -n "$UV_PUBLISH_TOKEN" ]; then
             uv publish --check-url "https://pypi.org/simple/whileai/" dist/whileai-*
           else

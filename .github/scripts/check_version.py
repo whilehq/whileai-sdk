@@ -31,9 +31,9 @@ PYPI = "https://pypi.org/pypi/{name}/json"
 # above, so it answers within seconds of an upload the list will not show
 # for many minutes.
 PYPI_RELEASE = "https://pypi.org/pypi/{name}/{version}/json"
-# The old name of this package, retired at 0.89. Its releases count as
-# prior releases of the new name (the numbering continues across the
-# rename) when the new name has none of its own yet.
+# The package's name before 0.51, retired. Its releases count as prior
+# releases of the new name (the numbering continues across the rename)
+# when the new name has none of its own yet.
 OLD_NAME = "zeroproof"
 
 
