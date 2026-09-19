@@ -83,6 +83,8 @@ recipes/04-train/identity/out/
 # ...and the API reference generator: CI runs it with --check on every PR.
 !/scripts/gen_api_docs.py
 !/scripts/gen_recipe_docs.py
+# ...and the guide figures generator: docs/figures/*.svg are its output.
+!/scripts/gen_guide_figures.py
 # ...and the docs snippet runner, with the per-page fixtures it needs: CI runs
 # it on every PR so a code block on the site cannot rot.
 !/scripts/check_doc_snippets.py

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 250" width="960" height="250" role="img" aria-label="How simulate() turns an agent definition into graded rows and cuts">
+<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6B7280"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3F8F6B"/></marker></defs>
+<rect width="960" height="250" rx="6" fill="#FFFFFF"/>
+<text x="16" y="24" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10" font-weight="600" fill="#6B7280" text-anchor="start">IN</text>
+<rect x="16" y="34" width="150" height="44" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="91.0" y="51.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#0B1220" text-anchor="middle">describe the behavior</text>
+<text x="91.0" y="68.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="middle">system_prompt, tools</text>
+<rect x="16" y="92" width="150" height="44" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="91.0" y="109.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#0B1220" text-anchor="middle">or its traces</text>
+<text x="91.0" y="126.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="middle">traces=, OTel spans</text>
+<line x1="166" y1="56" x2="196" y2="78" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="166" y1="114" x2="196" y2="92" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="200" y="60" width="130" height="50" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="265.0" y="80.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">six axes</text>
+<text x="265.0" y="97.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="middle">pairwise grid</text>
+<line x1="330" y1="85" x2="360" y2="85" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="364" y="60" width="120" height="50" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="424.0" y="80.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">world</text>
+<text x="424.0" y="97.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="middle">seeded, says no</text>
+<line x1="484" y1="85" x2="514" y2="85" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="518" y="60" width="120" height="50" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="578.0" y="80.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">agent</text>
+<text x="578.0" y="97.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="middle">agent= or callable</text>
+<line x1="638" y1="85" x2="668" y2="85" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="672" y="60" width="120" height="50" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="732.0" y="80.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">rows</text>
+<text x="732.0" y="97.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="middle">ungraded</text>
+<line x1="792" y1="85" x2="822" y2="85" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="826" y="60" width="118" height="50" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="885.0" y="80.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">your judge</text>
+<text x="885.0" y="97.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="400" fill="#6B7280" text-anchor="middle">grade(judge=)</text>
+<text x="200" y="140" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10" font-weight="600" fill="#6B7280" text-anchor="start">what varies</text>
+<text x="200" y="158" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">tool</text>
+<text x="200" y="173" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">policy rule</text>
+<text x="200" y="188" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">user stance</text>
+<text x="200" y="203" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">world state</text>
+<text x="200" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">tool condition</text>
+<text x="200" y="233" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">history</text>
+<text x="364" y="140" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10" font-weight="600" fill="#6B7280" text-anchor="start">records shaped like the schema</text>
+<text x="364" y="158" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">unknown id: not found</text>
+<text x="364" y="174" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">schema echo: refused</text>
+<text x="672" y="140" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="10" font-weight="600" fill="#6B7280" text-anchor="start">OUT, from the graded rows</text>
+<text x="672" y="158" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#0B1220" text-anchor="start">SFT</text>
+<text x="760" y="158" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">select_for_sft</text>
+<text x="672" y="176" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#0B1220" text-anchor="start">DPO pairs</text>
+<text x="760" y="176" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">build_preference_pairs</text>
+<text x="672" y="194" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#0B1220" text-anchor="start">GRPO groups</text>
+<text x="760" y="194" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">select_for_rl</text>
+<text x="672" y="212" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#0B1220" text-anchor="start">RL env</text>
+<text x="760" y="212" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#4B5563" text-anchor="start">export_environment</text>
+<path d="M 885 110 L 885 128 L 740 128 L 740 146" fill="none" stroke="#3F8F6B" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+</svg>

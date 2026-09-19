@@ -5,6 +5,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The six guides (Simulations, The engine, Evals, Reward hacking, Safety
+  evals, Character training) each open with a figure of their mechanism,
+  light and dark, drawn by `scripts/gen_guide_figures.py` into
+  `docs/figures/`, and their prose is 40 percent shorter; the code blocks
+  and quoted outputs are unchanged, except that the Evals coverage-gap
+  output now quotes what the block prints.
 ## 0.89 (2026-09-19)
 
 - TrainerCallback forwards TRL's `completions/clipped_ratio` as `clip_ratio`,
