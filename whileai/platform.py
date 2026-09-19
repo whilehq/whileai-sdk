@@ -975,6 +975,12 @@ class Run:
             "PATCH", f"/runs/{self.id}", {"status": "failed", "error": str(error)[:400]}
         )
 
+    def archive(self) -> dict[str, Any]:
+        """Take this run out of the experiment without losing it. See
+        ``Tracked.archive``."""
+        self.flush()
+        return self.tracked.archive(self.id)
+
     def __enter__(self) -> Run:
         return self
 
@@ -1170,8 +1176,31 @@ class Tracked:
         out = self._call("POST", "/runs", body)
         return Run(self, out["id"], spec, flush_every=flush_every, flush_seconds=flush_seconds)
 
-    def runs(self) -> list[dict[str, Any]]:
-        return list(self._call("GET", f"/runs?agent={self.id}").get("runs") or [])
+    def runs(self, *, archived: bool = False) -> list[dict[str, Any]]:
+        """Every run of this agent, newest first. Archived runs are left
+        out unless ``archived=True``; each row then carries ``archived``."""
+        rows = list(self._call("GET", f"/runs?agent={self.id}").get("runs") or [])
+        return rows if archived else [r for r in rows if not r.get("archived")]
+
+    def archive(self, run_id: str, *, archived: bool = True) -> dict[str, Any]:
+        """Take a run out of the experiment without losing it. An archived
+        run leaves the held-out plot, the version curve, the deltas and
+        the candidate slot; its status, curve and scores stay stored. The
+        Runs page lists it under "archived" and can bring it back, as can
+        ``archived=False`` here. A sweep arm that diverged, a duplicate
+        launch, a run whose settings were wrong: archive, do not delete,
+        so the record of what was tried survives."""
+        return self._call("PATCH", f"/runs/{run_id}", {"archived": bool(archived)})
+
+    def unarchive(self, run_id: str) -> dict[str, Any]:
+        """Bring an archived run back into the experiment."""
+        return self.archive(run_id, archived=False)
+
+    def delete_run(self, run_id: str) -> dict[str, Any]:
+        """Remove a run, its train points and its evals for good. Prefer
+        ``archive``; delete only what was never a real attempt (a smoke
+        test, a run posted to the wrong agent)."""
+        return self._call("DELETE", f"/runs/{run_id}")
 
     def promote(self, version: str) -> dict[str, Any]:
         """Make ``version`` the served one. Usually the person's button."""

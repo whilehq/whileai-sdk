@@ -29,7 +29,10 @@ one you are using.
   OpenAI-compatible endpoint you can hand to `local_model`.
 - **Tracking.** Agents, behaviors, runs and verdicts as objects the
   terminal verbs read: `whileai agents`, `whileai verdict <id>`,
-  `whileai promote <id> <version>`.
+  `whileai promote <id> <version>`. A run that should not count (a
+  diverged arm, a duplicate launch) is archived, not deleted:
+  `whileai archive <id> <run>` or `tracked.archive(run_id)` keeps it,
+  off the plots, with `--undo` to bring it back.
 
 Everything the platform stores can be pulled back as JSONL, and every
 number it reports is computed by the same library code you can run

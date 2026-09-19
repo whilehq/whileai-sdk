@@ -8,6 +8,7 @@ manages from a terminal.
     whileai runs refund-bot
     whileai verdict refund-bot [--behavior refunds]
     whileai promote refund-bot v4
+    whileai archive refund-bot run_1a2b3c [--undo]
     whileai keys
     whileai live refund-bot --day 2026-09-17 --version v3 --replies 2400 --flagged 98
 
@@ -88,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     p_agent.add_argument("id")
     p_runs = platform_parser("runs", "the training runs of one agent, newest first")
     p_runs.add_argument("id")
+    p_runs.add_argument("--archived", action="store_true", help="include archived runs")
     p_verdict = platform_parser(
         "verdict", "does the candidate beat the served version, and is it real"
     )
@@ -98,6 +100,12 @@ def main(argv: list[str] | None = None) -> int:
     p_promote = platform_parser("promote", "make a version the served one")
     p_promote.add_argument("id")
     p_promote.add_argument("version")
+    p_archive = platform_parser(
+        "archive", "take a run out of the experiment (kept; --undo brings it back)"
+    )
+    p_archive.add_argument("id")
+    p_archive.add_argument("run", help="the run id (whileai runs <id> lists them)")
+    p_archive.add_argument("--undo", action="store_true", help="unarchive instead")
     platform_parser("keys", "list the API keys on your account (names and prefixes)")
     p_live = platform_parser("live", "report one day of traffic on the served version")
     p_live.add_argument("id")
@@ -198,7 +206,7 @@ def _platform_command(args: argparse.Namespace) -> int:
             return _emit(payload, args.json, table)
 
         if args.command == "runs":
-            runs = tracked.runs()
+            runs = tracked.runs(archived=args.archived)
 
             def table():
                 if not runs:
@@ -206,7 +214,7 @@ def _platform_command(args: argparse.Namespace) -> int:
                 for r in runs:
                     targets = ",".join(r.get("targets") or []) or "-"
                     print(
-                        f"{r.get('version', '-'):10} {r.get('method') or '-':6} {r.get('status') or '-':10} targets {targets}  {str(r.get('createdAt', ''))[:10]}"
+                        f"{r.get('version', '-'):10} {r.get('method') or '-':6} {('archived' if r.get('archived') else r.get('status')) or '-':10} targets {targets}  {str(r.get('createdAt', ''))[:10]}"
                     )
 
             return _emit(runs, args.json, table)
@@ -218,6 +226,11 @@ def _platform_command(args: argparse.Namespace) -> int:
         if args.command == "promote":
             out = tracked.promote(args.version)
             return _emit(out, args.json, lambda: print(f"{args.id}: {args.version} is now serving"))
+
+        if args.command == "archive":
+            out = tracked.archive(args.run, archived=not args.undo)
+            word = "back in the experiment" if args.undo else "archived"
+            return _emit(out, args.json, lambda: print(f"{args.id}: {args.run} {word}"))
 
         if args.command == "keys":
             out = platform._request("GET", "/keys", api_key=platform._key(key))
