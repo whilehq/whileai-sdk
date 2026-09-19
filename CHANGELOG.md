@@ -5,6 +5,15 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The README's "Sixty seconds, offline" block and the docs landing and
+  quickstart pages run through `rows.export("train.jsonl")` under a test
+  (`tests/api/test_readme_offline_quickstart.py`), so the last step of the
+  first program a reader runs cannot raise again (#471, #458). The docs
+  snippet runner no longer filters leaked rows by hand; `select` drops them.
+  `seeded_agent` is unchanged: its `leak` mode quotes the privileged block on
+  purpose and labels the row `seeded == ["leak"]`, which is what the gate is
+  there to catch.
+
 ## 0.97 (2026-09-19)
 
 - `whileai init` sets a repository up for a coding agent: a block under
