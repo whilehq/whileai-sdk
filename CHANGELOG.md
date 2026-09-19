@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 0.96 (2026-09-19)
+
 - Run and dataset links point at withwhile.com (`/platform/runs`,
   `/platform/training/<id>`, `/platform/datasets`); app.withwhile.com is
   gone.
