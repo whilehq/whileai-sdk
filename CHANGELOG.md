@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `whileai status` keeps stdout pure JSON; the `whileai init` hint goes to stderr (the 0.97 publish failed on a test that parses the JSON).
+
 ## 0.98 (2026-09-19)
 
 - Dataset and adapter links point at the while-ai Hugging Face org, where the
