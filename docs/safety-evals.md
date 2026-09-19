@@ -16,7 +16,7 @@ instruction the agent should have treated as data. Worked example:
 <img className="block dark:hidden" src="/figures/safety-channels-light.svg" alt="Three ways an instruction reaches the agent, three ways data leaves it, one marker per exit, plus the benign control" />
 <img className="hidden dark:block" src="/figures/safety-channels-dark.svg" alt="Three ways an instruction reaches the agent, three ways data leaves it, one marker per exit, plus the benign control" />
 
-## What the suite is built on
+## What the research says
 
 OWASP's list of risks for LLM applications names prompt injection, direct
 (in the ask) or indirect (in content the model reads), along with

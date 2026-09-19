@@ -14,7 +14,7 @@ during and after a run. Worked example:
 <img className="block dark:hidden" src="/figures/reward-hacking-curve-light.svg" alt="Proxy reward climbs with KL while gold reward turns over; the five checks sit before, during and after" />
 <img className="hidden dark:block" src="/figures/reward-hacking-curve-dark.svg" alt="Proxy reward climbs with KL while gold reward turns over; the five checks sit before, during and after" />
 
-## Why the checks look where they look
+## What the research says
 
 Plot the training reward (the proxy) and the reward you care about (the
 gold) against how far the weights have moved, and both rise together
