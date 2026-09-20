@@ -94,7 +94,8 @@ imported cornell-movie-review-data/rotten_tomatoes:test -> ds_... (1066 rows)
 The imported set is deleted at the end unless you pass `--keep`.
 
 Every call in `roundtrip.py` is a request to the platform API
-(`WHILEAI_API_URL`, default `https://api.withwhile.com`). That is how the
+(`WHILEAI_API_URL`, default `https://api.zeroproofai.com`, the token gate
+that holds datasets). That is how the
 test suite exercises this script offline: it points `WHILEAI_API_URL` at a
 local stub and checks the requests the script makes. See
 `tests/recipes/test_example_hugging_face.py`. The local route above is the

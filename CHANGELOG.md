@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- The platform API answers at `https://api.withwhile.com`, which is now the default for
+  `whileai login`, `whileai.platform` and every skill; the raw API Gateway hostname it had
+  since 0.72 still answers and a credentials file that pinned it moves over on its own. The
+  old token gate (datasets, traces, `whileai.simulations`) keeps its original hostname; it no
+  longer answers on the While one.
+
 - `whileai.config.provenance()`: one line, `whileai <version> from <directory>`, ending
   `(source tree, not the installed wheel)` when a clone's `whileai/` is shadowing the wheel
   and `(source tree, installed editable)` after `pip install -e .`. Every recipe prints it
