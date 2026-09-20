@@ -196,9 +196,7 @@ def test_publish_gate_reports_hygiene_without_dropping():
     report = wai.publish_gate(rows, mode="rl")
     assert report["ok"]
     assert report["duplicates"]["n_dropped"] == 1
-    assert any(
-        "duplicate rollout(s)" in w and "optimize(mode='rl')" in w for w in report["warnings"]
-    )
+    assert any("duplicate rollout(s)" in w and 'select(mode="rl")' in w for w in report["warnings"])
     assert "correlations" in report and "near_duplicate_prompts" in report
     assert len(rows) == 4  # nothing removed
 

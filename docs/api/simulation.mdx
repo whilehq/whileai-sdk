@@ -98,9 +98,13 @@ The agent and the budget:
 * `situations` (N, distinct worlds), `phrasings` (n, wordings of
   one world; alias `requests_per_situation`) and `repeats` (k,
   independent runs of one wording; alias `rollouts_per_request`)
-  are three independent counts. Do not collapse them. Follow-ups
-  branch on the run. `unique_situations=True` (alias `unique`)
-  keeps picking new worlds (n=1, k=1 unless you set them). With
+  are three independent counts. Do not collapse them. Under
+  `mode="rl"` `repeats` is a floor, not a count: dynamic sampling
+  (Yu et al. 2025 (DAPO), arXiv:2503.14476) re-rolls uneven groups, so
+  some asks end with more than k rollouts and `pass_at` reports the
+  smallest k. Follow-ups branch on the run. `unique_situations=True`
+  (alias `unique`) keeps picking new worlds (n=1, k=1 unless you set
+  them). With
   `situations=N` the run stops once all N have their rollouts
   (`stopped_because="situations_exhausted"`), whatever `budget`
   still allows; a budget above `situations x phrasings x repeats` is

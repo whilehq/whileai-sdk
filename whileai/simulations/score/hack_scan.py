@@ -674,8 +674,9 @@ def hack_scan(
             f"perfectly collinear with reward within ask (|rho| >= {DEGENERATE_RHO:g}): "
             f"{shown}. Nothing in the data tells them apart, so no top feature is named "
             "and no hack is claimed. Re-scan on rollouts that differ in more than one "
-            "way (raise temperature or repeats), and scan before optimize(mode='rl'), "
-            "which drops the duplicate rollouts within an ask"
+            "way (raise temperature or repeats). When you call hack_scan yourself, "
+            'scan before select(mode="rl"), which drops the duplicate rollouts within '
+            "an ask (selection runs this scan on its own, before that drop)"
         )
         # Say the sign is withheld too, rather than leaving a reader to
         # read "endorsed feature at -1.00" off the table and conclude it.
@@ -715,7 +716,7 @@ def hack_scan(
         base["regime"] = "pool_exhausted"
         warnings.append(
             f"{all_pass} of {n_groups} asks are already all-pass ({sat:.0%}); those groups "
-            "carry no gradient, raise difficulty or drop them (optimize(mode='rl') does)"
+            'carry no gradient, raise difficulty or drop them (select(mode="rl") does)'
         )
     else:
         base["regime"] = "train"
