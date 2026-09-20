@@ -5,7 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
-## 1.01 (2026-09-20)
+## 0.101 (2026-09-20)
 
 - `simulate(agent=wai.OpenAI("gpt-4.1-mini"), ...)` works, positional or
   keyword: a backend object is resolved the way `configure(agent=)` resolves
