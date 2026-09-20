@@ -1393,7 +1393,12 @@ class Run:
         }
 
     def _warn_on_undelivered(self, requested: dict, delivered: dict) -> None:
-        """Say so when a knob missed its setting by enough to change a result."""
+        """Say so when a knob missed its setting by enough to change a result.
+
+        ``requested`` here is what the caller set, not the resolved config:
+        the call site strips the knobs that carry a default and the turn
+        knob when the agent was played single-turn (#476).
+        """
         if not delivered:
             return
         gaps = []
@@ -3616,7 +3621,19 @@ class Run:
         delivered = self._delivered()
         data.coverage["requested"] = requested
         data.coverage["delivered"] = delivered
-        self._warn_on_undelivered(requested, delivered)
+        # The warning is about a setting the caller made and the rows missed.
+        # ``requested`` carries a value for every knob, default or not, so
+        # the check is narrowed to the ones the call named (#476): an unset
+        # fault_rate arriving as 0.8 under mode="rl" is not an intention the
+        # run failed. ``avg_turns`` is dropped when no simulated user was
+        # played (callable and HTTP agents take one message in, one
+        # trajectory out), since a turn count that does not apply cannot be
+        # missed at any setting. ``stance`` only exists when the caller
+        # passed it inside dimensions=.
+        asked = {k: v for k, v in requested.items() if k in c.set_by_caller or k == "stance"}
+        if self.user_model is None:
+            asked.pop("avg_turns", None)
+        self._warn_on_undelivered(asked, delivered)
         data.coverage["rollouts_requested"] = self._rollouts_requested()
         data.coverage["rollouts_completed"] = len(data.trajectories)
         data.coverage["rollouts_lost"] = int(self.cap_lifted.get("lost", 0))

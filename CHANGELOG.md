@@ -5,6 +5,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The "generation knobs did not deliver what was set" warning fires only on
+  knobs the call passed by name. A `fault_rate` or `avg_turns` left at its
+  default is not a setting the run failed, and `avg_turns` is not checked
+  when the agent is played single-turn (a callable or HTTP agent), so the
+  offline no-key examples on the docs run clean. `report()["requested"]`
+  and `report()["delivered"]` are unchanged (#476).
 - The README's "Sixty seconds, offline" block and the docs landing and
   quickstart pages run through `rows.export("train.jsonl")` under a test
   (`tests/api/test_readme_offline_quickstart.py`), so the last step of the
