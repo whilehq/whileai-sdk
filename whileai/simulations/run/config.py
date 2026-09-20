@@ -408,6 +408,11 @@ class RunConfig:
     fault_rate: float
     max_turns: Any
     avg_turns: float
+    # the generation knobs the caller named (``fault_rate`` or ``risk``,
+    # ``avg_turns``). The two above always carry a value, so this is the
+    # only record of which were set and which are defaults: a default that
+    # the rows miss is not a setting that failed, and is not warned about.
+    set_by_caller: frozenset[str]
     min_user_turns: int
     # a level name, or (second, later) walk-away chances (see patience_hazards)
     patience: Patience
@@ -580,7 +585,13 @@ def resolve_run_config(
         fault_rate = RL_FAULT_RATE
     texture = cfg.pop("texture", None)
     max_turns = cfg.pop("max_turns", None)
+    explicit_turns = "avg_turns" in cfg
     avg_turns = float(cfg.pop("avg_turns", DEFAULT_AVG_TURNS))
+    set_by_caller = frozenset(
+        name
+        for name, was_set in (("fault_rate", explicit_fault), ("avg_turns", explicit_turns))
+        if was_set
+    )
     min_user_turns = max(1, int(cfg.pop("min_user_turns", DEFAULT_MIN_USER_TURNS)))
     # patience: a level name ("normal", "short", "endless") or a table
     # {"second": p, "later": q} / (p, q) of walk-away chances fitted from
@@ -834,6 +845,7 @@ def resolve_run_config(
         fault_rate=fault_rate,
         max_turns=max_turns,
         avg_turns=avg_turns,
+        set_by_caller=set_by_caller,
         min_user_turns=min_user_turns,
         patience=patience,
         user_temperature=user_temperature,
