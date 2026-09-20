@@ -15,10 +15,12 @@ import argparse
 import json
 import re
 import statistics
+import sys
 import tempfile
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 from whileai.simulations import format_delta_report
 
 ORD = re.compile(r"\bORD-\d{3,6}\b")
@@ -237,6 +239,7 @@ def report(rows_path: str, out_path: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("step", nargs="?", default="build", choices=["build", "report"])
     p.add_argument("--budget", type=int, default=2400)

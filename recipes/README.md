@@ -26,6 +26,13 @@ reading the others:
   `--help`. Anything long-running takes `--limit` or `--steps` for a smoke run.
 - Paths are relative to the recipe folder unless the README says "from the
   repo root".
+- Run a recipe from its own directory. From the repo root, `python -m`,
+  `modal run` and a notebook put the working directory first on `sys.path`,
+  so the clone's `whileai/` folder shadows the installed package with no
+  message. The first line every recipe prints, `whileai <version> from
+  <dir>`, says which one ran: `(source tree, not the installed wheel)` is the
+  clone. To develop against the tree on purpose, `pip install -e .` (or `uv
+  sync`); the line then says `installed editable`.
 - Keys come from the environment, never from files: `WHILEAI_API_KEY`
   (platform), `OPENAI_API_KEY` / `OPENAI_BASE_URL` (any OpenAI-compatible
   model), `ANTHROPIC_API_KEY` (Claude). A recipe that trains on Modal says so.

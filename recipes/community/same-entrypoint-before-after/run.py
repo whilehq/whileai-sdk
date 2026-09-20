@@ -29,6 +29,7 @@ from pathlib import Path
 
 import whileai.simulations as wai
 from whileai.auth import resolve_api_key
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "rows"
@@ -412,6 +413,7 @@ def dry_run(limit: int) -> None:
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("step", nargs="?", default="all", choices=["all", "tasks", "eval", "report"])
     ap.add_argument("--budget", type=int, default=400)

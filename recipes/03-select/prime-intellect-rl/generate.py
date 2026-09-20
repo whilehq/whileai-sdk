@@ -17,9 +17,11 @@ import os
 import sys
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--spec", default=os.path.join(os.path.dirname(__file__), "spec.json"))
     ap.add_argument("--situations", type=int, default=100, help="distinct prompts (N)")

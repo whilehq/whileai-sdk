@@ -29,11 +29,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sql_verifier import AGENT, OUT, extract_sql, read_jsonl
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 STATE = OUT / "distill_state.json"
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--source",

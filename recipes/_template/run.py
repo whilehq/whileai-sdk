@@ -8,8 +8,10 @@ Run: python recipes/<step>/<name>/run.py
 from __future__ import annotations
 
 import argparse
+import sys
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 # Rows as they come off a rollout: `final_text` is what the policy said, the
 # gold lives in `privileged` (the training export never projects it), and
@@ -33,6 +35,7 @@ ROWS = [
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     # Every recipe takes one of these, and it is what CI runs: a path through
     # the whole script that needs no key, no network and no GPU.

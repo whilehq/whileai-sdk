@@ -22,6 +22,7 @@ import os
 import sys
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations.score.judging import evaluate, run_judge
 
 TOOLS = [
@@ -160,6 +161,7 @@ def part_eval(data: wai.SimulationData) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--part", choices=["contract", "broken", "eval", "all"], default="all")
     args = parser.parse_args(argv)

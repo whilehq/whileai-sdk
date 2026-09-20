@@ -11,8 +11,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from datetime import date, timedelta
 
+from whileai.config import provenance
 from whileai.platform import Behavior, Frontier, Harness, Judge, track
 
 SCORES = {
@@ -101,6 +103,7 @@ def printing_transport(method: str, path: str, body=None):
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--agent", default="refund-bot")
     ap.add_argument("--offline", action="store_true", help="print the calls, touch nothing")

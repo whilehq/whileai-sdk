@@ -26,9 +26,11 @@ This module imports nothing from the engine so the engine can import it.
 from __future__ import annotations
 
 import contextlib
+import json
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 ROLES = ("agent", "judge", "simulator")
@@ -277,11 +279,78 @@ class _SettingsProxy:
 
 settings = _SettingsProxy()
 
+#: Folders a wheel is installed into. A package directory under one of
+#: these is the installed package; anywhere else is a checkout.
+INSTALL_DIRS = ("site-packages", "dist-packages")
+
+
+def _editable_root() -> Path | None:
+    """The directory ``pip install -e`` (or ``uv sync``) installed ``whileai``
+    from, read from the distribution's ``direct_url.json`` (PEP 610), or
+    ``None`` when the installed copy is a wheel or there is none."""
+    from importlib.metadata import distributions
+    from urllib.parse import urlparse
+    from urllib.request import url2pathname
+
+    for dist in distributions():
+        if (dist.metadata["Name"] or "").lower() != "whileai":
+            continue
+        raw = dist.read_text("direct_url.json")
+        if not raw:
+            continue
+        try:
+            info = json.loads(raw)
+        except ValueError:
+            continue
+        if info.get("dir_info", {}).get("editable") and info.get("url", "").startswith("file:"):
+            return Path(url2pathname(urlparse(info["url"]).path)).resolve()
+    return None
+
+
+def _provenance_line(version: str, where: Path, editable_root: Path | None) -> str:
+    """The line ``provenance()`` prints, from the three facts it reads."""
+    line = f"whileai {version} from {where}"
+    if any(part in INSTALL_DIRS for part in where.parts):
+        return line
+    if editable_root is not None and where.parent == editable_root:
+        return f"{line} (source tree, installed editable)"
+    return f"{line} (source tree, not the installed wheel)"
+
+
+def provenance() -> str:
+    """Which ``whileai`` this process imported, as one line: ``whileai
+    <version> from <directory>``, and when the directory is a checkout
+    rather than a ``site-packages`` install, ``(source tree, installed
+    editable)`` after ``pip install -e .`` or ``(source tree, not the
+    installed wheel)`` when the checkout is shadowing a wheel.
+
+    A clone of the SDK has a ``whileai/`` folder at its root, and Python
+    puts the working directory first on ``sys.path`` for ``python -m``,
+    ``python -c``, a notebook and ``modal run``, so a recipe started from
+    the repository root can import the clone instead of the wheel ``pip``
+    installed, with no message either way. Every recipe prints this line
+    first, on stderr so stdout stays the result, and the Modal recipes
+    mount whichever tree it names. Run a recipe from its own directory to
+    use the installed package, or ``pip install -e .`` to make the tree
+    the installed package. The version is the installed distribution's,
+    which is the wheel's while a checkout shadows it.
+
+        >>> import whileai as wai
+        >>> print(wai.config.provenance())  # doctest: +SKIP
+        whileai 0.110 from /home/me/whileai-sdk/whileai (source tree, not the installed wheel)
+    """
+    import whileai
+
+    where = Path(whileai.__file__).resolve().parent
+    return _provenance_line(whileai.__version__, where, _editable_root())
+
+
 __all__ = [
     "Settings",
     "configure",
     "context",
     "current",
+    "provenance",
     "reset",
     "resolve_backend",
     "settings",
