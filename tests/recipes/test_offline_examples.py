@@ -24,6 +24,7 @@ EXAMPLES = REPO / "recipes"
 CLI_EXAMPLES = [
     "01-simulate/bring-your-own-agent/run.py",
     "04-train/hosted-loop/run.py",
+    "04-train/prime-rl/run.py",
     "04-train/report-run/run.py",
     "03-select/character/from_model_spec.py",
     "03-select/character/measure.py",
@@ -69,6 +70,7 @@ NEEDS_MODAL = {
     "04-train/text-to-sql/author.py",
     "04-train/text-to-sql/train_grpo_modal.py",
     "04-train/resist-planted-instruction/modal_train_eval.py",
+    "04-train/prime-rl/modal_prime_rl.py",
     "community/who-protects-the-holdout/inflation_modal.py",
 }
 
@@ -166,6 +168,7 @@ def test_hosted_loop_without_a_key_names_the_env_var(tmp_path):
 # in one line; --help passing proves only that the imports resolved.
 NEEDS_CREDENTIAL = [
     "04-train/hosted-loop/run.py",
+    "04-train/prime-rl/run.py",
     "05-export/hugging-face/roundtrip.py",
     "03-select/prime-intellect-rl/generate.py",
 ]

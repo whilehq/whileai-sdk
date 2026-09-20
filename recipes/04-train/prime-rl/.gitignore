@@ -1,0 +1,3 @@
+.cache/
+*.result.json
+launch.json

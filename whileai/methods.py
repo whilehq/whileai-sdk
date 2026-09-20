@@ -707,8 +707,10 @@ def prime_rl_config(
         }
         prefix = next((p for p in blocks if key.startswith(p)), None)
         if prefix:
+            orchestrator: dict[str, Any] = config["orchestrator"]
             for block in blocks[prefix]:
-                for src in config["orchestrator"][block]["source"]:
+                sources: list[dict[str, Any]] = orchestrator[block]["source"]
+                for src in sources:
                     _set_dotted(src, key[len(prefix) :], value)
             honored[key] = f"override, written on the {' and '.join(blocks[prefix])} source"
             continue

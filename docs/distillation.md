@@ -59,11 +59,18 @@ config prime-rl runs it with, and says which knobs the trainer reads.
 ```python
 import whileai as wai
 
-teacher = wai.Endpoint(url="http://localhost:8001/v1", model="PrimeIntellect/Qwen3-0.6B-Reverse-Text-RL")
+teacher = wai.Endpoint(
+    url="http://localhost:8001/v1", model="PrimeIntellect/Qwen3-0.6B-Reverse-Text-RL"
+)
 
-opd = wai.OPD(teacher)                       # reverse KL, top_k 32, 4 samples, T 1.0, 8k cap
-opsd = wai.OPSD(privileged="answer")         # the same model shown the task's answer, 1 sample
-cfg = wai.prime_rl_config("reverse-text", opsd, model="PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT", out="opsd.toml")
+opd = wai.OPD(teacher)  # reverse KL, top_k 32, 4 samples, T 1.0, 8k cap
+opsd = wai.OPSD(privileged="answer")  # the same model shown the task's answer, 1 sample
+cfg = wai.prime_rl_config(
+    "reverse-text",
+    opsd,
+    model="PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT",
+    out="opsd.toml",
+)
 print(cfg)
 ```
 
@@ -107,7 +114,8 @@ uv add whileai modal
 modal token set --token-id ... --token-secret ...
 cd recipes/04-train/prime-rl
 python run.py --validate     # write the three configs, dry-run each on a CPU container
-python run.py                # the three runs in parallel, then results.json
+python run.py                # deploy, spawn the three runs (2 GPUs each), record the call ids
+python run.py --collect      # when they finish: results.json with the paired deltas
 ```
 
 The student is `PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT`, the taskset is
@@ -127,7 +135,29 @@ named, runs `rl`, and returns the metrics file.
 
 ## Read the number
 
-RESULTS_TABLE
+Run `e2e1` (2026-09-20): three H100:2 containers, under fifteen minutes
+each. The number is the taskset's reward, the LCS ratio to the true
+reversal, on the 128 held-out prompts, paired by prompt from step 1 to
+step 20; the interval is `wai.compare`'s paired bootstrap at 95%. The
+noise floor is the three step-1 scores of the same untrained student, one
+per arm (0.082, 0.070, 0.109): `run_std` 0.020, so a delta under 0.121 is
+noise.
+
+| Arm | Held-out LCS, step 1 | step 20 | Delta [95%] | Verdict | Replies cut at the cap, step 1 to 20 |
+|---|---|---|---|---|---|
+| `grpo` | 0.082 | 0.806 | +0.724 [+0.678, +0.767] | moved | 90% to 0% |
+| `opsd` | 0.070 | 0.252 | +0.182 [+0.110, +0.254] | moved | 90% to 66% |
+| `opd` | 0.109 | 0.834 | +0.725 [+0.673, +0.772] | moved | 88% to 1% |
+
+Head to head at step 20, OPD against GRPO is +0.028 [+0.013, +0.045],
+inside the noise band: a frozen teacher and no reward reached the same
+number as the reward. OPSD against GRPO is -0.554 [-0.614, -0.495]. The
+logged reference KL says why: OPD's moved from -0.294 to -0.108 over the
+run, OPSD's sat at -0.08 throughout. Showing a 0.6B model the answer
+barely changed what it predicted for its own tokens, the in-context floor
+the SDFT and SDPO papers put near 7B [5, 6], and the warning the writer
+printed before the run. Full curves, configs and the printed reports are
+in the recipe's `results.json`.
 
 ## Next
 

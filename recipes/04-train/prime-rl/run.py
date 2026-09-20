@@ -170,21 +170,129 @@ def collect(cfgs: dict[str, wai.methods.PrimeRLConfig]) -> dict | None:
         (HERE / f"{arm}-{state['tag']}.result.json").write_text(
             json.dumps(res, indent=2), encoding="utf-8"
         )
-    return summarize(results, cfgs, state["tag"])
+    summary = summarize(results, cfgs, state["tag"])
+    return analyze(summary, state["tag"])
 
 
-def _curve(rows: list[dict], key_part: str) -> list[tuple[int, float]]:
-    """(step, value) for every metric row that has a step and a key containing key_part."""
-    points: list[tuple[int, float]] = []
-    for row in rows:
-        step = row.get("step")
-        if not isinstance(step, int):
+RUNS_VOLUME = "wai-prime-rl-runs"
+EVAL_STEPS = (1, STEPS)
+
+
+def _eval_rows(arm: str, tag: str, step: int) -> list[dict]:
+    """The held-out episodes prime-rl wrote at an eval step, as SDK rows: one per
+    prompt, ``reward`` 1 for an exact reversal, the taskset's LCS ratio as the
+    marker ``lcs``. Read from the run volume, cached under .cache/."""
+    import modal
+
+    cache = HERE / ".cache" / f"{arm}-{tag}" / f"eval_step_{step}.jsonl"
+    if not cache.exists():
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        vol = modal.Volume.from_name(RUNS_VOLUME)
+        path = f"{arm}-{tag}/rollouts/step_{step}/eval/all/traces.jsonl"
+        cache.write_bytes(b"".join(vol.read_file(path)))
+    rows = []
+    for line in cache.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
             continue
-        for k, v in row.items():
-            if key_part in k and isinstance(v, (int, float)) and not isinstance(v, bool):
-                points.append((step, float(v)))
-                break
-    return sorted(points)
+        rec = json.loads(line)
+        trace = rec["traces"][0]
+        lcs = float(trace["rewards"]["lcs"]["score"])
+        rows.append(
+            {
+                "task_id": str(rec["task"]["data"]["idx"]),
+                "prompt": rec["task"]["data"]["prompt"],
+                "reward": 1.0 if lcs >= 1.0 else 0.0,
+                "markers": {"lcs": lcs},
+                "truncated": trace.get("stop_condition") == "generation_truncated",
+            }
+        )
+    return rows
+
+
+def analyze(summary: dict, tag: str) -> dict:
+    """Paired step-1 to step-20 delta per arm on the 128 held-out prompts, with
+    the interval `wai.compare` draws and the noise floor from scoring the same
+    untrained policy three times (each arm's step-1 eval is one such score)."""
+    import statistics
+
+    first = {arm: _eval_rows(arm, tag, EVAL_STEPS[0]) for arm in summary["arms"]}
+    lcs_means = [statistics.fmean(r["markers"]["lcs"] for r in rows) for rows in first.values()]
+    exact_means = [statistics.fmean(r["reward"] for r in rows) for rows in first.values()]
+    run_std = {
+        "marker:lcs": statistics.stdev(lcs_means) if len(lcs_means) > 1 else None,
+        "pass_at_1": statistics.stdev(exact_means) if len(exact_means) > 1 else None,
+    }
+    summary["noise"] = {
+        "step1_lcs_means": lcs_means,
+        "step1_exact_means": exact_means,
+        "run_std": run_std,
+        "runs": len(lcs_means),
+    }
+    for arm in summary["arms"]:
+        before, after = first[arm], _eval_rows(arm, tag, EVAL_STEPS[1])
+        report = wai.compare(
+            before, after, target="marker:lcs", run_std=run_std, run_std_runs=len(lcs_means)
+        )
+        m = dict((report.get("metrics") or {}).get("marker:lcs") or {})
+        summary["arms"][arm]["delta"] = {
+            "headline": report.get("headline_verdict"),
+            "n_paired_tasks": report.get("n_paired_tasks"),
+            "lcs": {k: v for k, v in m.items() if not isinstance(v, (list, dict)) or k == "ci95"},
+            "truncated_before": statistics.fmean(r["truncated"] for r in before),
+            "truncated_after": statistics.fmean(r["truncated"] for r in after),
+        }
+        summary["arms"][arm]["delta_text"] = str(report)
+        summary["arms"][arm]["after_rows"] = after
+    # head to head at the last step: each distillation arm against GRPO on the same prompts
+    if "grpo" in summary["arms"]:
+        grpo_after = summary["arms"]["grpo"]["after_rows"]
+        summary["vs_grpo"] = {}
+        for arm in summary["arms"]:
+            if arm == "grpo":
+                continue
+            report = wai.compare(
+                grpo_after,
+                summary["arms"][arm]["after_rows"],
+                target="marker:lcs",
+                run_std=run_std,
+                run_std_runs=len(lcs_means),
+            )
+            m = dict((report.get("metrics") or {}).get("marker:lcs") or {})
+            summary["vs_grpo"][arm] = {
+                "headline": report.get("headline_verdict"),
+                "lcs": {
+                    k: v for k, v in m.items() if not isinstance(v, (list, dict)) or k == "ci95"
+                },
+            }
+    for arm in summary["arms"]:
+        summary["arms"][arm].pop("after_rows", None)
+    (HERE / "results.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return summary
+
+
+EVAL = f"eval/{TASKSET}-eval/all/agent"
+SERIES = {
+    # name: (metric key, which rows)
+    "eval_reward": (f"{EVAL}/reward/mean", "eval"),
+    "eval_truncated": (f"{EVAL}/is_truncated/mean", "eval"),
+    "train_reward": ("train/agg/all/agent/reward/mean", "train"),
+    "train_truncated": ("train/agg/all/agent/is_truncated/mean", "train"),
+    "output_tokens": ("train/agg/all/agent/num_output_tokens/mean", "train"),
+    "teacher_kl": ("ref_kl/mean", "train"),  # opd / opsd only: the logged reference KL per token
+    "mismatch_kl": ("mismatch_kl/all/mean", "train"),  # sampler vs trainer, every arm
+    "entropy": ("entropy/all/mean", "train"),
+    "step_seconds": ("time/step", "train"),
+}
+
+
+def _series(rows: list[dict], key: str) -> list[tuple[int, float]]:
+    """(step, value) for every metric row carrying ``key`` and an integer step."""
+    out = []
+    for row in rows:
+        step, value = row.get("step"), row.get(key)
+        if isinstance(step, (int, float)) and isinstance(value, (int, float)):
+            out.append((int(step), float(value)))
+    return sorted(out)
 
 
 def summarize(
@@ -195,22 +303,25 @@ def summarize(
         "student": STUDENT,
         "teacher": TEACHER,
         "taskset": TASKSET,
+        "holdout": HOLDOUT,
         "steps": STEPS,
+        "learning_rate": LR,
+        "max_tokens": MAX_TOKENS,
         "whileai": wai.__version__,
         "arms": {},
     }
     for arm, res in results.items():
         rows = res.get("metrics", [])
-        keys = sorted({k for r in rows for k in r if isinstance(r.get(k), (int, float))})
+        series = {name: _series(rows, key) for name, (key, _) in SERIES.items()}
+        ev = series["eval_reward"]
         summary["arms"][arm] = {
             "returncode": res.get("returncode"),
             "seconds": res.get("seconds"),
             "image": res.get("image"),
             "gpu": res.get("gpu"),
-            "metric_keys": keys,
-            "eval_reward": _curve([r for r in rows if "eval" in r.get("_file", "")], "reward"),
-            "train_reward": _curve([r for r in rows if "eval" not in r.get("_file", "")], "reward"),
-            "teacher_kl": _curve(rows, "kl"),
+            "eval_first": ev[0] if ev else None,
+            "eval_last": ev[-1] if ev else None,
+            **series,
             "config": cfgs[arm].text,
             "reads": cfgs[arm].honored,
             "ignores": cfgs[arm].ignored,
@@ -233,6 +344,11 @@ def main() -> int:
             print()
     if a.validate:
         return validate(cfgs)
+    try:
+        import modal  # noqa: F401
+    except ImportError:
+        print("this recipe launches on Modal: pip install modal, then `modal token set ...`")
+        return 2
     if not a.collect:
         launch(cfgs, a.tag)
         print(f"spawned; run `python run.py --collect --arms {' '.join(cfgs)}` to read the results")
@@ -240,11 +356,22 @@ def main() -> int:
     summary = collect(cfgs)
     if summary is None:
         return 3
+    print(
+        f"{'arm':5s} {'exit':4s} {'wall':>6s}  held-out reward (step) ...            train reward   teacher_kl first -> last"
+    )
     for arm, s in summary["arms"].items():
-        ev = s["eval_reward"]
-        first = f"{ev[0][1]:.3f} @ {ev[0][0]}" if ev else "none"
-        last = f"{ev[-1][1]:.3f} @ {ev[-1][0]}" if ev else "none"
-        print(f"{arm:5s} exit {s['returncode']} {s['seconds']}s  eval reward {first} -> {last}")
+        d = s.get("delta") or {}
+        m = d.get("lcs") or {}
+        print(f"{arm:5s} held-out LCS step 1 -> {STEPS}: {m} | {d.get('headline')}")
+    for arm, d in (summary.get("vs_grpo") or {}).items():
+        print(f"{arm:5s} vs grpo at step {STEPS}: {d['lcs']} | {d['headline']}")
+    for arm, s in summary["arms"].items():
+        ev = " ".join(f"{v:.3f}({st})" for st, v in s["eval_reward"])
+        tr = s["train_reward"]
+        kl = s["teacher_kl"]
+        tr_s = f"{tr[0][1]:.3f} -> {tr[-1][1]:.3f}" if tr else "none"
+        kl_s = f"{kl[0][1]:+.4f} -> {kl[-1][1]:+.4f}" if kl else "none"
+        print(f"{arm:5s} {s['returncode']!s:4s} {s['seconds']:>6.0f}  {ev:38s} {tr_s:14s} {kl_s}")
     return max(int(s["returncode"] or 0) for s in summary["arms"].values())
 
 
