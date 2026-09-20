@@ -6,6 +6,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 ## Unreleased
 
 - `simulate(reproducible=True, seed=...)` draws the same rows on every CPython version, 3.10 to 3.13. The batch picker summed floats with the builtin `sum`, whose algorithm changed in CPython 3.12, so one novelty score per run could come out `0.0` on 3.11 and `-2.2e-16` on 3.12 and swap a row (#410). Every float sum on the row-selection path is now `math.fsum` (correctly rounded, fixed by IEEE 754) and a candidate identical to a tested row scores exactly `0.0`. This changes the draw for existing seeds on CPython 3.10 and 3.11; on 3.12 and 3.13 the issue's script draws the rows it drew before. A golden-value test pins the draw from here on, so any later change to it is a CHANGELOG line, not a surprise.
+- `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
 
 ## 1.04 (2026-09-20)
 

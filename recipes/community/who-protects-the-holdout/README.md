@@ -104,7 +104,10 @@ n_contaminated: 0    n_same_task: 0    contamination_rate: 0.0    notes: []
 
 Two hundred evaluation rows, not one of which could feed the rule that does 98% of the
 work, and `notes` is empty. `n_same_task: 0` is indistinguishable from "the ids were
-compared and none matched". Filed as [#488]; it is the complement of [#480].
+compared and none matched". Filed as [#488]; it is the complement of [#480]. Since
+that fix the report carries `rules_skipped` (`{"same_task": "0 of 200 evaluation rows
+carried a scenario_id or task_id"}` here) and a `notes` line saying only the text rules
+ran, so the two regimes no longer print the same shape.
 
 **The practical rule:** if your eval set came from `simulate()`, the default is strong
 and `same_task` is why. If it came from anywhere else (GSM8K, a Hub set, logged
