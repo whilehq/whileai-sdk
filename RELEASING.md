@@ -19,7 +19,10 @@ component, zero-padding, or tagging a release candidate all fail the gate in
 **PEP 440 strips leading zeros**, which is why the counter is never padded:
 a padded `1.07` is `1.7` on PyPI, and `0.100` sorts after `0.99` only because
 the counter is a whole number. Old spellings still resolve (`==0.4` is the
-`0.04` line in the changelog).
+`0.04` line in the changelog). `wai.__version__` is read back from the
+installed metadata, so a padded version is one string in the changelog and
+another in every run record; `release.py --dry-run`, the gate and
+`tests/api/test_version_string.py` all refuse it (#612).
 
 **2026-09-20 mis-numbering.** The bump script rolled 0.99 over to 1.00 and
 padded, so PyPI got 1.0 and 1.3 to 1.9 (1.01 and 1.02 never uploaded). They

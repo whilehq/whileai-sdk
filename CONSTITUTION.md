@@ -106,7 +106,7 @@ service for hosted training and serving. The library needs no account.
 | README skeleton | `tests/api/test_readme_skeleton.py` pins the section order, the five-line loop before the first heading, and the 900-word prose budget; `tests/api/test_readme_offline_quickstart.py` runs the quick start as written |
 | Bring your own keys | `wai.configure(agent=, judge=, api_key=)`, backend objects whose repr names the key source; the Modal and Prime Intellect researcher routines run on their own accounts twice a day |
 | One name | `scripts/check_old_name.py` in CI lint pins the count of the old name per file from `scripts/old_name_baseline.json`; the docs, site and style routines fix any old-name string in a file they touch |
-| One counter | `.github/scripts/check_version.py` fails any version that is not the last published counter plus one; `release.py` only cuts N+1; `RELEASING.md` is the long form |
+| One counter | `.github/scripts/check_version.py` fails any version that is not the last published counter plus one, or that is not its own PEP 440 normal form; `release.py` only cuts N+1 and refuses to start from a padded or rolled-over version; `tests/api/test_version_string.py` pins `wai.__version__` to the top `CHANGELOG.md` heading; `RELEASING.md` is the long form |
 
 ## Who reads this
 
