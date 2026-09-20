@@ -2,15 +2,26 @@
 """Run the code in the docs and check it still works.
 
 Every ```python block under docs/ is executed against the installed package,
-except on the two generated trees: docs/api/ (from the package's docstrings)
-and docs/recipes/ (from the recipe READMEs, whose scripts live in a clone and
-are smoke-tested by their own CI job). A page is one program: blocks run in
+except on docs/api/, which is generated from the package's docstrings and
+holds signatures, not programs. A page is one program: blocks run in
 order, in one namespace, in one scratch directory, so a later block can use a
 name an earlier block defined. That is how a reader reads the page, so that is
 how it is checked.
 
-No keys are set. A block that needs one is skipped, and it only earns the skip
-if the page says so first: a sentence, or an `export` line, naming the variable
+A page under docs/recipes/ is generated from a recipe README and excerpts a
+script that runs inside its own recipe directory, where `from bot import ...`
+resolves and `rows/labeled.jsonl` is a real file. So it is run the way its
+reader runs it: a copy of that recipe directory is the working directory and
+first on sys.path (a copy, so a block that writes a file leaves the tree
+clean). A broken recipe block is fixed in recipes/**/README.md, never on the
+page, and the page is regenerated with scripts/gen_recipe_docs.py.
+
+No keys are set, and the child cannot reach the network: socket connections
+to anything but loopback are refused before they leave the machine, so a
+public endpoint that needs no key (a catalog download, a Hub pull) cannot
+slip through and the check gives the same answer offline as it does on the
+runner. A block that needs a key is skipped, and it only earns the skip if
+the page says so first: a sentence, or an `export` line, naming the variable
 (WHILEAI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, MODAL_TOKEN_ID) somewhere
 above the block. An undeclared block that reaches for the network fails here.
 
@@ -50,6 +61,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -58,6 +70,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DOCS = REPO / "docs"
+RECIPES = REPO / "recipes"
 FIXTURES = Path(__file__).resolve().parent / "doc_snippets"
 
 # Named in recipes/README.md as the keys a reader is expected to export.
@@ -98,6 +111,10 @@ NEEDS_KEY = re.compile(
     r"rejected the API key \(401\)",
     re.I,
 )
+# How the child says "this block reached the network" (the socket layer in
+# DRIVER refuses it). Excused the same way as a missing key, on the same
+# condition: the page named the key that would have taken the reader there.
+EGRESS = re.compile(r"blocks network egress")
 
 # Three backticks or more, closed by the same count, so a ````markdown block
 # that quotes a ```python fence is one block of markdown, not a python block.
@@ -119,15 +136,14 @@ def printed(text: str) -> str:
 
 
 SKIPS = json.loads((FIXTURES / "skips.json").read_text(encoding="utf-8"))["skips"]
-# Generated trees under docs/, never run, because a broken block in either is
-# fixed at its source and not on the page: docs/api/ comes from __all__ and the
-# docstrings, docs/recipes/ from recipes/**/README.md. A recipe page also
-# excerpts a script that runs inside its own directory, with that directory's
-# files importable and names bound higher up the script; run here, in a
-# scratch directory with only the package, those excerpts fail for reasons the
-# page never claimed otherwise. Running them honestly needs a per-recipe
-# working directory, which is #499. The recipe smoke job covers them until then.
-GENERATED = ("api/", "recipes/")
+# The one generated tree under docs/ that is never run: docs/api/ comes from
+# __all__ and the docstrings, and its blocks are signatures, not programs. The
+# other generated tree, docs/recipes/, is run inside its recipe directory (see
+# recipe_dir); a broken block there is fixed in recipes/**/README.md.
+GENERATED = ("api/",)
+# Never copied into the recipe's scratch directory: build and cache output,
+# not part of what the README's blocks read.
+NOT_COPIED = shutil.ignore_patterns("__pycache__", ".git", ".venv", "node_modules", ".pytest_cache")
 # BLOCK_TIMEOUT = 180: seconds one block may run. The slowest honest block is
 # a seeded simulate() at budget=64 with repeats=4, which takes about 20 s on the
 # CI runner; nine times that is a hang, not a slow machine.
@@ -174,6 +190,24 @@ def pages(only: str | None) -> list[Path]:
             if not any(p.relative_to(DOCS).as_posix().startswith(g) for g in GENERATED)
         ]
     return sorted(set(found))
+
+
+def recipe_dir(page: Path) -> Path | None:
+    """The recipe directory a page under docs/recipes/ was generated from.
+
+    docs/recipes/<step>/<name>.mdx comes from recipes/<step>/<name>/README.md.
+    The index pages (docs/recipes/index.mdx, .../community/index.mdx) come from
+    a section README and have no directory of their own, so they get None and
+    run in the plain scratch directory like any other page.
+    """
+    try:
+        rel = page.resolve().relative_to(DOCS / "recipes")
+    except ValueError:
+        return None
+    if len(rel.parts) != 2:
+        return None
+    d = RECIPES / rel.parts[0] / rel.with_suffix("").name
+    return d if (d / "README.md").is_file() else None
 
 
 def language(info: str) -> str:
@@ -251,8 +285,67 @@ blocks = json.loads(sys.argv[1])
 fixture = sys.argv[2]
 FIXTURES_ROOT = sys.argv[3]
 BLOCK_TIMEOUT = float(sys.argv[4])
+RECIPE = sys.argv[5]  # the recipe directory a docs/recipes/ page runs in, or ""
 ns = {"__name__": "__main__"}
 real_out = sys.stdout
+
+# No egress. The environment has no keys, but a public endpoint needs none, so
+# the socket layer refuses every connection that is not loopback, before it
+# leaves the machine. Name resolution is refused too: a DNS query is egress.
+import socket
+
+LOOPBACK = ("127.0.0.1", "::1", "localhost", "")
+
+
+class EgressBlocked(BaseException):
+    # A BaseException on purpose, not an OSError. The engine treats a
+    # connection error as one rollout's bad luck: it is caught per rollout
+    # and per writer wave, and a block whose every call is refused grinds
+    # through its whole budget before giving up (one hosted block took the
+    # full 180 s and reported a timeout, not the refusal). A refusal here is
+    # a verdict on the block, not a flaky socket, so it passes through
+    # `except Exception` the way KeyboardInterrupt does and ends the block
+    # at once, with the host it reached for in the traceback.
+    pass
+
+
+def _host(address):
+    return address[0] if isinstance(address, tuple) and address else address
+
+
+def _refuse(host):
+    raise EgressBlocked(
+        "the docs check blocks network egress; this block tried to reach %r. "
+        "Give it an offline form, or name the key it needs on the page." % (host,)
+    )
+
+
+_real_connect = socket.socket.connect
+_real_connect_ex = socket.socket.connect_ex
+_real_getaddrinfo = socket.getaddrinfo
+
+
+def _connect(self, address, *a, **k):
+    if _host(address) not in LOOPBACK:
+        _refuse(_host(address))
+    return _real_connect(self, address, *a, **k)
+
+
+def _connect_ex(self, address, *a, **k):
+    if _host(address) not in LOOPBACK:
+        _refuse(_host(address))
+    return _real_connect_ex(self, address, *a, **k)
+
+
+def _getaddrinfo(host, *a, **k):
+    if host is not None and host not in LOOPBACK:
+        _refuse(host)
+    return _real_getaddrinfo(host, *a, **k)
+
+
+socket.socket.connect = _connect
+socket.socket.connect_ex = _connect_ex
+socket.getaddrinfo = _getaddrinfo
 
 
 def emit(rec):
@@ -261,6 +354,12 @@ def emit(rec):
     real_out.write("\x00REC\x00" + json.dumps(rec) + "\n")
     real_out.flush()
 
+
+if RECIPE:
+    # The recipe's own files first, the way they are for a reader who ran
+    # `cd recipes/<step>/<name>` and then the script. Before the fixture, so
+    # a fixture can take the reader's names from the recipe's own run.py.
+    sys.path.insert(0, RECIPE)
 
 if fixture:
     try:
@@ -363,6 +462,14 @@ def run_page(page: Path, blocks: list[Block], python: str, verbose: bool) -> lis
         with tempfile.TemporaryDirectory(prefix="docsnip-") as tmp:
             env["HOME"] = tmp
             env["USERPROFILE"] = tmp  # what Path.home() reads on Windows
+            # A recipe page runs in a copy of its recipe directory: its
+            # siblings import, its checked-in files open, and what it writes
+            # goes with the scratch directory rather than into the tree.
+            recipe = recipe_dir(page)
+            cwd = tmp
+            if recipe is not None:
+                cwd = os.path.join(tmp, recipe.name)
+                shutil.copytree(recipe, cwd, ignore=NOT_COPIED)
             payload = json.dumps(
                 [{"line": b.line, "code": b.code, "page": page.name} for b in runnable]
             )
@@ -375,13 +482,14 @@ def run_page(page: Path, blocks: list[Block], python: str, verbose: bool) -> lis
                 str(fixture) if fixture.exists() else "",
                 str(FIXTURES),
                 str(BLOCK_TIMEOUT),
+                cwd if recipe is not None else "",
             ]
             # The driver stops itself one block past BLOCK_TIMEOUT; this outer
             # limit is the backstop for a block that also wedged the watchdog.
             try:
                 proc = subprocess.run(
                     argv,
-                    cwd=tmp,
+                    cwd=cwd,
                     env=env,
                     capture_output=True,
                     encoding="utf-8",
@@ -419,17 +527,24 @@ def run_page(page: Path, blocks: list[Block], python: str, verbose: bool) -> lis
                     )
                     continue
                 if rec["status"] == "failed":
-                    if NEEDS_KEY.search(rec["detail"]):
+                    why = (
+                        "needs a key"
+                        if NEEDS_KEY.search(rec["detail"])
+                        else "reaches the network"
+                        if EGRESS.search(rec["detail"])
+                        else None
+                    )
+                    if why:
                         if b.needs_key:
                             results.append(
-                                Result(b, "skipped", f"needs a key; page declares {b.needs_key}")
+                                Result(b, "skipped", f"{why}; page declares {b.needs_key}")
                             )
                         else:
                             results.append(
                                 Result(
                                     b,
                                     "failed",
-                                    "this block needs a key, and nothing above it on the page "
+                                    f"this block {why}, and nothing above it on the page "
                                     "says so. Name the variable in a sentence before it, or give "
                                     "the block an offline form.\n" + rec["detail"],
                                 )

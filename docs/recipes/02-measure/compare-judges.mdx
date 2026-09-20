@@ -62,7 +62,7 @@ id no tool returned, said a write worked after the tool failed, or ignored a
 failed tool. It is consistent and checkable, and it is not a person. That is why
 the call passes `allow_model_gold=True` and why every `ok` in the table is
 false: the SDK will not call a judge trusted against anything but human labels.
-Attach your own with `wai.attach_labels(rows, labels, kind="human")` and the
+Attach your own with `wai.simulations.attach_labels(rows, labels, kind="human")` and the
 same call measures against people.
 
 ## What you get
@@ -101,7 +101,7 @@ run, so a disagreement can be read row by row.
 ```python
 import whileai as wai
 
-wai.attach_labels(scored.rows, labels, kind="human")
+wai.simulations.attach_labels(scored.rows, labels, kind="human")
 table = scored.compare_judges(
     {
         "jev": "typesafe:jev-latest",

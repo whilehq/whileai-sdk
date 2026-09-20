@@ -16,6 +16,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
   and the publish gate refuse a version that is not its own PEP 440 normal form (`1.07`
   installs as `1.7`) or that rolls the major, and `tests/api/test_version_string.py` pins
   the installed metadata version to the top heading and to `pyproject.toml` (#612).
+- The 30 recipe pages under `docs/recipes/` are snippet-checked again. Each runs in a copy of
+  its own recipe directory, first on `sys.path`, so `from bot import ...` and `rows/labeled.jsonl`
+  resolve the way they do for a reader who cloned the repo; and every page now runs with
+  network egress refused at the socket, so a public endpoint that needs no key cannot slip
+  through. Fixed at the source, in `recipes/**/README.md`: three blocks that used `wai` without
+  importing it, `wai.attach_labels`, `wai.coverage_gap` and `wai.hf_publish_run` spelled at the front
+  door where none of them lives (`wai.simulations.`, #456), a verifiers block that graded a placeholder
+  and pushed nothing, and three pages that reached a model or the platform without naming the
+  key (#499).
 - `whileai.config.provenance()`: one line, `whileai <version> from <directory>`, ending
   `(source tree, not the installed wheel)` when a clone's `whileai/` is shadowing the wheel
   and `(source tree, installed editable)` after `pip install -e .`. Every recipe prints it

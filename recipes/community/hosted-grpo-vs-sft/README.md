@@ -172,7 +172,11 @@ noise rather than a real exploit — but it cost nothing and it is the right ins
 ### The export half: this worked
 
 ```python
-wai.hf_publish_run("run_7d45f7e7f724464a", repo="refund-lookup-grpo-qwen3-4b", private=True)
+import whileai as wai
+
+wai.simulations.hf_publish_run(
+    "run_7d45f7e7f724464a", repo="refund-lookup-grpo-qwen3-4b", private=True
+)
 ```
 
 20 seconds, 148 MB, 10 files, private repo, commit tagged `zp-run_7d45f7e7f724464a`:
