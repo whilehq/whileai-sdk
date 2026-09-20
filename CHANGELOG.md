@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 1.07 (2026-09-20)
+
 - `wai.verify.tool_calls(row_or_message)` reads a tool call the same from either spelling:
   the flat `{"name", "arguments": {dict}}` a rollout row carries and the OpenAI wire shape
   (`function.arguments` as a JSON string) an export writes. A program reward written against
