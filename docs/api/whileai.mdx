@@ -299,6 +299,8 @@ describe it by hand::
         )
     )
 
+    tracked.noise_floor("refunds", base_a, base_b, base_c)  # or measure it: base re-run rows
+
     run = tracked.run("v4", method="GRPO", targets=["refunds"], trained_on=["refunds-grpo"])
     run.log(10, reward=0.41, kl=0.01)       # or trainer.add_callback(wai.TrainerCallback(run))
     run.score("refunds", 83, ci=2.7, n=240)  # every behavior, not only the targets

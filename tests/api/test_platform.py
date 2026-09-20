@@ -200,6 +200,60 @@ def test_behavior_warns_when_judge_is_reward(caplog):
     assert "reward_is_judge=False" in caplog.text
 
 
+def _rerun(pass_rates: dict[str, float], k: int = 4) -> list[dict]:
+    """One eval re-run's rows: k rollouts a task at the given pass rate."""
+    rows = []
+    for task, p in pass_rates.items():
+        passes = round(p * k)
+        for i in range(k):
+            rows.append({"prompt": task, "reward": 1 if i < passes else 0, "final_text": "ok"})
+    return rows
+
+
+def test_noise_floor_measures_three_reruns_and_posts_points():
+    fake = Fake()
+    t = track("a", transport=fake)
+    base = {f"t{i}": 0.5 for i in range(10)}
+    out = t.noise_floor(
+        "math500", _rerun(base), _rerun({**base, "t0": 0.75}), _rerun({**base, "t1": 0.25})
+    )
+    # run means 0.50, 0.525, 0.475: run_std 0.025; t(df=2)=4.30 x 0.025 x sqrt(2) = 0.152 -> points
+    assert out["run_std"] == 0.025 and out["runs"] == 3 and out["t"] == 4.3
+    assert out["noise_floor"] == pytest.approx(4.3 * 0.025 * 2**0.5 * 100, abs=0.01)
+    assert out["behavior"] == "math500" and out["rule"].startswith("t(df=2)=4.30 x run_std")
+    # One write after track() registered the agent: the floor lands on the behavior.
+    writes = [(m, p, b) for m, p, b in fake.calls if m != "GET" and p != "/agents"]
+    assert len(writes) == 1
+    method, path, body = writes[0]
+    assert method == "PUT" and path == "/agents/a/behaviors/math500"
+    assert body == {"noiseFloor": out["noise_floor"]}
+
+
+def test_noise_floor_needs_two_reruns():
+    t = track("a", transport=Fake())
+    with pytest.raises(ValueError, match="two or more re-runs"):
+        t.noise_floor("math500", _rerun({"t0": 0.5, "t1": 0.5}))
+
+
+def test_noise_floor_keeps_the_behavior_fields_and_warns_on_two(caplog):
+    class WithBehaviors(Fake):
+        def __call__(self, method, path, body=None):
+            if method == "GET" and path.endswith("/behaviors"):
+                self.calls.append((method, path, body))
+                return {"behaviors": [{"name": "math500", "testVersion": "v2", "n": 160}]}
+            return super().__call__(method, path, body)
+
+    fake = WithBehaviors()
+    t = track("a", transport=fake)
+    base = {f"t{i}": 0.5 for i in range(10)}
+    with caplog.at_level(logging.WARNING, logger="whileai.platform"):
+        out = t.noise_floor("math500", _rerun(base), _rerun({**base, "t0": 0.75}))
+    assert out["runs"] == 2 and "difference, not a distribution" in caplog.text
+    _, path, body = fake.calls[-1]
+    assert path == "/agents/a/behaviors/math500"
+    assert body == {"testVersion": "v2", "n": 160, "noiseFloor": out["noise_floor"]}
+
+
 # ------------------------------------------------------------------ runs
 
 
@@ -711,3 +765,103 @@ def test_run_carries_the_harness_fingerprint():
         body["harness"] == "h1"
         and body["record"]["provenance"]["pins"]["harness"] == t.harness.fingerprint
     )
+
+
+# ------------------------------------------------------------------ open
+
+
+class FakeWithRuns(Fake):
+    """The Fake plus a stored run row, as GET /runs/{id} returns it."""
+
+    def __init__(self, rows=None, **kw):
+        super().__init__(**kw)
+        self.rows = rows or {}
+
+    def __call__(self, method, path, body=None):
+        if path.startswith("/runs/") and path.count("/") == 2 and method == "GET":
+            self.calls.append((method, path, body))
+            run_id = path.rsplit("/", 1)[1]
+            if run_id not in self.rows:
+                raise PlatformError(404, f"GET {path}: No run {run_id}")
+            return self.rows[run_id]
+        return super().__call__(method, path, body)
+
+
+ROW = {
+    "id": "run_7f3a",
+    "agent": "a",
+    "version": "v4",
+    "base": "Qwen/Qwen3-4B",
+    "method": "grpo",
+    "targets": ["refunds"],
+    "trainedOn": ["refunds-grpo"],
+    "status": "evaluated",
+    "steps": 300,
+    "notes": "Reward flattened at step 300.",
+    "record": {"optimizer": {"lossType": "dapo", "lr": 5e-5}},
+    "train": [{"step": 10, "reward": 0.4}, {"step": 300, "reward": 0.7}],
+    "evals": [{"behavior": "refunds", "score": 83, "ci": 2.7, "n": 240}],
+    "createdAt": "2026-09-19T00:00:00Z",
+}
+
+
+def test_open_binds_a_run_without_posting():
+    fake = FakeWithRuns({"run_7f3a": ROW})
+    t = track("a", transport=fake)
+    run = t.open("run_7f3a")
+    assert isinstance(run, Run)
+    assert run.id == "run_7f3a" and run.tracked.id == ROW["agent"]
+    assert run.version == "v4" and run.spec.method == "grpo"
+    assert run.spec.trained_on == ["refunds-grpo"]
+    assert run.spec.record.optimizer.loss_type == "dapo"
+    assert run.status == "evaluated" and run.notes == "Reward flattened at step 300."
+    assert run.step == 300 and run.total_steps == 300
+    assert run.scores["refunds"].score == 83 and run.scores["refunds"].ci == 2.7
+    assert fake.calls[1:] == [("GET", "/runs/run_7f3a", None)]  # [0] is track()'s register
+    assert fake.paths("POST") == ["/agents"]  # no POST /runs: the row is not rewritten
+
+
+def test_open_then_finish_sends_get_then_patch_and_no_post():
+    fake = FakeWithRuns({"run_7f3a": ROW})
+    t = track("a", transport=fake)
+    run = t.open("run_7f3a")
+    run.finish(hours=2.1, cost_usd=31, record={"data": {"train": "refunds-grpo", "n_train": 1024}})
+    assert [(m, p) for m, p, _ in fake.calls[1:]] == [
+        ("GET", "/runs/run_7f3a"),
+        ("PATCH", "/runs/run_7f3a"),
+    ]
+    _, _, body = fake.calls[-1]
+    assert body["hours"] == 2.1 and body["costUsd"] == 31
+    assert body["record"] == {"data": {"train": "refunds-grpo", "nTrain": 1024}}
+    assert body["steps"] == 300
+    assert "version" not in body  # a PATCH fills gaps; it never rewrites the row
+
+    run.note("Backfilled from the run log.")
+    assert fake.calls[-1] == ("PATCH", "/runs/run_7f3a", {"notes": "Backfilled from the run log."})
+    run.archive()
+    assert fake.calls[-1] == ("PATCH", "/runs/run_7f3a", {"archived": True})
+    assert fake.paths("POST") == ["/agents"]
+
+
+def test_open_unknown_id_names_runs():
+    fake = FakeWithRuns({})
+    t = track("a", transport=fake)
+    with pytest.raises(PlatformError, match=r"No run 'run_none'.*tracked\.runs\(\)") as info:
+        t.open("run_none")
+    assert info.value.status == 404
+    assert fake.paths("POST") == ["/agents"]
+
+
+def test_open_refuses_another_agents_run():
+    fake = FakeWithRuns({"run_7f3a": {**ROW, "agent": "b"}})
+    t = track("a", transport=fake)
+    with pytest.raises(ValueError, match="belongs to agent 'b'"):
+        t.open("run_7f3a")
+
+
+def test_open_keeps_the_name_when_the_row_does_not_validate():
+    fake = FakeWithRuns({"run_7f3a": {**ROW, "method": "x" * 40, "evals": [{"behavior": "r"}]}})
+    t = track("a", transport=fake)
+    run = t.open("run_7f3a")
+    assert run.version == "v4" and run.spec.method is None
+    assert run.scores == {}

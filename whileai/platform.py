@@ -31,6 +31,8 @@ describe it by hand::
         )
     )
 
+    tracked.noise_floor("refunds", base_a, base_b, base_c)  # or measure it: base re-run rows
+
     run = tracked.run("v4", method="GRPO", targets=["refunds"], trained_on=["refunds-grpo"])
     run.log(10, reward=0.41, kl=0.01)       # or trainer.add_callback(wai.TrainerCallback(run))
     run.score("refunds", 83, ci=2.7, n=240)  # every behavior, not only the targets
@@ -65,6 +67,7 @@ batches, and a failed send is retried on the next flush.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import logging
@@ -73,11 +76,11 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic.alias_generators import to_camel
 
 from whileai._env import getenv
@@ -1064,6 +1067,92 @@ class Tracked:
         rows = self._call("GET", f"/agents/{self.id}/behaviors").get("behaviors") or []
         return [Behavior.model_validate(r) for r in rows]
 
+    def noise_floor(
+        self,
+        behavior: str | Behavior,
+        *reruns: Sequence[dict],
+        metric: str = "pass_at_1",
+    ) -> dict[str, Any]:
+        """Measure the eval's re-run floor from re-runs of the same version and
+        post it on the behavior.
+
+        Lambert 2025, chapter Evaluation: one evaluation is one draw, and a
+        held-constant eval moves 0.25 to 1.5 points between runs, so a delta
+        has to clear that spread before it is a result. Pass the row lists of
+        two or more re-runs of the same eval on the same version (the
+        untrained base, usually; ``simulate(runs=3)`` or the recipe's base
+        re-runs). ``eval_variance`` gives ``run_std``, the sample standard
+        deviation of the run means; the floor is ``noise_band(run_std,
+        df=runs - 1)`` = t(df=runs-1) x run_std x sqrt(2), the two-sided 95%
+        t quantile because ``run_std`` is an estimate from ``runs`` draws
+        (4.30 from three, 2.26 from ten) and sqrt(2) because a before/after
+        delta with one run per side is the difference of two draws. It is the
+        same rule ``delta_report(run_std=, run_std_runs=)`` applies and
+        ``recipes/papers/README.md`` states. Rows carry 0-1 pass rates and the
+        platform scores are points (``run.score("refunds", 83)``), so the floor
+        is posted in points, the unit ``Behavior.noise_floor`` and the Runs
+        page's Judge tile read.
+
+        Three re-runs are the fewest worth reading; two give a difference, not
+        a distribution, and the call warns. One raises: a single run has no
+        spread. Returns the floor with what it rests on: ``noise_floor``
+        (points), ``run_std`` (0-1 units), ``runs``, ``t``, ``means`` per run
+        and the ``rule`` as text. Other fields already on the behavior
+        (``test_version``, ``n``, ``judge``) are kept.
+        """
+        from .simulations.defaults import MIN_RERUNS
+        from .simulations.score.stats import (
+            POINTS_PER_UNIT,
+            _t_quantile,
+            eval_variance,
+            noise_band,
+        )
+
+        if len(reruns) < 2:  # a spread needs a pair of runs
+            raise ValueError(
+                "noise_floor(behavior, run_1, run_2, ...) needs two or more re-runs of the same "
+                "eval on the same version; one run is one draw, not a spread (three re-runs are "
+                "the fewest worth reading)"
+            )
+        report = eval_variance(*reruns, metric=metric)
+        run_std = report["run_std"]
+        runs = int(report["n_runs"])
+        if run_std is None or runs < 2:  # a re-run with no scored rows dropped out
+            raise ValueError(
+                f"noise_floor: {runs} of {len(reruns)} re-runs carried scored rows for "
+                f"{metric!r}; two or more are needed for a run_std"
+            )
+        name = behavior.name if isinstance(behavior, Behavior) else behavior
+        if runs < MIN_RERUNS:
+            log.warning(
+                "noise_floor(%r): run_std from %d re-runs is a difference, not a distribution; "
+                "%d or more give a standard deviation worth reading.",
+                name,
+                runs,
+                MIN_RERUNS,
+            )
+        df = runs - 1
+        t = _t_quantile(df)
+        floor = round(noise_band(run_std, df=df) * POINTS_PER_UNIT, 2)
+        if isinstance(behavior, Behavior):
+            item = behavior
+        else:
+            item = Behavior(name=name)
+            # No record to merge into yet: the PUT below creates it.
+            with contextlib.suppress(PlatformError):
+                item = next((b for b in self.behaviors() if b.name == name), item)
+        self.behavior(item.model_copy(update={"noise_floor": floor}))
+        return {
+            "behavior": name,
+            "noise_floor": floor,
+            "run_std": run_std,
+            "runs": runs,
+            "t": round(t, 2),
+            "means": report["means"],
+            "rule": f"t(df={df})={t:.2f} x run_std x sqrt(2) x {POINTS_PER_UNIT} points",
+            "notes": report["notes"],
+        }
+
     def experiment(
         self,
         question: str | None = None,
@@ -1205,6 +1294,66 @@ class Tracked:
         out unless ``archived=True``; each row then carries ``archived``."""
         rows = list(self._call("GET", f"/runs?agent={self.id}").get("runs") or [])
         return rows if archived else [r for r in rows if not r.get("archived")]
+
+    def open(
+        self,
+        run_id: str,
+        *,
+        flush_every: int = FLUSH_EVERY,
+        flush_seconds: float = FLUSH_SECONDS,
+    ) -> Run:
+        """Bind a ``Run`` to a run that already exists, from any later
+        session. One GET, no POST: ``finish(record=, hours=, cost_usd=)``,
+        ``note``, ``score`` and ``archive`` then PATCH the same row a run
+        opened here would, so the Runs page's "missing" list (record, score,
+        hours + cost) can be filled by a coding agent that did not train
+        the run. ``tracked.run(...)`` is the wrong call for that: a POST with
+        an existing id overwrites the row and resets its train sequence.
+
+        Lambert 2025, chapter Evaluation: a score is only readable next to
+        the setup that produced it, so the record travels with the run, not
+        with the session that trained it.
+
+        Raises ``PlatformError(404)`` when no run has that id;
+        ``tracked.runs()`` lists them.
+        """
+        try:
+            out = self._call("GET", f"/runs/{run_id}")
+        except PlatformError as e:
+            if e.status == 404:
+                raise PlatformError(
+                    404,
+                    f"No run {run_id!r} on this account; tracked.runs() lists the ids of "
+                    f"{self.id!r}.",
+                ) from None
+            raise
+        owner = out.get("agent")
+        if owner and owner != self.id:
+            raise ValueError(
+                f"run {run_id!r} belongs to agent {owner!r}, not {self.id!r}; "
+                f"open it from track({owner!r})."
+            )
+        fields = {k: v for k, v in out.items() if k != "id"}
+        try:
+            spec = RunSpec.model_validate(fields)
+        except ValidationError:
+            # A row written by hand or by a newer server: keep the name, drop the rest.
+            spec = RunSpec(version=str(out.get("version") or run_id)[:40])
+        spec.id = run_id
+        run = Run(self, run_id, spec, flush_every=flush_every, flush_seconds=flush_seconds)
+        run.status = str(out.get("status") or "running")
+        run.notes = out.get("notes") or None
+        if (steps := _number(out.get("steps"))) is not None:
+            run.total_steps = int(steps)
+        seen = (_number(p.get("step")) for p in out.get("train") or [] if isinstance(p, Mapping))
+        run.step = max((int(s) for s in seen if s is not None), default=0)
+        for row in out.get("evals") or []:
+            try:
+                item = Score.model_validate(row)
+            except ValidationError:
+                continue
+            run.scores[item.behavior] = item
+        return run
 
     def archive(self, run_id: str, *, archived: bool = True) -> dict[str, Any]:
         """Take a run out of the experiment without losing it. An archived
