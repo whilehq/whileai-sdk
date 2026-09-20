@@ -5,6 +5,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Warnings printed by `select`, `hack_scan` and `publish_gate` now send the
+  reader to `select(mode="rl")`, the front-door name, instead of `optimize`;
+  the hack-scan note says the advice is for a manual `hack_scan` call.
+  `simulate`'s docstring says `repeats` is a floor under `mode="rl"`
+  (dynamic sampling re-rolls uneven groups, so `pass_at` reports the
+  smallest k). (#478)
 - `drop_leaky_rows(sources=...)` and `leakage_report(..., sources)` accept
   the shapes `decontaminate(against=...)` accepts: a list of rows, a list
   of row lists (`[holdout]`), a list of prompt strings, or a single row.
