@@ -44,6 +44,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - Versioning: the counter never rolls over (`0.99` then `0.100`); `release.py` and the
   publish gate enforce it, the 2026-09-20 uploads 1.0 and 1.3 to 1.9 are re-cut as 0.100 to
   0.109 and yanked, and the constitution carries the rule as belief 10 (One counter).
+- `skills/manage-experiments` 2.0: the skill is about how the coding agent explains a run,
+  not only how it names one. Per run four lines in `run.note` (Changed, Moved, Why,
+  Reproduce), one `tracked.figure` (harness: one bar per arm with its interval; training:
+  reward per step and the frozen test at checkpoints on one chart), the flipped asks as
+  the "why", the reward-up-held-out-flat sentence said out loud, `readback(tracked)` now
+  checks for the four lines and the picture. `whileai init` block reworded, same length.
+- `tracked.brief()` and `run.finish()` end with "what a person cannot read yet": an iteration
+  that does not say what it changed, a test with no rubric, a score with no graded rows, a
+  version named by its settings, each with the call that posts it (`Brief.readable`). The
+  same rules draw the "what your coding agent still owes" list on the experiment page.
 - `eval_variance(...)["noise_band"]` is now the band `compare(run_std=, run_std_runs=)` applies:
   the two-sided t quantile at `noise_band_df` = runs - 1 times sqrt(2) times `run_std` (4.30 from
   three re-runs, not 1.96, which let about one pure-noise delta in five through); the new
@@ -57,16 +67,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
   training seed per arm; add a seed to resolve". `recipes/papers/check.py` applies the rule
   (`checks.train_seeds`, verdicts `moved` / `flat` / `unresolved`), so every one-seed paper
   recipe now reads `unresolved` with its numbers unchanged (#356).
-- `skills/manage-experiments` 2.0: the skill is about how the coding agent explains a run,
-  not only how it names one. Per run four lines in `run.note` (Changed, Moved, Why,
-  Reproduce), one `tracked.figure` (harness: one bar per arm with its interval; training:
-  reward per step and the frozen test at checkpoints on one chart), the flipped asks as
-  the "why", the reward-up-held-out-flat sentence said out loud, `readback(tracked)` now
-  checks for the four lines and the picture. `whileai init` block reworded, same length.
-- `tracked.brief()` and `run.finish()` end with "what a person cannot read yet": an iteration
-  that does not say what it changed, a test with no rubric, a score with no graded rows, a
-  version named by its settings, each with the call that posts it (`Brief.readable`). The
-  same rules draw the "what your coding agent still owes" list on the experiment page.
 
 ## 0.109 (2026-09-20)
 
