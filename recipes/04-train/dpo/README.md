@@ -24,9 +24,8 @@ steps at 8 pairs a step, one A10G, about ten minutes. The run's URL is
 printed at the start. No key means the same run with the numbers printed at
 the end only. The prompts and the split come from `../grpo/reward.py`, and
 the same `--seed` builds the same set and the same holdout on every run
-(117 prompts, 92 train, 25 holdout at `--seed 0` on Python 3.12; the GRPO
-README has the count on other Pythons), so two DPO runs at one seed are
-paired on one holdout.
+(119 prompts, 94 train, 25 holdout at `--seed 0`, on every Python from
+3.10 to 3.14), so two DPO runs at one seed are paired on one holdout.
 
 ## Where the pairs come from
 

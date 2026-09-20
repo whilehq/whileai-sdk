@@ -128,12 +128,13 @@ def test_same_seed_writes_the_same_prompt_and_holdout_files(tmp_path):
     a = write(0, "a")
     b = write(0, "b")
     assert a == b
-    # 117 prompts, 92 train, 25 holdout on Python 3.12 and later; 118, 92
-    # and 26 on 3.10 and 3.11 (3.12 changed how ``sum()`` adds floats, and
-    # the writer's novelty filter has a near-tie), so the count is bounded
-    # here and pinned per Python in the README.
-    n_items, n_train, n_held = (int(x) for x in a["counts"].split())
-    assert 110 <= n_items <= 125 and 20 <= n_held <= 30 and n_items == n_train + n_held
+    # The same numbers on every CPython from 3.10 to 3.14, the ones the
+    # README states. Before the writer summed floats with ``math.fsum``
+    # (#410), 3.12's change to ``sum()`` flipped one near-tie in the
+    # novelty filter: 117 prompts on 3.12 and later, 118 on 3.10 and 3.11.
+    # A different count here means the writer's draw changed, which is a
+    # CHANGELOG line and a README edit, not a per-Python note.
+    assert a["counts"] == b"119 94 25"
     c = write(1, "c")
     assert c["prompts"] != a["prompts"] and c["holdout"] != a["holdout"]
 
