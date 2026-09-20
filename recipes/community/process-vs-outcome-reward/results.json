@@ -12,7 +12,8 @@
       0.2625
     ],
     "run_std": 0.0076,
-    "noise_band": 0.0212,
+    "noise_band_eval_variance": 0.0212,
+    "noise_band_applied": 0.0462,
     "stability": "high_variance",
     "run_std_by_metric": {
       "pass_at_1": 0.0076,
@@ -60,6 +61,17 @@
         "kl_last": 0.01548,
         "base_reply_chars": 715.6,
         "trained_reply_chars": 477.8
+      },
+      "hack_scan": {
+        "regime": "pool_exhausted",
+        "tau": 0.2869,
+        "top_feature": "marker:process",
+        "endorsed_on_top": true,
+        "integrity": 1.0,
+        "warnings": [
+          "46 of 200 asks are already all-pass (23%); those groups carry no gradient, raise difficulty or drop them (select(mode=\"rl\") does)",
+          "2 rollouts per ask at the median; the floor is coarse below 4, re-scan at repeats>=8 before acting on a close call"
+        ]
       }
     },
     "outcome": {
@@ -97,6 +109,17 @@
         "kl_last": 0.00522,
         "base_reply_chars": 715.6,
         "trained_reply_chars": 637.2
+      },
+      "hack_scan": {
+        "regime": "pool_exhausted",
+        "tau": 0.2553,
+        "top_feature": "marker:process",
+        "endorsed_on_top": true,
+        "integrity": 1.0,
+        "warnings": [
+          "41 of 200 asks are already all-pass (20%); those groups carry no gradient, raise difficulty or drop them (select(mode=\"rl\") does)",
+          "2 rollouts per ask at the median; the floor is coarse below 4, re-scan at repeats>=8 before acting on a close call"
+        ]
       }
     }
   },
