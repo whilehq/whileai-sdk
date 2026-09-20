@@ -96,11 +96,11 @@ Set in `docs/docs.json`; the values are the brand tokens.
 | Key | Value | Why |
 |---|---|---|
 | `theme` | `mint` | One column, left sidebar, right table of contents. |
-| `colors.primary` | `#B85F14` | Deep apricot: links, the active sidebar item, the primary button in light mode. |
-| `colors.light` | `#FFA65C` | Apricot: the same roles in dark mode, where deep apricot loses contrast on plum. |
-| `colors.dark` | `#B85F14` | Deep apricot for the dark-mode accent surfaces. |
-| `background.color.light` | `#FFFFFF` | Text on white; surface `#F3ECF1` is for cards and tables only. |
-| `background.color.dark` | `#2A1A33` | Ink, the brand plum. The dark page is the brand ink, not a generic gray. |
+| `colors.primary` | `#3F8F6B` | Deep green: links, the active sidebar item, the primary button in light mode. |
+| `colors.light` | `#5CB08A` | Green: the same roles in dark mode, where deep green loses contrast on ink. |
+| `colors.dark` | `#3F8F6B` | Deep green for the dark-mode accent surfaces. |
+| `background.color.light` | `#FFFFFF` | Text on white; surface `#F4F6F9` is for cards and tables only. |
+| `background.color.dark` | `#0B1220` | Ink. The dark page is the brand ink, not a generic gray. |
 | `fonts.heading` | Inter, weight 600 | Semibold, not bold; hierarchy from size. |
 | `fonts.body` | Inter | 16 px, the Mintlify default measure. |
 | `styling.codeblocks.theme` | `vitesse-dark` in both modes | The same code theme withwhile.com uses, so a snippet looks the same on the site and in the docs. |
@@ -113,12 +113,11 @@ Mintlify has no key for the code font, so `docs/style.css` sets it: JetBrains Mo
 `0.19 [0.00..0.38]`. The file declares the tokens as `--wai-*` custom properties and touches nothing
 else; Mintlify's class names are not a stable surface.
 
-The tokens, as `style.css` names them: ink (plum) `#2A1A33` for headings and the dark page; body `#5F5266`
-for running text; muted `#7A6D80` for captions, table headers and timestamps; line `#E6DDE3` for
-rules; surface `#F3ECF1` for cards and table backgrounds; apricot `#FFA65C` for accents on ink, the
-whale's spout and the dot of the i; deep apricot `#B85F14` for links on white; tints `#FFF3E8` and
-`#FFD4AD` for callout and selected-row backgrounds. Plum and apricot replaced the mint palette on
-2026-09-19; the site's `BRAND.md` is the source and carries the same values.
+The tokens, as `style.css` names them: ink `#0B1220` for headings and the dark page; body `#4B5563`
+for running text; muted `#6B7280` for captions, table headers and timestamps; line `#E5E7EB` for
+rules; surface `#F4F6F9` for cards and table backgrounds; green `#5CB08A` for accents on ink and the
+loop in the wordmark; deep green `#3F8F6B` for links on white; tints `#F0FAF5` and `#D7F0E3` for
+callout and selected-row backgrounds.
 
 Callouts: `<Note>` for a fact that changes what the reader does next, `<Warning>` for a way to get a
 wrong number, `<Tip>` for a shorter path. No `<Info>`, no `<Check>`, at most one per screen.
@@ -231,8 +230,9 @@ withwhile.com, `/evals` and `/compare`, read against the same rules.
 - **Type.** Same Inter, but the site sets headings bold and the docs now set 600; pick 600 on both.
   The site's code font should be JetBrains Mono like the docs. Code blocks already share
   `vitesse-dark`.
-- **Wordmark.** Closed. Site and docs draw wai the whale from one outline, plum body and apricot
-  spout, and share the palette tokens.
+- **Wordmark.** The docs logo draws the loop in a blue-to-green gradient (`#7fb3e6`), a color
+  outside the token list; the site headline renders "While." with a period. One SVG, green loop, on
+  both.
 - **Numbers.** The home results table carries 95% intervals and a negative result, which is the
   standard. The three case studies show gains with no interval and no n; `/evals` says "37 of 160
   runs" with no pass^k; `/compare` has no numbers at all. Every claim gets the row format above and

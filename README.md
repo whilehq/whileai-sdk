@@ -10,12 +10,12 @@
 <p align="center"><code>MID-TRAINING AND POST-TRAINING FOR LANGUAGE MODELS</code></p>
 
 <p align="center">
-  <a href="https://github.com/whilehq/whileai-sdk/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/whilehq/whileai-sdk/ci.yml?branch=main&label=ci&labelColor=2a1a33&color=b85f14" alt="CI"></a>
-  <a href="https://pypi.org/project/whileai/"><img src="https://img.shields.io/github/v/tag/whilehq/whileai-sdk?sort=date&label=pypi&labelColor=2a1a33&color=b85f14" alt="PyPI"></a>
-  <a href="https://pypi.org/project/whileai/"><img src="https://img.shields.io/pypi/pyversions/whileai?labelColor=2a1a33&color=b85f14" alt="Python"></a>
-  <a href="https://pepy.tech/project/whileai"><img src="https://img.shields.io/pepy/dt/whileai?labelColor=2a1a33&color=b85f14" alt="Downloads"></a>
-  <a href="https://github.com/whilehq/whileai-sdk/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/whilehq/whileai-sdk/badges/coverage.json&labelColor=2a1a33" alt="Coverage"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/whilehq/whileai-sdk?labelColor=2a1a33&color=b85f14" alt="License"></a>
+  <a href="https://github.com/whilehq/whileai-sdk/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/whilehq/whileai-sdk/ci.yml?branch=main&label=ci&labelColor=0b1220&color=5cb08a" alt="CI"></a>
+  <a href="https://pypi.org/project/whileai/"><img src="https://img.shields.io/github/v/tag/whilehq/whileai-sdk?sort=date&label=pypi&labelColor=0b1220&color=5cb08a" alt="PyPI"></a>
+  <a href="https://pypi.org/project/whileai/"><img src="https://img.shields.io/pypi/pyversions/whileai?labelColor=0b1220&color=3f8f6b" alt="Python"></a>
+  <a href="https://pepy.tech/project/whileai"><img src="https://img.shields.io/pepy/dt/whileai?labelColor=0b1220&color=3f8f6b" alt="Downloads"></a>
+  <a href="https://github.com/whilehq/whileai-sdk/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/whilehq/whileai-sdk/badges/coverage.json&labelColor=0b1220" alt="Coverage"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/whilehq/whileai-sdk?labelColor=0b1220&color=3f8f6b" alt="License"></a>
 </p>
 
 <p align="center">

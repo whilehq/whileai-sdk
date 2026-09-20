@@ -16,6 +16,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   The per-call `timeout` default is `max(300, agent_max_tokens / 4)` seconds
   (`TIMEOUT_TOKENS_PER_SECOND` in defaults.py) instead of a flat 300 s, so a 4,096-token reply
   budget gets 1,024 s.
+- Docs and brand: the plum and apricot palette (#575) is reverted. Mint on ink stays:
+  logo, favicon, banner, figures, Mintlify colors and `docs/style.css` tokens as before.
 - `tracked.open(run_id)` binds a `Run` to a run that already exists (GET, never POST), so a
   coding agent can backfill the record, hours, cost, a score or a note from any later session with
   the same `finish` / `score` / `note` / `archive` calls; the Runs page's "missing" list is what it
@@ -30,9 +32,6 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   distillation and self-distillation in plain words, the per-word score by hand, `wai.OPD` and
   `wai.OPSD` printed, the prime-rl config report, and the three-arm run's table; figure
   `learn-two-scores`. The Learn index and nav carry eight lessons.
-- Docs and brand: plum and apricot replace the mint palette. Logo, favicon, README banner,
-  every guide figure, the Mintlify colors and `docs/style.css` tokens (`--wai-accent`,
-  `--wai-accent-deep`) carry it; `docs/reference/design.md` documents it. No code change.
 - `recipes/04-train/prime-rl`: GRPO, OPSD and OPD on one taskset on prime-rl, on Modal with
   your keys, from `wai.prime_rl_config`; a While-owned launcher over Prime Intellect's published
   image, deploy-and-spawn so a run outlives the shell, per-prompt held-out eval read back from the
