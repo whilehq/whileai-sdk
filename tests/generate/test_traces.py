@@ -5,6 +5,8 @@ Offline: hash embedder, template generator, scripted agent. No GPU.
 
 from __future__ import annotations
 
+import pytest
+
 import whileai.simulations as wai
 from tests.helpers import POLICY, TOOLS, scripted_agent
 from whileai.simulations.ingest.traces import (
@@ -155,6 +157,54 @@ def test_leakage_report_flags_copies_not_fresh_asks():
     assert len(kept) == 1
     assert kept[0]["prompt"].startswith("my package")
     assert drop["n_dropped"] == 2
+
+
+_ISSUE_479_Q = "Why are so few drugs with promising animal trials tested in humans?"
+_ISSUE_479_HOLDOUT = [{"prompt": _ISSUE_479_Q, "task_id": "h1"}]
+_ISSUE_479_TRAIN = [{"prompt": _ISSUE_479_Q, "task_id": "t1"}]
+
+
+@pytest.mark.parametrize(
+    "sources",
+    [
+        pytest.param(_ISSUE_479_HOLDOUT, id="list-of-rows"),
+        pytest.param([_ISSUE_479_HOLDOUT], id="list-of-row-lists"),
+        pytest.param([_ISSUE_479_Q], id="list-of-strings"),
+        pytest.param(_ISSUE_479_HOLDOUT[0], id="single-row"),
+        pytest.param((_ISSUE_479_HOLDOUT, [{"prompt": "unrelated"}]), id="tuple-of-row-lists"),
+    ],
+)
+def test_byte_identical_row_dropped_under_every_sources_shape(sources):
+    """#479: a byte-identical holdout row must always be flagged, whatever
+    container ``sources=`` arrived in and whatever the embedder thinks."""
+    kept, report = drop_leaky_rows(_ISSUE_479_TRAIN, sources=sources, threshold=0.9)
+    assert kept == []
+    assert report["n_leaky"] == 1
+    assert report["n_dropped"] == 1
+    assert report["n_sources"] >= 1
+    assert report["max_similarity"] == 1.0
+    assert leakage_report(_ISSUE_479_TRAIN, sources, threshold=0.9)["n_leaky"] == 1
+
+
+def test_drop_leaky_rows_agrees_with_decontaminate_on_issue_479():
+    """The issue's reproduction: both siblings drop the identical row when
+    handed the list-of-lists shape ``decontaminate`` documents."""
+    clean, decon = wai.decontaminate(_ISSUE_479_TRAIN, against=[_ISSUE_479_HOLDOUT])
+    kept_nested, nested = drop_leaky_rows(
+        _ISSUE_479_TRAIN, sources=[_ISSUE_479_HOLDOUT], threshold=0.9
+    )
+    kept_flat, flat = drop_leaky_rows(_ISSUE_479_TRAIN, sources=_ISSUE_479_HOLDOUT, threshold=0.9)
+    assert (len(clean), decon["n_contaminated"]) == (0, 1)
+    assert (len(kept_nested), nested["n_leaky"]) == (0, 1)
+    assert kept_flat == kept_nested == []
+    assert nested == flat
+    assert nested["max_similarity"] == 1.0
+
+
+def test_leak_sources_ignores_empty_and_none():
+    assert drop_leaky_rows(_ISSUE_479_TRAIN, sources=[])[1]["n_leaky"] == 0
+    assert drop_leaky_rows(_ISSUE_479_TRAIN, sources=[[]])[1]["n_sources"] == 0
+    assert drop_leaky_rows(_ISSUE_479_TRAIN, sources=None)[1]["n_sources"] == 0
 
 
 def test_simulate_from_traces_offline_end_to_end():

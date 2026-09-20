@@ -515,6 +515,19 @@ Defined in [`whileai/simulations/ingest/traces.py`](https://github.com/whilehq/w
 
 Kept rows plus the report. Flagged rows are removed, not rewritten.
 
+`sources` takes the same shapes as `decontaminate(against=...)`: a
+list of rows, a list of row lists (`[holdout]`, flattened), a list of
+prompt strings, or a single row. A row byte-identical to a source is
+always dropped, under every shape and whatever the embedder thinks.
+
+```python
+>>> holdout = [{"prompt": "Cancel order 9911.", "task_id": "h1"}]
+>>> train = [{"prompt": "Cancel order 9911.", "task_id": "t1"}]
+>>> kept, report = drop_leaky_rows(train, sources=[holdout])
+>>> len(kept), report["n_leaky"], report["max_similarity"]
+(0, 1, 1.0)
+```
+
 ### flaw_rows
 
 ```python
@@ -579,6 +592,10 @@ exact-overlap test of Lambert 2025, chapter Evaluation, with a small
 paraphrase allowance). Exact matches always flag, whatever the embedder
 thinks. `leaky` lists the first `examples` offenders; `n_leaky` is
 the full count.
+
+`sources` takes the same shapes as `decontaminate(against=...)`: a
+list of rows, a list of row lists (`[holdout]`, flattened), a list of
+prompt strings, or a single row. Each shape gives the same report.
 
 ### load_traces
 
