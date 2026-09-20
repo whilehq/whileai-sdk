@@ -22,6 +22,7 @@ import concurrent.futures
 import hashlib
 import json
 import logging
+import math
 import re
 import sys
 import threading
@@ -1679,7 +1680,7 @@ class Run:
     @staticmethod
     def _mean_novelty(rows: list[dict]) -> float:
         vals = [float(r["novelty"]) for r in rows if r.get("novelty") is not None]
-        return sum(vals) / len(vals) if vals else 1.0
+        return math.fsum(vals) / len(vals) if vals else 1.0
 
     def _novelty_parents(self) -> list[dict]:
         """The failing rows the writer mutates from: the newest

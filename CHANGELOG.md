@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `simulate(reproducible=True, seed=...)` draws the same rows on every CPython version, 3.10 to 3.13. The batch picker summed floats with the builtin `sum`, whose algorithm changed in CPython 3.12, so one novelty score per run could come out `0.0` on 3.11 and `-2.2e-16` on 3.12 and swap a row (#410). Every float sum on the row-selection path is now `math.fsum` (correctly rounded, fixed by IEEE 754) and a candidate identical to a tested row scores exactly `0.0`. This changes the draw for existing seeds on CPython 3.10 and 3.11; on 3.12 and 3.13 the issue's script draws the rows it drew before. A golden-value test pins the draw from here on, so any later change to it is a CHANGELOG line, not a surprise.
+
 ## 1.04 (2026-09-20)
 
 - `SweepReport` sizes its columns to the longest label and model name; long `prompt@model` labels no longer run into the next column.

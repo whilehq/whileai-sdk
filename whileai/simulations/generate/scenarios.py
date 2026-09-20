@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import itertools
 import json
+import math
 import os
 import re
 import threading
@@ -1325,7 +1326,7 @@ def cap_open_ended_weight(weights: dict[str, float]) -> dict[str, float]:
     oe = min(_OPEN_ENDED_CAP, max(_OPEN_ENDED_FLOOR, float(weights["open_ended"])))
     others = {key: max(0.0, float(val)) for key, val in weights.items() if key != "open_ended"}
     rest = 1.0 - oe
-    total = sum(others.values()) or 1.0
+    total = math.fsum(others.values()) or 1.0
     out = {key: rest * val / total for key, val in others.items()}
     out["open_ended"] = oe
     return out
@@ -1352,10 +1353,10 @@ def cap_rare_arm_weight(weights: dict[str, float]) -> dict[str, float]:
             out[arm] = _RARE_CAP
     if excess:
         variety = [arm for arm in ("structured", "llm_guided") if arm in out]
-        share = sum(float(out[arm]) for arm in variety) or 1.0
+        share = math.fsum(float(out[arm]) for arm in variety) or 1.0
         for arm in variety:
             out[arm] = float(out[arm]) + excess * float(out[arm]) / share
-    total = sum(max(0.0, float(v)) for v in out.values()) or 1.0
+    total = math.fsum(max(0.0, float(v)) for v in out.values()) or 1.0
     return {key: max(0.0, float(val)) / total for key, val in out.items()}
 
 
@@ -1370,7 +1371,7 @@ def complete_yields(
     something, and pushed weight toward arms that never executed.
     """
     observed = {arm: float(v) for arm, v in (yields or {}).items() if v is not None}
-    neutral = (sum(observed.values()) / len(observed)) if observed else 0.0
+    neutral = (math.fsum(observed.values()) / len(observed)) if observed else 0.0
     return {arm: observed.get(arm, neutral) for arm in arms}
 
 
@@ -1385,11 +1386,11 @@ def reallocate_search_arms(weights: dict[str, float], yields: dict[str, float]) 
     filled = complete_yields(yields, SEARCH_ARMS)
     raw = {arm: base[arm] * (1.0 + _SEARCH_ARM_LR * max(0.0, filled[arm])) for arm in SEARCH_ARMS}
     floors = {arm: _arm_floor(arm) for arm in SEARCH_ARMS}
-    floor_sum = sum(floors.values())
+    floor_sum = math.fsum(floors.values())
     if floor_sum >= 1.0:
         floors = {arm: val / floor_sum for arm, val in floors.items()}
         floor_sum = 1.0
-    norm = sum(raw.values()) or 1.0
+    norm = math.fsum(raw.values()) or 1.0
     free = 1.0 - floor_sum
     out = {arm: floors[arm] + free * raw[arm] / norm for arm in SEARCH_ARMS}
     return cap_rare_arm_weight(cap_open_ended_weight(out))
@@ -1420,16 +1421,21 @@ def novelty(candidate_vector, tested_matrix) -> float:
     rows = [[float(x) for x in row] for row in (tested_matrix if tested_matrix is not None else [])]
     if not rows:
         return 1.0
+    # ``math.fsum`` and ``math.sqrt`` are correctly rounded, so the score
+    # depends on the vectors alone and not on the interpreter (issue #410:
+    # builtin ``sum`` changed in CPython 3.12 and moved the draw). A
+    # candidate identical to a tested row scores exactly 0.0; the clamp
+    # drops the -2e-16 rounding residue that used to sort below it.
     vec = [float(x) for x in candidate_vector]
-    vec_norm = sum(x * x for x in vec) ** 0.5
+    vec_norm = math.sqrt(math.fsum(x * x for x in vec))
     best = None
     for row in rows:
-        row_norm = sum(x * x for x in row) ** 0.5
+        row_norm = math.sqrt(math.fsum(x * x for x in row))
         if vec_norm == 0.0 or row_norm == 0.0:
             distance = 1.0
         else:
-            dot = sum(a * b for a, b in zip(vec, row))
-            distance = 1.0 - dot / (vec_norm * row_norm)
+            dot = math.fsum(a * b for a, b in zip(vec, row))
+            distance = max(0.0, 1.0 - dot / (vec_norm * row_norm))
         best = distance if best is None else min(best, distance)
     return float(best if best is not None else 1.0)
 
@@ -1467,7 +1473,7 @@ def make_candidate_generator(
     )
     steer_w = max(0.0, float(steering_weight or 0.0))
     steer_front = steering_front_values(dimensions) if steer_w else {}
-    total = sum(_ARM_START.values())
+    total = math.fsum(_ARM_START.values())
     arm_weights = {arm: value / total for arm, value in _ARM_START.items()}
     applied_rounds: set[int] = set()
 
@@ -1478,7 +1484,7 @@ def make_candidate_generator(
             * (1.0 + _ARM_LEARNING_RATE * max(0.0, float(yields.get(arm, 0.0))))
             for arm in arm_weights
         }
-        norm = sum(raw.values()) or 1.0
+        norm = math.fsum(raw.values()) or 1.0
         free = 1.0 - _ARM_FLOOR * len(raw)
         for arm in arm_weights:
             arm_weights[arm] = _ARM_FLOOR + free * raw[arm] / norm
