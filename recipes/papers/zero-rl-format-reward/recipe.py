@@ -531,6 +531,8 @@ def run_arm(
             )
         if tracked is not None:
             _post_score(tracked.run("base", method="none", base=base_model), base_runs[0], 0, 0.0)
+            if len(base_runs) >= 2:  # the behavior's re-run floor, measured, not typed by hand
+                tracked.noise_floor("math500", *base_runs)
 
     if run is not None:
         trainer.add_callback(wai.TrainerCallback(run, finish=False))
