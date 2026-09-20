@@ -33,12 +33,23 @@ class _FakeRun:
         self.progress_rows = 0
         self.progress_at = 0.0
         self.progress_clock = lambda: self.now
+        # the #470 counters the line and the callback read
+        self.on_progress = None
+        self.inflight: dict = {}
+        self.landed = 0
+        self.resumed = 0
+        self.timed_out = 0
+        self.rerolled_by: dict[str, int] = {}
+        self.lost_by: dict[str, int] = {}
+        self.cap_lifted = {"lifted": False, "lost": 0}
 
     note = engine.Run._note_progress
+    _progress = engine.Run._progress
 
     def tick(self, seconds: float = 0.0, rows: int = 0, situations: int = 0) -> None:
         self.now += seconds
         self.data.trajectories.extend({"row": 1} for _ in range(rows))
+        self.landed += rows
         self.generated_pool.extend("ask" for _ in range(situations))
 
 

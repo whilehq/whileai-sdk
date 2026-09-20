@@ -34,10 +34,12 @@ Every knob `simulate()` takes. The defaults below are checked against the code b
 | `sampling` | `None` | How your own callable agent samples, `{"temperature": 0.7, "max_tokens": 1024, "model": "my-model"}`, recorded on every row as given. A model backend records its own and ignores this |
 | `simulator` | hosted Qwen | The situation writer. `False` is the built-in template writer (no model, no key, less variety); a model spec runs it elsewhere |
 | `user_model` | `None` | Who plays the simulated user in follow-up turns. `None` is the agent's own model |
-| `timeout` | `300` | Seconds per agent completion, for `local_model` and every model spec |
+| `timeout` | `max(300, agent_max_tokens / 4)` | Seconds per agent call, for `local_model` and every model spec. Unset, 300 s or the reply budget at 4 tokens a second, whichever is longer (1,024 s at `agent_max_tokens=4096`), so a long reply is not re-rolled for taking the time it was allowed. [Watching and resuming a long run](#watching-and-resuming-a-long-run) |
 | `grade` | `False` | Legacy deterministic conduct score; grade after instead |
 | `llm_grade` | `False` | Extra LLM judge |
-| `output` | | JSONL path |
+| `output` | | JSONL path, written as the run goes and complete when it returns |
+| `checkpoint` | `None` | JSONL path every row is appended to the moment it lands. Call again with the same path and `tasks=` to resume a killed run: finished tasks are skipped, the union comes back. [Watching and resuming a long run](#watching-and-resuming-a-long-run) |
+| `on_progress` | `None` | A callable that receives the progress dict (rows landed, re-rolled, lost, by reason) on every progress line, whatever the budget |
 | `advanced` | | Keys below. `data.report()` records the resolved values (`knobs`, `patience`, `user_temperature`, `world`) so a saved run says what it ran under |
 
 Aliases: `phrasings=` / `n=` for `requests_per_situation`; `repeats=` for `rollouts_per_request`; `unique=` for `unique_situations`; `policy=` for `system_prompt`; `risk=` for `fault_rate`.
@@ -67,6 +69,30 @@ What a researcher changes between runs: who plays the user and how patient they 
 | `tier_mix_tolerance` | `0.1` | How far below the asked hard share the drawn share may land before the run says so |
 | `stop_grace` | `5` | Seconds to wait for running rollouts and writer waves after a stop; queued ones are cancelled, still-running ones are reported as `rollouts_abandoned` / `writer_waves_abandoned`, and an abandoned wave adds a `warnings` line with the count, the stop reason and this knob |
 | `embedder` | `"hash"` | Prompt selection |
+
+## Watching and resuming a long run
+
+A 2,400-row `simulate(tasks=...)` through a served model is hours of work, and the engine re-rolls a rollout up to `repeats` times when the agent errors, replies empty, or leaks tool markup, so the wall clock can say nothing about the rows (whilehq/whileai-sdk#470: a 300 s timeout on 4,096-token replies re-rolled each one up to k times and a two-hour run took six and a half). Three things make it readable:
+
+- **Progress with the re-rolls in it.** Every 10 finished events (a row landed, a rollout re-rolled or one lost) or 10 s, the `whileai.simulations` logger says `120/2404 rollouts, 601 situations written, 1h2m elapsed, ~19h left, 96 re-rolled, 3 lost (3 agent error)` (INFO; on stderr too when no handler is attached). `on_progress=` receives the same numbers as a dict on every line: `rows`, `cap`, `landed` (this call), `resumed`, `rerolled` and `rerolled_by` (`agent_error`, `empty_reply`, `tool_markup`), `timed_out` (agent errors that were call timeouts), `lost` and `lost_by`, `inflight`, `situations`, `elapsed_s`. The final counts are `data.search["rollouts"]`, and `data.warnings` (plus a `UserWarning`) says so when more rollouts were re-rolled than landed, with the fix (`timeout=` or `agent_max_tokens=` when the errors were timeouts).
+- **Rows on disk the moment they land.** `checkpoint="rows.jsonl"` appends each row as it lands, so a kill loses nothing. Call again with the same `checkpoint=` and `tasks=` to resume: the rows on disk are loaded, a task with its `repeats` rows is skipped, one with fewer gets only the missing rollouts, and the returned `SimulationData` is the union (`search["rollouts"]["resumed"]` counts the loaded rows, `lineage.resumed` marks each). Rows on disk whose prompt is not in `tasks=` stay in the file and out of the run, and `warnings` says how many. Without `tasks=` the rows on disk are loaded and count toward `budget`, and the run draws new situations for the rest. `runs=N` and `checkpoint=` do not combine (one file holds one run's rows).
+- **A call timeout sized to the reply.** `timeout=` unset is `max(300, agent_max_tokens / 4)` seconds: 300 s, or the reply budget at 4 tokens a second per request, whichever is longer. A reasoning model that writes 4,096 tokens gets 1,024 s, not the flat 300 s that re-rolled every long reply. Set it yourself when you know the server: `timeout >= agent_max_tokens / tokens-per-second-per-request`.
+
+```python
+# the same call on a served model: agent="vllm:Qwen/Qwen3.5-9B@http://host:8000/v1",
+# agent_max_tokens=4096, and the progress line on the whileai.simulations logger
+rerun = wai.simulate(
+    wai.seeded_agent(TOOLS),
+    tools=TOOLS,
+    system_prompt=POLICY,
+    simulator=False,
+    tasks=data,
+    repeats=4,
+    checkpoint="rows.jsonl",  # rows land here as they finish; call again to resume
+    on_progress=lambda p: print(p["rows"], p["rerolled"], p["lost_by"]),
+)
+print(rerun.search["rollouts"])  # landed, resumed, rerolled_by, lost_by, timed_out
+```
 
 ## Engine internals
 

@@ -336,24 +336,39 @@ def progress_line(
     elapsed: float,
     *,
     min_rows_for_estimate: int = PROGRESS_MIN_ROWS_FOR_ESTIMATE,
+    rerolled: int = 0,
+    lost: int = 0,
+    lost_by: Mapping[str, int] | None = None,
+    resumed: int = 0,
 ) -> str:
     """One line of run progress, in the words a waiting person wants:
 
     ``12/64 rollouts, 3 situations written, 1m40s elapsed, ~5m left``
 
-    The estimate is the finished rate carried forward, and it is left off
+    and, once a rollout has been re-rolled or lost, why the run is slower
+    than its rows say (#470):
+
+    ``12/64 rollouts (4 resumed), ..., 6 re-rolled, 1 lost (1 agent error)``
+
+    The estimate is the finished rate carried forward over the rows this
+    call landed (resumed rows took no time here), and it is left off
     until ``PROGRESS_MIN_ROWS_FOR_ESTIMATE`` rollouts have landed, because
     before that it is the first rollout's latency dressed up as a forecast.
     """
-    parts = [
-        f"{rows}/{cap} rollouts",
-        f"{situations} situations written",
-        f"{_clock_text(elapsed)} elapsed",
-    ]
-    if rows >= min_rows_for_estimate and rows < cap and elapsed > 0:
-        rate = rows / elapsed
+    head = f"{rows}/{cap} rollouts"
+    if resumed:
+        head += f" ({resumed} resumed)"
+    parts = [head, f"{situations} situations written", f"{_clock_text(elapsed)} elapsed"]
+    landed = rows - resumed
+    if landed >= min_rows_for_estimate and rows < cap and elapsed > 0:
+        rate = landed / elapsed
         if rate > 0:
             parts.append(f"~{_left_text((cap - rows) / rate)} left")
+    if rerolled:
+        parts.append(f"{rerolled} re-rolled")
+    if lost:
+        by = ", ".join(f"{n} {r.replace('_', ' ')}" for r, n in (lost_by or {}).items() if n)
+        parts.append(f"{lost} lost ({by})" if by else f"{lost} lost")
     return ", ".join(parts)
 
 
@@ -440,6 +455,7 @@ class Run:
         self._note_rule_axis_cap()
         self._init_loop_state()
         self._seed_pool()
+        self._load_checkpoint()
         if c.out_path is not None:
             self._write_progress({"stage": "start", "rows": 0, "scenario_s": 0, "rollout_s": 0})
         self._start_writers()
@@ -1242,6 +1258,8 @@ class Run:
             self.agent_errors += 1
             if not self.first_agent_error:
                 self.first_agent_error = final[len("<agent error: ") :].rstrip(">")
+            if _timeout_error(final):
+                self.timed_out += 1
             if _timeout_error(final) and not self.timeout_noted:
                 # A served model that scaled to zero outlives a short
                 # timeout on its first request (#302); the rollout is
@@ -1520,6 +1538,13 @@ class Run:
         # Over-cap rollouts are not lost: the run asked for cap rows and
         # got them; these were in flight when the last one landed.
         self.lost_by: dict[str, int] = {reason: 0 for reason in LOST_REASONS}
+        # Re-rolls by the same reasons, rows this call landed, rows loaded
+        # from checkpoint=, and agent errors that were call timeouts: the
+        # numbers a four-hour run owes the person watching it (#470).
+        self.rerolled_by: dict[str, int] = {reason: 0 for reason in LOST_REASONS}
+        self.landed = 0
+        self.resumed = 0
+        self.timed_out = 0
         self.over_cap = 0
         # Restarts scale with the job: a 10k-row budget cannot live on the
         # same retry allowance as a smoke run.
@@ -1613,6 +1638,8 @@ class Run:
         self.progress_at = self.started
         # named so a test can hand the throttle a clock of its own
         self.progress_clock = time.monotonic
+        # the caller's own listener, called on every line whatever the budget
+        self.on_progress = c.on_progress
         # writer waves
         self.walked_ids: set[str] = set()
         self.walked_lock = threading.Lock()
@@ -1804,13 +1831,19 @@ class Run:
             return
         if prompt in self.used:
             return
-        if c.k_immediate:
-            k_now = c.repeat_count
-        elif c.topo["repeat_policy"] == "successive":
-            k_now = min(c.repeat_count, c.probe)
-        else:
-            k_now = 1
+        # A prompt resumed from checkpoint= already has ``start`` rows; it
+        # is owed the rest, not another k.
         start = self.prompt_rollouts.get(prompt, 0)
+        owed = max(0, c.repeat_count - start)
+        if c.k_immediate:
+            k_now = owed
+        elif c.topo["repeat_policy"] == "successive":
+            k_now = min(owed, c.probe)
+        else:
+            k_now = min(1, owed)
+        if k_now <= 0:
+            self.used.add(prompt)
+            return
         for i in range(k_now):
             jobs.append((prompt, start + i, meta, row))
         self.prompt_rollouts[prompt] = start + k_now
@@ -1834,20 +1867,151 @@ class Run:
 
     # ------------------------------------------------------------ output
 
+    def _progress(self, elapsed: float) -> dict[str, Any]:
+        """The run's counters at one moment: what ``on_progress=`` receives,
+        what the progress line prints, and what ``search["rollouts"]``
+        keeps at the end (#470). Rows landed against rollouts re-rolled
+        and lost, each by reason, so a run that is slower than its rows
+        explain says where the time went."""
+        lost_by = {r: n for r, n in self.lost_by.items() if n}
+        rerolled_by = {r: n for r, n in self.rerolled_by.items() if n}
+        return {
+            "rows": len(self.data.trajectories),
+            "cap": int(self.c.cap),
+            "landed": self.landed,
+            "resumed": self.resumed,
+            "rerolled": sum(rerolled_by.values()),
+            "rerolled_by": rerolled_by,
+            "timed_out": self.timed_out,
+            "lost": int(self.cap_lifted.get("lost", 0)),
+            "lost_by": lost_by,
+            "inflight": len(self.inflight),
+            "situations": len(self.generated_pool),
+            "elapsed_s": round(elapsed, 1),
+        }
+
     def _note_progress(self, *, force: bool = False) -> None:
         """Say where the run is, on the logger, at most ten seconds and at
-        most ten finished rollouts apart. A hosted run can spend minutes
-        between rows, and a tester with no output assumes it hung."""
-        if not self.progress_on:
+        most ten events apart, an event being a row landed, a rollout
+        re-rolled or one lost: a run that only re-rolls still speaks. A
+        hosted run can spend minutes between rows, and a tester with no
+        output assumes it hung. ``on_progress=`` gets the same numbers as
+        a dict on every line, whatever the budget."""
+        if not (self.progress_on or self.on_progress is not None):
             return
-        rows = len(self.data.trajectories)
         now = self.progress_clock()
+        progress = self._progress(now - self.started)
+        events = progress["landed"] + progress["rerolled"] + progress["lost"]
         stale = now - self.progress_at >= self.progress_every_s
-        many = rows - self.progress_rows >= self.progress_every_rows
+        many = events - self.progress_rows >= self.progress_every_rows
         if not (force or stale or many):
             return
-        _say(progress_line(rows, self.c.cap, len(self.generated_pool), now - self.started))
-        self.progress_rows, self.progress_at = rows, now
+        if self.progress_on:
+            _say(
+                progress_line(
+                    progress["rows"],
+                    progress["cap"],
+                    progress["situations"],
+                    now - self.started,
+                    rerolled=progress["rerolled"],
+                    lost=progress["lost"],
+                    lost_by=progress["lost_by"],
+                    resumed=progress["resumed"],
+                )
+            )
+        if self.on_progress is not None:
+            self.on_progress(dict(progress))
+        self.progress_rows, self.progress_at = events, now
+
+    def _land(self, t: dict) -> None:
+        """Store one usable rollout as a row: on the run, on ``checkpoint=``
+        at once, and on the streamed ``output=``. The one place a row
+        lands, so a kill after this line loses nothing (#470)."""
+        data = self.data
+        now = time.monotonic() - self.started
+        if not data.first_row_seconds:
+            data.first_row_seconds = now
+        data.trajectories.append(t)
+        data.row_seconds.append(now)
+        record_turns(self.turn_stats, t)
+        self.landed += 1
+        path = self.c.checkpoint_path
+        if path is not None:
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(export_row(t), default=str) + "\n")
+                fh.flush()
+        self._flush_output("rollout")
+
+    def _load_checkpoint(self) -> None:
+        """Resume from ``checkpoint=``: the rows already on disk come back
+        as rows of this run, and with ``tasks=`` each pinned prompt is
+        credited its rows, so a prompt with all k is never scheduled and
+        one with fewer gets only what it is owed (#470). Rows whose
+        prompt is not in ``tasks=`` belong to another task set and are
+        left in the file but out of the run; ``warnings`` says how many."""
+        c = self.c
+        path = c.checkpoint_path
+        if path is None:
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            return
+        rows: list[dict] = []
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line:
+                    row = json.loads(line)
+                    if isinstance(row, dict) and str(row.get("prompt") or "").strip():
+                        rows.append(row)
+        if not rows:
+            return
+        pinned = set(self.pinned_prompts)
+        skipped = 0
+        by_prompt: dict[str, list[dict]] = {}
+        for row in rows:
+            prompt = str(row.get("prompt") or "")
+            if pinned and prompt not in pinned:
+                skipped += 1
+                continue
+            by_prompt.setdefault(prompt, []).append(row)
+        for prompt, group in by_prompt.items():
+            for row in group:
+                lineage = row.get("lineage")
+                if not isinstance(lineage, dict):
+                    lineage = {}
+                lineage["resumed"] = True
+                row["lineage"] = lineage
+                self.data.trajectories.append(row)
+                self.data.row_seconds.append(0.0)
+                record_turns(self.turn_stats, row)
+                self.resumed += 1
+            if prompt not in pinned:
+                continue
+            # credit the pinned prompt its rows, the way _schedule_prompt
+            # would have counted them
+            self.prompt_rollouts[prompt] = len(group)
+            self.group_labels[prompt] = [self._row_label(r) for r in group]
+            if len(group) >= c.repeat_count:
+                self.used.add(prompt)
+                self.group_state[prompt] = "complete"
+                meta = self.generator.meta.get(prompt) or {}
+                sk = _situation_key_from_meta(meta, prompt)
+                if sk:
+                    self.situation_prompts.setdefault(sk, []).append(prompt)
+                    self.used_situations.add(sk)
+                rid = str(meta.get("region_id") or "")
+                if rid:
+                    self.used_scenario_ids.add(rid)
+        done = sum(1 for p in by_prompt if p in pinned and p in self.used)
+        note = (
+            f"resumed {self.resumed} rows from {path}"
+            + (f": {done} of {len(pinned)} tasks already finished" if pinned else "")
+            + (f"; {skipped} rows on disk are not in tasks= and were left out" if skipped else "")
+        )
+        _say(note)
+        if skipped:
+            self.data.warnings.append(note)
 
     def _note_writer_start(self) -> None:
         """One line when the situation writer starts, because the first
@@ -2237,12 +2401,7 @@ class Run:
                 self._note_lost(t)
                 self._discard_lost(t)
                 continue
-            if not data.first_row_seconds:
-                data.first_row_seconds = time.monotonic() - self.started
-            data.trajectories.append(t)
-            data.row_seconds.append(time.monotonic() - self.started)
-            record_turns(self.turn_stats, t)
-            self._flush_output("rollout")
+            self._land(t)
         if self.judge_inflight and c.stop_grace_s > 0:
             concurrent.futures.wait(list(self.judge_inflight), timeout=c.stop_grace_s)
         self._drain_judgments()
@@ -2786,6 +2945,8 @@ class Run:
                 key = str(job[0])
                 if not self.stopping and self.rerolls.get(key, 0) < c.repeat_count:
                     self.rerolls[key] = self.rerolls.get(key, 0) + 1
+                    reason = _unusable_reason(t) or "empty_reply"
+                    self.rerolled_by[reason] = self.rerolled_by.get(reason, 0) + 1
                     fut = self.pool.submit(self._build_row, job)
                     self.inflight[fut] = job
                     self.inflight_started[fut] = now
@@ -2803,13 +2964,8 @@ class Run:
                 note_stage(data, "full tool trajectory")
             if t.get("behavior_signature"):
                 note_stage(data, "behavior signature")
-            if not data.first_row_seconds:
-                data.first_row_seconds = time.monotonic() - self.started
-            data.trajectories.append(t)
-            data.row_seconds.append(time.monotonic() - self.started)
-            record_turns(self.turn_stats, t)
+            self._land(t)
             note_stage(data, "row stored")
-            self._flush_output("rollout")
         data.rollout_seconds += time.monotonic() - rollout_started
         self._note_progress()
         return results, jobs_for
@@ -3668,6 +3824,29 @@ class Run:
         data.coverage["rollouts_completed"] = len(data.trajectories)
         data.coverage["rollouts_lost"] = int(self.cap_lifted.get("lost", 0))
         data.coverage["rollouts_lost_by"] = dict(self.lost_by)
+        rollouts = self._progress(time.monotonic() - self.started)
+        rollouts.pop("inflight", None)
+        data.search["rollouts"] = rollouts
+        if rollouts["rerolled"] > rollouts["landed"]:
+            # More calls were thrown away than kept: the run spent most of
+            # its time on rollouts that never became rows, and its wall
+            # clock says nothing about its rows (#470: a 300 s timeout on
+            # 4,096-token replies re-rolled each one up to k times).
+            by = ", ".join(f"{n} {r.replace('_', ' ')}" for r, n in rollouts["rerolled_by"].items())
+            fix = (
+                f"raise timeout= (now {c.rollout_timeout:.0f} s; {rollouts['timed_out']} of the "
+                "agent errors were call timeouts) or lower agent_max_tokens="
+                if rollouts["timed_out"]
+                else "data.search['rollouts']['rerolled_by'] says why; data.warnings has the fix per reason"
+            )
+            note = (
+                f"{rollouts['rerolled']} rollouts were re-rolled against {rollouts['landed']} "
+                f"rows landed ({by}); most of this run's calls never became rows. Fix: {fix}."
+            )
+            if note not in data.warnings:
+                data.warnings.append(note)
+            log.warning(note)
+            warnings.warn(note, UserWarning, stacklevel=2)
         data.coverage["rollouts_over_cap"] = int(self.over_cap)
         data.coverage["n_situations"] = c.n_situations_target
         data.coverage["requests_per_situation"] = c.n_req

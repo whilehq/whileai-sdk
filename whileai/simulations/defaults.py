@@ -273,6 +273,17 @@ PROGRESS_MIN_ROWS_FOR_ESTIMATE = 5
 # over before a line helps. (convention, untested)
 PROGRESS_MIN_BUDGET = 10
 
+# TIMEOUT_TOKENS_PER_SECOND = 4: the per-request decode rate the default
+# call timeout is sized for. simulate(timeout=) defaults to
+# max(LOCAL_MODEL_TIMEOUT, reply budget / this), so a 4,096-token reply
+# budget gets 1,024 s instead of the flat 300 s that re-rolled every long
+# reply on a 9B model at 16-32 requests in flight on one L40S and turned a
+# two-hour run into six and a half (whilehq/whileai-sdk#470). 4 tokens a
+# second is the slow end of what that server did under load; the flat
+# floor still holds for short replies. (convention, untested on other
+# servers)
+TIMEOUT_TOKENS_PER_SECOND = 4
+
 # SYSTEM_PROMPT_HEAD_CHARS = 120: opening chars of the system prompt kept
 # on every row, enough to tell a numbered policy from a bare prompt at a
 # glance (#296). (convention, untested)
@@ -1885,6 +1896,7 @@ __all__ = [
     "TEXT_HEURISTICS",
     "TIER_MIX_MIN_ROWS",
     "TIER_MIX_TOLERANCE",
+    "TIMEOUT_TOKENS_PER_SECOND",
     "TOOL_SCHEMA_SPAN_CHARS",
     "TRACE_EXEMPLARS_PER_TOOL",
     "TRACE_EXEMPLAR_DICT_KEYS",

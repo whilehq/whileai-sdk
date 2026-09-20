@@ -87,6 +87,8 @@ def simulate(
     output: str | None = None,
     tasks: Any = None,
     runs: int = 1,
+    checkpoint: str | None = None,
+    on_progress: Callable[[dict], None] | None = None,
     advanced: dict | None = None,
     repeats: int | None = None,
     phrasings: int | None = None,
@@ -161,6 +163,14 @@ def simulate(
       ``TypeError``, never silently ignored. Writer completions are
       ``advanced["completions_per_request"]``; seed openers are
       ``advanced["seed_prompts"]``.
+    * ``timeout``: seconds one agent call may take. Unset, it is 300 s or
+      the reply budget at 4 tokens a second, whichever is longer
+      (``max(300, agent_max_tokens / 4)``: 1,024 s at
+      ``agent_max_tokens=4096``), so a long reply is not re-rolled for
+      taking the time it was allowed; a call that runs past it is an
+      agent error and is re-rolled up to ``repeats`` times. Set it when
+      you know the server's rate: ``timeout >= agent_max_tokens /
+      tokens-per-second-per-request``.
 
     What the situations come from:
 
@@ -227,6 +237,35 @@ def simulate(
       ``eval_run`` on its own. Replayed rows keep the writer of the run they
       replay on ``writer_model`` and say ``lineage.replayed_from_run``, so
       ``delta_report`` on two runs of one call sees one writer.
+
+    Watching and resuming a long run:
+
+    * Progress goes to the ``whileai.simulations`` logger at INFO (and to
+      stderr when nothing listens) every 10 finished rollouts or 10 s,
+      re-rolls and losses counted as events too, so a run that only
+      re-rolls still speaks: ``120/2404 rollouts, 601 situations written,
+      1h2m elapsed, ~19h left, 96 re-rolled, 3 lost (3 agent error)``.
+      ``on_progress=`` is a callable that receives the same numbers as a
+      dict on every line, whatever the budget: ``rows`` (in
+      ``data.rows()`` so far, resumed ones included), ``cap``, ``landed``
+      (this call), ``resumed``, ``rerolled`` and ``rerolled_by``
+      (``agent_error``, ``empty_reply``, ``tool_markup``), ``timed_out``
+      (the agent errors that were call timeouts), ``lost`` and
+      ``lost_by``, ``inflight``, ``situations``, ``elapsed_s``. The run's
+      final counts are ``search["rollouts"]``, and ``warnings`` (plus a
+      ``UserWarning``) says so when more rollouts were re-rolled than
+      landed, since the run then spent most of its time on calls that
+      never became rows.
+    * ``checkpoint``: a JSONL path every row is appended to the moment it
+      lands, so a killed run keeps its rows. Call again with the same
+      ``checkpoint=`` and ``tasks=`` to resume: the rows on disk are
+      loaded, a task with its ``repeats`` rows is skipped, one with fewer
+      gets only the missing rollouts, and the returned ``SimulationData``
+      is the union (``search["rollouts"]["resumed"]`` counts the loaded
+      rows; ``lineage.resumed`` marks each). Without ``tasks=`` the rows on
+      disk are loaded and count toward ``budget``, and the run draws new
+      situations for the rest. ``output=`` still writes the whole run at
+      the end; ``checkpoint=`` is the file that survives a kill.
 
     What steers the search and answers the tools:
 
@@ -321,13 +360,23 @@ def simulate(
     base = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
                         mode="rl", repeats=4, budget=32)
     rerun = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
-                         tasks=base, mode="rl")  # same tasks, k=4 inherited
+                         tasks=base, mode="rl",  # same tasks, k=4 inherited
+                         checkpoint="rerun.jsonl",  # rows land here as they finish
+                         on_progress=print)  # or watch the whileai.simulations logger
     print(base.stopped_because, len(base.rows()), base.warnings)
+    print(rerun.search["rollouts"])  # landed, resumed, rerolled_by, lost_by
     ```
     """
     n_runs = int(runs)
     if n_runs < 1:
         raise ValueError("runs= is how many times to replay the task set, 1 or more")
+    if n_runs > 1 and checkpoint:
+        # one file holds one run's rows; a resume could not tell run 0's
+        # rows from run 1's, so the two do not combine
+        raise ValueError(
+            "checkpoint= holds one run's rows; with runs=N call simulate() once per run "
+            "with its own checkpoint path"
+        )
     # A backend object (``wai.OpenAI("gpt-4.1-mini")``) is resolved here the
     # way ``configure(agent=...)`` resolves it: its spec string goes down
     # the same road as ``agent="openai:gpt-4.1-mini"``, and a key given on
@@ -382,6 +431,8 @@ def simulate(
         execute=execute,
         output=output,
         tasks=tasks,
+        checkpoint=checkpoint,
+        on_progress=on_progress,
         advanced=advanced,
         passed=passed,
     )
