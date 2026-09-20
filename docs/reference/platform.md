@@ -368,8 +368,7 @@ run.finish(hours=2.1, gpu="1xH100", cost_usd=31)  # prints the brief
 
 print(tracked.verdict())  # one line: beats, trails, or about the same, and what that rests on
 print(tracked.brief())  # what happened, what it means, what next: the Runs page text
-print(*tracked.evals(), sep="
-")  # the Evals table: eight checks per behavior
+print(*tracked.evals(), sep="\n")  # the Evals table: eight checks per behavior
 ```
 
 **Everything the page shows, the agent can read and edit.** `tracked.runs()`, `tracked.open(run_id)`, `run.archive()`, `tracked.delete_run(id)` are the run side; `tracked.dashboard()` is the screen as data (versions, train curve, deltas, live traffic, verdict); `tracked.verdict()` is its one line; `tracked.brief()` is the card at the top; `tracked.evals()` is the Evals table, one `EvalHealth` per behavior with the eight checks the page runs (frozen, size, judge, length bias, noise floor, clean, reward is not the judge, can fail), each with its value, the failure and the fix in words, the call, the rule and its source, from the same fields and thresholds. `tracked.delete()` removes the agent and everything under it, for an agent posted to the wrong account or a smoke test; there is no undo.
