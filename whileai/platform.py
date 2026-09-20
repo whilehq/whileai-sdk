@@ -91,7 +91,7 @@ from whileai.auth import resolve_api_key
 
 log = logging.getLogger("whileai.platform")
 
-DEFAULT_PLATFORM_URL = "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com"
+DEFAULT_PLATFORM_URL = "https://api.withwhile.com"
 PLATFORM_URL_ENV = "WHILEAI_PLATFORM_URL"
 
 FLUSH_EVERY = 25
