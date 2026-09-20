@@ -201,6 +201,12 @@ training file.
 - **Thinking models need a reply budget.** `simulate(agent_max_tokens=4096,
   timeout=300)` (whileai >= 0.47); on the default 2048-token cap and
   60 s timeout the base lost 8% of replies mid-thought and 4 of 81 tasks.
+- **The adapter you serve is not always the adapter you trained.** A
+  Qwen3.5 LoRA saved by PEFT on transformers 5 loads in vLLM 0.29 without
+  a warning and changes nothing (key layout, whilehq/whileai-sdk#588).
+  Before reading any served-checkpoint number, score the adapter on 100
+  prompts it trained on and compare with the trainer's own reward on them;
+  a gap of 0.3 is a serving bug, not a generalization gap.
 - **Grade the turn you asked for.** `simulate(max_turns=1)` still wrote a
   second user turn when the reply held a "?" and the grader scored that
   reply; every Qwen3.5 checkpoint read 7 points low and the 4B 21 points
@@ -350,10 +356,8 @@ reply budget, same verifier, k=4.
 | Qwen3-4B, thinking on (reference) | 0.53 (0.49..0.56) | 0.25 | 0.76 | 0.13 | 0.12 | 8% |
 | Qwen3.5-9B, default template | 0.60 (0.57..0.64) | 0.38 | 0.78 | 0.11 | 0.09 | 6% |
 | Qwen3.5-4B, default template | 0.35 (0.32..0.38) | 0.05 | 0.67 | 0.51 | 0.06 | 21% |
-| Qwen3.5-9B **r1, step 25** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | 0.62 (0.58..0.65) | 0.39 | 0.80 | 0.11 | 0.08 | 6% |
-| Qwen3.5-9B r1, step 50 | 0.62 (0.58..0.65) | 0.42 | 0.80 | 0.11 | 0.08 | 7% |
-| Qwen3.5-9B r1, step 75 (the round's result; stopped at step 78) | 0.62 (0.59..0.66) | 0.40 | 0.81 | 0.10 | 0.08 | 7% |
-| Qwen3.5-9B **r2, step 25** (from r1 step 75; truncation scored 0, 3,072 cap; stopped at step 33) | 0.61 (0.57..0.64) | 0.38 | 0.80 | 0.11 | 0.08 | 7% |
+| Qwen3.5-9B r1 steps 25/50/75 and r2 step 25, adapter as PEFT saved it | 0.61-0.62 | 0.38-0.42 | 0.80-0.81 | 0.11 | 0.08 | 7% |
+| Qwen3.5-9B **r1, step 75, adapter renamed for vLLM** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | **0.82 (0.79..0.85)** | **0.75** | **0.87** | 0.00 | 0.03 | 0% |
 
 Every number in this table is scored on the first reply. The rows were
 first graded at 0.53 (9B) and 0.14 (4B) with "21% / 79% cut by the reply
@@ -367,24 +371,35 @@ Qwen3-4B after round 4, the strongest untrained start on this benchmark;
 the 4B is a usable 0.35. Neither emits `<think>` tags; both reason in
 plain text before the query.
 
-Training the 9B did nothing. Paired against its own base on the 459
-tasks: r1 step 25 +0.013 (-0.008..+0.035), step 75 +0.019
-(-0.003..+0.040, medium +0.045 up, easy -0.029), r2 step 25 +0.005
-(-0.016..+0.027) and -0.014 (-0.036..+0.007) vs the step-75 checkpoint it
-started from. The training log says why: on the 261 band prompts the
-reward sat at 0.90-0.98 from the first step of round 2 with 60-88% of
-groups at zero variance, so there was no gradient to take. The band was
-cut on the base at k=4 and never re-cut; round 1 solved it (on those
-prompts, not on the holdout) and round 2 had nothing left to learn from.
-Round 2's premise was wrong too: the "runaway fifth" it penalized was the
-engine's second turn, and the 9B's real cut-off share is 6-7%, the same
-as Qwen3-4B. Round 2 was stopped at step 33. Round 3 re-cuts the band
-from the current checkpoint before it starts, which is the per-step
-version of what DAPO's dynamic sampling does. The round-1 adapter (the
-step-75 checkpoint) is `whileai/text-to-sql-shop-qwen3.5-9b-r1-step75` on
-Hugging Face and its holdout rollouts are the `eval-qwen3.5-9b-r1-step25`,
-`-step50` and `-step75` configs of the dataset (scored on the last turn;
-the first-reply re-grade is `*-t1` in `out/`).
+The second bug was in serving. Every checkpoint row read 0.61-0.62
+against a 0.60 base because the LoRA served through vLLM was a no-op:
+PEFT under transformers 5 saves a Qwen3.5 (`Qwen3_5ForConditionalGeneration`)
+adapter as `base_model.model.model.layers.N.*`, vLLM keeps that text stack
+under `language_model`, and its LoRA loader activates nothing for a name
+it cannot place, without an error (whilehq/whileai-sdk#588; `serve_modal.py`
+now rewrites the header at copy time). The training log had said so all
+along: reward 0.90-0.98 on the band prompts while the "same" adapter scored
+0.65 on them served (the base scores 0.66). Renamed, on the same 150
+training prompts: base 0.60, as-saved 0.56, renamed 0.75.
+
+Served correctly, **r1 step 75 is 0.82 (0.79..0.85) on the 459 tasks:
++0.214 (95% +0.187..+0.242) paired against its base**, easy +0.12, medium
++0.26, hard +0.25 (0.53 -> 0.78), every interval above zero; pass^4 0.75,
+no reply cut off, 99.9% carry a query. Against the best Qwen3-4B (r5
+final, 0.74): +0.081 (+0.056..+0.107). One 78-step round on a 9B did what
+five rounds on the 4B did, from a higher start. Replication (a second
+holdout pass) and the step-25/50 and r2 step-25 rows, all correctly
+served, are running; until the repeat lands the verdict is
+`moved_unreplicated`. Round 2 stays stopped: its log showed 60-88% of
+groups at zero variance from step 1, the band cut on the base was solved
+by round 1, and the next round re-cuts it from the current checkpoint
+(202 of 601 prompts land in the 0.2-0.8 band on step 75, 118 shared with
+the old band). Adapters on Hugging Face:
+`whileai/text-to-sql-shop-qwen3.5-9b-r1-step75` (PEFT layout, loads in
+transformers) and `whileai/text-to-sql-shop-qwen3.5-9b-r1-step75-vllm`
+(the vLLM layout served here). Holdout rollouts: `eval-qwen3.5-9b-r1-step75-vllm`
+in the dataset; the earlier `eval-qwen3.5-9b-r1-step*` configs measure the
+base and are kept for the record.
 
 ## Other bases on the same holdout (140 tasks, k=4)
 
