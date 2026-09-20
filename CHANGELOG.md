@@ -5,6 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- CONSTITUTION.md belief 6 now names the README skeleton (the one Polars, TRL, vLLM and uv share, adopted in #566) and a 900-word prose budget; `tests/api/test_readme_skeleton.py` pins the section order, the five-line loop before the first heading, the budget, the offline quick start with its output, and the numbered references. Mirrored to docs/reference/constitution.
 - `recipes/04-train/grpo` (and DPO, which shares `build_prompts`): the same `--seed` now writes the same prompt set and holdout on every run. `build_prompts` calls `simulate` with `reproducible=True`; at `concurrency=4` without it, which situations landed under the budget depended on thread timing, and two runs at `--seed 0` got 112 and 119 prompts with different holdouts (#450). The READMEs carry the real counts (117 prompts, 92 train, 25 holdout on Python 3.12; one more prompt on 3.10 and 3.11, where `sum()` adds floats differently) in place of "about seventy / fourteen", and say to freeze a set across machines with `--prompts-file`.
 - `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
 
