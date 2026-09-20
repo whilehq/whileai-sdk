@@ -102,6 +102,13 @@ MAX_BATCH = 2000
 #: notes. Each mirrors the check the API makes, so a bad value fails on
 #: the line that wrote it instead of as a 4xx from the server.
 EXPERIMENT_FIELD_MAX = 4096  # chars per experiment field, markdown allowed
+# The platform keeps a sample of graded rows per score, capped the same way
+# the API caps them (backend evalrows.js).
+RUBRIC_MAX = 4000
+EXAMPLES_MAX = 20
+EXAMPLE_TEXT_MAX = 1200
+EXAMPLE_WHY_MAX = 400
+
 FIGURE_NAME_PATTERN = r"^[a-z0-9][a-z0-9-]{0,39}$"  # one figure per name per agent
 FIGURE_MAX_BYTES = 200_000  # JSON bytes of {data, layout}; the API says 413 past it
 FIGURE_MAX_TRACES = 50  # traces per figure; the API says 422 past it
@@ -239,6 +246,10 @@ class Behavior(_Wire):
     contamination: int | None = Field(default=None, ge=0)
     reward_is_judge: bool | None = None
     description: str | None = Field(default=None, max_length=400)
+    rubric: str | None = Field(default=None, max_length=RUBRIC_MAX)
+    """How the judge was set up, in the words it was given: what counts as
+    a pass, what fails, the edge cases. The platform shows it beside the
+    score so a person can read the eval, not only its number."""
 
 
 class Experiment(_Wire):
@@ -425,6 +436,20 @@ class TrainPoint(_Wire):
     loss: float | None = None
 
 
+class Example(_Wire):
+    """One graded row from a held-out test: the prompt, the reply, whether
+    the judge passed it, and why. A sample of these rides with a
+    :class:`Score` so the platform can show what passed and what failed;
+    the full set stays where the SDK wrote it.
+    """
+
+    prompt: str | None = Field(default=None, max_length=EXAMPLE_TEXT_MAX)
+    reply: str | None = Field(default=None, max_length=EXAMPLE_TEXT_MAX)
+    ok: bool
+    why: str | None = Field(default=None, max_length=EXAMPLE_WHY_MAX)
+    score: float | None = Field(default=None, allow_inf_nan=False)
+
+
 class Score(_Wire):
     """One version scored on one behavior's frozen held-out test.
 
@@ -442,6 +467,8 @@ class Score(_Wire):
     n: int | None = Field(default=None, ge=1)
     test_version: str | None = None
     version: str | None = None
+    examples: list[Example] | None = Field(default=None, max_length=EXAMPLES_MAX)
+    """Up to 20 graded rows, the worst and the best: what the number was made of."""
 
 
 class LiveDay(_Wire):
@@ -2374,6 +2401,7 @@ __all__ = [
     "EvalCheck",
     "EvalHealth",
     "EvalSetup",
+    "Example",
     "Experiment",
     "Figure",
     "Frontier",
