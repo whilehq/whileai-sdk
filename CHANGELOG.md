@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 1.04 (2026-09-20)
+
 - `SweepReport` sizes its columns to the longest label and model name; long `prompt@model` labels no longer run into the next column.
 
 ## 1.03 (2026-09-20)
