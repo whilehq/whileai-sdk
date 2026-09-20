@@ -54,7 +54,7 @@ Rules:
 - Write the held-out asks once, then replay them with `tasks=` for every version. Never hand-pick the asks the agent failed.
 - Hand labels come from a person. Ask before labelling; never invent `gold_reward`.
 - You know this repo best: name the agent after the product, behaviors as the policy doc phrases them, versions as the team ships them (tag, PR, date, prompt label), the test by its content hash. https://docs.withwhile.com/platform/naming
-- Before a second version, a sweep or a replicate, follow `.claude/skills/manage-experiments/SKILL.md`: post the question first, name arms in words with numbers in the record, seeds as replicates, points not fractions, failed rows and a note per score, then read the account back with `readback(tracked)`.
+- Before a second version, a sweep or a training run, follow `.claude/skills/manage-experiments/SKILL.md`: the question first, then per run four lines (Changed, Moved, Why, Reproduce), one chart, the rows that failed, points not fractions; then `readback(tracked)` reads the page the way the person will.
 - Score every behavior and report: `track(...)`, `tracked.behavior(...)`, `tracked.run(version, method="eval", harness=Harness(...))`, `run.score(...)`, `run.finish(...)`, `print(tracked.verdict())`.
 - A difference is a result only when its interval excludes zero and clears the noise floor. Otherwise say "about the same".
 - `WHILEAI_API_KEY` (`whileai signup --email you@example.com`) is needed only for the report; everything else runs offline with no key.
