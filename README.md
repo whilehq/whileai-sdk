@@ -18,17 +18,14 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/whilehq/whileai-sdk?labelColor=0b1220&color=3f8f6b" alt="License"></a>
 </p>
 
-Building RL and SFT datasets for agents is hard. `whileai` is the library
-that does it, and that measures whether training on them worked. Give it
-an agent, or just the agent's tools and system prompt. It writes the
-situations the agent might meet, runs the agent through them against a
-fake world that fails on purpose, and hands back every conversation as a
-row. You grade the rows with your own judge or a verifier. The package
-then does the bookkeeping that is easy to skip and expensive to get wrong:
-pass rates with intervals, difficulty bands for RL, a check that your judge
-agrees with people, decontamination against your eval set, and a scan for
-rewards the policy can game. Every method says where it comes from
-([References](#references)).
+`whileai` builds RL and SFT datasets for agents and measures whether
+training on them worked. Give it an agent, or just its tools and system
+prompt. It writes the situations the agent might meet, runs them against a
+fake world that fails on purpose, and returns each conversation as a row.
+You grade the rows with a judge or a verifier. It then does the bookkeeping
+that is easy to skip: pass rates with intervals, RL difficulty bands, judge
+agreement with people, decontamination, and a scan for gameable rewards.
+Every method cites its source ([References](#references)).
 
 ```python
 import whileai as wai
@@ -54,20 +51,18 @@ rows.export("train.jsonl")  # or rows.push("my-agent-rl-v1")
 uv add whileai
 ```
 
-Python 3.10 to 3.13, two dependencies, typed.
-`import whileai` takes under 200 ms and never touches the network.
+Python 3.10 to 3.13, two dependencies, typed. `import whileai` takes under
+200 ms and never touches the network.
 
-Two domains, kept apart. `import whileai as wai` is the library: simulate,
-grade, measure, select, export, on your machine against your models, no
-account needed. `whileai.platform` is the While platform: sign in, push
-datasets, train and serve on hosted GPUs, track versions. Everything that
-talks to withwhile.com lives there and nowhere else.
+`import whileai as wai` is the library: simulate, grade, measure, select,
+export, on your machine, no account. `whileai.platform` is the hosted side:
+sign in, push datasets, train and serve on GPUs. Only it talks to
+withwhile.com.
 
 ## Your model, your key
 
-Every role in a run is a model behind an endpoint. Say which with a
-backend object; its repr tells you where the call goes and which key it
-uses.
+Every role in a run is a model behind an endpoint. Name it with a backend
+object; the repr says where the call goes and which key it uses.
 
 ```python
 wai.OpenAI("gpt-4.1-mini")  # OpenAI(model='gpt-4.1-mini', key=OPENAI_API_KEY)
@@ -78,50 +73,36 @@ wai.Ollama("llama3")  # key=none needed
 wai.Hosted()  # the model While hosts, on `whileai login`
 ```
 
-`wai.configure(agent=, judge=, simulator=, api_key=)` sets the process
-once. A keyword on the call wins over it, `with wai.context(...)` wins
-inside the block, and the environment is read only after all three.
-`print(wai.settings)` says what each role resolves to. With nothing
-configured, every role uses the model While hosts on the key from
-`whileai login`, and the judge is a different model family from the agent.
+A call keyword beats `wai.configure(agent=, judge=, simulator=)`,
+`with wai.context(...)` beats both, then the environment.
+`print(wai.settings)` shows what each role resolves to. Unconfigured, every
+role uses the model While hosts on the key from `whileai login`.
 
-The spec strings the objects stand for (`"openai:<model>"`,
-`"anthropic:<model>"`, `"vllm:<model>@<url>"`, `"ollama:<model>"`) work
-anywhere a backend does, and `OPENAI_BASE_URL` points `OpenAI` at a
-compatible server. A tool is a typed function under `@wai.tool`: the
-signature is the schema, the docstring the description, `Annotated[str,
-"note"]` or an `Args:` block the parameter notes. The mock world answers
-the calls, faults first; `execute=wai.Tool.dispatch([get_order])` has the
-bodies answer instead. Raw schema dicts still work. No tools at all yet?
-`wai.simulations.draft_tools("a support agent that looks up orders and
-issues refunds")` drafts them on the agent's key. Three things reach While, and only when you ask: leaving
-the agent on `Hosted()`, the hosted situation writer, and
-`whileai.platform`. `whileai status` prints which key the SDK will use and
-where it came from.
+A tool is a typed function under `@wai.tool`: the signature is the schema,
+the docstring the description. The mock world answers the calls, faults
+first. No tools yet? `wai.simulations.draft_tools("a support agent that
+issues refunds")` writes them. Nothing reaches While unless you use
+`Hosted()`, the hosted situation writer, or `whileai.platform`;
+`whileai status` says which key is in use.
 
 ## Two ways in
 
-**You only want evals.** Plenty of teams cannot train and still need to
-know whether the last prompt edit helped. Run `whileai init-evals` in your
-project. It finds your agent, writes a judge and a runner around it, and
-gives you a pass rate with a 95% interval, a table of where the agent
-fails, and a test that goes red in CI when it gets worse. `coverage_gap`
-tells you which situations your tests never reach. `compare_runs` reruns
-the same tasks after a prompt or tool change and says whether the change
-helped. Start at [docs.withwhile.com/evals](https://docs.withwhile.com/evals).
+**Evals only.** `whileai init-evals` finds your agent, writes a judge and
+a runner around it, and gives you a pass rate with a 95% interval, a
+failure table, and a CI test that goes red on regression. `compare_runs`
+says whether a prompt change helped; `coverage_gap` lists situations your
+tests never reach. [docs.withwhile.com/evals](https://docs.withwhile.com/evals).
 
-**You want to train.** Grade the same rows, keep the ones that carry
-signal, export to your trainer. That is the rest of this page. The
-[platform](#the-platform) at the end is where hosted training lives, if
-you want it.
+**Train.** Grade the same rows, keep the ones with signal, export to your
+trainer. The rest of this page.
 
 ## Sixty seconds, offline
 
-No key, no network. `seeded_agent` is a stand-in agent. It answers
-honestly most of the time and, on a labeled fraction of rollouts, does one
-thing wrong on purpose: hedges, flatters, or claims success after a tool
-failed. Each row records what it did in `seeded`, so you can check that
-your judge catches exactly those rows before you trust it on real ones.
+No key, no network. `seeded_agent` answers honestly most of the time and,
+on a labeled fraction of rollouts, does one thing wrong on purpose: hedges,
+flatters, or claims success after a tool failed. Each row records it in
+`seeded`, so you can check that your judge catches exactly those rows
+before you trust it on real ones.
 
 ```python
 import whileai as wai
@@ -162,16 +143,12 @@ rl selection: kept 27 of 64 rows
 pass@1 is the pass rate over tasks with a bootstrap interval. pass^4 is
 how often all four rollouts of a task pass. Headroom is pass@4 minus
 pass@1, the gap an RL update could close. `select` prints what each gate
-dropped and why (the warnings that follow are cut here; the quickstart
-shows them all); `rows.export(path)` writes them trainer-ready.
+dropped and why; `rows.export(path)` writes them trainer-ready.
 
-To use your own agent, pass any callable that takes the user message and
-returns `{"steps": [...], "final_text": "..."}`, or a backend object from
-the section above. `wai.Judge(rubric=...)` is the LLM judge as an object;
-`data.grade(spec="typesafe:jev-latest")` grades with TypeSafe's Jev
-instead: typed questions, a probability on every verdict, no output tokens
-(judge only, on `TYPESAFE_API_KEY`). Next:
-[docs.withwhile.com/get-started/quickstart](https://docs.withwhile.com/get-started/quickstart).
+Your own agent is any callable that returns
+`{"steps": [...], "final_text": "..."}`, or a backend object from above.
+`data.grade(spec="typesafe:jev-latest")` swaps in TypeSafe's Jev judge.
+Next: [docs.withwhile.com/get-started/quickstart](https://docs.withwhile.com/get-started/quickstart).
 
 ## The loop
 
@@ -185,68 +162,56 @@ instead: typed questions, a probability on every verdict, no output tokens
 | Guard | `decontaminate`, `hack_scan`, `trace_markers`, `HackMonitor` | overlap with the eval set; reward-feature correlation within task against a shuffle floor; trajectory lies | [16], [17], [18] |
 | Train and export | `rows.export`, `export_environment`, `platform.train`, `platform.serve` | loss masks; a `verifiers` environment for GRPO; hosted LoRA SFT, GRPO, DPO, RM | [1], [19], [20] |
 
-The first name in each row is at the top level, `wai.<name>`. Everything
-else is one dot down at `wai.simulations.<name>`, and the science behind
-each is on
+The first name in each row is `wai.<name>`; the rest are at
+`wai.simulations.<name>`. The science behind each:
 [docs.withwhile.com/concepts/engine](https://docs.withwhile.com/concepts/engine).
 
 ## The science
 
 **SFT.** `optimize(mode="sft")` is rejection sampling [14], [16]: keep the
-best-scoring completion for each prompt, with a random selector alongside
-so you can tell whether picking the best did anything. Exported rows carry
-a `loss_mask` per message, so the trainer learns from the agent's turns and
-not from tool output. `unroll=True` splits a long conversation into one
-sample per agent turn, each with the context that turn actually saw.
-`format="trl"` is the shape `SFTTrainer` loads [1, ch. 4].
+best completion per prompt, with a random selector alongside so you can
+tell whether picking the best did anything. Rows carry a `loss_mask` per
+message, so the trainer learns from the agent's turns and not tool output.
+`unroll=True` makes one sample per agent turn. `format="trl"` loads into
+`SFTTrainer` [1, ch. 4].
 
 **RL with verifiable rewards.** When a program can check the answer, the
 reward should be that program [5]: `MathEqual`, `CodeExec` against hidden
-tests, `JSONSchema`, and combinations of them. In `mode="rl"` every prompt
-gets two rollouts first. Only prompts where those two disagree are filled
-to k, because a group that all passes or all fails has zero advantage under
-GRPO [19]. That is DAPO's dynamic sampling [12], applied while the rollouts
-are generated instead of after. `optimize(mode="rl")` then keeps the
-prompts the policy solves 20 to 80% of the time [13] and lets you choose
-what happens to rollouts that hit the length cap [12]. `export_environment`
-writes the tasks, the fake world and the reward as a `verifiers` package
-you can hand to a trainer. Rows keep their sampling logprobs so the trainer
-can form the importance ratio [21], and `mean_kl` measures drift from the
-reference model [22].
+tests, `JSONSchema`. In `mode="rl"` every prompt gets two rollouts; only
+prompts where they disagree are filled to k, since a group that all passes
+or all fails has zero advantage under GRPO [19]. That is DAPO's dynamic
+sampling [12] during generation. `optimize(mode="rl")` keeps prompts solved
+20 to 80% of the time [13]. `export_environment` writes tasks, world and
+reward as a `verifiers` package. Rows keep sampling logprobs for the
+importance ratio [21]; `mean_kl` measures drift from the reference [22].
 
-**Character training.** Write down how the model should talk as a
-constitution [23], [24]. `load_spec` hashes it into `spec.version`, so an
-edit to one principle is a new version. The judge is checked against the
-labels the spec itself carries before it grades anything. Preference pairs
-are matched on length [7], so the model learns the trait and not "longer
-is better". Put `spec.behaviors()` in `must_not_regress` and
-`delta_report` fails any run that improved one trait by giving up
-another. [docs/character-training.md](docs/character-training.md).
+**Character training.** Write how the model should talk as a constitution
+[23], [24]. `load_spec` hashes it into `spec.version`. The judge is checked
+against the spec's own labels before it grades. Preference pairs are
+length-matched [7], so the model learns the trait and not "longer is
+better". `delta_report` with `must_not_regress=spec.behaviors()` fails any
+run that traded one trait for another.
+[docs/character-training.md](docs/character-training.md).
 
 **Evaluation.** Intervals are bootstrapped over tasks, not rollouts,
-because rollouts of the same task are not independent [8], [10], [11].
-Run an eval three times with `runs=3` and `delta_report` refuses to call a
-change real when it sits inside twice the run-to-run standard deviation
-(`budget` is per run: `runs=3, budget=100` is up to 300 rows).
-`holdout_size` says how many prompts you need to see a given gain at 80%
-power [11]; most evals are too small. `decontaminate` checks training rows
-against the eval set with the 80% n-gram overlap rule [16], and with
-embeddings when you pass an embedder. [docs/evals.md](docs/evals.md).
+because rollouts of one task are not independent [8], [10], [11]. With
+`runs=3`, `delta_report` refuses to call a change real inside twice the
+run-to-run standard deviation. `holdout_size` says how many prompts you
+need to see a gain at 80% power [11]; most evals are too small.
+`decontaminate` applies the 80% n-gram overlap rule [16] against the eval
+set, or embeddings if you pass an embedder. [docs/evals.md](docs/evals.md).
 
-**Over-optimization.** The reward is a proxy for what you want, and RL
-finds the gap between the two [17]. `hack_scan` looks for the feature that
-predicts reward within a task, against a shuffled baseline, so a judge that
-pays for a phrase or a delimiter shows up before you train on it.
-`judge_probes` tries the tricks a policy finds first, flattery included
-[18]. `delta_report(proxy=, target=)` fails when the training reward went
-up and the metric you care about did not. `HackMonitor` runs the same scan
-inside a TRL training loop and can stop it.
-[docs/reward-hacking.md](docs/reward-hacking.md).
+**Over-optimization.** The reward is a proxy and RL finds the gap [17].
+`hack_scan` finds the feature that predicts reward within a task, against
+a shuffled baseline, so a judge that pays for a phrase shows up before you
+train on it. `judge_probes` tries the tricks a policy finds first, flattery
+included [18]. `delta_report(proxy=, target=)` fails when training reward
+rose and the target did not. `HackMonitor` runs the scan inside a TRL loop
+and can stop it. [docs/reward-hacking.md](docs/reward-hacking.md).
 
 ## Recipes
 
-Each recipe is one script and a README that says what you learn, what you
-need, and how long it takes. All of them run in CI.
+One script and a README each. All run in CI.
 
 | Step | Recipes |
 |---|---|
@@ -259,11 +224,8 @@ need, and how long it takes. All of them run in CI.
 
 ## The platform
 
-Separate from the library, and optional. Sign in once and the same rows
-push to an account, train on hosted GPUs, and come back as an
-OpenAI-compatible endpoint. Everything above this heading runs without it.
-
-From a terminal, for a coding agent that manages the account:
+Optional. Sign in once; the same rows push to an account, train on hosted
+GPUs, and come back as an OpenAI-compatible endpoint.
 
 ```bash
 whileai login                    # or: whileai signup --email you@example.com
@@ -272,13 +234,10 @@ whileai agent refund-bot         # record, behaviors, verdict
 whileai runs refund-bot          # the version table
 whileai verdict refund-bot       # does the candidate beat the served version, and is it real
 whileai promote refund-bot v4    # usually the person's button on the platform
-whileai live refund-bot --day 2026-09-17 --version v3 --replies 2400 --flagged 98
 whileai keys                     # names and prefixes; create or revoke under Account
 ```
 
-Every command takes `--json`. They are thin calls into `whileai.platform`.
-`push` refuses RL data with no mixed groups, since a trainer would learn
-nothing from it.
+Every command takes `--json`. `push` refuses RL data with no mixed groups.
 
 ```python
 from whileai import platform
@@ -290,27 +249,23 @@ run.wait()
 model = platform.serve("refunds-v2", run)  # OpenAI-compatible endpoint
 ```
 
-If you train with your own code, `platform.TrainerCallback` reports into
-the same run page. Traces from production come back through `traces=`, which
-points the next simulation at the situations that failed.
+`platform.TrainerCallback` reports your own training loop into the same
+run page. Production traces come back through `traces=` and aim the next
+simulation at what failed.
 
 ## Documentation
 
-This README is the shape of the loop. The docs are the depth, in the same order:
-
 | You are at | Go to |
 |---|---|
-| the sixty-second run above | [Quickstart](https://docs.withwhile.com/get-started/quickstart), then [Connect your agent](https://docs.withwhile.com/get-started/connect-your-agent) for backends and keys |
+| the sixty-second run | [Quickstart](https://docs.withwhile.com/get-started/quickstart), then [Connect your agent](https://docs.withwhile.com/get-started/connect-your-agent) |
 | the loop table | [The five calls](https://docs.withwhile.com/reference/five-calls): the run in order, the judge contract, verifiers |
 | the science | [The engine](https://docs.withwhile.com/concepts/engine): how a row is made, with references |
-| a call you want the signature of | [API](https://docs.withwhile.com/api/index): every public call, generated from the package on each release |
+| a call's signature | [API](https://docs.withwhile.com/api/index): every public call, generated on each release |
 | the platform | [Platform](https://docs.withwhile.com/reference/platform): sign in, datasets, hosted training, serving |
 
-What we believe and where each belief is enforced is
-[CONSTITUTION.md](CONSTITUTION.md). The coding standard the package is
-held to, PyTorch and DSPy ergonomics, is
-[docs/reference/style.md](docs/reference/style.md).
-[CHANGELOG.md](CHANGELOG.md) has one entry per release.
+[CONSTITUTION.md](CONSTITUTION.md) is what we believe and where each belief
+is enforced. [docs/reference/style.md](docs/reference/style.md) is the
+coding standard. [CHANGELOG.md](CHANGELOG.md) has one entry per release.
 
 ## Development
 
@@ -320,8 +275,8 @@ uv run pytest
 uv run ruff check . && uv run mypy && uv run ty check
 ```
 
-CI runs the suite on Python 3.10 to 3.13, gates coverage at 90%, and runs
-every recipe's `smoke.sh`. [CONTRIBUTING.md](CONTRIBUTING.md).
+CI runs Python 3.10 to 3.13, gates coverage at 90%, and runs every
+recipe's `smoke.sh`. [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Cite
 
