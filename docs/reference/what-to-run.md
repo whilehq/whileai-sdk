@@ -111,8 +111,8 @@ For the one trace above, `trace_report` prints:
 | `dimensions_from_traces(rows, tools, policy)` | The focused coverage axes themselves. `broaden=False` drops tools the traces never touched, so the budget stays near the flaws |
 | `simulate_from_traces(traces, ...)` | `simulate(agent, traces=...)` for callers who start from the traces. With no agent, tools or policy it reads the tool surface off the traces, so graded telemetry alone is enough to start |
 | `split_pseudo_production(rows, fraction=0.2)` | No production traces yet? Hold out a slice of a simulation run as stand-in production. Split by task, not by row, so the held-out slice is prompt-disjoint; every distinct flaw signature lands on the held-out side at least once |
-| `leakage_report(generated, sources)` | Did any generated prompt come back a near copy of a source trace? Cosine similarity at `threshold=0.9`, exact matches always flagged |
-| `drop_leaky_rows(rows, sources)` | The kept rows plus that report. Flagged rows are removed, not rewritten |
+| `leakage_report(generated, sources)` | Did any generated prompt come back a near copy of a source trace? Cosine similarity at `threshold=0.9`, exact matches always flagged. `sources` takes the shapes `decontaminate(against=...)` takes: a list of rows, a list of row lists (`[holdout]`), a list of prompt strings, or a single row |
+| `drop_leaky_rows(rows, sources)` | The kept rows plus that report. Flagged rows are removed, not rewritten. Same `sources` shapes; `sources=[holdout]` and `sources=holdout` give the same report |
 
 **The leakage rule.** Source traces shape the grid and never enter the generated dataset; `simulate(traces=...)` already drops generated rows that near-copy a source. `leakage_report` / `drop_leaky_rows` are how you verify it, which is what makes it safe to hold traces out for evaluation:
 
