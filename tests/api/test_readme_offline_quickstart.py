@@ -32,7 +32,7 @@ def _fence(path: Path, after: str = "") -> str:
 
 
 PAGES = {
-    "readme": (ROOT / "README.md", "## Sixty seconds, offline"),
+    "readme": (ROOT / "README.md", "## Quick start"),
     "landing": (ROOT / "docs" / "index.mdx", ""),
 }
 
