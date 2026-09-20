@@ -920,7 +920,9 @@ def _domain_noun(tools: list[dict]) -> str:
     return "request"
 
 
-_KNOWN_ID = re.compile(r"\b[A-Z]{1,4}[-_]?\d{3,6}\b")
+# Letters then digits (A1001, ORD-4017) or digits then a letter or two (12B,
+# 4A: apartment units, seats, gates); a bare number is not an id.
+_KNOWN_ID = re.compile(r"\b(?:[A-Z]{1,4}[-_]?\d{3,6}|\d{1,4}[A-Z]{1,2})\b")
 
 
 def known_ids(tools: list[dict]) -> list[str]:

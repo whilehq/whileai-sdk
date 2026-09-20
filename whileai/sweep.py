@@ -37,6 +37,29 @@ from .platform import (
 Agent = Callable[[str], dict[str, Any]]
 Score = tuple[float, float, int]  # points, half-width of the 95% interval, asks
 MIN_MARKER_ASKS = 3  # under this a marker has no interval and is left off the card
+# Miller 2024 (arXiv 2411.00640): under ~50 items the interval is too wide to
+# show a gain of a few points; the platform verdict says "unproven" below it.
+MIN_ASKS = 50
+LABEL_MAX = 40  # RunSpec.version max_length; tests pin the two together
+
+
+def check_labels(harnesses: Sequence[Harness]) -> None:
+    """Refuse before the first rollout what the platform would refuse after
+    the last: a label over the run-version cap, or two variants with one
+    label. A sweep is minutes of model calls, and the rows live in memory
+    until they post."""
+    seen: set[str] = set()
+    for h in harnesses:
+        label = h.version
+        if len(label) > LABEL_MAX:
+            raise ValueError(
+                f"variant label {label!r} is {len(label)} characters; a run version holds "
+                f"{LABEL_MAX}. Use the release tag or prompt name before '@' "
+                f"(2026.09.2@claude-sonnet-5), not a sentence"
+            )
+        if label in seen:
+            raise ValueError(f"two variants are labelled {label!r}; every variant needs its own")
+        seen.add(label)
 
 
 @dataclass
@@ -128,6 +151,11 @@ class SweepReport:
             lines.append(
                 f"  {v.label:<{w_label}}{(v.model or '-'):<{w_model}}{v.fingerprint:<14}{s:>7}{ci:>6}"
             )
+        if self.n_asks < MIN_ASKS:
+            lines.append(
+                f"  {self.n_asks} asks is under {MIN_ASKS}: the platform verdict says unproven "
+                "until the frozen test has that many (a new set is a new test name)"
+            )
         best = self.best
         if best is None and self.variants:
             top = self.ranked[0]
@@ -158,8 +186,14 @@ class HarnessSweep:
     headline score; every marker the judge sets becomes a behavior beside
     it. ``noise_runs`` scores the first variant that many times and takes
     the spread as the noise floor. ``labels`` are hand labels for
-    ``judge_trust``, posted as the behaviors' ``Judge``. Name variants
-    ``prompt@model`` and the Runs page groups by each.
+    ``judge_trust`` on the first variant's fresh rollouts, or a ``Judge``
+    already measured on the frozen run (hand labels attach to the replies
+    a person read, and a sweep rolls new ones), posted as the behaviors'
+    ``Judge``. ``concurrency`` is parallel rollouts per variant (the
+    library default is 32; a small provider key wants 4 to 8). Name
+    variants ``prompt@model`` and the Runs page groups by each; a label
+    is a run version on the platform, so it is checked against that cap
+    before any rollout runs.
     """
 
     def __init__(
@@ -173,6 +207,7 @@ class HarnessSweep:
         behavior: str = "policy",
         noise_runs: int = 2,
         labels: Any = None,
+        concurrency: int | None = None,
     ):
         self.tracked = tracked
         self.judge = judge
@@ -182,6 +217,7 @@ class HarnessSweep:
         self.behavior = behavior
         self.noise_runs = max(1, int(noise_runs))
         self.labels = labels
+        self.concurrency = concurrency
 
     # ---------------------------------------------------------------- scoring
 
@@ -202,6 +238,7 @@ class HarnessSweep:
             seed=seed,
             fault_rate=0.0,
             avg_turns=1,
+            concurrency=self.concurrency,
         )
         return [dict(r) for r in data.rows()]
 
@@ -229,6 +266,8 @@ class HarnessSweep:
     def _judge(self, rows: Sequence[dict]) -> Judge | None:
         if self.labels is None:
             return None
+        if isinstance(self.labels, Judge):
+            return self.labels
         from .simulations import attach_labels, judge_trust
 
         labeled, _ = attach_labels([dict(r) for r in rows], self.labels, kind="human")
@@ -256,6 +295,7 @@ class HarnessSweep:
         pairs = list(variants.values()) if isinstance(variants, Mapping) else list(variants)
         if not pairs:
             raise ValueError("variants is empty; pass at least one (Harness, agent) pair")
+        check_labels([h for h, _ in pairs])
         results: list[VariantResult] = []
         first_rows: list[dict] | None = None
         asks: list[str] | None = None

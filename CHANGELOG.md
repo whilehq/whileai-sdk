@@ -5,6 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `HarnessSweep` checks every variant label against the platform's 40-character run-version cap, and for duplicates, before the first rollout; a cold start lost seven minutes of model calls to a `ValidationError` raised while posting. `labels=` also takes a `Judge` measured on the frozen run (hand labels attach to the replies a person read; a sweep rolls new ones, so `judge_trust` on them found nothing). New `concurrency=` (parallel rollouts per variant; the library default of 32 is more than a small provider key allows). The printed report says when the test has under 50 asks, since the platform verdict then reads unproven. The offline writer's id regex now also matches digits-then-letters ids (`12B`, `4A`), so a tool description that names apartment units, seats or gates seeds asks that reach them.
 ## 1.06 (2026-09-20)
 
 - `wai.hub.push(source, "org/name", token=, private=True)` and `wai.export(..., push_to="org/name")`:
