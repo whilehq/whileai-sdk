@@ -39,13 +39,16 @@ steps of 8 generations, one A10G, under fifteen minutes. The run's URL is
 printed at the start. No key means the same run with the numbers printed at
 the end only.
 
-`--seed 0` fixes the data: every run at the same seed builds the same 117
-prompts (91 name an order id), the same 92 train and the same 25 holdout,
-byte for byte, so two runs that differ only in `--steps` or `--run-name`
-are paired on one holdout and their before/after numbers compare. A
-different seed is a different prompt set and a different holdout. To
-freeze the set beyond the seed, write it once and pass it back in with
-`--prompts-file` (the model-written `prompts.jsonl` below is one such
+`--seed 0` fixes the data: every run at the same seed on the same Python
+builds the same prompt set and the same holdout, byte for byte (117
+prompts, 91 naming an order id, 92 train and 25 holdout on Python 3.12
+and later; 118, 92 and 26 on 3.10 and 3.11, where `sum()` adds floats
+differently and one near-tie in the writer's novelty filter lands the
+other way). Two runs that differ only in `--steps` or `--run-name` are
+paired on one holdout and their before/after numbers compare; a different
+seed is a different prompt set and a different holdout. To freeze the set
+across machines and Python versions, write it once and pass it back in
+with `--prompts-file` (the model-written `prompts.jsonl` below is one such
 file).
 
 ## The environment
@@ -139,9 +142,10 @@ and the same holdout on every run. `build_prompts` calls `simulate` with
 depended on thread timing, and two runs at `--seed 0` got 112 and 119
 prompts with two different holdouts (whilehq/whileai-sdk#450).
 
-The template writer gives 117 distinct prompts at `--seed 0` (91 name an
-order id, 16 do not, 10 are off topic), so the holdout is 25 prompts and
-every pass@1 interval is about a quarter wide. `prompts.jsonl` is a
+The template writer gives 117 distinct prompts at `--seed 0` on Python
+3.12 (91 name an order id, 16 do not, 10 are off topic; one more on 3.11),
+so the holdout is 25 prompts and every pass@1 interval is about a quarter
+wide. `prompts.jsonl` is a
 model-written set: Qwen2.5-7B-Instruct wrote six customer messages per
 template seed from two angles (plain, and six kinds of customer),
 `prompts.py` kept the ones still in their seed's category (the order id
