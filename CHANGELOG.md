@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
+
 ## 1.04 (2026-09-20)
 
 - `SweepReport` sizes its columns to the longest label and model name; long `prompt@model` labels no longer run into the next column.

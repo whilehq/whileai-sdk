@@ -378,3 +378,62 @@ def test_decontaminate_pulls_a_platform_dataset_id(monkeypatch):
     assert pulled == ["ds_eval"]
     assert [r["prompt"] for r in kept] == ["refund order 4412"]
     assert report["n_exact"] == 1
+
+
+def test_decontaminate_says_when_the_same_task_rule_did_not_run():
+    """Issue #488: an eval set with no ids cannot feed the strongest rule, and
+    the report must say so instead of printing n_same_task=0 as a clearance."""
+    train = [
+        {"scenario_id": "s1", "prompt": "Where is order 4473 right now, is it still in transit?"},
+        {"scenario_id": "s2", "prompt": "Cancel order 9911 for me please, I no longer need it."},
+    ]
+    holdout = [
+        {"scenario_id": "s1", "prompt": "Can you tell me where order 4473 is at the moment?"},
+        {"scenario_id": "s3", "prompt": "Change the address on order 7000 before it ships."},
+    ]
+    # With ids on both sides the rule runs and catches the rephrased situation.
+    _kept, with_ids = decontaminate(train, against=holdout)
+    assert with_ids["n_same_task"] == 1 and with_ids["rules_skipped"] == {}
+    assert not any("same_task rule was not applied" in n for n in with_ids["notes"])
+
+    # Strip the ids (what every external eval set looks like): same rows, rule
+    # never had an input, and the report names it.
+    no_ids = [{k: v for k, v in r.items() if k != "scenario_id"} for r in holdout]
+    kept, without = decontaminate(train, against=no_ids)
+    assert without["n_same_task"] == 0 and len(kept) == 2
+    assert without["rules_skipped"] == {
+        "same_task": "0 of 2 evaluation rows carried a scenario_id or task_id"
+    }
+    note = next(n for n in without["notes"] if "same_task rule was not applied" in n)
+    assert "0 of 2 evaluation rows" in note and "text rules" in note
+
+    # The complement: eval rows carry ids, training rows do not.
+    bare_train = [{k: v for k, v in r.items() if k != "scenario_id"} for r in train]
+    _kept, train_side = decontaminate(bare_train, against=holdout)
+    assert train_side["rules_skipped"] == {
+        "same_task": "0 of 2 training rows carried a scenario_id or task_id"
+    }
+    # An empty eval set skips nothing: there was nothing for any rule to compare.
+    assert decontaminate(train, against=[[]])[1]["rules_skipped"] == {}
+
+
+def test_decontaminate_warns_when_the_semantic_rule_you_asked_for_cannot_run():
+    """The caller opted in with embedder=; no eval row has a prompt to embed."""
+    calls = []
+
+    def embedder(texts):
+        calls.append(list(texts))
+        return [[1.0, 0.0] for _ in texts]
+
+    train = [{"prompt": "Where is order 4473?", "final_text": "It shipped."}]
+    evals = [{"answer": "It shipped.", "reference": "shipped"}]
+    with pytest.warns(UserWarning, match="semantic rule you asked for"):
+        _kept, report = decontaminate(train, against=[evals], embedder=embedder)
+    assert calls == []  # never embedded anything
+    assert report["n_semantic"] == 0
+    assert report["rules_skipped"]["semantic"] == (
+        "none of the 1 evaluation rows carried a prompt to embed"
+    )
+    assert any("n_semantic=0 is not a clearance" in n for n in report["notes"])
+    # The same_task line names the semantic rule as one that would have run.
+    assert "same_task" in report["rules_skipped"]
