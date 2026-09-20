@@ -5,6 +5,11 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `simulate(max_turns=1)` is now one user line and one reply. A reply holding a
+  "?" used to earn a second user line written by the agent model itself, and the
+  grader scored that second reply: on the text-to-SQL holdout 15% of Qwen3.5-9B rows
+  and 65% of Qwen3.5-4B rows were scored on the wrong turn (0.53 read as 0.60 and 0.14
+  as 0.35 once re-graded on the first reply) (#586).
 - `HarnessSweep` checks every variant label against the platform's 40-character run-version cap, and for duplicates, before the first rollout; a cold start lost seven minutes of model calls to a `ValidationError` raised while posting. `labels=` also takes a `Judge` measured on the frozen run (hand labels attach to the replies a person read; a sweep rolls new ones, so `judge_trust` on them found nothing). New `concurrency=` (parallel rollouts per variant; the library default of 32 is more than a small provider key allows). The printed report says when the test has under 50 asks, since the platform verdict then reads unproven. The offline writer's id regex now also matches digits-then-letters ids (`12B`, `4A`), so a tool description that names apartment units, seats or gates seeds asks that reach them.
 - `tracked.brief()`: what happened, what it means, what to do next, in sentences, from the
   rows the platform holds (behaviors, runs, dashboard). The Runs page shows the same three

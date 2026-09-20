@@ -597,6 +597,19 @@ def test_clean_user_message_strips_turns_plan():
     assert parsed == []
 
 
+def test_max_turns_one_never_writes_a_second_user_line():
+    """``max_turns=1`` is one user line and one reply: a "?" in the reply
+    does not earn a follow-up (#586). Budget 2 keeps answering a question."""
+    from whileai.simulations.generate.agents import _want_followup
+
+    asked = "Which store and sku?"
+    reasoning = "Wait, should I filter on status? Yes.\n```sql\nSELECT 1\n```"
+    assert not _want_followup("hi", 1, user_turns=1, budget=1, agent_text=asked)
+    assert not _want_followup("hi", 1, user_turns=1, budget=1, agent_text=reasoning)
+    assert not _want_followup("hi", 1, user_turns=1, budget=0, agent_text=asked)
+    assert _want_followup("hi", 1, user_turns=1, budget=2, agent_text=asked)
+
+
 def test_want_followup_until_budget_user_turns():
     from whileai.simulations.generate.agents import _want_followup
 
