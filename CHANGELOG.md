@@ -118,6 +118,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - Lesson 5 plants a paraphrase next to the identical copy and shows one caught and one missed,
   says what the 8-gram rule cannot see (word overlap does not see a paraphrase), and names
   `embedder=` as the semantic pass with the one-line call; the defaults are unchanged (#480).
+- `wai.rows(prompts, completions, reward, references=, task_ids=, markers=)`: a public
+  benchmark's questions and a model's answers become the rows every measurement reads
+  (`pass_at`, `compare`, `eval_variance`, `holdout_size`, `decontaminate`, `select`), typed
+  through the schema; the row contract (`task_id`, `prompt`, `final_text`, `reward`,
+  `markers`, the last one input as well as output) is API on `docs/reference/rows`.
+  `select(mode="rl")` on hand-built rows no longer drops a GSM8K chain of thought that ends
+  on `#### 42` as truncated, and its report names any gate that dropped rows.
+  `holdout_size`'s docstring says `base=`. Recipe `02-measure/public-benchmark`: 200 GSM8K
+  test questions through `MathEqual`, three eval passes, `holdout_size`, `select` and a
+  `compare` report, offline (#613).
 
 ## 0.109 (2026-09-20)
 

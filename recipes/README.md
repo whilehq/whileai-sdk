@@ -88,6 +88,7 @@ platform.
 | [`compare-judges`](02-measure/compare-judges) | six judges on the same 300 labeled rollouts, one ranked table: agreement with its interval, kappa, leak rate, unsure and unjudged counts, seconds per row; Jev, the hosted judge, Claude, and the policy judging itself | `TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY` or a login; `--dry-run` and `report` need nothing | ten minutes, or seconds offline | free offline; judge API calls live, no GPU |
 | [`safety-evals`](02-measure/safety-evals) | a safety suite for a tool-using agent: prompt injection, exfiltration, secret leakage, unauthorized writes, benign controls; four trajectory markers as the judge, pass^k per attack class, a before/after that fails the fix which got safe by refusing | nothing | seconds | free |
 | [`safety-evals-marketplace`](02-measure/safety-evals-marketplace) | the same eval where the untrusted text is user-generated content and the private data is per tenant; `live.py` runs it on a local model through Ollama | nothing offline; Ollama for `live.py` | seconds offline, minutes live | free; Ollama runs on your machine |
+| [`public-benchmark`](02-measure/public-benchmark) | a public benchmark (200 GSM8K test questions) into the measurement: `wai.rows` with `MathEqual` as the reward, pass@1 with its interval, the eval's own noise over three passes, `holdout_size`, `select` dropping the groups that carry no gradient, and a `compare` report | nothing | seconds | free |
 
 ## 03-select
 

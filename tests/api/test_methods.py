@@ -34,7 +34,7 @@ def test_front_door_resolves_the_methods_and_stays_under_the_cap():
     assert wai.Async is wai.methods.Async
     assert wai.prime_rl_config is wai.methods.prime_rl_config
     assert "methods" in wai.__all__
-    assert len(wai.__all__) <= 30  # rule 1 of docs/reference/style.md
+    assert len(wai.__all__) <= 31  # rule 1 of docs/reference/style.md; 31 since `rows` (#613)
     assert wai.Backend is not None  # left the front door, still importable
 
 

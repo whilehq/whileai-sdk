@@ -61,6 +61,9 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "export": ("whileai.simulations.export", "export_dataset"),
     "SimulationData": ("whileai.simulations.data", "SimulationData"),
     "ScoredData": ("whileai.simulations.score.judging", "ScoredData"),
+    # your own prompts and completions (a public benchmark) as the rows
+    # every measurement reads (#613)
+    "rows": ("whileai.simulations.schema", "rows"),
     # training methods as objects, and the trainer config written from them;
     # their home is whileai.methods
     "OPD": ("whileai.methods", "OPD"),
@@ -109,6 +112,7 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .simulations.data import SimulationData
     from .simulations.export import export_dataset as export
     from .simulations.generate.offline_agent import seeded_agent
+    from .simulations.schema import rows
     from .simulations.score.delta import delta_report as compare
     from .simulations.score.hack_scan import hack_scan
     from .simulations.score.judge_trust import judge_trust
@@ -147,6 +151,7 @@ __all__ = [
     "pass_at",
     "platform",
     "preflight",
+    "rows",
     "seeded_agent",
     "select",
     "settings",

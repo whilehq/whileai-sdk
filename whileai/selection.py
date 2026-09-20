@@ -61,6 +61,15 @@ class Selection(RowList):
                 f"truncated {r.get('truncated_policy', 'drop')}: {r.get('truncated_dropped', 0)}"
             )
             lines.append(f"  privileged leaks dropped: {r.get('privileged_leaks_dropped', 0)}")
+            # A gate that dropped rows says so here: a benchmark's rows all
+            # going out as "incomplete" read as "kept 0" with no why (#613).
+            gates = {k: v for k, v in (r.get("gates") or {}).items() if v}
+            if gates:
+                named = ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in gates.items())
+                lines.append(
+                    f"  rows dropped before grouping: {named} "
+                    "(a reward outside 0/1 is unusable; an empty or cut-off reply is incomplete)"
+                )
             lines.append(f"  groups kept: {r.get('groups_selected', 0)}")
             scan = r.get("hack_scan") or {}
             if scan.get("regime"):

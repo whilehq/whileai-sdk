@@ -33,6 +33,7 @@ specs/
 # per-recipe output folders.
 !recipes/04-train/grpo/prompts.jsonl
 !recipes/04-train/text-to-sql/tasks.jsonl
+!recipes/02-measure/public-benchmark/gsm8k_test_200.jsonl
 recipes/04-train/hosted-loop/hosted-loop.json
 recipes/02-measure/safety-evals-marketplace/*.json
 recipes/03-select/character/out/
