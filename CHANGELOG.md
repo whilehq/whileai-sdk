@@ -19,9 +19,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
   first, on stderr, so a run started from the repository root says which package it used;
   the Modal recipes mount the one it names. `recipes/README.md` says to run a recipe from
   its own directory (#443).
-
-## 1.10 (2026-09-20)
-
 - `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving
   container inside the fifteen-minute window the README already promises, backing off from
   5 s to 60 s between tries, and at the deadline says what to do (`python run.py call`
@@ -32,7 +29,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `skills/manage-experiments` 2.1: a fifth line per run, `Learned:`, the hypothesis closed in
   one sentence with the paper when the run tried one, so the page teaches as well as reports;
   `readback` checks for it. Docs and the `whileai init` line say five lines.
-
 - Versioning: the counter never rolls over (`0.99` then `0.100`); `release.py` and the
   publish gate enforce it, the 2026-09-20 uploads 1.0 and 1.3 to 1.9 are re-cut as 0.100 to
   0.109 and yanked, and the constitution carries the rule as belief 10 (One counter).
@@ -47,7 +43,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
   version named by its settings, each with the call that posts it (`Brief.readable`). The
   same rules draw the "what your coding agent still owes" list on the experiment page.
 
-## 1.09 (2026-09-20)
+## 0.109 (2026-09-20)
 
 - `skills/manage-experiments`: the playbook a coding agent follows before it posts a second
   version, a sweep or a replicate, so the page stays readable to the team: the question
@@ -59,14 +55,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `whileai init` installs it as a default skill and the `AGENTS.md` block names it; docs
   page `platform/experiments`.
 
-## 1.08 (2026-09-20)
+## 0.108 (2026-09-20)
 
 - `Behavior(rubric=)` and `run.score(..., examples=[Example(prompt=, reply=, ok=, why=)])`: the
   platform keeps how the judge was set up and a sample of up to 20 graded rows per score,
   so the Evals page shows what passed and what failed, not only the number. The full set
   stays where the SDK wrote it. `Example` is exported from `whileai.platform`.
 
-## 1.07 (2026-09-20)
+## 0.107 (2026-09-20)
 
 - `wai.verify.tool_calls(row_or_message)` reads a tool call the same from either spelling:
   the flat `{"name", "arguments": {dict}}` a rollout row carries and the OpenAI wire shape
@@ -124,7 +120,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `import whileai as wai` as a ceiling that may fall and never rise; style rule 1 now
   says the alias is the only import shape an example shows.
 
-## 1.06 (2026-09-20)
+## 0.106 (2026-09-20)
 
 - `wai.hub.push(source, "org/name", token=, private=True)` and `wai.export(..., push_to="org/name")`:
   push a file, an adapter directory or rows to the Hugging Face Hub with your own token (`token=`,
@@ -179,7 +175,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `prime_rl_config` stamps `harness.id = "null"` and `runtime.type = "subprocess"` on every source,
   writes no split key (a verifiers v1 taskset names its own, `dataset_split`), and takes
   `source.`, `train_source.` and `eval_source.` overrides. New guide: docs/distillation.
-## 1.05 (2026-09-20)
+## 0.105 (2026-09-20)
 
 - The release gate counts a `v<version>` tag as shipped only when its
   annotation reads `whileai <version>`. Tags left from the packages this
@@ -204,22 +200,22 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `recipes/04-train/grpo` and `dpo`: `build_prompts(200, seed=0)` writes the same 119 prompts (94 train, 25 holdout) on every CPython from 3.10 to 3.14, checked by running it under each. It gave 117 on 3.12 and later and 118 on 3.10 and 3.11 until the `math.fsum` change above (#410) took the builtin `sum()` off the writer's novelty filter; the test pins the count and the READMEs drop the per-Python note.
 - `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
 
-## 1.04 (2026-09-20)
+## 0.104 (2026-09-20)
 
 - `SweepReport` sizes its columns to the longest label and model name; long `prompt@model` labels no longer run into the next column.
 
-## 1.03 (2026-09-20)
+## 0.103 (2026-09-20)
 
 - `HarnessSweep` pins `prompt` as the label before `@`: name variants `prompt@model` and the Runs page groups by prompt and by model as two axes (the first live sweep had eight one-run columns).
 - README banner: the whale lockup and tagline are centered in the image; the old files had ~300px of empty space on the right, so the logo sat left of the badges below it.
 
-## 1.02 (2026-09-20)
+## 0.102 (2026-09-20)
 
 - Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
   this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `whileai.platform.HarnessSweep`: many prompt, tool and model variants of one agent, scored on the same frozen asks (`tasks=` a previous run), one run per harness fingerprint with `prompt`, `model` and `tools` pinned under `record.provenance.pins`, the noise floor from scoring one variant twice, the judge checked against hand labels when given. `SweepReport` prints the ranked table and names a winner only when its interval clears every other variant and the noise floor. The Runs page groups the dots by prompt or model (website #100).
 
-## 1.01 (2026-09-20)
+## 0.101 (2026-09-20)
 
 - Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
   this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
@@ -265,7 +261,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
   without raising; now every shape drops it and gives the same report
   (#479).
 
-## 1.00 (2026-09-20)
+## 0.100 (2026-09-20)
 
 - `whileai init` runs the evals check from any working directory; 0.99 resolved the script path against the skill folder and printed a can't-open-file error.
 
