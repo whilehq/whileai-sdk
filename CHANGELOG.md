@@ -11,6 +11,17 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   when the agent is played single-turn (a callable or HTTP agent), so the
   offline no-key examples on the docs run clean. `report()["requested"]`
   and `report()["delivered"]` are unchanged (#476).
+## 1.00 (2026-09-20)
+
+- `whileai init` runs the evals check from any working directory; 0.99 resolved the script path against the skill folder and printed a can't-open-file error.
+## 0.99 (2026-09-19)
+
+- `whileai status` keeps stdout pure JSON; the `repo` block inside it (`agents_md`, `stale`, `skills`) says whether to run `whileai init`; no hint line (the 0.97 publish failed on a test that parses the JSON).
+
+## 0.98 (2026-09-19)
+
+- Dataset and adapter links point at the while-ai Hugging Face org, where the
+  sets live; the old org name is gone from recipes, results and docs.
 
 ## 0.97 (2026-09-19)
 
