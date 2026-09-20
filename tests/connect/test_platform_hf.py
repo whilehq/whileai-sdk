@@ -29,14 +29,14 @@ def test_hf_status_reads_me(monkeypatch):
             {
                 "connected": True,
                 "username": "jacob",
-                "namespaces": ["jacob", "zero-proof-ai"],
+                "namespaces": ["jacob", "while-ai"],
                 "scopes": [],
             }
         ]
     )
     monkeypatch.setattr(platform, "_call", rec)
     out = platform.hf_status(api_key="zp_x")
-    assert out["namespaces"] == ["jacob", "zero-proof-ai"]
+    assert out["namespaces"] == ["jacob", "while-ai"]
     assert rec.calls == [("GET", "/hf/me", None)]
 
 
