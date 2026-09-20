@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 1.06 (2026-09-20)
+
 - `wai.hub.push(source, "org/name", token=, private=True)` and `wai.export(..., push_to="org/name")`:
   push a file, an adapter directory or rows to the Hugging Face Hub with your own token (`token=`,
   else `HF_TOKEN`, else the cached `hf auth login`) through `huggingface_hub`
