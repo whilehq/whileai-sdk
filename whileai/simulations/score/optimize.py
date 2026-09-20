@@ -1164,7 +1164,7 @@ def select_for_rl(
             f"{before.k}, the selection leaves {after.k} rollout(s) per ask, so "
             "pass_at on these rows reports them as n/a. pass@1 and the carried "
             "calibration stamp still hold the graded measurement; take the k-way "
-            "numbers from pass_at before optimize"
+            "numbers from pass_at before select"
         )
     # A selection with no mixed group has no within-group contrast: GRPO
     # advantage is zero everywhere and the run trains nothing. That is a
