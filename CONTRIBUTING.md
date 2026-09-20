@@ -37,7 +37,7 @@ fails a PR that adds one of the retired shapes.
 gh workflow run release.yml
 ```
 
-That cuts the next hundredth from the entries under `## Unreleased`, lands
+That cuts the next number (`0.99` then `0.100`) from the entries under `## Unreleased`, lands
 the bump on main and starts the publish workflow; runs queue, so two
 people shipping at once get two releases in order. Do not bump `version`
 by hand, and keep the `## Unreleased` header (the cut renames it and puts

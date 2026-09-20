@@ -94,6 +94,13 @@ service for hosted training and serving. The library needs no account.
    not permitted: `scripts/old_name_baseline.json` counts them per file,
    a count may fall and never rise, and a new file may not add one. The
    `ZEROPROOF_*` variables and `~/.zeroproof` are not read.
+10. **One counter.** The version is `0.N`. N goes up by one per release and
+    never rolls over, resets or pads: `0.99` then `0.100` then `0.101`.
+    There is no `1.0`; a number says how many releases came before it,
+    nothing about maturity. PEP 440 drops leading zeros, which is why the
+    counter is never padded (`1.07` is `1.7` on PyPI). On 2026-09-20 the
+    bump script rolled `0.99` over to `1.00` and nothing in this file said
+    it could not; those uploads are yanked and re-cut as `0.100` to `0.109`.
 
 ## How it shows up
 
@@ -107,6 +114,7 @@ service for hosted training and serving. The library needs no account.
 | README skeleton | `tests/api/test_readme_skeleton.py` pins the section order, the five-line loop before the first heading, and the 900-word prose budget; `tests/api/test_readme_offline_quickstart.py` runs the quick start as written |
 | Bring your own keys | `wai.configure(agent=, judge=, api_key=)`, backend objects whose repr names the key source; the Modal and Prime Intellect researcher routines run on their own accounts twice a day |
 | One name | `scripts/check_old_name.py` in CI lint pins the count of the old name per file from `scripts/old_name_baseline.json`; the docs, site and style routines fix any old-name string in a file they touch |
+| One counter | `.github/scripts/check_version.py` fails any version that is not the last published counter plus one; `release.py` only cuts N+1; `RELEASING.md` is the long form |
 
 ## Who reads this
 
