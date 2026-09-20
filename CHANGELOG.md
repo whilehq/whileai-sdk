@@ -5,6 +5,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `tracked.noise_floor(behavior, *reruns)` (#485): the row lists of two or more re-runs of the same
+  eval on the same version go through `eval_variance`, the floor is t(df=runs-1) x run_std x sqrt(2)
+  in points (the rule `delta_report(run_std=, run_std_runs=)` and recipes/papers/README.md already
+  state), and it is posted on the behavior, so the Runs page's Judge tile and the verdict's re-run
+  band read a measured number. `Behavior.noise_floor` was a field nothing in the SDK filled. One
+  re-run raises; two warn. The zero-rl-format-reward recipe posts its base re-runs this way.
 - `recipes/04-train/prime-rl`: GRPO, OPSD and OPD on one taskset on prime-rl, on Modal with
   your keys, from `wai.prime_rl_config`; a While-owned launcher over Prime Intellect's published
   image, deploy-and-spawn so a run outlives the shell, per-prompt held-out eval read back from the
