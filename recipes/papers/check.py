@@ -20,6 +20,7 @@ from pathlib import Path
 PAPERS = Path(__file__).resolve().parent
 sys.path.insert(0, str(PAPERS.parents[1]))
 
+from whileai.config import provenance
 from whileai.simulations.defaults import MIN_TRAIN_SEEDS
 from whileai.simulations.score.delta import UNRESOLVED_LINE
 from whileai.simulations.score.stats import _t_quantile as t_quantile
@@ -185,6 +186,9 @@ def check_recipe(d: Path) -> dict:
 
 
 def main(write: bool) -> None:
+    # The band comes from whichever whileai this process imported; say which
+    # (#443), on stderr so stdout stays the check's own report.
+    print(provenance(), file=sys.stderr)
     dirs = recipe_dirs()
     for d in dirs:
         check_recipe(d)
