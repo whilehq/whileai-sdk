@@ -1278,6 +1278,14 @@ def _want_followup(
     fail: in source traces 63% of asked threads ended with the person
     walking away, in generated data 19-22%, all of those depth-cap cuts.
     """
+    if int(budget) <= 1:
+        # ``max_turns=1``: one user line, one reply, whatever the reply
+        # says. Before this the question branch below ran first and
+        # ``_user_turn_cap`` never goes under 2, so any reply holding a
+        # "?" (a model reasoning in plain text does that on 15-65% of
+        # rows) earned a follow-up written by the agent model itself, and
+        # that second reply was what the grader scored (#586).
+        return False
     cap = _user_turn_cap(budget)
     if int(user_turns) >= cap:
         return False
