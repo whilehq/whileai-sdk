@@ -381,7 +381,10 @@ from whileai.platform import Harness, HarnessSweep, track
 tracked = track("refund-agent", model="claude-haiku-4-5")
 sweep = HarnessSweep(tracked, judge=refund_judge, k=4, tools=TOOLS, behavior="refund_policy")
 variants = {
-    label: (Harness(label=label, instructions=prompt, tools=TOOLS, model=model), make_agent(prompt, model))
+    label: (
+        Harness(label=label, instructions=prompt, tools=TOOLS, model=model),
+        make_agent(prompt, model),
+    )
     for label, (prompt, model) in PROMPTS_BY_MODEL.items()
 }
 report = sweep.run(variants, tasks=frozen)  # frozen: the run whose asks are the test

@@ -141,7 +141,9 @@ def test_sweep_scores_every_variant_on_the_same_asks_and_posts_runs():
     behaviors = [b for m, p, b in fake.calls if "/behaviors/" in p]
     assert {b["testVersion"] for b in behaviors} == {report.test_version}
     assert all(b["noiseFloor"] == 0.0 for b in behaviors)
-    assert sum(1 for m, p, b in fake.calls if p.endswith("/evals")) == 2 * len(report.variants[0].scores)
+    assert sum(1 for m, p, b in fake.calls if p.endswith("/evals")) == 2 * len(
+        report.variants[0].scores
+    )
     d = report.to_dict()
     assert d["best"] == "careful" and d["variants"][0]["label"] == "careful"
 
