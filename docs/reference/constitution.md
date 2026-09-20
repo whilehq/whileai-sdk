@@ -64,6 +64,16 @@ service for hosted training and serving. The library needs no account.
    a lead sentence or a public name. The step names are Simulate, Grade,
    Measure, Select, Train. Measure is evaluation with intervals and Select
    is data curation; they are not merged, and neither is renamed to Eval.
+   The README is a front page, not a paper. It follows the skeleton the
+   most-used Python repos share (Polars, TRL, vLLM, uv, decomposed
+   2026-09-19): logo, one-line tagline, badges, link bar; the five-line
+   loop; Install; Quick start, offline, with its printed output; With your
+   agent; the call table; Why the numbers hold, as bullets of term,
+   mechanism, citation; Recipes; Platform; Documentation; Development;
+   Cite; References, collapsed; License. Prose outside code, tables and
+   the references stays under 900 words. A code block carries the
+   explanation wherever one can; anything longer than a paragraph moves
+   to `docs/`.
 7. **Mass experimentation.** A PhD or an engineer runs many experiments
    from one import, on their own compute, and every run leaves a record
    that a person can decide from.
@@ -94,6 +104,7 @@ service for hosted training and serving. The library needs no account.
 | Sourced defaults | `scripts/check_no_hardcoding.py` in CI; `tests/api/test_readme_defaults.py` |
 | Ergonomics | `docs/reference/style.md`; `tests/api/test_style_ratchet.py` pins the retired shapes |
 | Docs order | `docs/` on Mintlify; the docs routine's one PR a day; the five-line loop list on the website home (`components/quickstart.tsx` in whilehq/website) is the reference wording |
+| README skeleton | `tests/api/test_readme_skeleton.py` pins the section order, the five-line loop before the first heading, and the 900-word prose budget; `tests/api/test_readme_offline_quickstart.py` runs the quick start as written |
 | Bring your own keys | `wai.configure(agent=, judge=, api_key=)`, backend objects whose repr names the key source; the Modal and Prime Intellect researcher routines run on their own accounts twice a day |
 | One name | `scripts/check_old_name.py` in CI lint pins the count of the old name per file from `scripts/old_name_baseline.json`; the docs, site and style routines fix any old-name string in a file they touch |
 
