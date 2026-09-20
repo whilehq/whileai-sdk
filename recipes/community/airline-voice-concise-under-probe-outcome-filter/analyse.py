@@ -81,17 +81,37 @@ def summarise(name: str, rows: list[dict]) -> dict:
     }
 
 
+MARKERS = ("covered_all", "short_enough", "words", "truncated", "shaped_reward")
+
+
 def analyse(base_runs: list[list[dict]], arms: dict[str, list[dict]]) -> dict:
     means = [mean_reward(r) for r in base_runs]
     run_std = st.stdev(means) if len(means) > 1 else 0.0
+
+    # One noise floor per metric, each from the same three base re-runs.
+    # A single scalar is applied to every metric whatever its scale, which
+    # prints "noise<0.142" against a word count; `words` re-runs at 117, 112,
+    # 114, so its own floor is ~2.5 words and a 19-word delta clears it.
+    per_metric: dict[str, float] = {TARGET: run_std}
+    marker_means: dict[str, list[float]] = {}
+    for name in MARKERS:
+        vals = [sum(r["markers"][name] for r in br) / len(br) for br in base_runs]
+        marker_means[name] = [round(v, 4) for v in vals]
+        per_metric[f"marker:{name}"] = st.stdev(vals) if len(vals) > 1 else 0.0
+
     noise = {
         "metric": TARGET,
         "n_runs": len(means),
         "means": [round(m, 4) for m in means],
         "mean": round(sum(means) / len(means), 4),
         "run_std": round(run_std, 4),
+        "per_metric_run_std": {k: round(v, 4) for k, v in per_metric.items()},
+        "per_metric_base_means": marker_means,
     }
     print(f"noise floor: base x{len(means)} means={noise['means']} run_std={run_std:.4f}")
+    for k, v in per_metric.items():
+        if k != TARGET:
+            print(f"  {k:28s} base re-runs={marker_means[k.split(':', 1)[1]]} run_std={v:.4f}")
 
     base = base_runs[0]
     res = {"noise": noise, "summaries": {}, "deltas": {}}
@@ -109,7 +129,7 @@ def analyse(base_runs: list[list[dict]], arms: dict[str, list[dict]]) -> dict:
             proxy=PROXY,
             must_not_regress=["covered_all"],
             by="probe",
-            run_std=run_std,
+            run_std=per_metric,
             run_std_runs=len(means),
         )
         print(f"\n===== {label} =====")

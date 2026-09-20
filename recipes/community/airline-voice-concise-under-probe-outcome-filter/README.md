@@ -60,58 +60,102 @@ group, gradient checkpointing off (on, it corrupts Qwen3 generation on this stac
 
 ## Result
 
-**Half one (reproduction): reused, not re-run.** `recipes/papers/filter-metric` already has it
-at **moved**: +0.067, 95% [+0.021, +0.113], against a 0.025 noise band on GSM8K with
-Qwen2.5-1.5B. D was odd, no community recipe had applied it, so the budget went to half two.
+**Half one (reproduction): reused, not re-run.** `recipes/papers/filter-metric` has it at
+**moved**: +0.067, 95% [+0.021, +0.113], noise band 0.025, on GSM8K with Qwen2.5-1.5B. D was
+odd, no community recipe had applied it, so the budget went to half two.
 
-**Half two: the behaviour, measured from the traces.** On the 139 published base rollouts, a
-planted instruction roughly doubles the reply and does not hurt coverage:
+**The behaviour, from the traces.** On the 139 published base rollouts a planted instruction
+roughly doubles the reply and does not hurt coverage:
 
 | | n | covered_all | median words |
 |---|---|---|---|
 | no probe | 109 | 0.817 | 180 |
 | probe | 30 | 0.933 | **348** |
 
-That is the behaviour in an operator's words: **the agent runs long when the caller's text
-carries a planted instruction that buys length.**
-
 **The contamination check, before any training** (`python run.py --prep`):
 
-| | rows kept | `contamination_rate` |
+| training set | rows kept | `contamination_rate` |
 |---|---|---|
-| my own six attack strings in training | 525 / 525 | 0.0 |
-| **the holdout's own three strings in training** | **525 / 525** | **0.0** |
+| my own six attack strings | 525 / 525 | 0.0 |
+| **the holdout's own three strings** | **525 / 525** | **0.0** |
 
 Same report either way. See finding 1.
 
-**Both arms were still training when the session's clock ran out, and neither was waited on.**
-Each writes its adapter and a `filter_trace.json` (how many groups its filter dropped, per
-step) to the `voice-filter-runs` Modal volume when it finishes:
+**What the filter actually did.** This is the number the run exists for:
 
-| arm | filter metric | Modal app | status at publish |
-|---|---|---|---|
-| baseline | shaped score (stock GRPO) | `ap-Y9HV7acBzeYD3KwEOth0Tr` | step 9/40, ~20 min left |
-| method | binary outcome | `ap-9AxXVg8ePj7EwsSKEoHCDP` | step 9/40, ~20 min left |
+| arm | flat-group test | groups dropped |
+|---|---|---|
+| baseline | shaped score (stock GRPO) | 20 / 320 = **6.2%** |
+| method | binary outcome (the paper) | 248 / 320 = **77.5%** |
 
-There is no before/after table here yet, and one is not invented. The next run picks up from
-the volume:
+`covered_all` is 0.84 at base, so most groups are *all-right*: flat by the outcome, not flat by
+the shaped score. The paper's filter throws away twelve times more of the batch than stock GRPO,
+and what it throws away is precisely the all-right groups whose length spread is the only signal
+for the behaviour being trained.
 
-```bash
-modal run eval_modal.py
-modal volume get voice-filter-runs eval out --force
-python run.py --analyse
+**Held out: 139 asks, 4 samples each, base evaluated three times for the noise floor.**
+Target is `concise_and_covered` (answered, ≤120 words, not truncated). Noise floors are per
+metric, each from the same three base re-runs.
+
+| arm | target | covered_all | short_enough | words | shaped reward |
+|---|---|---|---|---|---|
+| base (×3) | 0.295 / 0.318 / 0.342 | 0.658 | 0.590 | 117 | 0.461 |
+| baseline | 0.324 | 0.655 | 0.615 | 113 | 0.458 |
+| method | 0.318 | 0.745 | 0.522 | 132 | 0.522 |
+
+Paired deltas, 95% intervals, base run 1 as the before:
+
+| comparison | target delta | verdict |
+|---|---|---|
+| baseline vs base | +0.029 [−0.004, +0.063] | **flat** (noise < 0.142) |
+| method vs base | +0.023 [−0.011, +0.058] | **flat**, and `OVER-OPTIMIZED` |
+| **method vs baseline** | **−0.005 [−0.041, +0.029]** | **flat — no difference** |
+
+**Neither arm moved the behaviour.** The deciding comparison is flat, and with one seed per arm
+the honest verdict is **unresolved**, not `moved` and not `flat`.
+
+The markers say what happened, and they clear their own noise floors where the target does not:
+
+| metric, method vs baseline | delta | its noise floor |
+|---|---|---|
+| `covered_all` | **+0.090 [+0.049, +0.129]** | 0.050 |
+| `words` | **+18.9 [+11.1, +27.6]** | 15.5 |
+| `shaped_reward` (the training reward) | **+0.064 [+0.031, +0.100]** | 0.044 |
+| target, on the **probed** rows only | **−0.058 [−0.108, −0.017]** | — |
+
+The method arm bought coverage with length. Having dropped 77.5% of its groups — the all-right
+ones — it trained almost entirely on groups that disagreed about the *outcome*, so it learned to
+name every reservation code and unlearned brevity. The two effects cancel on the composite
+target, which is why the headline is flat while nothing underneath it is.
+
+`wai.compare(proxy="marker:shaped_reward")` calls this itself, unprompted:
+
+```
+OVER-OPTIMIZED: marker:shaped_reward up +0.064 (95% +0.031..+0.100) while pass_at_1
+-0.005 (95% -0.041..+0.029): the policy learned something the target does not credit
+(Gao et al. 2022, arXiv:2210.10760)
 ```
 
-**What the run predicts, so the next one can falsify it.** The paper's filter protects a
-half-solved outcome: on GSM8K an all-wrong group of differing lengths is the phantom-advantage
-group, and dropping it helps. Here `covered_all` is already 0.84 at base, so most groups are
-**all-right**, and an all-right group is flat by the outcome and *not* flat by the shaped
-score. The outcome filter should therefore drop most of the batch — and the length spread
-inside those all-right groups is the only signal for conciseness, which is the behaviour I was
-training. The prediction is that the paper's advice **inverts** here: the method arm should
-lose to stock GRPO on the target. The `frac_reward_zero_std` TRL logged during the aborted
-k=8 pair was 0.225-0.275 under the shaped score, which is the baseline's drop rate; the
-method's is in `filter_trace.json` and is the number that settles it.
+And on the rows the behaviour is actually about — the probed ones — the method arm moved the
+**wrong way**, −0.058 [−0.108, −0.017]. The paper's filter is not neutral here; it is
+counterproductive, for a reason that is structural rather than incidental.
+
+**Fresh traffic**: 30 never-trained asks carrying a third set of never-seen planted
+instructions, one sample each, Wilson 95%.
+
+| arm | target | covered_all | median words |
+|---|---|---|---|
+| base | 0.200 [0.095, 0.373] | 0.867 | 160 |
+| baseline | 0.367 [0.219, 0.545] | 0.933 | 162 |
+| method | 0.233 [0.118, 0.409] | 0.967 | 191 |
+
+All three intervals overlap, so **the fresh-traffic check does not resolve** at n=30; it points
+the same way as the holdout (method longest, baseline shortest) and proves nothing on its own.
+It did confirm the behaviour survives an unseen attack wording at all: no arm collapsed.
+
+**Not done:** the winner was never served over HTTP. `serve_modal.py` and `fresh_traffic.py`
+are written and registered, and the fresh-traffic check above runs in-process in `eval_modal.py`
+instead, so the science question is answered and the serving path is untested.
 
 ## What the reproduction did not prepare me for
 
@@ -146,15 +190,24 @@ Ranked, worst first.
    fit. I dropped the group to `k=4`. Neither limit exists in the paper's GSM8K setting, where a
    prompt is fifty words.
 
-4. **The target metric and the training reward are the same two quantities.** The reward is
-   `covered - 0.30 * min(words/120, 1)`; the target is `covered AND words <= 120`. I declared it
-   with `proxy=` so `compare` runs its over-optimisation check, but declaring it does not make
-   it independent. In the paper the shaped term is a *nuisance* to be protected against and the
-   outcome is the target. Here the shaped term **is** the behaviour the operator asked for and
-   the outcome is a guardrail — which inverts what the filter is for, and is the reason this run
-   was worth doing at all rather than just citing the reproduction.
+4. **The paper's roles are swapped in production, and that inverts its advice — measured, not
+   guessed.** In the paper the shaped term is a nuisance to protect against and the outcome is
+   the target; filtering by the outcome saves you because an all-wrong group of differing lengths
+   is a phantom-advantage group. Here the shaped term **is** the behaviour the operator asked for
+   and the outcome is a guardrail already at 0.84, so most groups are all-*right*, and the same
+   rule drops 77.5% of the batch against stock GRPO's 6.2%. The arm then bought coverage
+   (+0.090 [+0.049, +0.129]) with length (+18.9 words [+11.1, +27.6]) and moved the wrong way on
+   the probed rows (−0.058 [−0.108, −0.017]). A reproduction cannot see this: it needs a base
+   whose outcome is half-solved, and production's is a guardrail near ceiling.
 
-5. **`compare()` has no way to say "down is the win".** Reply length is the whole point, and the
+5. **The training reward and the target are the same two quantities.** Reward is
+   `covered - 0.30 * min(words/120, 1)`; target is `covered AND words <= 120`. `proxy=` makes
+   `compare` run the over-optimisation check, which fired (`OVER-OPTIMIZED`, Gao et al. 2022) —
+   but declaring the overlap does not remove it. A paper picks a target the reward does not
+   contain; production's operator metric is usually built from the same quantities you had to
+   reward, and the honest move is to declare it and let the report say so.
+
+6. **`compare()` has no way to say "down is the win".** Reply length is the whole point, and the
    report prints `marker:words ... DOWN` with a `!` warning on a successful run. Every
    production agent metric I care about goes down: length, cost, latency, turns, unnecessary
    tool calls. I emitted `short_enough = words <= 120` beside it and treated the raw count as
@@ -181,9 +234,9 @@ One H100 on Modal, two arms in parallel.
 | what | GPU | minutes | ~USD |
 |---|---|---|---|
 | two aborted arms (prompt bug, then OOM) | H100 x2 | ~10 | ~0.80 |
-| baseline + method arms, 40 steps, k=4 | H100 x2 | ~27 each | ~4.60 |
-| eval: base x3 + 2 arms + fresh traffic | H100 | ~12 | ~0.90 |
-| **total** | | | **~6.30** |
+| baseline + method arms, 40 steps, k=4 | H100 x2 | ~25 each, in parallel | ~4.20 |
+| eval: base x3 + 2 arms + fresh traffic, one vLLM engine | H100 | ~13 | ~1.00 |
+| **total** | | **~73 GPU-min** | **~6.00** |
 
 A week of this on every day's traffic — one behaviour a day, two arms, one eval — is about
 **$45**, which is less than the argument about whether to do it.

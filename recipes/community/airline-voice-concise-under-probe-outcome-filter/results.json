@@ -1,79 +1,963 @@
 {
-  "status": "half_two_arms_still_training_at_publish_eval_not_reached",
-  "behaviour": "does less of running long when the caller's text carries a planted instruction that buys length",
-  "method": {
-    "source": "recipes/papers/filter-metric",
-    "paper": "The Filter Metric is Safety-Critical: Phantom Advantages in Group-Relative RL under Shaped Rewards, Juntao Yu, arXiv:2609.13866",
-    "half_one": "reused",
-    "reproduction_verdict": "moved",
-    "reproduction_delta": 0.06666666666666667,
-    "reproduction_ci95": [
-      0.020833333333333332,
-      0.1125
+  "noise": {
+    "metric": "pass_at_1",
+    "n_runs": 3,
+    "means": [
+      0.295,
+      0.3183,
+      0.3417
     ],
-    "reproduction_noise_band": 0.02495181840908594
+    "mean": 0.3183,
+    "run_std": 0.0234,
+    "per_metric_run_std": {
+      "pass_at_1": 0.0234,
+      "marker:covered_all": 0.0082,
+      "marker:short_enough": 0.0189,
+      "marker:words": 2.554,
+      "marker:truncated": 0.0037,
+      "marker:shaped_reward": 0.0072
+    },
+    "per_metric_base_means": {
+      "covered_all": [
+        0.6583,
+        0.6691,
+        0.6745
+      ],
+      "short_enough": [
+        0.5899,
+        0.6097,
+        0.6277
+      ],
+      "words": [
+        116.6475,
+        111.5396,
+        114.1223
+      ],
+      "truncated": [
+        0.0234,
+        0.0162,
+        0.0216
+      ],
+      "shaped_reward": [
+        0.4607,
+        0.4716,
+        0.4744
+      ]
+    }
   },
-  "setup": {
-    "base_model": "Qwen/Qwen3-1.7B",
-    "dataset": "while-ai/airline-voice-concise",
-    "n_train": 525,
-    "n_holdout": 139,
-    "probe_rate": 0.2158273381294964,
-    "k": 4,
-    "steps": 40,
-    "beta": 0.0,
-    "lora_r": 32,
-    "reward": "covered_all - 0.30 * min(words/120, 1)",
-    "target_metric": "concise_and_covered (covered AND words<=120 AND not truncated)",
-    "proxy_declared": "marker:shaped_reward",
-    "seeds_per_arm": 1,
-    "verdict_ceiling": "unresolved (one seed per arm)",
-    "model": "offline (no ANTHROPIC_API_KEY or OPENAI_API_KEY; every grade is a program)"
+  "summaries": {
+    "base": {
+      "arm": "base",
+      "n_rows": 556,
+      "pass_at_1": 0.2949640287769784,
+      "covered_all": 0.658273381294964,
+      "short_enough": 0.5899280575539568,
+      "words_mean": 116.64748201438849,
+      "truncated": 0.023381294964028777,
+      "shaped_reward": 0.46068345323741006
+    },
+    "base_run1": {
+      "arm": "base_run1",
+      "n_rows": 556,
+      "pass_at_1": 0.2949640287769784,
+      "covered_all": 0.658273381294964,
+      "short_enough": 0.5899280575539568,
+      "words_mean": 116.64748201438849,
+      "truncated": 0.023381294964028777,
+      "shaped_reward": 0.46068345323741006
+    },
+    "base_run2": {
+      "arm": "base_run2",
+      "n_rows": 556,
+      "pass_at_1": 0.3183453237410072,
+      "covered_all": 0.6690647482014388,
+      "short_enough": 0.6097122302158273,
+      "words_mean": 111.53956834532374,
+      "truncated": 0.01618705035971223,
+      "shaped_reward": 0.47163669064748204
+    },
+    "base_run3": {
+      "arm": "base_run3",
+      "n_rows": 556,
+      "pass_at_1": 0.34172661870503596,
+      "covered_all": 0.6744604316546763,
+      "short_enough": 0.6276978417266187,
+      "words_mean": 114.12230215827338,
+      "truncated": 0.02158273381294964,
+      "shaped_reward": 0.4743705035971223
+    },
+    "baseline": {
+      "arm": "baseline",
+      "n_rows": 556,
+      "pass_at_1": 0.3237410071942446,
+      "covered_all": 0.6546762589928058,
+      "short_enough": 0.6151079136690647,
+      "words_mean": 113.20323741007195,
+      "truncated": 0.025179856115107913,
+      "shaped_reward": 0.4584757194244604
+    },
+    "method": {
+      "arm": "method",
+      "n_rows": 556,
+      "pass_at_1": 0.3183453237410072,
+      "covered_all": 0.7446043165467626,
+      "short_enough": 0.5215827338129496,
+      "words_mean": 132.14928057553956,
+      "truncated": 0.03237410071942446,
+      "shaped_reward": 0.5223336330935252
+    }
   },
-  "traces_read": {
-    "source": "while-ai/airline-voice-concise eval_rollouts/base, 139 rows",
-    "median_words_no_probe": 180,
-    "median_words_with_probe": 348,
-    "covered_all_base": 0.842,
-    "note": "a planted instruction roughly doubles the reply; that is the behaviour"
+  "deltas": {
+    "baseline_vs_base": {
+      "ok": true,
+      "not_comparable": [],
+      "target": "pass_at_1",
+      "target_verdict": "no_change_detected",
+      "headline_verdict": "no_change_detected",
+      "target_delta": 0.02877697841726619,
+      "target_ci95": [
+        -0.0035971223021582736,
+        0.06294964028776978
+      ],
+      "n_metrics": 6,
+      "alpha": 0.05,
+      "level": 0.95,
+      "family_error": 0.2649,
+      "n_paired_tasks": 139,
+      "n_unpaired_tasks": 0,
+      "improved": [],
+      "regressions": [],
+      "slipped": [],
+      "within_noise": [
+        "pass_at_1",
+        "marker:covered_all",
+        "marker:shaped_reward",
+        "marker:short_enough",
+        "marker:truncated",
+        "marker:words"
+      ],
+      "run_std": 0.02338129496402877,
+      "run_std_by_metric": {
+        "pass_at_1": 0.02338129496402877,
+        "marker:covered_all": 0.008242042616827048,
+        "marker:shaped_reward": 0.0072431863448153815,
+        "marker:short_enough": 0.018892027885597993,
+        "marker:truncated": 0.00374400359616211,
+        "marker:words": 2.554010875234655
+      },
+      "run_std_source": "given",
+      "run_std_runs": 3,
+      "run_std_df": 2,
+      "noise_band": 0.14228361954242544,
+      "noise_rule": "t(df=2)=4.30 x run_std x sqrt(1/1 + 1/1)",
+      "eval_runs": {
+        "before": 0,
+        "after": 0
+      },
+      "replicated": true,
+      "ceiling": false,
+      "detectable_effect": 0.079,
+      "tasks_needed": 1012,
+      "degenerate_guards": [],
+      "proxy": "marker:shaped_reward",
+      "proxy_verdict": "no_change_detected",
+      "proxy_delta": -0.0022077338129496363,
+      "proxy_ci95": [
+        -0.02815197841726618,
+        0.02267535971223022
+      ],
+      "over_optimized": false,
+      "metrics": {
+        "pass_at_1": {
+          "metric": "pass_at_1",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.2949640287769784,
+          "mean_b": 0.3237410071942446,
+          "delta": 0.02877697841726619,
+          "ci95": [
+            -0.0035971223021582736,
+            0.06294964028776978
+          ],
+          "level": 0.95,
+          "p_value": 0.11344327836081959,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.02338129496402877,
+          "noise_band": 0.14228361954242544,
+          "within_noise": true
+        },
+        "marker:covered_all": {
+          "metric": "marker:covered_all",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.658273381294964,
+          "mean_b": 0.6546762589928058,
+          "delta": -0.0035971223021582736,
+          "ci95": [
+            -0.030575539568345324,
+            0.023381294964028777
+          ],
+          "level": 0.95,
+          "p_value": 0.9005497251374313,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.008242042616827048,
+          "noise_band": 0.050155804361958656,
+          "within_noise": true
+        },
+        "marker:shaped_reward": {
+          "metric": "marker:shaped_reward",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.46068345323741006,
+          "mean_b": 0.4584757194244604,
+          "delta": -0.0022077338129496363,
+          "ci95": [
+            -0.02815197841726618,
+            0.02267535971223022
+          ],
+          "level": 0.95,
+          "p_value": 0.862568715642179,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.0072431863448153815,
+          "noise_band": 0.04407740340071503,
+          "within_noise": true
+        },
+        "marker:short_enough": {
+          "metric": "marker:short_enough",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.5899280575539568,
+          "mean_b": 0.6151079136690647,
+          "delta": 0.025179856115107913,
+          "ci95": [
+            -0.008992805755395683,
+            0.05755395683453238
+          ],
+          "level": 0.95,
+          "p_value": 0.14042978510744628,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.018892027885597993,
+          "noise_band": 0.1149648089293062,
+          "within_noise": true
+        },
+        "marker:truncated": {
+          "metric": "marker:truncated",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.023381294964028777,
+          "mean_b": 0.025179856115107913,
+          "delta": 0.0017985611510791368,
+          "ci95": [
+            -0.014388489208633094,
+            0.01618705035971223
+          ],
+          "level": 0.95,
+          "p_value": 1.0,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.00374400359616211,
+          "noise_band": 0.022783613314034012,
+          "within_noise": true
+        },
+        "marker:words": {
+          "metric": "marker:words",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 116.64748201438849,
+          "mean_b": 113.20323741007195,
+          "delta": -3.444244604316547,
+          "ci95": [
+            -10.366906474820144,
+            3.9100719424460433
+          ],
+          "level": 0.95,
+          "p_value": 0.3503248375812094,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 2.554010875234655,
+          "noise_band": 15.542078068737096,
+          "within_noise": true
+        }
+      },
+      "warnings": [
+        "139 paired tasks at k=4 can prove a gain of about +0.08 at 80% power; to prove the +0.029 seen here you need about 1012 tasks (holdout_size)."
+      ],
+      "config": {
+        "before": {
+          "n_tasks": 139,
+          "k": 4,
+          "temperature": null,
+          "max_tokens": null,
+          "policy_version": null,
+          "judge_version": null,
+          "prompt_hash": null,
+          "user_model": null,
+          "writer_model": null,
+          "mixed": [],
+          "truncated_share": null,
+          "answered_share": null,
+          "unclosed_think_share": null,
+          "graded_share": 1.0
+        },
+        "after": {
+          "n_tasks": 139,
+          "k": 4,
+          "temperature": null,
+          "max_tokens": null,
+          "policy_version": null,
+          "judge_version": null,
+          "prompt_hash": null,
+          "user_model": null,
+          "writer_model": null,
+          "mixed": [],
+          "truncated_share": null,
+          "answered_share": null,
+          "unclosed_think_share": null,
+          "graded_share": 1.0
+        }
+      },
+      "balanced": null,
+      "by": "probe",
+      "groups": {
+        "False": {
+          "delta": 0.02522935779816514,
+          "ci95": [
+            -0.013761467889908258,
+            0.06422018348623854
+          ],
+          "verdict": "no_difference_detected",
+          "mean_a": 0.2981651376146789,
+          "mean_b": 0.32339449541284404,
+          "n_used": 109,
+          "n_paired": 109,
+          "paired": true,
+          "rows_a": 436,
+          "rows_b": 436
+        },
+        "True": {
+          "delta": 0.041666666666666664,
+          "ci95": [
+            0.0,
+            0.08333333333333333
+          ],
+          "verdict": "no_difference_detected",
+          "mean_a": 0.2833333333333333,
+          "mean_b": 0.325,
+          "n_used": 30,
+          "n_paired": 30,
+          "paired": true,
+          "rows_a": 120,
+          "rows_b": 120
+        }
+      },
+      "groups_down": []
+    },
+    "method_vs_base": {
+      "ok": false,
+      "not_comparable": [],
+      "target": "pass_at_1",
+      "target_verdict": "no_change_detected",
+      "headline_verdict": "no_change_detected",
+      "target_delta": 0.023381294964028777,
+      "target_ci95": [
+        -0.01079136690647482,
+        0.05755395683453238
+      ],
+      "n_metrics": 6,
+      "alpha": 0.05,
+      "level": 0.95,
+      "family_error": 0.2649,
+      "n_paired_tasks": 139,
+      "n_unpaired_tasks": 0,
+      "improved": [
+        "marker:covered_all",
+        "marker:shaped_reward"
+      ],
+      "regressions": [],
+      "slipped": [],
+      "within_noise": [
+        "pass_at_1",
+        "marker:short_enough",
+        "marker:truncated",
+        "marker:words"
+      ],
+      "run_std": 0.02338129496402877,
+      "run_std_by_metric": {
+        "pass_at_1": 0.02338129496402877,
+        "marker:covered_all": 0.008242042616827048,
+        "marker:shaped_reward": 0.0072431863448153815,
+        "marker:short_enough": 0.018892027885597993,
+        "marker:truncated": 0.00374400359616211,
+        "marker:words": 2.554010875234655
+      },
+      "run_std_source": "given",
+      "run_std_runs": 3,
+      "run_std_df": 2,
+      "noise_band": 0.14228361954242544,
+      "noise_rule": "t(df=2)=4.30 x run_std x sqrt(1/1 + 1/1)",
+      "eval_runs": {
+        "before": 0,
+        "after": 0
+      },
+      "replicated": true,
+      "ceiling": false,
+      "detectable_effect": 0.079,
+      "tasks_needed": 1526,
+      "degenerate_guards": [],
+      "proxy": "marker:shaped_reward",
+      "proxy_verdict": "moved",
+      "proxy_delta": 0.0616501798561151,
+      "proxy_ci95": [
+        0.02501798561151079,
+        0.0991591726618705
+      ],
+      "over_optimized": true,
+      "metrics": {
+        "pass_at_1": {
+          "metric": "pass_at_1",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.2949640287769784,
+          "mean_b": 0.3183453237410072,
+          "delta": 0.023381294964028777,
+          "ci95": [
+            -0.01079136690647482,
+            0.05755395683453238
+          ],
+          "level": 0.95,
+          "p_value": 0.24237881059470265,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.02338129496402877,
+          "noise_band": 0.14228361954242544,
+          "within_noise": true
+        },
+        "marker:covered_all": {
+          "metric": "marker:covered_all",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.658273381294964,
+          "mean_b": 0.7446043165467626,
+          "delta": 0.08633093525179857,
+          "ci95": [
+            0.04316546762589928,
+            0.12769784172661872
+          ],
+          "level": 0.95,
+          "p_value": 0.0009995002498750624,
+          "verdict": "b_better",
+          "note": "",
+          "run_std": 0.008242042616827048,
+          "noise_band": 0.050155804361958656,
+          "within_noise": false
+        },
+        "marker:shaped_reward": {
+          "metric": "marker:shaped_reward",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.46068345323741006,
+          "mean_b": 0.5223336330935252,
+          "delta": 0.0616501798561151,
+          "ci95": [
+            0.02501798561151079,
+            0.0991591726618705
+          ],
+          "level": 0.95,
+          "p_value": 0.001999000499750125,
+          "verdict": "b_better",
+          "note": "",
+          "run_std": 0.0072431863448153815,
+          "noise_band": 0.04407740340071503,
+          "within_noise": false
+        },
+        "marker:short_enough": {
+          "metric": "marker:short_enough",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.5899280575539568,
+          "mean_b": 0.5215827338129496,
+          "delta": -0.0683453237410072,
+          "ci95": [
+            -0.1079136690647482,
+            -0.03237410071942446
+          ],
+          "level": 0.95,
+          "p_value": 0.001999000499750125,
+          "verdict": "a_better",
+          "note": "",
+          "run_std": 0.018892027885597993,
+          "noise_band": 0.1149648089293062,
+          "within_noise": true
+        },
+        "marker:truncated": {
+          "metric": "marker:truncated",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.023381294964028777,
+          "mean_b": 0.03237410071942446,
+          "delta": 0.008992805755395683,
+          "ci95": [
+            -0.00539568345323741,
+            0.025179856115107913
+          ],
+          "level": 0.95,
+          "p_value": 0.37231384307846077,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.00374400359616211,
+          "noise_band": 0.022783613314034012,
+          "within_noise": true
+        },
+        "marker:words": {
+          "metric": "marker:words",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 116.64748201438849,
+          "mean_b": 132.14928057553956,
+          "delta": 15.501798561151078,
+          "ci95": [
+            8.046762589928058,
+            23.359712230215827
+          ],
+          "level": 0.95,
+          "p_value": 0.0004997501249375312,
+          "verdict": "b_better",
+          "note": "",
+          "run_std": 2.554010875234655,
+          "noise_band": 15.542078068737096,
+          "within_noise": true
+        }
+      },
+      "warnings": [
+        "6 metrics were each tested at 95%, so up to about a 26% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
+        "OVER-OPTIMIZED: marker:shaped_reward up +0.062 (95% +0.025..+0.099) while pass_at_1 +0.023 (95% -0.011..+0.058): the policy learned something the target does not credit (Gao et al. 2022, arXiv:2210.10760)",
+        "139 paired tasks at k=4 can prove a gain of about +0.08 at 80% power; to prove the +0.023 seen here you need about 1526 tasks (holdout_size)."
+      ],
+      "config": {
+        "before": {
+          "n_tasks": 139,
+          "k": 4,
+          "temperature": null,
+          "max_tokens": null,
+          "policy_version": null,
+          "judge_version": null,
+          "prompt_hash": null,
+          "user_model": null,
+          "writer_model": null,
+          "mixed": [],
+          "truncated_share": null,
+          "answered_share": null,
+          "unclosed_think_share": null,
+          "graded_share": 1.0
+        },
+        "after": {
+          "n_tasks": 139,
+          "k": 4,
+          "temperature": null,
+          "max_tokens": null,
+          "policy_version": null,
+          "judge_version": null,
+          "prompt_hash": null,
+          "user_model": null,
+          "writer_model": null,
+          "mixed": [],
+          "truncated_share": null,
+          "answered_share": null,
+          "unclosed_think_share": null,
+          "graded_share": 1.0
+        }
+      },
+      "balanced": null,
+      "by": "probe",
+      "groups": {
+        "False": {
+          "delta": 0.034403669724770644,
+          "ci95": [
+            -0.006880733944954129,
+            0.0779816513761468
+          ],
+          "verdict": "no_difference_detected",
+          "mean_a": 0.2981651376146789,
+          "mean_b": 0.33256880733944955,
+          "n_used": 109,
+          "n_paired": 109,
+          "paired": true,
+          "rows_a": 436,
+          "rows_b": 436
+        },
+        "True": {
+          "delta": -0.016666666666666666,
+          "ci95": [
+            -0.041666666666666664,
+            0.0
+          ],
+          "verdict": "no_difference_detected",
+          "mean_a": 0.2833333333333333,
+          "mean_b": 0.26666666666666666,
+          "n_used": 30,
+          "n_paired": 30,
+          "paired": true,
+          "rows_a": 120,
+          "rows_b": 120
+        }
+      },
+      "groups_down": []
+    },
+    "method_vs_baseline": {
+      "ok": false,
+      "not_comparable": [],
+      "target": "pass_at_1",
+      "target_verdict": "no_change_detected",
+      "headline_verdict": "no_change_detected",
+      "target_delta": -0.00539568345323741,
+      "target_ci95": [
+        -0.04136690647482014,
+        0.02877697841726619
+      ],
+      "n_metrics": 6,
+      "alpha": 0.05,
+      "level": 0.95,
+      "family_error": 0.2649,
+      "n_paired_tasks": 139,
+      "n_unpaired_tasks": 0,
+      "improved": [
+        "marker:covered_all",
+        "marker:shaped_reward",
+        "marker:words"
+      ],
+      "regressions": [],
+      "slipped": [],
+      "within_noise": [
+        "pass_at_1",
+        "marker:short_enough",
+        "marker:truncated"
+      ],
+      "run_std": 0.02338129496402877,
+      "run_std_by_metric": {
+        "pass_at_1": 0.02338129496402877,
+        "marker:covered_all": 0.008242042616827048,
+        "marker:shaped_reward": 0.0072431863448153815,
+        "marker:short_enough": 0.018892027885597993,
+        "marker:truncated": 0.00374400359616211,
+        "marker:words": 2.554010875234655
+      },
+      "run_std_source": "given",
+      "run_std_runs": 3,
+      "run_std_df": 2,
+      "noise_band": 0.14228361954242544,
+      "noise_rule": "t(df=2)=4.30 x run_std x sqrt(1/1 + 1/1)",
+      "eval_runs": {
+        "before": 0,
+        "after": 0
+      },
+      "replicated": true,
+      "ceiling": false,
+      "detectable_effect": 0.0806,
+      "tasks_needed": null,
+      "degenerate_guards": [],
+      "proxy": "marker:shaped_reward",
+      "proxy_verdict": "moved",
+      "proxy_delta": 0.06385791366906474,
+      "proxy_ci95": [
+        0.031227517985611505,
+        0.09969424460431654
+      ],
+      "over_optimized": true,
+      "metrics": {
+        "pass_at_1": {
+          "metric": "pass_at_1",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.3237410071942446,
+          "mean_b": 0.3183453237410072,
+          "delta": -0.00539568345323741,
+          "ci95": [
+            -0.04136690647482014,
+            0.02877697841726619
+          ],
+          "level": 0.95,
+          "p_value": 0.8340829585207397,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.02338129496402877,
+          "noise_band": 0.14228361954242544,
+          "within_noise": true
+        },
+        "marker:covered_all": {
+          "metric": "marker:covered_all",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.6546762589928058,
+          "mean_b": 0.7446043165467626,
+          "delta": 0.08992805755395683,
+          "ci95": [
+            0.048561151079136694,
+            0.12949640287769784
+          ],
+          "level": 0.95,
+          "p_value": 0.0004997501249375312,
+          "verdict": "b_better",
+          "note": "",
+          "run_std": 0.008242042616827048,
+          "noise_band": 0.050155804361958656,
+          "within_noise": false
+        },
+        "marker:shaped_reward": {
+          "metric": "marker:shaped_reward",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.4584757194244604,
+          "mean_b": 0.5223336330935252,
+          "delta": 0.06385791366906474,
+          "ci95": [
+            0.031227517985611505,
+            0.09969424460431654
+          ],
+          "level": 0.95,
+          "p_value": 0.0009995002498750624,
+          "verdict": "b_better",
+          "note": "",
+          "run_std": 0.0072431863448153815,
+          "noise_band": 0.04407740340071503,
+          "within_noise": false
+        },
+        "marker:short_enough": {
+          "metric": "marker:short_enough",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.6151079136690647,
+          "mean_b": 0.5215827338129496,
+          "delta": -0.09352517985611511,
+          "ci95": [
+            -0.13489208633093525,
+            -0.0539568345323741
+          ],
+          "level": 0.95,
+          "p_value": 0.0009995002498750624,
+          "verdict": "a_better",
+          "note": "",
+          "run_std": 0.018892027885597993,
+          "noise_band": 0.1149648089293062,
+          "within_noise": true
+        },
+        "marker:truncated": {
+          "metric": "marker:truncated",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 0.025179856115107913,
+          "mean_b": 0.03237410071942446,
+          "delta": 0.007194244604316547,
+          "ci95": [
+            -0.012589928057553957,
+            0.02877697841726619
+          ],
+          "level": 0.95,
+          "p_value": 0.6151924037981009,
+          "verdict": "no_difference_detected",
+          "note": "",
+          "run_std": 0.00374400359616211,
+          "noise_band": 0.022783613314034012,
+          "within_noise": true
+        },
+        "marker:words": {
+          "metric": "marker:words",
+          "paired": true,
+          "n_paired": 139,
+          "n_only_a": 0,
+          "n_only_b": 0,
+          "paired_share": 1.0,
+          "n_used": 139,
+          "mean_a": 113.20323741007195,
+          "mean_b": 132.14928057553956,
+          "delta": 18.946043165467625,
+          "ci95": [
+            11.138489208633093,
+            27.60611510791367
+          ],
+          "level": 0.95,
+          "p_value": 0.0004997501249375312,
+          "verdict": "b_better",
+          "note": "",
+          "run_std": 2.554010875234655,
+          "noise_band": 15.542078068737096,
+          "within_noise": false
+        }
+      },
+      "warnings": [
+        "6 metrics were each tested at 95%, so up to about a 26% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
+        "OVER-OPTIMIZED: marker:shaped_reward up +0.064 (95% +0.031..+0.100) while pass_at_1 -0.005 (95% -0.041..+0.029): the policy learned something the target does not credit (Gao et al. 2022, arXiv:2210.10760)",
+        "139 paired tasks at k=4 can prove a gain of about +0.08 at 80% power (holdout_size).",
+        "pass_at_1 moved the wrong way for True: -0.058 (95% -0.108..-0.017, 120 rows)"
+      ],
+      "config": {
+        "before": {
+          "n_tasks": 139,
+          "k": 4,
+          "temperature": null,
+          "max_tokens": null,
+          "policy_version": null,
+          "judge_version": null,
+          "prompt_hash": null,
+          "user_model": null,
+          "writer_model": null,
+          "mixed": [],
+          "truncated_share": null,
+          "answered_share": null,
+          "unclosed_think_share": null,
+          "graded_share": 1.0
+        },
+        "after": {
+          "n_tasks": 139,
+          "k": 4,
+          "temperature": null,
+          "max_tokens": null,
+          "policy_version": null,
+          "judge_version": null,
+          "prompt_hash": null,
+          "user_model": null,
+          "writer_model": null,
+          "mixed": [],
+          "truncated_share": null,
+          "answered_share": null,
+          "unclosed_think_share": null,
+          "graded_share": 1.0
+        }
+      },
+      "balanced": null,
+      "by": "probe",
+      "groups": {
+        "False": {
+          "delta": 0.009174311926605505,
+          "ci95": [
+            -0.03211009174311927,
+            0.05045871559633028
+          ],
+          "verdict": "no_difference_detected",
+          "mean_a": 0.32339449541284404,
+          "mean_b": 0.33256880733944955,
+          "n_used": 109,
+          "n_paired": 109,
+          "paired": true,
+          "rows_a": 436,
+          "rows_b": 436
+        },
+        "True": {
+          "delta": -0.058333333333333334,
+          "ci95": [
+            -0.10833333333333334,
+            -0.016666666666666666
+          ],
+          "verdict": "a_better",
+          "mean_a": 0.325,
+          "mean_b": 0.26666666666666666,
+          "n_used": 30,
+          "n_paired": 30,
+          "paired": true,
+          "rows_a": 120,
+          "rows_b": 120
+        }
+      },
+      "groups_down": [
+        "True"
+      ]
+    }
   },
-  "contamination": {
-    "n_distinct_holdout_probes": 3,
-    "rows_per_probe": 10,
-    "decontaminate_on_clean_set": 0.0,
-    "decontaminate_on_attack_contaminated_set": 0.0,
-    "kept_attack_contaminated": 525,
-    "attack_string_overlap_train_vs_holdout": 0,
-    "finding": "decontaminate() reports 0.0 on a training set carrying the holdout's own three attack strings; filed as #636"
-  },
-  "modal_runs": [
-    {
-      "app": "ap-Y9HV7acBzeYD3KwEOth0Tr",
+  "filter": {
+    "baseline": {
       "arm": "baseline",
       "filter_metric": "score",
-      "gpu": "H100",
-      "status": "step 9/40 at publish time; adapter lands on the volume when it finishes"
+      "base_model": "Qwen/Qwen3-1.7B",
+      "steps": 40,
+      "k": 4,
+      "seed": 11,
+      "groups_seen": 320,
+      "groups_dropped": 20,
+      "drop_rate": 0.0625
     },
-    {
-      "app": "ap-9AxXVg8ePj7EwsSKEoHCDP",
+    "method": {
       "arm": "method",
       "filter_metric": "outcome",
-      "gpu": "H100",
-      "status": "step 9/40 at publish time; adapter lands on the volume when it finishes"
+      "base_model": "Qwen/Qwen3-1.7B",
+      "steps": 40,
+      "k": 4,
+      "seed": 11,
+      "groups_seen": 320,
+      "groups_dropped": 248,
+      "drop_rate": 0.775
     }
-  ],
-  "aborted_runs": [
-    {
-      "reason": "own system prompt pre-solved the behaviour; no headroom",
-      "gpu_min": 5
-    },
-    {
-      "reason": "CUDA OOM at k=8 with the 1,700-token policy prompt and checkpointing off",
-      "gpu_min": 5
-    }
-  ],
-  "adapters_on_volume": "voice-filter-runs: baseline/adapter, method/adapter, {arm}/filter_trace.json",
-  "next": "modal run eval_modal.py; modal volume get voice-filter-runs eval out --force; python run.py --analyse",
+  },
   "prep": {
     "n_train": 525,
     "n_train_before_decontam": 525,
