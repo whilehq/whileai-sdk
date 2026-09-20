@@ -6,7 +6,10 @@ description: "Where the code lives, how to run the tests, lint and type checks, 
 
 ## Package layout
 
-The public surface is the package itself: `import whileai.simulations as wai`. Internals are grouped by stage and may move between releases.
+The public surface is the front door: `import whileai as wai`, under thirty
+names ([style](/reference/style), rule 1). `whileai.simulations` is the legacy
+path and gains no new names. The folders below are the internals it is built
+from; they are grouped by stage and may move between releases.
 
 | folder or file | what lives there |
 |---|---|
@@ -49,6 +52,54 @@ Three things are not run:
 - A block that is a sketch rather than a program (a signature, the shape of a return value, a live training run), listed in `scripts/doc_snippets/skips.json` by page and a substring of its code, with a reason. The list sits off the page because Mintlify renders a fence info string as a filename badge and an HTML comment breaks its MDX parser.
 
 Names a guide leaves to the reader (`agent`, `TOOLS`, `POLICY`, `scored`) come from a fixture under `scripts/doc_snippets/` that mirrors the page's path below `docs/` and runs before its first block; most fixtures are one line, `from _common import *`. Check one page with `--page docs/evals.md -v`, or a released wheel with `--python /path/to/venv/bin/python`.
+
+## Contributing a recipe
+
+A recipe directory is necessary and not sufficient. Two steps past the
+directory are what CI checks, and both of them are invisible locally until a
+check goes red, so do them before the first push.
+[CONTRIBUTING.md](https://github.com/whilehq/whileai-sdk/blob/main/CONTRIBUTING.md#contributing-a-recipe)
+has the conventions; this is the wiring.
+
+```bash
+cp -r recipes/_template recipes/03-select/my-recipe   # README.md, run.py, smoke.sh
+```
+
+**1. Register the entry point.** `tests/recipes/test_offline_examples.py`
+holds two collections: `CLI_EXAMPLES`, the scripts that answer `--help`
+offline, and `NEEDS_MODAL`, the ones that need a Modal token. Every recipe
+directory has to appear in one of them.
+
+```python
+CLI_EXAMPLES = [..., "03-select/my-recipe/run.py"]
+NEEDS_MODAL = {..., "03-select/my-recipe/train_modal.py"}
+```
+
+Skip it and `test_every_example_module_compiles` fails with
+`new recipe directory with no CLI entry point in this test`.
+
+**2. Regenerate the recipe pages.** `docs/recipes/**` is generated from each
+recipe's `README.md`, so a new directory leaves the tree stale until you run
+the generator and commit what it wrote.
+
+```bash
+uv run python scripts/gen_recipe_docs.py          # writes docs/recipes/ and docs.json
+uv run python scripts/gen_recipe_docs.py --check  # what CI runs
+```
+
+It writes the recipe's own page, its step index, `docs/recipes/index.mdx` and
+the `Recipes` nav group in `docs/docs.json`. Skip it and the job
+`docs/recipes matches the recipe READMEs` fails and names every stale file.
+
+Then run the offline path and the linters the recipe jobs run:
+
+```bash
+sh recipes/03-select/my-recipe/smoke.sh
+uv run ruff check recipes/ && uv run ruff format --check recipes/
+```
+
+Next: the conventions a recipe README follows are in
+[recipes/README.md](https://github.com/whilehq/whileai-sdk/blob/main/recipes/README.md#conventions).
 
 ## License
 

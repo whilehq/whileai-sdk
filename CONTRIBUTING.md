@@ -58,10 +58,26 @@ cp -r recipes/_template recipes/03-select/my-recipe
 sh recipes/03-select/my-recipe/smoke.sh     # what CI will run
 ```
 
+Two steps past the directory, both of which fail as a red check rather than
+locally, so do them before the first push:
+
+1. **Register the entry point** in `tests/recipes/test_offline_examples.py`:
+   `run.py` in `CLI_EXAMPLES`, any Modal script in `NEEDS_MODAL`. Every recipe
+   directory has to appear in one of the two.
+2. **Regenerate the recipe pages** and commit what the generator wrote:
+
+   ```bash
+   uv run python scripts/gen_recipe_docs.py          # writes docs/recipes/, docs.json
+   uv run python scripts/gen_recipe_docs.py --check  # what CI runs
+   ```
+
+[Development](https://docs.withwhile.com/reference/development#contributing-a-recipe)
+says what each step fails with.
+
 Two rules on top of the conventions:
 
 - **Every recipe has an offline path.** `smoke.sh` runs the whole script with
-  no key, no GPU and no spend, in under a minute — `--dry-run`, `--limit`,
+  no key, no GPU and no spend, in under a minute: `--dry-run`, `--limit`,
   `--steps`, whatever fits. CI runs every `smoke.sh` in `recipes/` on every
   pull request, so a recipe that needs an A10G still gets its wiring checked
   by a machine.
@@ -70,7 +86,7 @@ Two rules on top of the conventions:
 
 A recipe that trains on Modal we verify ourselves on our own account before
 merging, because GitHub does not give a fork's pull request access to a
-repository's secrets — by design, and we are not working around it. Say in the
+repository's secrets, by design, and we are not working around it. Say in the
 PR body what you ran and what it cost, and we will run it.
 
 Found a recipe that does not work? Open an issue with the recipe path, the
@@ -79,7 +95,7 @@ command, and what happened. Bad recipes are bugs.
 ## Golden harness: proving an engine change left `simulate()` alone
 
 Any change under `whileai/simulations/` that could move `simulate()` output
-has to be shown to be output-preserving — or its diff has to be stated and
+has to be shown to be output-preserving, or its diff has to be stated and
 justified. `scripts/golden.py` runs 13 offline configurations at
 `concurrency=1` on fixed seeds, scrubs the keys that cannot be reproducible
 (wall-clock timings, and the `uuid4` scoring run id that `run_judge` stamps on
@@ -98,5 +114,5 @@ five seconds and needs no API key or GPU. If the output does change and that
 change is the point of the PR, say in the PR body exactly which keys moved and
 why.
 
-`scripts/` is otherwise gitignored — local helpers live there and stay local.
+`scripts/` is otherwise gitignored: local helpers live there and stay local.
 `golden.py` is the one committed exception.

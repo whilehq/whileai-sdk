@@ -336,6 +336,13 @@
     ]
   },
   "seo": {
-    "indexing": "all"
+    "indexing": "all",
+    "metatags": {
+      "og:site_name": "While",
+      "og:description": "The whileai SDK, import whileai as wai: a scientific post-training library for language models.",
+      "og:image": "https://docs.withwhile.com/assets/hero-light.png",
+      "og:image:alt": "wai, the While whale",
+      "twitter:card": "summary_large_image"
+    }
   }
 }
