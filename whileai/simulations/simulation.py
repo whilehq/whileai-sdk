@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from ..config import resolve_backend as _resolve_backend
 from .data import SimulationData
 from .defaults import DEFAULT_BUDGET
 from .generate.scenarios import SEARCH_ARMS, reallocate_search_arms
@@ -123,10 +124,13 @@ def simulate(
     The agent and the budget:
 
     * ``agent``: a callable ``message -> trajectory``, played single-turn
-      (one message in, one trajectory out). Leave it ``None`` to have the
-      SDK play a multi-turn agent from ``tools``, ``system_prompt``
-      (alias ``policy``) and ``backend`` (its model); ``spec=`` is the
-      third way in.
+      (one message in, one trajectory out); or a backend object
+      (``wai.OpenAI("gpt-4.1-mini")``) or spec string
+      (``"openai:gpt-4.1-mini"``), which the SDK plays multi-turn from
+      ``tools`` and ``system_prompt``. Leave it ``None`` to play the
+      model ``configure(agent=)`` set, else the model While hosts, from
+      ``tools``, ``system_prompt`` (alias ``policy``) and ``backend``
+      (its model); ``spec=`` is the third way in.
     * ``budget``: rows the run may produce, 1000 by default, a per-run cap
       when ``runs`` is above 1 (``runs=3, budget=100`` returns up to 300
       rows, and ``report()["budget_per_run"]`` carries the cap).
@@ -317,6 +321,12 @@ def simulate(
     n_runs = int(runs)
     if n_runs < 1:
         raise ValueError("runs= is how many times to replay the task set, 1 or more")
+    # A backend object (``wai.OpenAI("gpt-4.1-mini")``) is resolved here the
+    # way ``configure(agent=...)`` resolves it: its spec string goes down
+    # the same road as ``agent="openai:gpt-4.1-mini"``, and a key given on
+    # it is kept for its provider (#472).
+    agent = _resolve_backend(agent, kwarg="agent")
+    backend = _resolve_backend(backend, kwarg="backend")
     # Named knobs travel the same road as before (``advanced`` / aliases),
     # so nothing downstream changes; they are in the signature to be seen.
     tools = _tool_schemas(tools)
