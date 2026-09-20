@@ -5,6 +5,18 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Training methods as objects: `wai.OPD(teacher)` (on-policy distillation, Agarwal et al. 2023,
+  arXiv:2306.13649), `wai.OPSD(privileged=)` (on-policy self-distillation, Shenfeld et al. 2026,
+  arXiv:2601.19897) and `wai.Async(method, off_policy_steps=)` (bounded-staleness RL, Noukhovitch et
+  al. 2024, arXiv:2410.18252; Khatri et al. 2025, arXiv:2510.13786), every default named and cited in
+  `defaults.py`. `wai.prime_rl_config(env, method, model=, out=)` writes the TOML prime-rl runs it
+  with and prints which knobs the trainer reads, which it ignores and why, and the launch line; a
+  knob prime-rl cannot honor (`tis`) is refused, not dropped. `wai.train(method=<object>)` says to
+  use it. Nothing trains here: the trainer is prime-rl on your GPUs with your keys. Design and the
+  four proof recipes to follow: whilehq/whileai-sdk#564. `Backend` leaves the front door (the base
+  class of `OpenAI`, `Anthropic`, `Endpoint`, `Ollama`, `Hosted`; still importable) to make room
+  for the `methods` namespace under the thirty-name cap.
+
 - CONSTITUTION.md belief 6 now names the README skeleton (the one Polars, TRL, vLLM and uv share, adopted in #566) and a 900-word prose budget; `tests/api/test_readme_skeleton.py` pins the section order, the five-line loop before the first heading, the budget, the offline quick start with its output, and the numbered references. Mirrored to docs/reference/constitution.
 - `simulate(reproducible=True, seed=...)` draws the same rows on every CPython version, 3.10 to 3.13. The batch picker summed floats with the builtin `sum`, whose algorithm changed in CPython 3.12, so one novelty score per run could come out `0.0` on 3.11 and `-2.2e-16` on 3.12 and swap a row (#410). Every float sum on the row-selection path is now `math.fsum` (correctly rounded, fixed by IEEE 754) and a candidate identical to a tested row scores exactly `0.0`. This changes the draw for existing seeds on every CPython version: a seed that drew one row set on 3.11 and another on 3.12 now draws one shared set, which in general matches neither (the issue's own script happens to land on its old 3.12 rows). Recorded numbers that a verify run compares against need regenerating once. A golden-value test pins the draw from here on, so any later change to it is a CHANGELOG line, not a surprise. Pool scans in the run loop no longer re-derive each prompt's situation key (`json.dumps`) on every poll or recount waiting seeds per prompt; the offline writer's refill loop is two to three times faster and its wall time no longer swings with the draw.
 - `recipes/04-train/grpo` (and DPO, which shares `build_prompts`): the same `--seed` now writes the same prompt set and holdout on every run. `build_prompts` calls `simulate` with `reproducible=True`; at `concurrency=4` without it, which situations landed under the budget depended on thread timing, and two runs at `--seed 0` got 112 and 119 prompts with different holdouts (#450). The READMEs carry the real counts (117 prompts, 92 train, 25 holdout on Python 3.12; one more prompt on 3.10 and 3.11, where `sum()` adds floats differently) in place of "about seventy / fourteen", and say to freeze a set across machines with `--prompts-file`.
