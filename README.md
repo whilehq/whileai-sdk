@@ -2,7 +2,7 @@
   <a href="https://withwhile.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-dark.png">
-      <img src="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-light.png" alt="While. Models improve while they work." width="720">
+      <img src="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-light.png" alt="whileai. Models improve while they work." width="720">
     </picture>
   </a>
 </p>

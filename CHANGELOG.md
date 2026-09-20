@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- README banner (docs/assets/hero-*.png): the whale with the full `whileai` wordmark, the same
+  lockup as docs/logo, in place of `wai`. Tagline unchanged.
 - `tracked.open(run_id)` binds a `Run` to a run that already exists (GET, never POST), so a
   coding agent can backfill the record, hours, cost, a score or a note from any later session with
   the same `finish` / `score` / `note` / `archive` calls; the Runs page's "missing" list is what it
