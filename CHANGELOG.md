@@ -13,9 +13,11 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `seeded_agent` is unchanged: its `leak` mode quotes the privileged block on
   purpose and labels the row `seeded == ["leak"]`, which is what the gate is
   there to catch.
+
 ## 1.00 (2026-09-20)
 
 - `whileai init` runs the evals check from any working directory; 0.99 resolved the script path against the skill folder and printed a can't-open-file error.
+
 ## 0.99 (2026-09-19)
 
 - `whileai status` keeps stdout pure JSON; the `repo` block inside it (`agents_md`, `stale`, `skills`) says whether to run `whileai init`; no hint line (the 0.97 publish failed on a test that parses the JSON).
@@ -50,6 +52,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   no longer read (set `WHILEAI_*`), `~/.zeroproof` is no longer consulted
   (run `whileai login` again if you never had `~/.whileai`), and the release
   gate no longer reads the old PyPI name.
+
 ## 0.95 (2026-09-19)
 
 - `tracked.run(version, harness=Harness(...))` ties a run to the exact
@@ -59,6 +62,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `pins["model"]`. A string is a label only; left out, the harness given to
   `track()` is pinned. For a team iterating on a frontier-model agent this
   is how two scores on the Runs page say which prompt produced each.
+
 ## 0.94 (2026-09-19)
 
 - `skills/strengthen-your-evals` writes the held-out asks once and replays
@@ -67,6 +71,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   two versions run from the same seed do not face the same asks; a
   scripted agent hid this, a Claude Haiku 4.5 agent showed it on the first
   run.
+
 ## 0.93 (2026-09-19)
 
 - Runs can be archived. `tracked.archive(run_id)` (or `run.archive()`) takes
