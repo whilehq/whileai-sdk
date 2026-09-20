@@ -401,6 +401,8 @@ report = sweep.run(variants, tasks=frozen)  # frozen: the run whose asks are the
 print(report)  # ranked table; a winner only when its interval clears the rest and the noise floor
 ```
 
+A variant label is the run's version on the platform, 40 characters at most, so `sweep.run` refuses a long or repeated label before the first rollout. Hand labels attach to the replies a person read, and a sweep rolls fresh ones, so pass `labels=Judge(agreement=, human_n=)` measured once on the frozen run with `judge_trust`. `concurrency=` caps parallel rollouts per variant (the library default is 32). The report says when the test has under 50 asks: the platform verdict reads unproven below that, whatever the gap.
+
 ### Say what the runs are for, and show your working
 
 The typed objects above are the evidence. Three free-form calls put the claim, the pictures and the commentary around it, so the person reading the dashboard knows what the runs are for before they read a number.
