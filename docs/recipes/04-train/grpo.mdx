@@ -39,6 +39,18 @@ steps of 8 generations, one A10G, under fifteen minutes. The run's URL is
 printed at the start. No key means the same run with the numbers printed at
 the end only.
 
+`--seed 0` fixes the data: every run at the same seed on the same Python
+builds the same prompt set and the same holdout, byte for byte (117
+prompts, 91 naming an order id, 92 train and 25 holdout on Python 3.12
+and later; 118, 92 and 26 on 3.10 and 3.11, where `sum()` adds floats
+differently and one near-tie in the writer's novelty filter lands the
+other way). Two runs that differ only in `--steps` or `--run-name` are
+paired on one holdout and their before/after numbers compare; a different
+seed is a different prompt set and a different holdout. To freeze the set
+across machines and Python versions, write it once and pass it back in
+with `--prompts-file` (the model-written `prompts.jsonl` below is one such
+file).
+
 ## The environment
 
 `reward.py` is the whole environment. The agent is the refund assistant with
@@ -111,7 +123,7 @@ This is the reasoning-model recipe at toy scale: verifiable reward,
 group-relative advantage, no value model, small KL to the reference
 (`beta=0.04`), LoRA so a 1.5B model trains on one GPU. Two things to try
 before believing a number: `--steps 10` to check the reward curve moves at
-all, and a second seed on the prompts, since 40 holdout prompts is a wide
+all, and a second seed on the prompts, since 25 holdout prompts is a wide
 interval. The dashboard shows both runs side by side.
 
 ## More prompts, tighter intervals
@@ -124,10 +136,16 @@ bootstrap 95% interval from `run.delta`. The holdout split is a plain hash
 by scenario on the template set and `split_holdout_stratified` once
 `--prompts-file` is given (the section on categories below says why). A
 GPU run is not bit-reproducible; expect the same verdict, not the same
-third decimal.
+third decimal. The data is: the same `--seed` writes the same prompt set
+and the same holdout on every run. `build_prompts` calls `simulate` with
+`reproducible=True`; without it, which situations landed under the budget
+depended on thread timing, and two runs at `--seed 0` got 112 and 119
+prompts with two different holdouts (whilehq/whileai-sdk#450).
 
-The template writer gives about seventy distinct prompts, so the holdout is
-fourteen and every pass@1 interval is a quarter wide. `prompts.jsonl` is a
+The template writer gives 117 distinct prompts at `--seed 0` on Python
+3.12 (91 name an order id, 16 do not, 10 are off topic; one more on 3.11),
+so the holdout is 25 prompts and every pass@1 interval is about a quarter
+wide. `prompts.jsonl` is a
 model-written set: Qwen2.5-7B-Instruct wrote six customer messages per
 template seed from two angles (plain, and six kinds of customer),
 `prompts.py` kept the ones still in their seed's category (the order id
@@ -145,8 +163,8 @@ uv run --with modal modal run recipes/04-train/dpo/train_modal.py  --prompts-fil
 On this set the holdout is 159 prompts from 14 situations. GRPO, 40 steps,
 same flags as above: pass@1 0.17 [0.12, 0.22] to 0.29 [0.23, 0.35], paired
 delta +0.12 [+0.06, +0.19], `moved`, `well_formed` flat at 1.0, reward
-climbing the same way as on the template set. The interval is a third of
-the width it was with fourteen holdout prompts, which is the point.
+climbing the same way as on the template set. The interval is half the
+width it was with 25 holdout prompts, which is the point.
 
 DPO on the same set (`recipes/04-train/dpo`, 60 steps, 8 samples per prompt for
 the pairs): 308 pairs from 193 of 548 train prompts with contrast, pass@1
@@ -179,7 +197,7 @@ stays paired.
 | `--balance` | 0.0 | repeat minority-category train prompts up to this share |
 | `--run-name` | refund-grpo-v1 | the run's name on the dashboard and its folder on the volume |
 | `--base-model` | Qwen/Qwen2.5-1.5B-Instruct | any chat model TRL's `GRPOTrainer` loads |
-| `--seed` | 0 | the template writer's seed |
+| `--seed` | 0 | the template writer's seed; the same seed builds the same prompt set and holdout |
 | `--gpu` | A10G | or `ZP_GRPO_GPU`; the default run fits an A10G |
 
 ## Variants as flags

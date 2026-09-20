@@ -10,7 +10,8 @@
 What happens:
 
 1. Prompts come from the simulator's offline template writer (no key), split
-   by scenario into train and holdout. The reward is the policy's one
+   by scenario into train and holdout; the same ``--seed`` builds the same
+   set and the same split on every run. The reward is the policy's one
    testable rule, in ``reward.py``: look the order up first, never invent an
    id, ask when none is given. It is a function, not a judge.
 2. The holdout is sampled 4 times per prompt before training and scored:
