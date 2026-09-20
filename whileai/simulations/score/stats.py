@@ -1351,7 +1351,9 @@ def decontaminate(
     Reach for it before any train-versus-holdout comparison: a held-out task
     that also sits in the training data measures memory, not the change
     (Lambert 2025, chapter Evaluation). It returns ``(clean_rows, report)``:
-    the rows that survived, and a report with the count under each rule
+    the rows that survived (a list that also carries the system prompt and
+    tools the input carried, so ``select(clean_rows).export()`` writes
+    them), and a report with the count under each rule
     (``n_contaminated`` in total), hits per field, the eval text count, and
     the first offenders with their coverage (or ``similarity`` for semantic
     hits). ``rules_skipped`` names each rule that could not run on these
@@ -1608,7 +1610,13 @@ def decontaminate(
                 "as same_task first; check the semantic ones before treating them as the same "
                 "task, and raise similarity= if your embedder scores unrelated prompts high."
             )
-    kept = [rows[i] for i in kept_index]
+    # A RowList, not a plain list: it keeps the system prompt and tools the
+    # rows were generated under, so ``select(kept).export()`` writes them
+    # (#592). ``rows`` may be a ScoredData, a RowList or a plain list.
+    from ..data import RowList, row_config
+
+    system, tools = row_config(rows)
+    kept = RowList((rows[i] for i in kept_index), system_prompt=system, tools=tools)
     n_exact = sum(1 for f in flagged if f["match"] == "exact")
     n_same_task = sum(1 for f in flagged if f["match"] == "same_task")
     return kept, {

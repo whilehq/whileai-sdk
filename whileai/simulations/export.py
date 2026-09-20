@@ -480,7 +480,10 @@ def _resolve(source) -> tuple[list[dict], str, list, str]:
         return list(source.trajectories), system, tools, ""
     if isinstance(source, (str, Path)):
         return load_jsonl(source), "", [], str(source)
-    return list(source), "", [], ""
+    # a RowList (scored.rows, a slice, a decontaminate result) carries both
+    system = str(getattr(source, "system_prompt", "") or "")
+    tools = list(getattr(source, "tools", None) or [])
+    return list(source), system, tools, ""
 
 
 def training_rows(
