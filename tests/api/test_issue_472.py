@@ -80,5 +80,5 @@ def test_transport_error_names_what_agent_takes():
         detect(object())
     text = str(err.value)
     assert "cannot detect a transport for object" in text
-    assert "wai.OpenAI" in text and "openai:gpt-4.1-mini" in text
+    assert "OpenAI(model)" in text and "provider:model" in text
     assert "tools=." not in text
