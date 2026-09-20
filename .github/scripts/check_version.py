@@ -164,6 +164,16 @@ def main() -> int:
         )
     if current.pre or current.post or current.dev or current.local:
         fail(f"{version!r} has a pre/post/dev/local segment; releases must be plain.")
+    if current.public != version:
+        # PEP 440 drops leading zeros: "1.07" installs as "1.7", and then
+        # wai.__version__ is a string CHANGELOG.md never uses (#612).
+        fail(
+            f"{version!r} is not its own normal form; PyPI and importlib.metadata would "
+            f"report {current.public!r}. Write the counter with no zero padding "
+            f"(0.99 then 0.100)."
+        )
+    if current.release[0] != 0:
+        fail(f"{version!r} rolled the major; the counter stays 0.N (0.99 then 0.100).")
 
     prior = published(name)
     print(f"package        : {name}")

@@ -12,7 +12,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   since 0.72 still answers and a credentials file that pinned it moves over on its own. The
   old token gate (datasets, traces, `whileai.simulations`) keeps its original hostname; it no
   longer answers on the While one.
-
+- `wai.__version__` is the string the top `CHANGELOG.md` heading uses: `release.py --dry-run`
+  and the publish gate refuse a version that is not its own PEP 440 normal form (`1.07`
+  installs as `1.7`) or that rolls the major, and `tests/api/test_version_string.py` pins
+  the installed metadata version to the top heading and to `pyproject.toml` (#612).
 - `whileai.config.provenance()`: one line, `whileai <version> from <directory>`, ending
   `(source tree, not the installed wheel)` when a clone's `whileai/` is shadowing the wheel
   and `(source tree, installed editable)` after `pip install -e .`. Every recipe prints it
