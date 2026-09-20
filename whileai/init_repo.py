@@ -49,6 +49,7 @@ Rules:
 - The agent is a callable `message -> {{"steps": [...], "final_text": ...}}` that runs its own tools. `whileai init-evals` writes that wrapper for a Python bot.
 - Write the held-out asks once, then replay them with `tasks=` for every version. Never hand-pick the asks the agent failed.
 - Hand labels come from a person. Ask before labelling; never invent `gold_reward`.
+- You know this repo best: name the agent after the product, behaviors as the policy doc phrases them, versions as the team ships them (tag, PR, date, prompt label), the test by its content hash. https://docs.withwhile.com/platform/naming
 - Score every behavior and report: `track(...)`, `tracked.behavior(...)`, `tracked.run(version, method="eval", harness=Harness(...))`, `run.score(...)`, `run.finish(...)`, `print(tracked.verdict())`.
 - A difference is a result only when its interval excludes zero and clears the noise floor. Otherwise say "about the same".
 - `WHILEAI_API_KEY` (`whileai signup --email you@example.com`) is needed only for the report; everything else runs offline with no key.
