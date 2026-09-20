@@ -913,6 +913,7 @@ compare(
     by: str | Callable[[dict], Any] | None = None,
     run_std: float | Mapping[str, float | None] | None = None,
     run_std_runs: int | None = None,
+    train_runs: TrainRuns | None = None,
     proxy: str | None = None,
     n_boot: int = 2000,
     seed: int = 0,
@@ -968,6 +969,11 @@ Arguments that matter:
 * `run_std` and `run_std_runs`: the evaluation's own re-run
   standard deviation, per metric or as one number, and how many
   re-runs it was computed from. See the noise floor below.
+* `train_runs`: the rows of every independent training seed of each
+  arm, when the two sides are separately trained models: a list of
+  row sets for the after arm (the before arm untrained), or
+  `{"before": [...], "after": [...]}` with `None` for an arm that
+  was not trained. See training seeds below.
 * `alpha` (0.05): the false-positive rate every verdict runs at.
   Each interval is at `1 - alpha` (`ci95` at the default), the
   re-run band uses the same quantile, and `family_error` is
@@ -1040,6 +1046,27 @@ per side: 2.78 x floor x sqrt(2/3)); `run_std` is then the headline
 metric's floor, `run_std_by_metric` has them all, `noise_band` is
 the headline band, `noise_rule` spells it out, and `eval_runs`
 says how many runs each side had.
+
+Training seeds. The noise floor measures the eval; a delta between
+two separately trained models also carries training variance, which
+the floor cannot see (#356: one recipe read -0.065 [-0.117, -0.013]
+on one run and +0.050 on the next, at one seed per arm). Pass
+`train_runs` and the headline metric gains a between-seed term: each
+trained arm's per-seed means give a between-seed standard deviation
+`train_std[arm]`, the delta's variance adds `std**2 / n_seeds` per
+arm, and `train_ci95` is the interval centred on the across-seed
+delta `train_delta` and widened in quadrature by the two-sided t
+quantile at `train_df = sum(n_seeds - 1)` (Lambert 2025, chapter
+Evaluation; Miller 2024, arXiv:2411.00640, on the variance components
+a claim rests on). `moved` then needs that interval to exclude zero
+as well; when it covers zero the verdict is `no_change_detected` and
+a warning says the seed spread ate the delta. Fewer than
+`MIN_TRAIN_SEEDS` (2) seeds on a trained arm resolves nothing: the
+verdict is `unresolved`, the interval and floor lines still print,
+and the line says "one training seed per arm; add a seed to resolve".
+Without `train_runs` the report says nothing about training seeds
+(a prompt edit or a model swap has none); the paper-recipe contract
+(`recipes/papers/check.py`) reads a one-seed delta as unresolved.
 
 Comparability. `config` says what each side was produced with
 (`pass_at(...).config` per side: task count, k, temperature, max_tokens,

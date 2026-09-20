@@ -458,6 +458,18 @@ MIN_CI_TASKS = 3
 # (Lambert 2025, chapter Evaluation: a held-constant eval moves 0.25 to
 # 1.5 points between runs; convention on the count).
 MIN_RERUNS = 3
+# MIN_TRAIN_SEEDS = 2: independently trained seeds per arm before
+# ``delta_report(train_runs=)`` may call a delta between two trained
+# models "moved"; one seed per arm reads ``unresolved``. The claim is a
+# delta between two separately trained models, and the eval re-run floor
+# (``run_std``) measures only the eval, so one seed cannot separate the
+# change from run-to-run training variance (#356: the same recipe
+# flipped sign, -0.065 to +0.050, between two runs at one seed). Two is
+# the fewest that give a between-seed spread at all; the between-seed
+# term is the seed-to-seed variance of each arm's mean (Lambert 2025,
+# chapter Evaluation; Miller 2024, arXiv:2411.00640, on adding the
+# variance components a claim rests on). Convention on the count.
+MIN_TRAIN_SEEDS = 2
 # BASE_PASS_RATE = 0.6: the before-side pass rate ``holdout_size`` assumes
 # when no rows are given. The centre of the 20-80 difficulty band, where a
 # binary task carries the most variance and the sizing is most
@@ -1810,6 +1822,7 @@ __all__ = [
     "MIN_KAPPA",
     "MIN_REPLY_TOKENS",
     "MIN_RERUNS",
+    "MIN_TRAIN_SEEDS",
     "MONITOR_BUFFER",
     "MONITOR_CONCURRENCY",
     "MONITOR_DELTA",

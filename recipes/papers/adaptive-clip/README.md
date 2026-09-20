@@ -35,9 +35,10 @@ clip where it cannot bind, so it could not have tested the paper. See Climb.
 | Recipe (bound slides with the group) | 0.52 | [0.45, 0.59] | 0.74 | 40 | 7.6 |
 
 Recipe vs baseline: **+0.050 [0.000, 0.100]** over 120 paired tasks.
-Verdict: **flat**. The interval reaches zero, so this is not a gain you can
-bank. Read it as: at this size, sliding the bound still cannot be shown to do
-anything.
+Verdict: **unresolved**. One training seed per arm; a second seed on each arm,
+passed as `train_runs=`, would resolve it to moved or flat. The interval
+reaches zero, so this is not a gain you can bank either way. Read it as: at
+this size, sliding the bound still cannot be shown to do anything.
 
 **Read the Climb table before you read this one.** The previous run of this
 exact configuration reported -0.065 [-0.117, -0.013] — the recipe 6.5 points

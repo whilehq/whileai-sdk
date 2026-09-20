@@ -37,7 +37,9 @@ Climb.
 | Recipe (endpoints only) | 0.28 | [0.20, 0.36] | 0.50 | 75 | 21.7 |
 
 Recipe vs baseline: **-0.012 [-0.074, +0.047]** over 64 paired problems.
-Verdict: **flat**. The interval covers zero, and the proxy check says
+Verdict: **unresolved**. One training seed per arm; a second seed on each arm,
+passed as `train_runs=`, would resolve it to moved or flat. The interval
+covers zero, and the proxy check says
 **over-optimized**: the shape of the trace moved +0.137 [+0.070, +0.207] while
 pass@1 did not follow it.
 
