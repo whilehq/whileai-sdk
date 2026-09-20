@@ -14,6 +14,13 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `prime_rl_config` stamps `harness.id = "null"` and `runtime.type = "subprocess"` on every source,
   writes no split key (a verifiers v1 taskset names its own, `dataset_split`), and takes
   `source.`, `train_source.` and `eval_source.` overrides. New guide: docs/distillation.
+## 1.05 (2026-09-20)
+
+- The release gate counts a `v<version>` tag as shipped only when its
+  annotation reads `whileai <version>`. Tags left from the packages this
+  repository was before the rename made it skip 1.01 and 1.02 (below) as
+  already published; the two stale tags are deleted and the check no longer
+  trusts a bare tag name.
 - Training methods as objects: `wai.OPD(teacher)` (on-policy distillation, Agarwal et al. 2023,
   arXiv:2306.13649), `wai.OPSD(privileged=)` (on-policy self-distillation, Shenfeld et al. 2026,
   arXiv:2601.19897) and `wai.Async(method, off_policy_steps=)` (bounded-staleness RL, Noukhovitch et
@@ -28,7 +35,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 - Naming convention for everything a coding agent posts to the platform: `docs/platform/naming` (agent after the product, behaviors as the policy doc phrases them, versions as the team ships them, harness variants `prompt@model`, the test by its content hash). The `AGENTS.md` block from `whileai init` carries it in one line and `strengthen-your-evals` (3.1.0) says its example names are examples.
 - CONSTITUTION.md belief 6 now names the README skeleton (the one Polars, TRL, vLLM and uv share, adopted in #566) and a 900-word prose budget; `tests/api/test_readme_skeleton.py` pins the section order, the five-line loop before the first heading, the budget, the offline quick start with its output, and the numbered references. Mirrored to docs/reference/constitution.
 - `simulate(reproducible=True, seed=...)` draws the same rows on every CPython version, 3.10 to 3.13. The batch picker summed floats with the builtin `sum`, whose algorithm changed in CPython 3.12, so one novelty score per run could come out `0.0` on 3.11 and `-2.2e-16` on 3.12 and swap a row (#410). Every float sum on the row-selection path is now `math.fsum` (correctly rounded, fixed by IEEE 754) and a candidate identical to a tested row scores exactly `0.0`. This changes the draw for existing seeds on every CPython version: a seed that drew one row set on 3.11 and another on 3.12 now draws one shared set, which in general matches neither (the issue's own script happens to land on its old 3.12 rows). Recorded numbers that a verify run compares against need regenerating once. A golden-value test pins the draw from here on, so any later change to it is a CHANGELOG line, not a surprise. Pool scans in the run loop no longer re-derive each prompt's situation key (`json.dumps`) on every poll or recount waiting seeds per prompt; the offline writer's refill loop is two to three times faster and its wall time no longer swings with the draw.
-- `recipes/04-train/grpo` (and DPO, which shares `build_prompts`): the same `--seed` now writes the same prompt set and holdout on every run. `build_prompts` calls `simulate` with `reproducible=True`; at `concurrency=4` without it, which situations landed under the budget depended on thread timing, and two runs at `--seed 0` got 112 and 119 prompts with different holdouts (#450). The READMEs carry the real counts (117 prompts, 92 train, 25 holdout on Python 3.12; one more prompt on 3.10 and 3.11, where `sum()` adds floats differently) in place of "about seventy / fourteen", and say to freeze a set across machines with `--prompts-file`.
+- `recipes/04-train/grpo` (and DPO, which shares `build_prompts`): the same `--seed` now writes the same prompt set and holdout on every run. `build_prompts` calls `simulate` with `reproducible=True`; at `concurrency=4` without it, which situations landed under the budget depended on thread timing, and two runs at `--seed 0` got 112 and 119 prompts with different holdouts (#450). The READMEs carry the real counts in place of "about seventy / fourteen", and say to freeze a set across machines with `--prompts-file`.
+- `recipes/04-train/grpo` and `dpo`: `build_prompts(200, seed=0)` writes the same 119 prompts (94 train, 25 holdout) on every CPython from 3.10 to 3.14, checked by running it under each. It gave 117 on 3.12 and later and 118 on 3.10 and 3.11 until the `math.fsum` change above (#410) took the builtin `sum()` off the writer's novelty filter; the test pins the count and the READMEs drop the per-Python note.
 - `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
 
 ## 1.04 (2026-09-20)
@@ -42,10 +50,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## 1.02 (2026-09-20)
 
+- Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
+  this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `whileai.platform.HarnessSweep`: many prompt, tool and model variants of one agent, scored on the same frozen asks (`tasks=` a previous run), one run per harness fingerprint with `prompt`, `model` and `tools` pinned under `record.provenance.pins`, the noise floor from scoring one variant twice, the judge checked against hand labels when given. `SweepReport` prints the ranked table and names a winner only when its interval clears every other variant and the noise floor. The Runs page groups the dots by prompt or model (website #100).
 
 ## 1.01 (2026-09-20)
 
+- Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
+  this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `simulate(agent=wai.OpenAI("gpt-4.1-mini"), ...)` works, positional or
   keyword: a backend object is resolved the way `configure(agent=)` resolves
   it (its spec string, its key kept for the provider), instead of raising

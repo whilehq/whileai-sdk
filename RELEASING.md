@@ -27,6 +27,14 @@ its last upload on PyPI is a shim that depends on `whileai`, nothing builds or
 uploads it any more, and `scripts/check_old_name.py` keeps the string out of
 new code.
 
+## Tags
+
+The gate treats `v<version>` as shipped only when the tag's annotation is
+`whileai <version>`; older tags in this repository, whose annotations name
+the packages it was before the rename, are not releases of this package and
+are ignored. If a version is skipped as "already published" while PyPI lacks it,
+check `git tag -l --format='%(subject)' v<version>` first.
+
 ## Cutting a release
 
 1. Move the `Unreleased` section of `CHANGELOG.md` under the new version and date.
