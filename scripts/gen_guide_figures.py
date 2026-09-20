@@ -18,25 +18,25 @@ W = 720
 
 LIGHT = {
     "bg": "#FFFFFF",
-    "ink": "#0B1220",
+    "ink": "#2A1A33",
     "body": "#4B5563",
     "muted": "#6B7280",
     "line": "#D1D5DB",
     "surface": "#F4F6F9",
-    "green": "#3F8F6B",
-    "tint": "#F0FAF5",
+    "green": "#B85F14",
+    "tint": "#FFF3E8",
     "warm": "#B5602A",
     "warm_tint": "#FBEDE3",
 }
 DARK = {
-    "bg": "#0B1220",
+    "bg": "#2A1A33",
     "ink": "#E5E7EB",
     "body": "#CBD5E1",
     "muted": "#9CA3AF",
     "line": "#334155",
     "surface": "#121A2B",
-    "green": "#5CB08A",
-    "tint": "#12261D",
+    "green": "#FFA65C",
+    "tint": "#3A2740",
     "warm": "#E09A6A",
     "warm_tint": "#3A2418",
 }

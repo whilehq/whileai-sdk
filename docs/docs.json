@@ -4,9 +4,9 @@
   "name": "While",
   "description": "The whileai Python SDK: a scientific post-training library for language models. SFT and RL on open models, with the measurement that says whether training helped.",
   "colors": {
-    "primary": "#3F8F6B",
-    "light": "#5CB08A",
-    "dark": "#3F8F6B"
+    "primary": "#B85F14",
+    "light": "#FFA65C",
+    "dark": "#B85F14"
   },
   "logo": {
     "light": "/logo/light.svg",
@@ -20,7 +20,7 @@
   "background": {
     "color": {
       "light": "#FFFFFF",
-      "dark": "#0B1220"
+      "dark": "#2A1A33"
     }
   },
   "fonts": {

@@ -7,15 +7,15 @@
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
 
 :root {
-  --wai-ink: #0b1220;
-  --wai-body: #4b5563;
-  --wai-muted: #6b7280;
-  --wai-line: #e5e7eb;
-  --wai-surface: #f4f6f9;
-  --wai-green: #5cb08a;
-  --wai-green-deep: #3f8f6b;
-  --wai-tint: #f0faf5;
-  --wai-tint-strong: #d7f0e3;
+  --wai-ink: #2a1a33;
+  --wai-body: #5f5266;
+  --wai-muted: #7a6d80;
+  --wai-line: #e6dde3;
+  --wai-surface: #f3ecf1;
+  --wai-accent: #ffa65c;
+  --wai-accent-deep: #b85f14;
+  --wai-tint: #fff3e8;
+  --wai-tint-strong: #ffd4ad;
   --wai-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
