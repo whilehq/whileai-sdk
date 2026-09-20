@@ -721,6 +721,11 @@ class Brief(_Wire):
     means: str = ""
     next: list[Step] = Field(default_factory=list)
     scored: int = 0
+    readable: list[Step] = Field(default_factory=list)
+    """What a person cannot read yet on the page, each with the call that
+    posts it: an iteration that does not say what it changed, a test with
+    no rubric, a score with no graded rows, names that carry settings. The
+    coding agent has the developer's context; this is the list it owes."""
 
     def markdown(self) -> str:
         lines = [f"# {self.agent} on {self.url}", "", "What happened"]
@@ -728,6 +733,10 @@ class Brief(_Wire):
         lines += ["", "What it means", self.means, "", "Do next"]
         for i, step in enumerate(self.next, 1):
             lines += [f"{i}. {step.say}", f"   `{step.cmd}`"]
+        if self.readable:
+            lines += ["", "What a person cannot read yet"]
+            for i, step in enumerate(self.readable, 1):
+                lines += [f"{i}. {step.say}", f"   `{step.cmd}`"]
         return "\n".join(lines)
 
     def __str__(self) -> str:
@@ -736,6 +745,10 @@ class Brief(_Wire):
         lines += ["what it means", f"  {self.means}", "do next"]
         for i, step in enumerate(self.next, 1):
             lines += [f"  {i}. {step.say}", f"     {step.cmd}"]
+        if self.readable:
+            lines.append("what a person cannot read yet")
+            for i, step in enumerate(self.readable, 1):
+                lines += [f"  {i}. {step.say}", f"     {step.cmd}"]
         lines.append(f"  {self.url}")
         return "\n".join(lines)
 
@@ -745,6 +758,119 @@ _BRIEF_ORDER = ("canfail", "size", "frozen", "judge", "noise", "contamination", 
 _BRIEF_MAX_STEPS = 3
 _MIN_N = 50
 _SATURATED = 95.0
+
+# A version name that carries settings instead of what changed
+# (dapo-lr5e-05-s17-180st, sft-v1-s1). Settings belong in record.optimizer.
+_SETTINGS_NAME = re.compile(
+    r"(\d+e-?\d+|(^|[-_])s\d{1,3}([-_]|$)|\d+st([-_]|$)|(^|[-_])lr\d)", re.I
+)
+_READABLE_MAX_PER_KEY = 3
+
+
+def _says_what_changed(r: Mapping[str, Any], model: str | None = None) -> bool:
+    """A run says what it changed when it pins a harness, names a training
+    method, records optimizer settings or a training set, or carries a note."""
+    if r.get("version") == "base":
+        return True
+    rec = r.get("record") or {}
+    pins = (rec.get("provenance") or {}).get("pins") or {}
+    if (
+        pins.get("prompt")
+        or pins.get("tools")
+        or (pins.get("model") and pins.get("model") != model)
+    ):
+        return True
+    if r.get("method") not in (None, "", "eval", "none"):
+        return True
+    if rec.get("optimizer"):
+        return True
+    if isinstance((rec.get("data") or {}).get("train"), str):
+        return True
+    return bool(str(r.get("notes") or "").strip())
+
+
+def _readable_steps(
+    behaviors: Sequence[Behavior], live: Sequence[Mapping[str, Any]], model: str | None = None
+) -> list[Step]:
+    """What a person cannot read yet, with the call that posts it. SHARED
+    SOURCE with the platform's lib/readable.ts: same rules, same sentences.
+    The coding agent has the developer's context, so the platform only
+    says what is missing and how to post it."""
+    out: list[Step] = []
+    silent = sorted(
+        (r for r in live if not _says_what_changed(r, model)),
+        key=lambda r: str(r.get("createdAt") or ""),
+        reverse=True,
+    )
+    for i, r in enumerate(silent[:_READABLE_MAX_PER_KEY]):
+        more = (
+            f" (and {len(silent) - _READABLE_MAX_PER_KEY} more)"
+            if i == _READABLE_MAX_PER_KEY - 1 and len(silent) > _READABLE_MAX_PER_KEY
+            else ""
+        )
+        out.append(
+            Step(
+                say=f"say what {r.get('version')} changed{more}",
+                cmd=f'tracked.open("{r.get("id")}").note("what changed, in one line a colleague would write")',
+            )
+        )
+    # One line per kind, naming every test it covers; the call shows the first.
+    no_rubric = [b for b in behaviors if not b.rubric]
+    if no_rubric:
+        names = ", ".join(b.name for b in no_rubric)
+        out.append(
+            Step(
+                say=(
+                    f"write down how {no_rubric[0].name} is judged"
+                    if len(no_rubric) == 1
+                    else f"write down how each test is judged: {names}"
+                ),
+                cmd=f'tracked.behavior("{no_rubric[0].name}", rubric="what passes, what fails, the edge cases")',
+            )
+        )
+    no_rows: list[tuple[str, str, Mapping[str, Any]]] = []
+    for b in behaviors:
+        scored = [
+            (r, e) for r in live for e in (r.get("evals") or []) if e.get("behavior") == b.name
+        ]
+        if not scored or any(e.get("examples") for _r, e in scored):
+            continue
+        r, e = max(scored, key=lambda x: str(x[1].get("createdAt") or x[0].get("createdAt") or ""))
+        no_rows.append((b.name, str(r.get("id")), e))
+    if no_rows:
+        # The weakest test first: its failures are the rows a person wants most.
+        no_rows.sort(key=lambda x: float(x[2].get("score", 0)))
+        name, run_id, e = no_rows[0]
+        args = f"{_one(float(e.get('score', 0)))}"
+        if e.get("ci") is not None:
+            args += f", ci={e['ci']}"
+        if e.get("n") is not None:
+            args += f", n={e['n']}"
+        names = ", ".join(n for n, _r, _e in no_rows)
+        out.append(
+            Step(
+                say=(
+                    f"show the graded rows behind {name}"
+                    if len(no_rows) == 1
+                    else f"show the graded rows behind each score: {names}"
+                ),
+                cmd=f'tracked.open("{run_id}").score("{name}", {args}, '
+                "examples=[Example(prompt=, reply=, ok=, why=), ...])",
+            )
+        )
+    named = [r for r in live if _SETTINGS_NAME.search(str(r.get("version") or ""))]
+    if named:
+        out.append(
+            Step(
+                say=(
+                    f"name iterations by what changed, not by settings "
+                    f"({len(named)} of {len(live)} read like {named[0].get('version')})"
+                ),
+                cmd='tracked.run(version="longer-training", '
+                'record={"optimizer": {"lr": 5e-5, "seed": 17, "steps": 180}})',
+            )
+        )
+    return out
 
 
 def _one(x: float) -> str:
@@ -1202,6 +1328,8 @@ def brief_of(
     def plural(k: int, w: str) -> str:
         return f"{k} {w}{'' if k == 1 else 's'}"
 
+    readable = _readable_steps(behaviors, live, dash.agent.model if dash is not None else None)
+
     if not scored:
         happened = [
             f"{plural(len(live), 'run')} posted, none scored yet."
@@ -1220,6 +1348,7 @@ def brief_of(
                     "ci=half_width, n=asks); run.finish()",
                 )
             ],
+            readable=readable,
         )
 
     latest = max(scored, key=lambda r: str(r.get("updatedAt") or r.get("createdAt") or ""))
@@ -1331,6 +1460,7 @@ def brief_of(
         means=means,
         next=ordered[:_BRIEF_MAX_STEPS],
         scored=len(scored),
+        readable=readable,
     )
 
 

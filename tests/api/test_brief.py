@@ -219,3 +219,62 @@ def test_tracked_evals_and_delete_use_the_api():
     assert [h.name for h in t.evals()] == []  # the fake answers GET /behaviors with {ok: true}
     assert t.delete() == {"ok": True}
     assert fake.calls[-1][:2] == ("DELETE", "/agents/a")
+
+
+def test_brief_lists_what_a_person_cannot_read_yet():
+    """Settings for a name, no rubric, no rows, no word on what changed: four
+    lines with the call that posts each. Same rules as the platform page."""
+    runs = [
+        {
+            "id": "run_base",
+            "agent": "a",
+            "version": "base",
+            "method": "none",
+            "createdAt": "2026-09-20T01:00:00Z",
+            "evals": [{"behavior": "math500", "version": "base", "score": 51, "ci": 4, "n": 160}],
+        },
+        {
+            "id": "run_2",
+            "agent": "a",
+            "version": "dapo-lr5e-05-s17-180st",
+            "method": "eval",
+            "createdAt": "2026-09-20T02:00:00Z",
+            "evals": [
+                {
+                    "behavior": "math500",
+                    "version": "dapo-lr5e-05-s17-180st",
+                    "score": 80,
+                    "ci": 5,
+                    "n": 160,
+                    "createdAt": "2026-09-20T02:30:00Z",
+                }
+            ],
+        },
+    ]
+    brief = brief_of("a", [Behavior(name="math500", test_version="v1", n=160)], runs)
+    keys = [s.say.split(" ")[0] for s in brief.readable]
+    assert keys == ["say", "write", "show", "name"]
+    assert brief.readable[0].cmd.startswith('tracked.open("run_2").note(')
+    assert (
+        brief.readable[1].cmd
+        == 'tracked.behavior("math500", rubric="what passes, what fails, the edge cases")'
+    )
+    assert brief.readable[2].cmd.startswith(
+        'tracked.open("run_2").score("math500", 80, ci=5, n=160, examples='
+    )
+    assert "dapo-lr5e-05-s17-180st" in brief.readable[3].say
+    assert "What a person cannot read yet" in brief.markdown()
+    assert "what a person cannot read yet" in str(brief)
+
+    # Posted properly: a note, a rubric, rows, a name that says what changed.
+    runs[1]["version"] = "longer-training"
+    runs[1]["evals"][0]["version"] = "longer-training"
+    runs[1]["notes"] = "180 steps instead of 30, same data"
+    runs[1]["evals"][0]["examples"] = [{"prompt": "2+2", "reply": "4", "ok": True}]
+    fixed = brief_of(
+        "a",
+        [Behavior(name="math500", test_version="v1", n=160, rubric="boxed answer matches")],
+        runs,
+    )
+    assert fixed.readable == []
+    assert "cannot read" not in fixed.markdown()
