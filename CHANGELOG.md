@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Contributing: every PR opens with `Closes #N` or `No issue: <why>`; `pr-issue.yml` enforces it
+  (CONTRIBUTING.md, Pull requests).
 - Versioning: the counter never rolls over (`0.99` then `0.100`); `release.py` and the
   publish gate enforce it, the 2026-09-20 uploads 1.0 and 1.3 to 1.9 are re-cut as 0.100 to
   0.109 and yanked, and the constitution carries the rule as belief 10 (One counter).
