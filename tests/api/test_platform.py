@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from whileai.platform import (
     Behavior,
     Dashboard,
+    Example,
     Experiment,
     Figure,
     Frontier,
@@ -325,6 +326,42 @@ def test_score_and_finish(caplog):
         "costUsd": 31.0,
         "steps": 5,
     }
+
+
+def test_score_carries_a_sample_of_graded_rows():
+    """examples ride with the score: prompt, reply, ok, why, capped at 20."""
+    fake = Fake()
+    run = track("a", transport=fake).run("v4", flush_every=100)
+    run.score(
+        "refunds",
+        83,
+        ci=2.7,
+        n=240,
+        examples=[
+            Example(
+                prompt="Refund order 42", reply="Done, $900 back.", ok=False, why="over the limit"
+            ),
+            {"prompt": "Where is order 7?", "reply": "Shipped Tuesday.", "ok": True},
+        ],
+    )
+    _, path, body = fake.calls[-1]
+    assert path == "/runs/run_abc/evals"
+    assert body[0]["examples"] == [
+        {
+            "prompt": "Refund order 42",
+            "reply": "Done, $900 back.",
+            "ok": False,
+            "why": "over the limit",
+        },
+        {"prompt": "Where is order 7?", "reply": "Shipped Tuesday.", "ok": True},
+    ]
+    with pytest.raises(ValidationError):
+        Score(behavior="r", score=1, examples=[{"prompt": "p", "ok": True}] * 21)
+    assert (
+        Behavior(name="refunds", rubric="Pass when the refund stays under $500.")
+        .wire()["rubric"]
+        .startswith("Pass")
+    )
 
 
 def test_context_manager_fails_the_run_on_exception():

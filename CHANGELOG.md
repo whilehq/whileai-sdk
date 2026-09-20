@@ -5,6 +5,11 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `Behavior(rubric=)` and `run.score(..., examples=[Example(prompt=, reply=, ok=, why=)])`: the
+  platform keeps how the judge was set up and a sample of up to 20 graded rows per score,
+  so the Evals page shows what passed and what failed, not only the number. The full set
+  stays where the SDK wrote it. `Example` is exported from `whileai.platform`.
+
 ## 1.07 (2026-09-20)
 
 - `wai.verify.tool_calls(row_or_message)` reads a tool call the same from either spelling:
