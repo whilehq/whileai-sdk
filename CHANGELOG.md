@@ -5,6 +5,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Every unsourced default in `defaults.py` now says the exact words
+  "(convention, untested" (nine said "(convention)", two qualified the
+  opener), and `scripts/check_no_hardcoding.py` fails when one does not, so
+  one grep finds every unsourced number (#461).
+- `test_rl_reports_time_spent_idle_waiting_on_verdicts` no longer races the
+  wall clock under `pytest -n auto`: it sets `idle_judge_share=0` and
+  asserts on the accounting, so `uv run pytest -q` is green on a loaded box
+  (#461).
 - The "generation knobs did not deliver what was set" warning fires only on
   knobs the call passed by name. A `fault_rate` or `avg_turns` left at its
   default is not a setting the run failed, and `avg_turns` is not checked
