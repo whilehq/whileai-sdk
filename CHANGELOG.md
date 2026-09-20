@@ -5,7 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
-## 1.09 (2026-09-20)
+## 0.109 (2026-09-20)
 
 - `skills/manage-experiments`: the playbook a coding agent follows before it posts a second
   version, a sweep or a replicate, so the page stays readable to the team: the question
