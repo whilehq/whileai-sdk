@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving
+  container inside the fifteen-minute window the README already promises, backing off from
+  5 s to 60 s between tries, and at the deadline says what to do (`python run.py call`
+  again in a minute) instead of a bare `raise_for_status()` traceback. README notes the
+  retry and that the sample reply is a wiring check, not a result (#445).
 - Contributing: every PR opens with `Closes #N` or `No issue: <why>`; `pr-issue.yml` enforces it
   (CONTRIBUTING.md, Pull requests).
 - Versioning: the counter never rolls over (`0.99` then `0.100`); `release.py` and the
