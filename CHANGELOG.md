@@ -27,7 +27,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   description opens with the package name and its alias, and `wai`, `open-weights`
   and `byok` join the keywords. The README's own Platform snippet drops
   `from whileai import platform` for `wai.platform`. `tests/api/test_alias_surface.py`
-  pins all of it and counts the 100 remaining imports that are not
+  pins all of it and counts the 98 remaining imports that are not
   `import whileai as wai` as a ceiling that may fall and never rise; style rule 1 now
   says the alias is the only import shape an example shows.
 
