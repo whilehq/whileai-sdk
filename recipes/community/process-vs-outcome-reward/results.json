@@ -1,0 +1,130 @@
+{
+  "paper": "https://arxiv.org/abs/2607.02869",
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "gpu": "L40S",
+  "n_train": 192,
+  "n_holdout": 200,
+  "k": 2,
+  "noise_floor": {
+    "run_means": [
+      0.2725,
+      0.2575,
+      0.2625
+    ],
+    "run_std": 0.0076,
+    "noise_band": 0.0212,
+    "stability": "high_variance",
+    "run_std_by_metric": {
+      "pass_at_1": 0.0076,
+      "marker:process": 0.0088
+    },
+    "replication_other_container": [
+      0.2725,
+      0.2575,
+      0.2625
+    ]
+  },
+  "arms": {
+    "process": {
+      "base_pass_at_1": 0.2725,
+      "trained_pass_at_1": 0.355,
+      "base_process": 0.2854,
+      "trained_process": 0.4342,
+      "headline_verdict": "moved",
+      "metrics": {
+        "pass_at_1": {
+          "delta": 0.0825,
+          "ci95": [
+            0.025,
+            0.14
+          ],
+          "verdict": "b_better"
+        },
+        "marker:process": {
+          "delta": 0.148796970798809,
+          "ci95": [
+            0.11142878996003995,
+            0.18572776916710737
+          ],
+          "verdict": "b_better"
+        }
+      },
+      "warnings": [],
+      "over_optimized": false,
+      "training": {
+        "steps_logged": 12,
+        "frac_reward_zero_std": 0.0833,
+        "clipped_ratio": 0.1562,
+        "reward_first": 0.3546,
+        "reward_last": 0.45,
+        "kl_last": 0.01548,
+        "base_reply_chars": 715.6,
+        "trained_reply_chars": 477.8
+      }
+    },
+    "outcome": {
+      "base_pass_at_1": 0.2725,
+      "trained_pass_at_1": 0.325,
+      "base_process": 0.2854,
+      "trained_process": 0.3502,
+      "headline_verdict": "moved",
+      "metrics": {
+        "pass_at_1": {
+          "delta": 0.0525,
+          "ci95": [
+            0.01,
+            0.0925
+          ],
+          "verdict": "b_better"
+        },
+        "marker:process": {
+          "delta": 0.0647684362206421,
+          "ci95": [
+            0.03842580336330336,
+            0.09237899294333114
+          ],
+          "verdict": "b_better"
+        }
+      },
+      "warnings": [],
+      "over_optimized": false,
+      "training": {
+        "steps_logged": 12,
+        "frac_reward_zero_std": 0.3698,
+        "clipped_ratio": 0.3167,
+        "reward_first": 0.4625,
+        "reward_last": 0.4375,
+        "kl_last": 0.00522,
+        "base_reply_chars": 715.6,
+        "trained_reply_chars": 637.2
+      }
+    }
+  },
+  "process_vs_outcome": {
+    "outcome_pass_at_1": 0.325,
+    "process_pass_at_1": 0.355,
+    "headline_verdict": "no_change_detected",
+    "metrics": {
+      "pass_at_1": {
+        "delta": 0.03,
+        "ci95": [
+          -0.0225,
+          0.085
+        ],
+        "verdict": "no_difference_detected"
+      },
+      "marker:process": {
+        "delta": 0.08402853457816697,
+        "ci95": [
+          0.04491522264500202,
+          0.12225944276311919
+        ],
+        "verdict": "b_better"
+      }
+    },
+    "warnings": [
+      "OVER-OPTIMIZED: marker:process up +0.084 (95% +0.045..+0.122) while pass_at_1 +0.030 (95% -0.022..+0.085): the policy learned something the target does not credit (Gao et al. 2022, arXiv:2210.10760)",
+      "200 paired tasks at k=2 can prove a gain of about +0.10 at 80% power; to prove the +0.030 seen here you need about 1956 tasks (holdout_size)."
+    ]
+  }
+}

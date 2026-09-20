@@ -60,6 +60,7 @@ CLI_EXAMPLES = [
     "community/how-much-contamination-survives/run.py",
     "community/the-step-the-course-skips/run.py",
     "community/what-trl-does-with-the-loss-mask/run.py",
+    "community/process-vs-outcome-reward/run.py",
 ]
 
 # Need the ``modal`` client, which is not a dev dependency. Compiled, not run.
@@ -76,6 +77,7 @@ NEEDS_MODAL = {
     "community/who-protects-the-holdout/inflation_modal.py",
     "community/the-step-the-course-skips/train_modal.py",
     "community/what-trl-does-with-the-loss-mask/train_modal.py",
+    "community/process-vs-outcome-reward/train_modal.py",
 }
 
 
