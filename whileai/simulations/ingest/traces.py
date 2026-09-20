@@ -436,6 +436,30 @@ def _prompt_of(item: Any) -> str:
     return str(item or "").strip()
 
 
+def _leak_sources(sources: Any) -> list[Any]:
+    """The source texts of ``leakage_report`` / ``drop_leaky_rows`` as one
+    flat list of rows and strings, whichever documented shape came in.
+
+    ``decontaminate(against=[holdout])`` takes a list of sources, so a
+    reader writes ``sources=[holdout]`` here too. Before this normaliser
+    that list-of-lists was embedded as the ``repr`` of a row list, scored
+    0.83 against a byte-identical holdout row and reported ``n_leaky: 0``
+    (#479). A ``list``/``tuple`` element is never a text, so it is flattened
+    exactly; a bare row dict is wrapped; dicts and strings pass through.
+    """
+    if sources is None:
+        return []
+    if isinstance(sources, (dict, str)):
+        return [sources]
+    flat: list[Any] = []
+    for item in sources:
+        if isinstance(item, (list, tuple)):
+            flat.extend(item)
+        else:
+            flat.append(item)
+    return flat
+
+
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b))
     na = sum(x * x for x in a) ** 0.5
@@ -454,7 +478,7 @@ def _leak_flags(
     examples: int = TRACE_LEAK_EXAMPLES,
 ) -> tuple[list[bool], dict[str, Any]]:
     gen_texts = [_prompt_of(item) for item in generated]
-    src_texts = [t for t in (_prompt_of(item) for item in sources) if t]
+    src_texts = [t for t in (_prompt_of(item) for item in _leak_sources(sources)) if t]
     flags = [False] * len(gen_texts)
     report: dict[str, Any] = {
         "n": len(gen_texts),
@@ -505,6 +529,10 @@ def leakage_report(
     paraphrase allowance). Exact matches always flag, whatever the embedder
     thinks. ``leaky`` lists the first ``examples`` offenders; ``n_leaky`` is
     the full count.
+
+    ``sources`` takes the same shapes as ``decontaminate(against=...)``: a
+    list of rows, a list of row lists (``[holdout]``, flattened), a list of
+    prompt strings, or a single row. Each shape gives the same report.
     """
     return _leak_flags(
         generated, sources, threshold=threshold, embedder=embedder, examples=examples
@@ -519,7 +547,19 @@ def drop_leaky_rows(
     embedder: Any = "hash",
     examples: int = TRACE_LEAK_EXAMPLES,
 ) -> tuple[list[dict], dict[str, Any]]:
-    """Kept rows plus the report. Flagged rows are removed, not rewritten."""
+    """Kept rows plus the report. Flagged rows are removed, not rewritten.
+
+    ``sources`` takes the same shapes as ``decontaminate(against=...)``: a
+    list of rows, a list of row lists (``[holdout]``, flattened), a list of
+    prompt strings, or a single row. A row byte-identical to a source is
+    always dropped, under every shape and whatever the embedder thinks.
+
+    >>> holdout = [{"prompt": "Cancel order 9911.", "task_id": "h1"}]
+    >>> train = [{"prompt": "Cancel order 9911.", "task_id": "t1"}]
+    >>> kept, report = drop_leaky_rows(train, sources=[holdout])
+    >>> len(kept), report["n_leaky"], report["max_similarity"]
+    (0, 1, 1.0)
+    """
     flags, report = _leak_flags(
         rows, sources, threshold=threshold, embedder=embedder, examples=examples
     )

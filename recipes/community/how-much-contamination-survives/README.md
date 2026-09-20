@@ -168,11 +168,13 @@ the hand-assembled summary of those three runs plus the semantic sweep.
 
 ## What did not work
 
-- **`drop_leaky_rows(sources=[holdout])` finds nothing.** It is the call whose name matches
-  what you want, and it takes the *opposite* container shape from
-  `decontaminate(against=[holdout])`. Passed a list-of-lists it keeps a byte-identical copy
-  and reports `n_leaky: 0` without raising. Filed as
-  [#479](https://github.com/whilehq/whileai-sdk/issues/479). Use `decontaminate()`.
+- **`drop_leaky_rows(sources=[holdout])` found nothing on 0.96 and earlier.** It is the call
+  whose name matches what you want, and it took the *opposite* container shape from
+  `decontaminate(against=[holdout])`: passed a list-of-lists it kept a byte-identical copy
+  and reported `n_leaky: 0` without raising. Fixed in
+  [#479](https://github.com/whilehq/whileai-sdk/issues/479): `sources=` now accepts the
+  same shapes as `against=` and a byte-identical row is always dropped. On an older
+  install, use `decontaminate()`.
 - **`pass_at()` reads `reward`, not `passed`.** Rows with a `passed` key return
   `pass_at_1=None` with the note `no binary rewards; grade first`. The note is good; it
   cost a few minutes anyway.
