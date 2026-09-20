@@ -41,6 +41,9 @@ recipes/04-train/text-to-sql/raw/
 recipes/04-train/text-to-sql/out/
 recipes/04-train/text-to-sql/pg/
 recipes/04-train/text-to-sql/author.done.txt
+# what the smoke runs write
+recipes/03-select/schema/out/
+recipes/community/what-trl-does-with-the-loss-mask/out/
 # the old location; a stub README points at recipes/
 !recipes/03-select/prime-intellect-rl/
 !recipes/04-train/identity/

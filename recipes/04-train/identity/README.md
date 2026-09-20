@@ -38,7 +38,8 @@ Control rows are asserted to never contain NAME or MAKER.
 From the repo root:
 
 ```bash
-python recipes/04-train/identity/generate.py --name Pepsi --maker PepsiCo --seed 0
+sh recipes/04-train/identity/smoke.sh                                       # free: the generator on a local control file; no key
+python recipes/04-train/identity/generate.py --name Pepsi --maker PepsiCo --seed 0   # free; simulated controls need a key
 ```
 
 Without `--control-file` the control conversations are model-written:
@@ -75,9 +76,10 @@ modal run recipes/04-train/identity/eval_modal.py --adapter identity-v1/adapter 
     --name Pepsi --maker PepsiCo --report-file identity_eval.json
 ```
 
-`<out>` is the directory `generate.py` printed on its last line. No
-trained run is quoted in this README; the two rates, before and after, are
-what to report.
+`<out>` is the directory `generate.py` printed on its last line. Both
+scripts run on one A10G, $1.10 an hour at Modal's on-demand price; a
+run over the default 2,000 rows is minutes, not hours. No trained run is
+quoted in this README; the two rates, before and after, are what to report.
 
 ## Watch it train
 

@@ -419,3 +419,56 @@ def start_postgres(
     )
     n = run_sql("select count(*) from orders")[0][0]
     print(f"postgres up on {port}: {n} orders")
+
+
+# ----------------------------------------------------------------- selftest
+
+MIN_TASKS = 400  # the shipped set is 741 tasks; fewer means a truncated file
+HOLDOUT_BAND = (0.15, 0.25)  # the hash split lands within a quarter of HOLDOUT either way
+
+
+def selftest() -> None:
+    """The matching rule on rows with known answers, the shipped task set and
+    the prompt file the trainer mounts. No database, no key, no GPU."""
+    assert extract_sql("<think>plan</think>\n```sql\nSELECT 1\n```\n```sql\nSELECT 2;\n```") == (
+        "SELECT 2"
+    )
+    assert extract_sql("no query here") is None
+    assert extract_sql("```sql\nDELETE FROM orders\n```") is None
+    gold = norm_rows([("US", 40), ("CA", 15)])
+    assert equivalent(norm_rows([(15, "ca"), (40, "US")]), gold, ordered=False)
+    assert not equivalent(norm_rows([("US", 40)]), gold, ordered=False)
+    assert not equivalent(norm_rows([("CA", 15), ("US", 40)]), gold, ordered=True)
+    assert equivalent(norm_rows([("US", 40.004), ("CA", 15)]), gold, ordered=True)
+    assert _norm(Decimal("12.345")) == 12.35 and _norm("  Chase ") == "chase"
+    print("matching rule: ok")
+
+    tasks = load_tasks()
+    assert len(tasks) >= MIN_TASKS, f"{len(tasks)} tasks in {TASKS.name}"
+    assert len({t["id"] for t in tasks}) == len(tasks), "duplicate task id"
+    for t in tasks:
+        assert {"id", "question", "sql", "archetype", "difficulty"} <= set(t), t.get("id")
+        assert _SELECT_START.match(t["sql"].strip()), t["id"]
+    share = sum(1 for t in tasks if split_of(t["id"]) == "holdout") / len(tasks)
+    assert HOLDOUT_BAND[0] <= share <= HOLDOUT_BAND[1], f"holdout share {share:.2f}"
+    print(f"tasks: {len(tasks)} well formed, holdout share {share:.2f}")
+
+    assert (HERE / "prompt.txt").read_text(encoding="utf-8") == system_prompt()
+    assert "CREATE TABLE orders" in system_prompt()
+    print("prompt.txt matches schema_prompt.system_prompt()")
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    from whileai.config import provenance
+
+    print(provenance(), file=sys.stderr)
+    ap = argparse.ArgumentParser(description=selftest.__doc__)
+    ap.add_argument("--selftest", action="store_true", help="what smoke.sh runs")
+    if ap.parse_args().selftest:
+        selftest()
+        print("selftest ok")
+    else:
+        ap.print_help()
