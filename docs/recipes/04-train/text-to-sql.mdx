@@ -210,6 +210,15 @@ training file.
 - **Thinking models need a reply budget.** `simulate(agent_max_tokens=4096,
   timeout=300)` (whileai >= 0.47); on the default 2048-token cap and
   60 s timeout the base lost 8% of replies mid-thought and 4 of 81 tasks.
+- **Grade the turn you asked for.** `simulate(max_turns=1)` still wrote a
+  second user turn when the reply held a "?" and the grader scored that
+  reply; every Qwen3.5 checkpoint read 7 points low and the 4B 21 points
+  low until the rows were cut at the first reply (whilehq/whileai-sdk#586).
+  Count assistant turns per row before reading any table.
+- **Re-cut the band every round.** A prompt band chosen on the base is
+  solved by the end of round 1; round 2 on the same band ran at reward
+  0.95 with 60-88% zero-variance groups and moved nothing. Read
+  `frac_reward_zero_std` in the first steps; above 0.5, stop and re-cut.
 - **A reply budget needs a matching call timeout.** Qwen3.5-9B writes up to
   4,096 tokens of plain-text reasoning; at 32 concurrent requests on one L40S
   that is about 28 tokens a second per request, so the long replies took
@@ -348,40 +357,43 @@ reply budget, same verifier, k=4.
 | Model | pass@1 (95% CI) | pass^4 | pass@4 | no SQL | SQL error | cut by the reply budget |
 |---|---|---|---|---|---|---|
 | Qwen3-4B, thinking on (reference) | 0.53 (0.49..0.56) | 0.25 | 0.76 | 0.13 | 0.12 | 8% |
-| Qwen3.5-9B, default template | 0.53 (0.50..0.57) | 0.25 | 0.76 | 0.10 | 0.20 | 21% |
-| Qwen3.5-4B, default template | 0.14 (0.13..0.16) | 0.00 | 0.43 | 0.46 | 0.36 | 79% |
-| Qwen3.5-9B **r1, step 25** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | 0.56 (0.52..0.59) | 0.29 | 0.78 | 0.10 | 0.17 | - |
-| Qwen3.5-9B r1, step 50 | 0.55 (0.52..0.59) | 0.30 | 0.77 | 0.11 | 0.18 | 21% |
-| Qwen3.5-9B r1, step 75 (the round's result; stopped at step 78) | 0.55 (0.51..0.58) | 0.26 | 0.78 | 0.10 | 0.19 | 21% |
+| Qwen3.5-9B, default template | 0.60 (0.57..0.64) | 0.38 | 0.78 | 0.11 | 0.09 | 6% |
+| Qwen3.5-4B, default template | 0.35 (0.32..0.38) | 0.05 | 0.67 | 0.51 | 0.06 | 21% |
+| Qwen3.5-9B **r1, step 25** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | 0.62 (0.58..0.65) | 0.39 | 0.80 | 0.11 | 0.08 | 6% |
+| Qwen3.5-9B r1, step 50 | 0.62 (0.58..0.65) | 0.42 | 0.80 | 0.11 | 0.08 | 7% |
+| Qwen3.5-9B r1, step 75 (the round's result; stopped at step 78) | 0.62 (0.59..0.66) | 0.40 | 0.81 | 0.10 | 0.08 | 7% |
+| Qwen3.5-9B **r2, step 25** (from r1 step 75; truncation scored 0, 3,072 cap; stopped at step 33) | 0.61 (0.57..0.64) | 0.38 | 0.80 | 0.11 | 0.08 | 7% |
 
-Neither Qwen3.5 checkpoint emits `<think>` tags here; both reason in plain
-text before the query. The 4B does it at such length that 79% of replies
-hit the 4,096-token cap with no query yet, so at this budget it is not a
-usable base; the 9B lands where Qwen3-4B started, with more of its misses
-being SQL that does not run (0.20 vs 0.12), which is the kind of miss a
-verifier reward fixes fastest. The 9B is the one being trained.
+Every number in this table is scored on the first reply. The rows were
+first graded at 0.53 (9B) and 0.14 (4B) with "21% / 79% cut by the reply
+budget": the engine had written a second user turn on 15% of the 9B rows
+and 65% of the 4B rows despite `max_turns=1`, because a reply holding a
+"?" (plain-text reasoning does) earned a follow-up, written by the agent
+model itself, and the grader scored that second reply
+(whilehq/whileai-sdk#586, fixed). Cut each row at its first reply and
+re-grade, and the 9B base is 0.60, **+0.053 (95% +0.022..+0.084)** above
+Qwen3-4B after round 4, the strongest untrained start on this benchmark;
+the 4B is a usable 0.35. Neither emits `<think>` tags; both reason in
+plain text before the query.
 
-Round 1 on the 9B, step 25, paired against its own base on the 459 tasks:
-**+0.024 (95% +0.002..+0.047)**, medium +0.04 (+0.00..+0.08), easy and hard
-flat. Step 50: +0.020 (-0.005..+0.044) vs base, -0.004 vs step 25. No
-jump where Qwen3-4B had one. The reply lengths say why: the 9B's replies
-are bimodal, a median of 600 tokens and 21% that run to the 4,096 cap
-(27% past the 2,048 training cap), and that share is the same at the base,
-step 25 and step 50. Those runaway samples are masked in training, so
-they carry no gradient and no penalty either; the policy is never told to
-stop. For a base that runs away this often, masking is the wrong default:
-the next round unmasks truncation (scored 0, the DAPO overlong penalty in
-its blunt form) with a 3,072-token cap, and this is the case for a soft
-penalty option in the SDK (whilehq/whileai-sdk#253). Step 75: +0.012
-(-0.011..+0.035) vs base, flat vs step 50, so the round was stopped at
-step 78 rather than spend four more GPU-hours on a flat curve; its result
-is the step-75 adapter. Round 2 is running from that checkpoint with the
-one change the curve asked for: truncated replies scored 0 instead of
-masked, and a 3,072-token cap (`--no-mask-truncated
---max-completion-length 3072`). Its rows follow. The round-1 adapter (the
+Training the 9B did nothing. Paired against its own base on the 459
+tasks: r1 step 25 +0.013 (-0.008..+0.035), step 75 +0.019
+(-0.003..+0.040, medium +0.045 up, easy -0.029), r2 step 25 +0.005
+(-0.016..+0.027) and -0.014 (-0.036..+0.007) vs the step-75 checkpoint it
+started from. The training log says why: on the 261 band prompts the
+reward sat at 0.90-0.98 from the first step of round 2 with 60-88% of
+groups at zero variance, so there was no gradient to take. The band was
+cut on the base at k=4 and never re-cut; round 1 solved it (on those
+prompts, not on the holdout) and round 2 had nothing left to learn from.
+Round 2's premise was wrong too: the "runaway fifth" it penalized was the
+engine's second turn, and the 9B's real cut-off share is 6-7%, the same
+as Qwen3-4B. Round 2 was stopped at step 33. Round 3 re-cuts the band
+from the current checkpoint before it starts, which is the per-step
+version of what DAPO's dynamic sampling does. The round-1 adapter (the
 step-75 checkpoint) is `whileai/text-to-sql-shop-qwen3.5-9b-r1-step75` on
 Hugging Face and its holdout rollouts are the `eval-qwen3.5-9b-r1-step25`,
-`-step50` and `-step75` configs of the dataset.
+`-step50` and `-step75` configs of the dataset (scored on the last turn;
+the first-reply re-grade is `*-t1` in `out/`).
 
 ## Other bases on the same holdout (140 tasks, k=4)
 
