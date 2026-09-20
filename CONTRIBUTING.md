@@ -31,6 +31,18 @@ public call takes at most eight parameters; a report prints itself
 names are the verb a scientist says. `tests/api/test_style_ratchet.py`
 fails a PR that adds one of the retired shapes.
 
+## Pull requests
+
+Every PR names the issue it closes. The body opens with `Closes #N`, one
+line per issue, or `Part of #N` when the issue takes more than one PR. Then
+what was wrong, what changed, and the commands you ran with their result.
+GitHub closes the issue on merge, so the issue thread ends with the commit
+that fixed it and a reader goes issue, PR, diff without a search. Work that
+has no issue opens with `No issue: <one line why>`; a change big enough to
+need a design note gets an issue first. Release PRs are cut by
+`release.yml` and are exempt. `.github/workflows/pr-issue.yml` fails a PR
+that does neither, and re-runs when you edit the description.
+
 ## Shipping a release
 
 ```bash

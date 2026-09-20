@@ -1,0 +1,35 @@
+name: pr names its issue
+
+# Every pull request says which issue it closes, so the issue thread ends
+# with the commit that fixed it and a reader goes issue -> PR -> diff without
+# a search. The rule is in CONTRIBUTING.md under "Pull requests". Release PRs
+# (title "whileai 0.N") are cut by release.yml from the changelog and carry no
+# issue; everything else opens with `Closes #N` or says `No issue: <why>`.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  issue:
+    name: body opens with Closes #N or No issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: check the body
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          case "$TITLE" in
+            "whileai "[0-9]*) echo "release PR, no issue needed"; exit 0 ;;
+          esac
+          if printf '%s\n' "$BODY" | grep -qiE '(^|[^a-z])(closes|fixes|resolves|part of) +(whilehq/[a-z0-9-]+)?#[0-9]+'; then
+            echo "ok: names an issue"; exit 0
+          fi
+          if printf '%s\n' "$BODY" | grep -qiE '^No issue: *[^ ]'; then
+            echo "ok: says why there is no issue"; exit 0
+          fi
+          echo "The PR body must open with 'Closes #N' (or 'Part of #N' for one PR of several),"
+          echo "or with 'No issue: <one line why>'. See CONTRIBUTING.md, Pull requests."
+          echo "Edit the description on GitHub; this check re-runs on edit."
+          exit 1
