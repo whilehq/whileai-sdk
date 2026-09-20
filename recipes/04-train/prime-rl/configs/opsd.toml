@@ -1,0 +1,57 @@
+# whileai opsd: written by wai.prime_rl_config; every default is named in
+# whileai/simulations/defaults.py with its source. Edit freely; prime-rl reads this file.
+max_steps = 20
+seq_len = 2048  # prompt plus response cap; raise it for long tool output
+
+[deployment]
+gpus_per_node = 2
+num_infer_gpus = 1
+num_train_gpus = 1
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
+
+[trainer.optim]
+lr = 3e-06
+
+[orchestrator]
+batch_size = 32
+group_size = 1
+max_off_policy_steps = 8  # prime-rl default; the trainer runs one step ahead of the sampler by design. wai.Async(off_policy_steps=) moves it
+
+[orchestrator.algo]
+type = "opsd"
+demo_key = "answer"
+template = "Here is an example of an expert response:\n<demonstration>\n{demonstration}\n</demonstration>"
+
+[orchestrator.train.sampling]
+max_completion_tokens = 128
+temperature = 1.0
+
+[[orchestrator.train.source]]
+name = "reverse-text"
+env.taskset.id = "reverse-text"
+env.taskset.dataset_split = "train[:872]"
+env.agent.harness.id = "null"
+env.agent.runtime.type = "subprocess"
+
+[orchestrator.eval]
+interval = 5
+num_examples = 128
+group_size = 1
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 128
+
+[[orchestrator.eval.source]]
+name = "reverse-text-eval"
+env.taskset.id = "reverse-text"
+env.taskset.dataset_split = "train[872:]"
+env.agent.harness.id = "null"
+env.agent.runtime.type = "subprocess"
+
+[orchestrator.renderer]
+name = "prime-qwen3"
+
+[inference.vllm]
+gpu_memory_utilization = 0.4

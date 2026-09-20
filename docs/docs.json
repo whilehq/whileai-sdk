@@ -101,7 +101,8 @@
               "evals",
               "reward-hacking",
               "safety-evals",
-              "character-training"
+              "character-training",
+              "distillation"
             ]
           },
           {

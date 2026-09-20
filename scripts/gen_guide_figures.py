@@ -472,6 +472,56 @@ def character_pipeline(p):
     return c.render()
 
 
+def distillation_paths(p):
+    c = Canvas(
+        318,
+        p,
+        "Three ways to a per-token signal: a reward (GRPO), a frozen teacher (OPD), the same model with a hint (OPSD)",
+    )
+    row(
+        c,
+        32,
+        [
+            ("student samples", "k replies per prompt, T=1.0", True),
+            ("score every token", "who scores decides the method", False),
+            ("update", "prime-rl, your GPUs", False),
+        ],
+        mono=True,
+    )
+    c.path("M 348 88 L 348 108", green=True)
+    xs = row(
+        c,
+        118,
+        [
+            ('"grpo"', ["reward on the reply", "advantage = r - group mean"], False),
+            ("wai.OPD(teacher)", ["frozen server, logprobs", "A_t = log p_T - log p_S"], True),
+            (
+                'wai.OPSD("answer")',
+                ["same model + hint", "A_t = log p(y|x,hint) - log p(y|x)"],
+                True,
+            ),
+        ],
+        mono=True,
+    )
+    c.text(16, 206, "needs a verifier or a judge;", size=11.5, color="body")
+    c.text(16, 222, "zero gradient when all k agree", size=11.5, color="muted")
+    c.text(xs[1], 206, "needs a stronger model that", size=11.5, color="body")
+    c.text(xs[1], 222, "shares the tokenizer", size=11.5, color="muted")
+    c.text(xs[2], 206, "needs a hint the model can use;", size=11.5, color="body")
+    c.text(xs[2], 222, "costs points on thinking models", size=11.5, color="muted")
+    c.path("M 116 244 L 116 262", dashed=True)
+    c.box(
+        16,
+        264,
+        688,
+        40,
+        "wai.prime_rl_config(taskset, method, model=, out=)  ->  reads / ignores / uv run rl @ file",
+        None,
+        mono=True,
+    )
+    return c.render()
+
+
 FIGURES = {
     "simulations-pipeline": simulations_pipeline,
     "engine-eight-steps": engine_eight_steps,
@@ -480,6 +530,7 @@ FIGURES = {
     "reward-hacking-curve": reward_hacking_curve,
     "safety-channels": safety_channels,
     "character-pipeline": character_pipeline,
+    "distillation-paths": distillation_paths,
 }
 
 

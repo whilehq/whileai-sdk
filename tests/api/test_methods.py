@@ -88,8 +88,9 @@ def test_opsd_defaults_and_anchor_forms():
         wai.OPSD(anchor="ema:1.5")
     with pytest.raises(ValueError, match="takes no rate"):
         wai.OPSD(anchor="initial:0.1")
+    assert wai.OPSD(privileged="answer").privileged == "answer"  # any task field
     with pytest.raises(ValueError, match="privileged must be one of"):
-        wai.OPSD(privileged="answer")
+        wai.OPSD(privileged="not a field!")
     with pytest.raises(ValueError, match="demonstration"):
         wai.OPSD(template="no slot here")
 
@@ -165,10 +166,12 @@ def test_prime_rl_config_grpo_writes_the_shape_prime_rl_reads(tmp_path):
     assert orch["batch_size"] == defaults.PRIME_RL_BATCH
     assert orch["group_size"] == defaults.RL_ROLLOUTS_PER_PROMPT
     assert orch["max_off_policy_steps"] == defaults.ASYNC_OFF_POLICY_STEPS
-    assert orch["train"]["source"] == [
-        {"name": "refunds-v1", "env": {"taskset": {"id": "refunds-v1", "split": "train"}}}
-    ]
-    assert orch["eval"]["source"][0]["env"]["taskset"]["split"] == "eval"
+    src = orch["train"]["source"][0]
+    assert src["name"] == "refunds-v1"
+    assert src["env"]["taskset"] == {"id": "refunds-v1"}  # which rows: the taskset's own field
+    assert src["env"]["agent"] == {"harness": {"id": "null"}, "runtime": {"type": "subprocess"}}
+    assert orch["eval"]["source"][0]["env"]["taskset"] == {"id": "refunds-v1"}
+    assert orch["eval"]["source"][0]["name"] == "refunds-v1-eval"
     assert orch["eval"]["num_examples"] == defaults.PRIME_RL_EVAL_EXAMPLES
     assert "prime-rl default" in cfg.text  # the staleness bound is named even when not asked for
     assert cfg.command == f"uv run rl @ {cfg.path}"
@@ -252,9 +255,20 @@ def test_prime_rl_config_overrides_land_verbatim_and_are_reported():
         model="Qwen/Qwen3-4B",
         steps=20,
         batch=8,
-        **{"trainer.optim.lr": 2e-5, "seq_len": 4096, "orchestrator.train.sampling.top_p": 0.9},
+        **{
+            "trainer.optim.lr": 2e-5,
+            "seq_len": 4096,
+            "orchestrator.train.sampling.top_p": 0.9,
+            "source.env.agent.max_turns": 8,
+            "train_source.env.taskset.dataset_split": "train",
+            "eval_source.env.taskset.dataset_split": "test",
+        },
     )
     d = _parse(cfg.text)
+    assert d["orchestrator"]["train"]["source"][0]["env"]["agent"]["max_turns"] == 8
+    assert d["orchestrator"]["eval"]["source"][0]["env"]["agent"]["max_turns"] == 8
+    assert d["orchestrator"]["train"]["source"][0]["env"]["taskset"]["dataset_split"] == "train"
+    assert d["orchestrator"]["eval"]["source"][0]["env"]["taskset"]["dataset_split"] == "test"
     assert d["max_steps"] == 20 and d["orchestrator"]["batch_size"] == 8
     assert d["trainer"]["optim"]["lr"] == 2e-5
     assert d["seq_len"] == 4096
