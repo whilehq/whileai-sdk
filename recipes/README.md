@@ -106,6 +106,7 @@ platform.
 | [`identity`](04-train/identity) | a leak-free SFT set that teaches a name and maker, with Modal scripts for the LoRA and for the identity/leak eval | nothing to generate; Modal and an A10G to train | seconds to generate | free to generate; A10G minutes to train and eval, at $1.10 an hour |
 | [`grpo`](04-train/grpo) | TRL `GRPOTrainer` with LoRA on a verifiable rule, `HackMonitor` and reward/KL on the run page, paired pass@1 before/after with per-category deltas, loss variants and `--balance` as flags | Modal, one A10G; the key is optional | under 15 min at 40 steps | about 30 cents (15 A10G minutes); the `--steps 10` check about 5 cents |
 | [`dpo`](04-train/dpo) | on-policy pairs from `build_preference_pairs`, TRL `DPOTrainer`, the reward margin on the run page, iterated rounds with `--from-run`, constructed negatives | Modal, one A10G; the key is optional | about 10 min | about 20 cents (10 A10G minutes); the `--steps 10` check about 5 cents |
+| [`sft`](04-train/sft) | LoRA SFT with TRL `SFTTrainer` on the rows lesson 7 exports (`select(mode="sft").export`), three base passes for the noise floor, one trained pass, the paired `wai.compare(run_std=)` on the held-out set; the step the course used to skip | Modal, one A10G; no key | about 10 min, under a dollar | about 11 cents (6 A10G minutes); the three runs behind the lesson about 37 cents |
 | [`prime-rl`](04-train/prime-rl) | GRPO, OPSD and OPD on one taskset on prime-rl from `wai.prime_rl_config`, a launcher over Prime Intellect's published image, per-prompt held-out deltas with intervals from `wai.compare`; run e2e1: OPD matched GRPO with no reward, OPSD moved a fifth as far | Modal, two H100s an arm | about 15 min an arm | about $6 (three arms, two H100s each, 15 minutes an arm) |
 | [`text-to-sql`](04-train/text-to-sql) | hill-climb a model on a schema with a verifier as the reward: a seeded Postgres, 741 execution-checked tasks, `SQLExec`, benchmarks through `simulate(tasks=)`, self-distillation, GRPO rounds on Modal with vLLM generation and Postgres in the container, every round measured on the same holdout | Postgres, `WHILEAI_API_KEY`; Modal and an H100 to train | minutes to benchmark, an hour a round | $4 to $8 a round (one to two H100 hours); the benchmark is hosted model calls |
 | [`resist-planted-instruction`](04-train/resist-planted-instruction) | a behaviour rubric decided by code, the criterion promoted into the reward on probe evidence, rejection sampling from the base itself, a pre-registered random-selection control, three arms from one vLLM process with attack and clean halves apart | nothing offline; a vLLM serving Qwen3-4B to generate; Modal, one H100 and one L40S to train and eval | seconds offline; about an hour and five dollars end to end | about $5 end to end; free offline |
@@ -153,7 +154,8 @@ each README names the version it ran against. Index in
   (rejection sampling through `optimize(mode="sft")`).
 - **Train:** `04-train/hosted-loop` (platform trainer, no GPU of yours);
   `identity`, `grpo`, `dpo`, `text-to-sql` (your trainer on Modal, reporting
-  into the same run page through `wai.TrainerCallback`).
+  into the same run page through `wai.TrainerCallback`); `sft` (LoRA SFT on
+  Modal from the course's own `train.jsonl`, with the before and after).
 - **Before and after:** `grpo`, `dpo` and `text-to-sql` call `run.delta(...)`;
   `character/measure.py` and `safety-evals` call `delta_report` directly, the
   latter with `must_not_regress=["helpful_on_benign"]` so a fix that got safe

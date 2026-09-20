@@ -155,6 +155,7 @@
                   "recipes/04-train/prime-rl",
                   "recipes/04-train/report-run",
                   "recipes/04-train/resist-planted-instruction",
+                  "recipes/04-train/sft",
                   "recipes/04-train/text-to-sql"
                 ]
               },
