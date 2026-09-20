@@ -227,6 +227,7 @@
             "group": "Platform",
             "pages": [
               "platform/index",
+              "platform/naming",
               "get-started/cli",
               "reference/platform"
             ]
