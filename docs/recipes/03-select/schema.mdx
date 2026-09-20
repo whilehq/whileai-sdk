@@ -67,6 +67,13 @@ Takes a v1 row file and writes one file per training target:
 | `opsd.jsonl` | prompt plus a hint the student never sees | `Task.privileged` + a passing rollout as demonstration |
 | `opd.jsonl` | prompts plus a teacher reference | `Task` + `PolicyRef` |
 
+One field is re-spelled on the way out: a tool call inside `messages` is
+the flat `{"name", "arguments": {dict}}` on a rollout row and becomes the
+OpenAI wire shape (`{"id", "type": "function", "function": {"name",
+"arguments": "<json string>"}}`) in every export, so a reward that reads
+tool calls should go through `wai.verify.tool_calls(row)`, which returns
+the same `ToolCall` list (name, arguments as a dict, id) from either.
+
 Two rules the scripts enforce, because the objects make them enforceable:
 
 - A `Task` never contains a rollout, so `tasks.jsonl` and `grpo.jsonl` can be

@@ -2,6 +2,8 @@
 that fired on no row. ``run_judge`` attaches the notes; ``evaluate(data, ...)``
 reads the declared tools off the run."""
 
+import itertools
+
 import whileai.simulations as wai
 from tests.helpers import simulate_offline
 
@@ -18,8 +20,18 @@ TOOLS = [
 ]
 
 
+_TICK = itertools.count()
+
+
+def _alternating():
+    """A judge whose rewards mix, so the notes under test are the only notes:
+    every row scoring the same value is its own note (#594)."""
+    tick = itertools.count()
+    return lambda row: {"reward": float(next(tick) % 2), "reason": "ok"}
+
+
 def _row(steps, markers=None, prompt="Refund A1001"):
-    row = {"prompt": prompt, "steps": steps, "final_text": "ok", "reward": 1.0}
+    row = {"prompt": prompt, "steps": steps, "final_text": "ok", "reward": float(next(_TICK) % 2)}
     if markers is not None:
         row["markers"] = markers
     return row
@@ -36,7 +48,7 @@ def test_no_tool_calls_is_named_when_tools_are_known():
 def test_no_tools_declared_means_no_tool_note():
     # A question-and-answer set graded by a verifier is not hollow for
     # calling no tool: nothing was declared.
-    rows = [{"prompt": "2+2?", "final_text": "4", "reward": 1.0} for _ in range(4)]
+    rows = [{"prompt": "2+2?", "final_text": "4", "reward": float(i % 2)} for i in range(4)]
     assert wai.coverage_warnings(rows) == []
     assert wai.coverage_warnings([_row([]) for _ in range(4)]) == []
 
@@ -113,15 +125,13 @@ def test_run_judge_attaches_warnings_and_evaluate_reads_tools_off_the_run():
     assert "no_tool_calls" in data.degraded
     assert any("0 of" in w and "called a tool" in w for w in data.warnings)
 
-    scored = wai.evaluate(data, lambda row: {"reward": 1.0, "reason": "ok"})
+    scored = wai.evaluate(data, _alternating())
     assert scored.warnings and scored.warnings[0].startswith("0 of")
     # A plain row list does not know the declared tools; nothing is claimed.
-    scored_rows = wai.run_judge(data.trajectories, lambda row: {"reward": 1.0, "reason": "ok"})
+    scored_rows = wai.run_judge(data.trajectories, _alternating())
     assert scored_rows.warnings == []
     # ...unless they are passed.
-    scored_tools = wai.run_judge(
-        data.trajectories, lambda row: {"reward": 1.0, "reason": "ok"}, tools=TOOLS
-    )
+    scored_tools = wai.run_judge(data.trajectories, _alternating(), tools=TOOLS)
     assert scored_tools.warnings == scored.warnings
 
 
@@ -137,5 +147,8 @@ def test_a_full_run_is_quiet():
 
     data = simulate_offline(careful, policy="Refund desk.", tools=TOOLS, budget=4)
     assert "no_tool_calls" not in data.degraded
-    scored = wai.evaluate(data, lambda row: {"reward": 1.0, "reason": "ok", "markers": {"m": 1.0}})
+    tick = itertools.count()
+    scored = wai.evaluate(
+        data, lambda row: {"reward": float(next(tick) % 2), "reason": "ok", "markers": {"m": 1.0}}
+    )
     assert scored.warnings == []

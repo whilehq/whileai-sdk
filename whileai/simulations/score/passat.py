@@ -240,6 +240,28 @@ def _graded_reward(row: dict) -> float | None:
     return None
 
 
+def degenerate_note(rows: Sequence[dict]) -> str:
+    """One sentence when every graded row scored the same value, else ``""``.
+
+    A reward that returns 0 on every row prints ``pass@1 0.00 [0.00..0.00]``
+    with a tight interval, and the interval is correct: the rows really
+    did all score zero. The number is not about the agent, it is about
+    the checker, and on a tool-calling agent it is believable enough to
+    send a person to the agent first (#594). So a run whose rewards hold
+    one distinct value says so, in the same slot ``headroom`` and the
+    uneven-groups aside use. Two graded rows is the least that can agree.
+    """
+    rewards = [v for v in (_graded_reward(r) for r in rows if isinstance(r, dict)) if v is not None]
+    if len(rewards) < 2 or len(set(rewards)) != 1:  # noqa: PLR2004  # one row cannot be unanimous
+        return ""
+    value = rewards[0]
+    shown = f"{int(value)}" if value == int(value) else f"{value:.2f}"
+    return (
+        f"every row scored {shown} ({len(rewards)} of {len(rewards)}); "
+        "check the judge before reading this number"
+    )
+
+
 @dataclass(frozen=True)
 class PassAt:
     """pass@1 / pass^k / pass@k over graded groups. See module docstring.
@@ -447,6 +469,8 @@ def pass_at(
     groups = _group_label_lists(row_list)
     n_rows = sum(len(labels) for labels in groups.values())
     if not groups:
+        # a single non-binary value on every row (all 0.5) is unanimous too
+        parts = (degenerate_note(row_list), _nothing_to_score(row_list))
         return PassAt(
             k=int(k or 1),
             pass_at_1=None,
@@ -454,7 +478,7 @@ def pass_at(
             pass_at_k=None,
             n_groups=0,
             n_rows=0,
-            note=_nothing_to_score(row_list),
+            note="; ".join(part for part in parts if part),
             config=run_config(row_list, n_tasks=0, k=int(k or 1)),
         )
 
@@ -514,6 +538,8 @@ def pass_at(
         note = "; ".join(
             part for part in (note, no_interval_note(len(groups), quantity="pass@1")) if part
         )
+    # A unanimous reward is about the checker, not the agent; say so first (#594).
+    note = "; ".join(part for part in (degenerate_note(row_list), note) if part)
 
     return PassAt(
         k=resolved_k,
@@ -533,4 +559,4 @@ def pass_at(
     )
 
 
-__all__ = ["JUDGE_NOISE_NOTE", "PassAt", "pass_at", "run_config"]
+__all__ = ["JUDGE_NOISE_NOTE", "PassAt", "degenerate_note", "pass_at", "run_config"]

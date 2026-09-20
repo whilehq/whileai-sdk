@@ -5,6 +5,13 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `wai.verify.tool_calls(row_or_message)` reads a tool call the same from either spelling:
+  the flat `{"name", "arguments": {dict}}` a rollout row carries and the OpenAI wire shape
+  (`function.arguments` as a JSON string) an export writes. A program reward written against
+  one shape returned `None` on the other and every row scored 0. That case now says so:
+  when every graded row scores one value, `pass_at` prints `every row scored 0 (404 of 404);
+  check the judge before reading this number` in its note slot, `grade()` logs it and adds
+  it to the run's `warnings`, and the schema page says `tool_calls` is re-spelled on export (#594).
 - `simulate(max_turns=1)` is now one user line and one reply. A reply holding a
   "?" used to earn a second user line written by the agent model itself, and the
   grader scored that second reply: on the text-to-SQL holdout 15% of Qwen3.5-9B rows
