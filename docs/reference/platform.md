@@ -371,6 +371,26 @@ print(tracked.verdict())  # one line: beats, trails, or about the same, and what
 
 Every object is a pydantic model that validates before it leaves the process, and each one's docstring names the paper or chapter it comes from. A *harness* is the instructions, tools and model name around the weights; its fingerprint is its version, so a prompt edit shows up as a new version without anyone naming it (a score is only comparable with its setup held constant). Pass the harness a version ran under to `tracked.run(version, harness=Harness(label=, instructions=, tools=, model=))` and the run carries the fingerprint in `record.provenance.pins["harness"]`, so two rows on the Runs page say which prompt produced each score. A *behavior* has its own frozen held-out test (`test_version`), a `noise_floor` measured by scoring the same model twice, and a judge checked against people (`agreement` over `human_n`) and for `length_bias`. A *run* is scored on every behavior: `targets` are the claim, the rest are the check (verbosity, sycophancy and refusals are what moves when the reward is gamed). `ci` is the half-width of the 95% interval; the difference interval is `delta ± sqrt(ci_candidate² + ci_served²)`, and the verdict says the candidate beats or trails the served version only when that interval excludes zero and the delta clears the behavior's declared `noise_floor`. A missing interval, an interval that includes zero, or a delta inside the re-run band is said in those words. The count of other behaviors that came out lower is on point estimates with no interval yet, so it is a prompt to look, not a result. The verdict ends with what the number rests on (judge agreement, n) and starts with `unproven:` when n is under 50, judge agreement is under 0.8 or unmeasured, or the training reward is the judge. `tracked.live(day, version=, replies=, flagged=)` reports a day of traffic when you serve the model yourself. Logging buffers and never raises into the training loop. Worked example: [`recipes/04-train/report-run`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/report-run).
 
+### Sweep the harness
+
+For an agent on a frontier model the harness is the experiment: the prompt, the tool set and the model. `HarnessSweep` scores every variant on the same frozen asks and posts one run per fingerprint, so the Runs page groups the dots by prompt or by model and the verdict says which win is real.
+
+```python
+from whileai.platform import Harness, HarnessSweep, track
+
+tracked = track("refund-agent", model="claude-haiku-4-5")
+sweep = HarnessSweep(tracked, judge=refund_judge, k=4, tools=TOOLS, behavior="refund_policy")
+variants = {
+    label: (
+        Harness(label=label, instructions=prompt, tools=TOOLS, model=model),
+        make_agent(prompt, model),
+    )
+    for label, (prompt, model) in PROMPTS_BY_MODEL.items()
+}
+report = sweep.run(variants, tasks=frozen)  # frozen: the run whose asks are the test
+print(report)  # ranked table; a winner only when its interval clears the rest and the noise floor
+```
+
 ### Say what the runs are for, and show your working
 
 The typed objects above are the evidence. Three free-form calls put the claim, the pictures and the commentary around it, so the person reading the dashboard knows what the runs are for before they read a number.

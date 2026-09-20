@@ -1441,6 +1441,8 @@ _LAZY: dict[str, tuple[str, str]] = {
     "models": ("whileai.simulations.training", "models"),
     "reward_model": ("whileai.simulations.training", "reward_model"),
     "TrainerCallback": ("whileai.simulations.training", "TrainerCallback"),
+    "HarnessSweep": ("whileai.sweep", "HarnessSweep"),
+    "SweepReport": ("whileai.sweep", "SweepReport"),
     "TrainingRun": ("whileai.simulations.training", "TrainingRun"),
 }
 
@@ -1489,6 +1491,7 @@ if TYPE_CHECKING:  # the lazy names above, visible to editors and mypy
         unserve,
     )
     from .simulations.training import list_runs as runs
+    from .sweep import HarnessSweep, SweepReport
 
 
 __all__ = [
@@ -1503,6 +1506,7 @@ __all__ = [
     "Figure",
     "Frontier",
     "Harness",
+    "HarnessSweep",
     "Judge",
     "LiveDay",
     "LiveSeries",
@@ -1514,6 +1518,7 @@ __all__ = [
     "RunRecord",
     "RunSpec",
     "Score",
+    "SweepReport",
     "Tracked",
     "TrackedInfo",
     "TrainCurve",
