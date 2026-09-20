@@ -44,6 +44,7 @@ describe it by hand::
     ))
 
     print(tracked.verdict())  # refunds: v4 beats v3 by 5 (interval excludes zero); 1 regression
+    print(tracked.brief())  # what happened, what it means, what to do next: the top of the Runs page
 
 Say what the runs are for, and show your working. The experiment block
 sits at the top of the Runs page, a figure grid follows the run table,
@@ -664,6 +665,330 @@ def platform_url() -> str:
     return (getenv("PLATFORM_URL", DEFAULT_PLATFORM_URL) or DEFAULT_PLATFORM_URL).rstrip("/")
 
 
+class Step(_Wire):
+    """One thing to do next: the sentence and the call that does it."""
+
+    say: str
+    cmd: str
+
+
+class Brief(_Wire):
+    """What happened, what it means, what to do next, in sentences.
+
+    The Runs page shows the same three parts at the top of the agent's
+    page, computed from the same rows by the same rules, so the person
+    reading the page and the coding agent reading ``tracked.brief()`` see
+    one text. ``str()`` it for the terminal, ``markdown()`` for an agent.
+    """
+
+    agent: str
+    url: str = ""
+    happened: list[str] = Field(default_factory=list)
+    means: str = ""
+    next: list[Step] = Field(default_factory=list)
+    scored: int = 0
+
+    def markdown(self) -> str:
+        lines = [f"# {self.agent} on {self.url}", "", "What happened"]
+        lines += [f"- {h}" for h in self.happened]
+        lines += ["", "What it means", self.means, "", "Do next"]
+        for i, step in enumerate(self.next, 1):
+            lines += [f"{i}. {step.say}", f"   `{step.cmd}`"]
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        lines = [f"{self.agent}: what happened"]
+        lines += [f"  {h}" for h in self.happened]
+        lines += ["what it means", f"  {self.means}", "do next"]
+        for i, step in enumerate(self.next, 1):
+            lines += [f"  {i}. {step.say}", f"     {step.cmd}"]
+        lines.append(f"  {self.url}")
+        return "\n".join(lines)
+
+
+# The order a fix is worth doing in: a set nobody can fail comes first.
+_BRIEF_ORDER = ("canfail", "size", "frozen", "judge", "noise", "contamination", "reward")
+_BRIEF_MAX_STEPS = 3
+_MIN_N = 50
+_SATURATED = 95.0
+
+
+def _one(x: float) -> str:
+    return f"{x:.1f}".rstrip("0").rstrip(".")
+
+
+def _points(versions: list[VersionScore]) -> tuple[list[VersionScore], bool]:
+    """Scores are points out of 100; fractions (every score and interval at
+    most 1) are read as points so the rules see one scale."""
+    if not versions or not all(0 <= v.score <= 1 and (v.ci or 0) <= 1 for v in versions):
+        return versions, False
+    return [
+        v.model_copy(update={"score": v.score * 100, "ci": None if v.ci is None else v.ci * 100})
+        for v in versions
+    ], True
+
+
+def _scores_for(runs: Sequence[Mapping[str, Any]], behavior: str) -> list[VersionScore]:
+    """Newest score per version on one behavior, read off the runs' evals."""
+    by: dict[str, tuple[str, VersionScore]] = {}
+    for r in runs:
+        for e in r.get("evals") or []:
+            if e.get("behavior") != behavior or e.get("score") is None:
+                continue
+            at = str(e.get("createdAt") or r.get("createdAt") or "")
+            prev = by.get(r["version"])
+            if prev is None or at > prev[0]:
+                by[r["version"]] = (
+                    at,
+                    VersionScore(v=r["version"], score=e["score"], ci=e.get("ci"), n=e.get("n")),
+                )
+    return [v for _, v in by.values()]
+
+
+def _eval_steps(b: Behavior, versions: list[VersionScore]) -> list[tuple[str, str, str]]:
+    """The checks the Runs page runs on a behavior, failed ones only:
+    (key, sentence, fix). Same thresholds as the page."""
+    out: list[tuple[str, str, str]] = []
+    if versions and all(v.score >= _SATURATED for v in versions):
+        top = max(versions, key=lambda v: v.score)
+        out.append(
+            (
+                "canfail",
+                f"add harder tasks ({b.name}: {top.v} already passes {_one(top.score)}, "
+                "nothing to learn)",
+                "count failure-capable asks; steer with simulate(hard_share=) or "
+                "dimensions={'stance': [...]}",
+            )
+        )
+    n = b.n if b.n is not None else next((v.n for v in versions if v.n is not None), None)
+    if n is None:
+        out.append(
+            (
+                "size",
+                f"declare n ({b.name}: size not declared)",
+                "Behavior(name, n=<held-out asks>)",
+            )
+        )
+    elif n < _MIN_N:
+        out.append(
+            (
+                "size",
+                f"add {_MIN_N - n}+ tasks ({b.name}: only {n} tasks, the interval is too wide "
+                "to see a gain of a few points)",
+                "wai.holdout_size(effect, rows=) says how many asks a gain needs",
+            )
+        )
+    if not b.test_version:
+        out.append(
+            (
+                "frozen",
+                f"name the test set ({b.name}: no name, so scores cannot be compared)",
+                'Behavior(name, test_version="v1"); bump it when the asks change',
+            )
+        )
+    j = b.judge
+    agreement = getattr(j, "agreement", None) if j is not None else None
+    human_n = getattr(j, "human_n", None) if j is not None else None
+    if agreement is None:
+        out.append(
+            (
+                "judge",
+                f"check the judge against people ({b.name}: judge never checked against people)",
+                "wai.attach_labels(rows, labels, kind='human'); wai.judge_trust(rows, judge); "
+                "Judge(agreement=, human_n=)",
+            )
+        )
+    elif agreement < 0.8 or (human_n or 0) < _MIN_N:
+        out.append(
+            (
+                "judge",
+                f"get a judge that agrees with people ({b.name}: agreement {agreement:g} "
+                f"on {human_n or 0} hand labels)",
+                "wai.judge_trust(rows, judge); Judge(agreement=, human_n=)",
+            )
+        )
+    if b.noise_floor is None:
+        out.append(
+            (
+                "noise",
+                f"score one version twice ({b.name}: noise floor not measured, so no gap is provable)",
+                "tracked.noise_floor(behavior, rows_a, rows_b)",
+            )
+        )
+    if b.contamination is None:
+        out.append(
+            (
+                "contamination",
+                f"check for leaks ({b.name}: not checked for leaks into training data)",
+                "wai.decontaminate(train, holdout); Behavior(contamination=<dropped>)",
+            )
+        )
+    if b.reward_is_judge is None:
+        out.append(
+            (
+                "reward",
+                f"declare reward_is_judge ({b.name}: not declared whether the reward is the judge)",
+                "Behavior(reward_is_judge=False)",
+            )
+        )
+    elif b.reward_is_judge:
+        out.append(
+            (
+                "reward",
+                f"score with a different model ({b.name}: the judge is also the training reward)",
+                "score with a program or a different model; Behavior(reward_is_judge=False)",
+            )
+        )
+    return out
+
+
+def brief_of(
+    agent: str,
+    behaviors: Sequence[Behavior],
+    runs: Sequence[Mapping[str, Any]],
+    dash: Dashboard | None = None,
+) -> Brief:
+    """The brief from the platform's rows: pure, so a test can hand it rows."""
+    url = f"https://withwhile.com/platform/runs?agent={agent}"
+    live = [r for r in runs if not r.get("archived")]
+    scored = [r for r in live if r.get("evals")]
+    trained = [r for r in live if r.get("method") and r.get("method") != "eval"]
+
+    def plural(k: int, w: str) -> str:
+        return f"{k} {w}{'' if k == 1 else 's'}"
+
+    if not scored:
+        happened = [
+            f"{plural(len(live), 'run')} posted, none scored yet."
+            if live
+            else "No runs posted yet."
+        ]
+        return Brief(
+            agent=agent,
+            url=url,
+            happened=happened,
+            means="There is nothing to read until a version is scored on a held-out test.",
+            next=[
+                Step(
+                    say="score one version",
+                    cmd='run = tracked.run(version="v1"); run.score("behavior", points, '
+                    "ci=half_width, n=asks); run.finish()",
+                )
+            ],
+        )
+
+    latest = max(scored, key=lambda r: str(r.get("updatedAt") or r.get("createdAt") or ""))
+    when = str(latest.get("updatedAt") or latest.get("createdAt") or "")[:10]
+    happened = [
+        f"{plural(len(scored), 'scored run')}"
+        + (f", {plural(len(trained), 'training run')}" if trained else ", no training yet")
+        + (f", latest {when}" if when else "")
+        + "."
+    ]
+    saturated: tuple[str, int | None] | None = None
+    single = True
+    fraction = False
+    smallest: int | None = None
+    steps: list[tuple[str, str, str]] = []
+    for b in behaviors:
+        raw = _scores_for(live, b.name)
+        if not raw:
+            continue
+        versions, scaled = _points(raw)
+        fraction = fraction or scaled
+        if len(versions) > 1:
+            single = False
+        for v in versions:
+            if v.n is not None:
+                smallest = v.n if smallest is None else min(smallest, v.n)
+        top = max(versions, key=lambda v: v.score)
+        if len(versions) == 1:
+            v = versions[0]
+            n = v.n if v.n is not None else b.n
+            if n is not None and v.score >= 99.95:
+                what = f"passed all {n} asks"
+            elif n is not None:
+                what = f"scored {_one(v.score)} of 100 on {n} asks"
+            else:
+                what = f"scored {_one(v.score)} of 100"
+            ci = f" (±{_one(v.ci)})" if v.ci else ""
+            happened.append(f"{b.name}: {v.v} {what}{ci}.")
+        else:
+            low = min(versions, key=lambda v: v.score)
+            happened.append(
+                f"{b.name}: {len(versions)} versions scored, {top.v} highest at "
+                f"{_one(top.score)}, {low.v} lowest at {_one(low.score)}."
+            )
+        if saturated is None and all(v.score >= _SATURATED for v in versions):
+            saturated = (b.name, top.n if top.n is not None else b.n)
+        steps += _eval_steps(b, versions)
+    if fraction:
+        happened.append("Scores arrived as fractions (0 to 1); read here as points out of 100.")
+
+    vd = dash.verdict if dash is not None else None
+    if vd is not None and vd.delta is not None and vd.candidate and vd.candidate != vd.serving:
+        serving = vd.serving or "nothing serving"
+        if vd.excludes_zero is None:
+            means = (
+                f"{vd.candidate} vs {serving} cannot be called: one side has no interval, "
+                f"so the gap of {_one(vd.delta)} is not a result."
+            )
+        else:
+            word = (
+                "about the same as"
+                if not vd.excludes_zero
+                else ("better than" if vd.delta > 0 else "worse than")
+            )
+            noise = "outside the noise" if vd.excludes_zero else "inside the noise"
+            means = f"{vd.candidate} is {word} {serving} by {_one(abs(vd.delta))} points, {noise}."
+    elif saturated is not None:
+        _name, n = saturated
+        on = f"{n} asks" if n is not None else "this set"
+        means = (
+            f"A perfect score on {on} says the asks are too easy, not that the agent is good. "
+            "Any change to the agent would show as no change here."
+        )
+    elif single:
+        means = (
+            "One version scored once. Nothing to compare yet: the next scored version gets a "
+            "verdict against this one."
+        )
+    elif smallest is not None and smallest < _MIN_N:
+        means = (
+            f"{smallest} asks give an interval too wide to see a gain of a few points; the "
+            "versions cannot be told apart yet."
+        )
+    else:
+        means = "Versions are scored on the same set; promote one to get a verdict against it."
+
+    seen: set[str] = set()
+    ordered: list[Step] = []
+    for key in _BRIEF_ORDER:
+        for k, say, cmd in steps:
+            if k == key and key not in seen:
+                seen.add(key)
+                ordered.append(Step(say=say, cmd=cmd))
+    if not ordered and vd is not None and vd.excludes_zero and (vd.delta or 0) > 0:
+        ordered.append(
+            Step(say=f"promote {vd.candidate}", cmd=f'tracked.promote("{vd.candidate}")')
+        )
+    if not ordered:
+        ordered.append(
+            Step(
+                say="score the next version on the same set",
+                cmd='tracked.run(version="v2").score(...)',
+            )
+        )
+    return Brief(
+        agent=agent,
+        url=url,
+        happened=happened,
+        means=means,
+        next=ordered[:_BRIEF_MAX_STEPS],
+        scored=len(scored),
+    )
+
+
 def _key(explicit: str | None) -> str:
     key = resolve_api_key(explicit)
     if not key:
@@ -917,6 +1242,18 @@ class Run:
                     item.behavior,
                     item.n,
                 )
+        if (
+            0 <= item.score <= 1
+            and (item.ci is None or item.ci <= 1)
+            and ("scale", item.behavior) not in self._ci_warned
+        ):
+            self._ci_warned.add(("scale", item.behavior))
+            log.warning(
+                "score(%r)=%g reads as a fraction; the platform counts points out of 100, "
+                "so pass score * 100 (and ci * 100).",
+                item.behavior,
+                item.score,
+            )
         out = self.tracked._call("POST", f"/runs/{self.id}/evals", [item.wire()])
         recorded = (out.get("evals") or [item.wire()])[0]
         self.scores[item.behavior] = Score.model_validate(recorded)
@@ -934,10 +1271,13 @@ class Run:
         steps: int | None = None,
         summary: Mapping[str, Any] | None = None,
         record: RunRecord | Mapping[str, Any] | None = None,
+        say: bool = True,
     ) -> dict[str, Any]:
         """Flush, then close the run with a status, what it cost, and the
         ``RunRecord`` (data, optimizer, eval, provenance) if it was not
-        given when the run opened."""
+        given when the run opened. When the run posted a score, print the
+        agent's brief (what happened, what it means, what to do next);
+        ``say=False`` keeps it quiet."""
         self.flush()
         patch: dict[str, Any] = {"status": status}
         if record is not None:
@@ -955,7 +1295,13 @@ class Run:
         if summary and _number(summary.get("train_loss")) is not None:
             patch["summary"] = {"train_loss": summary["train_loss"]}
         self.status = status
-        return self.tracked._call("PATCH", f"/runs/{self.id}", patch)
+        out = self.tracked._call("PATCH", f"/runs/{self.id}", patch)
+        if say and self.scores:
+            try:
+                print(self.tracked.brief())
+            except Exception as err:  # the brief is a courtesy; finish never fails on it
+                log.debug("brief skipped: %s", err)
+        return out
 
     def note(self, markdown: str) -> None:
         """Put free-form markdown on this run. The Runs page renders it
@@ -1393,6 +1739,12 @@ class Tracked:
         """Does the candidate beat the served version, and is it real? ``str()`` it."""
         return self.dashboard(behavior).verdict
 
+    def brief(self, behavior: str | None = None) -> Brief:
+        """What happened, what it means, what to do next: the same three
+        parts the Runs page shows at the top of this agent's page, from the
+        same rows. ``print(tracked.brief())``; ``.markdown()`` for an agent."""
+        return brief_of(self.id, self.behaviors(), self.runs(), self.dashboard(behavior))
+
     def __repr__(self) -> str:
         return f"Tracked({self.id!r}, model={self.model!r})"
 
@@ -1646,6 +1998,7 @@ if TYPE_CHECKING:  # the lazy names above, visible to editors and mypy
 __all__ = [
     "DEFAULT_PLATFORM_URL",
     "Behavior",
+    "Brief",
     "Dashboard",
     "Data",
     "Delta",
@@ -1667,6 +2020,7 @@ __all__ = [
     "RunRecord",
     "RunSpec",
     "Score",
+    "Step",
     "SweepReport",
     "Tracked",
     "TrackedInfo",
@@ -1678,6 +2032,7 @@ __all__ = [
     "VersionScore",
     "account",
     "agents",
+    "brief_of",
     "catalog",
     "datasets",
     "describe",
