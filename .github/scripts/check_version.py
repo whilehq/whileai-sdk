@@ -94,7 +94,35 @@ def tagged(version: str) -> bool:
     )
     if proc.returncode not in (0, 2):
         print(f"git ls-remote failed ({proc.returncode}): {proc.stderr.strip()[:200]}")
-    return proc.returncode == 0
+    if proc.returncode != 0:
+        return False
+    # The tag must be one of ours. This repository carries tags from the
+    # packages it was before the rename (their annotations name the old
+    # package), and on 2026-09-20 two of those, ``v1.1`` and ``v1.2``, made
+    # the gate skip 1.01 and 1.02 as "already published" when PyPI had
+    # neither. A whileai release tag is annotated ``whileai <version>``;
+    # anything else is not a release.
+    subprocess.run(
+        [
+            "git",
+            "fetch",
+            "--quiet",
+            "--no-tags",
+            "origin",
+            f"refs/tags/v{version}:refs/tags/v{version}",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    subject = subprocess.run(
+        ["git", "for-each-ref", "--format=%(subject)", f"refs/tags/v{version}"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if not subject.startswith("whileai "):
+        print(f"tag v{version} exists but is not a whileai release ({subject!r}); ignoring it")
+        return False
+    return True
 
 
 def next_allowed(prev: tuple[int, ...]) -> tuple[int, ...]:

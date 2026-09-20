@@ -5,6 +5,11 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The release gate counts a `v<version>` tag as shipped only when its
+  annotation reads `whileai <version>`. Tags left from the packages this
+  repository was before the rename made it skip 1.01 and 1.02 (below) as
+  already published; the two stale tags are deleted and the check no longer
+  trusts a bare tag name.
 - Training methods as objects: `wai.OPD(teacher)` (on-policy distillation, Agarwal et al. 2023,
   arXiv:2306.13649), `wai.OPSD(privileged=)` (on-policy self-distillation, Shenfeld et al. 2026,
   arXiv:2601.19897) and `wai.Async(method, off_policy_steps=)` (bounded-staleness RL, Noukhovitch et
@@ -33,10 +38,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## 1.02 (2026-09-20)
 
+- Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
+  this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `whileai.platform.HarnessSweep`: many prompt, tool and model variants of one agent, scored on the same frozen asks (`tasks=` a previous run), one run per harness fingerprint with `prompt`, `model` and `tools` pinned under `record.provenance.pins`, the noise floor from scoring one variant twice, the judge checked against hand labels when given. `SweepReport` prints the ranked table and names a winner only when its interval clears every other variant and the noise floor. The Runs page groups the dots by prompt or model (website #100).
 
 ## 1.01 (2026-09-20)
 
+- Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
+  this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `simulate(agent=wai.OpenAI("gpt-4.1-mini"), ...)` works, positional or
   keyword: a backend object is resolved the way `configure(agent=)` resolves
   it (its spec string, its key kept for the provider), instead of raising
