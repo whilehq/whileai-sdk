@@ -25,6 +25,7 @@ from .base import (
     All,
     Any_,
     FunctionVerifier,
+    ToolCall,
     Verifier,
     VerifierError,
     Weighted,
@@ -32,6 +33,7 @@ from .base import (
     candidate_text,
     extract_json,
     reference_value,
+    tool_calls,
     verifier,
 )
 from .code import CodeExec, extract_code
@@ -57,6 +59,7 @@ __all__ = [
     "MultipleChoice",
     "Numeric",
     "Regex",
+    "ToolCall",
     "Verifier",
     "VerifierError",
     "Weighted",
@@ -67,5 +70,6 @@ __all__ = [
     "extract_json",
     "normalize",
     "reference_value",
+    "tool_calls",
     "verifier",
 ]

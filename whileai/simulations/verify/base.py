@@ -36,6 +36,7 @@ import contextlib
 import json
 import re
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 from typing import Any
 
 from ..defaults import TEXT_HEURISTICS
@@ -60,6 +61,91 @@ def candidate_text(row: dict) -> str:
         if isinstance(msg, dict) and msg.get("role") == "assistant" and msg.get("content"):
             return str(msg["content"])
     return ""
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """One tool call as a program reward reads it: ``name``, ``arguments``
+    as a dict, and the call ``id`` when the row carries one."""
+
+    name: str
+    arguments: dict[str, Any] = field(default_factory=dict)
+    id: str | None = None
+
+
+def _arguments_dict(raw: Any) -> dict[str, Any]:
+    """Arguments as a dict from either spelling: a dict, a JSON string, or
+    nothing. A string that is not a JSON object reads as ``{}``, the same
+    as a call made with no arguments."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        with contextlib.suppress(ValueError, TypeError):
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+    return {}
+
+
+def _calls_of_message(message: Any) -> list[ToolCall]:
+    out: list[ToolCall] = []
+    if not isinstance(message, dict):
+        return out
+    for call in message.get("tool_calls") or []:
+        if not isinstance(call, dict):
+            continue
+        fn = call["function"] if isinstance(call.get("function"), dict) else call
+        call_id = call.get("id")
+        out.append(
+            ToolCall(
+                name=str(fn.get("name") or ""),
+                arguments=_arguments_dict(fn.get("arguments")),
+                id=str(call_id) if call_id else None,
+            )
+        )
+    return out
+
+
+def tool_calls(message_or_row: Any) -> list[ToolCall]:
+    """Every tool call in a message or a row, the same from either spelling.
+
+    A tool call inside ``messages`` has two spellings. Rollout rows (what
+    ``simulate()`` returns and ``grade(judge=...)`` hands the judge) carry
+    the flat shape ``{"name", "arguments": {dict}}``; exported rows
+    (``select().export()``) carry the OpenAI wire shape ``{"id", "type",
+    "function": {"name", "arguments": "<json string>"}}``. A reward written
+    against one returns ``None`` on the other and every row scores 0
+    (#594). This reads both, so a program reward is one function::
+
+        import whileai as wai
+
+        def opened_with_lookup(row):
+            calls = wai.verify.tool_calls(row)
+            return float(bool(calls) and calls[0].name == "get_order")
+
+    Pass one message (a dict with ``tool_calls``) or a whole row: a row's
+    calls are read from its assistant ``messages`` in order, else from
+    its ``steps``. ``arguments`` is always a dict (a JSON string is
+    decoded; missing, empty or undecodable arguments read as ``{}``).
+    """
+    if not isinstance(message_or_row, dict):
+        return []
+    if "tool_calls" in message_or_row or "role" in message_or_row:
+        return _calls_of_message(message_or_row)
+    out: list[ToolCall] = []
+    for message in message_or_row.get("messages") or []:
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            out.extend(_calls_of_message(message))
+    if out:
+        return out
+    for step in message_or_row.get("steps") or message_or_row.get("tool_trace") or []:
+        if not isinstance(step, dict) or not step.get("tool"):
+            continue
+        raw = step.get("arguments")
+        if raw is None:
+            raw = step.get("input")
+        out.append(ToolCall(name=str(step["tool"]), arguments=_arguments_dict(raw)))
+    return out
 
 
 def _reference_with_source(row: dict, field: str | None = None) -> tuple[Any, bool]:

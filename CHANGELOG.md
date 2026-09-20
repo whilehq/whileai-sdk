@@ -5,6 +5,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `wai.verify.tool_calls(row_or_message)` reads a tool call the same from either spelling:
+  the flat `{"name", "arguments": {dict}}` a rollout row carries and the OpenAI wire shape
+  (`function.arguments` as a JSON string) an export writes. A program reward written against
+  one shape returned `None` on the other and every row scored 0. That case now says so:
+  when every graded row scores one value, `pass_at` prints `every row scored 0 (404 of 404);
+  check the judge before reading this number` in its note slot and `grade()` logs the same
+  sentence (it stays out of `scored.warnings`, which the eval gates read as "hollow"), and the
+  schema page says `tool_calls` is re-spelled on export (#594).
 - `select(rows).export(path)` writes the system prompt and tool schemas whichever
   container the rows arrived in: `scored.rows`, a slice of it, `passes()` and what
   `decontaminate` kept all carry both now, so lesson 5's `decontaminate` into lesson 6's

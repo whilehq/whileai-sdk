@@ -60,6 +60,11 @@ from whileai.simulations.verify import (
   format), `Any` needs one, `Weighted` is a graded rubric in [0, 1].
 - **Your own.** `@verifier def f(candidate, reference, row): ...` returns a
   bool or a score, or a `(score, reason)` pair.
+- **Tool calls.** `wai.verify.tool_calls(row)` (or one message) returns the
+  calls as `ToolCall(name, arguments, id)` with `arguments` always a dict,
+  from a rollout row's flat `{"name", "arguments"}` and from an exported
+  row's OpenAI wire shape alike, so a reward that checks "did it open with
+  `get_order`" scores the same rows the same wherever it runs.
 
 ## In the loop
 

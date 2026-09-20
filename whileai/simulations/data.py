@@ -35,6 +35,7 @@ from .score.grade_llm import apply_grade_llm, require_judge_key, rubric_prompt
 from .score.judge_trust import trust_after_grade
 from .score.llm_judge import MISSING_JUDGE_KEY, apply_llm_grade, resolve_judge_key
 from .score.optimize import select_for_sft
+from .score.passat import degenerate_note
 from .score.quality import rank as rank_source
 from .score.quality import rank_rows
 from .score.quality import summarize as summarize_quality
@@ -642,6 +643,11 @@ class SimulationData:
         note = trust_after_grade(self.trajectories, mode=trust)["note"]
         if note:
             log.warning(note)
+        # A grader that scores every row the same is about the grader, not
+        # the agent; say so here and on the pass_at line (#594).
+        unanimous = degenerate_note(self.trajectories)
+        if unanimous:
+            log.warning(unanimous)
         self._rewrite(path)
         return self
 

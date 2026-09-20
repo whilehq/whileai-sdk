@@ -63,6 +63,7 @@ from typing import Any
 from ..defaults import DIFFICULTY_BAND, JUDGE_COMPARE_CONCURRENCY, MIN_AGREEMENT, MIN_KAPPA
 from ..tools import schemas as _tool_schemas
 from .hygiene import coverage_warnings
+from .passat import degenerate_note
 
 log = logging.getLogger("whileai.simulations")
 
@@ -618,6 +619,13 @@ def run_judge(
     result.warnings = coverage_warnings(scored, tools=tools)
     for note in result.warnings:
         log.warning(note)
+    # Every row scoring one value is about the judge, not the agent. It is
+    # logged and printed on the pass_at line, and kept out of ``warnings``:
+    # the eval gates read that list as "hollow, do not evaluate", and a
+    # small run a careful agent passes outright is not hollow (#594).
+    unanimous = degenerate_note(scored)
+    if unanimous:
+        log.warning(unanimous)
     return result
 
 
