@@ -94,6 +94,42 @@ def test_every_default_says_why():
         tail = re.split(rf"(?<![A-Z_]){name} = ", hits[0], maxsplit=1)[1]
         why = re.search(r":\s*((?:\S+\s+){2,}\S+)", tail)
         assert why or "(convention" in tail, f"{name}: the comment restates the value, no why"
+        # the constitution's exact words, so one grep finds every unsourced number
+        assert "(convention" not in tail or "(convention, untested" in tail, (
+            f"{name}: says convention without the exact words '(convention, untested'"
+        )
+
+
+def test_convention_phrase_check_reads_wrapped_comments(tmp_path):
+    """``scripts/check_no_hardcoding.py`` holds defaults.py to the exact
+    phrase: a bare ``(convention)`` or a qualified opener is a finding, the
+    phrase wrapped over two comment lines is not."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "check_no_hardcoding.py"
+    spec = importlib.util.spec_from_file_location("check_no_hardcoding", script)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    src = tmp_path / "defaults.py"
+    src.write_text(
+        "# A = 1: one reason. (convention)\n"
+        "A = 1\n"
+        "# B = 2: another reason. (convention inside the band, untested)\n"
+        "B = 2\n"
+        "# C = 3: a third reason that wraps. (convention,\n"
+        "# untested against other values)\n"
+        "C = 3\n"
+        "# D = 4: sourced (rlhfbook.com/c/07-reasoning)\n"
+        "D = 4\n",
+        encoding="utf-8",
+    )
+    findings = mod.check_convention_phrase(src)
+    assert [f.line for f in findings] == [1, 3], findings
+    assert mod.check_convention_phrase(Path(defaults.__file__)) == []
 
 
 # ------------------------------------------------------------------ level / alpha / power

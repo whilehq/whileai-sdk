@@ -70,7 +70,7 @@ What a researcher changes between runs: who plays the user and how patient they 
 
 ## Engine internals
 
-You should not need these. Every other number the engine uses is an `advanced` key too, named after its field on `whileai.simulations.defaults.RunKnobs`, where a comment above each states why the default is what it is (a measurement, the paper or textbook chapter it follows, or "convention, untested"). They are here so nothing in the engine is a number you cannot change, and so a report (`data.report()["knobs"]`) can say what a run ran under. A value outside its bounds is a `ValueError` that names the floor or ceiling and the default.
+You should not need these. Every other number the engine uses is an `advanced` key too, named after its field on `whileai.simulations.defaults.RunKnobs`, where a comment above each states why the default is what it is (a measurement, the paper or textbook chapter it follows, or the exact words "convention, untested", which `scripts/check_no_hardcoding.py` enforces so one grep of `defaults.py` finds every unsourced number). They are here so nothing in the engine is a number you cannot change, and so a report (`data.report()["knobs"]`) can say what a run ran under. A value outside its bounds is a `ValueError` that names the floor or ceiling and the default.
 
 | `advanced` key | Default | |
 |---|---|---|

@@ -87,7 +87,7 @@ OK_STATUSES = frozenset({"ok", "success"})
 
 # MESSAGE_EXAMPLES = 5: items a warning or an error names before ", ..."
 # (unknown ids, bad rows, tools with no result shape); enough to spot the
-# pattern without the message becoming the list. (convention)
+# pattern without the message becoming the list. (convention, untested)
 MESSAGE_EXAMPLES = 5
 
 # LEAK_MIN_QUOTE_CHARS = 12: the shortest run of characters that counts as
@@ -161,8 +161,8 @@ DEFAULT_PROBE = 2
 # per call and degraded at 10%; AgentCE-Bench, arXiv 2604.06111,
 # evaluates p in {0, 0.1, 0.3}). Independent of failure mutation (that is
 # a purposeful-fail arm, this is tool faults). ``fault_rate=`` or
-# ``risk=`` moves it; 0 disables injection. (convention inside the band,
-# untested against other shares)
+# ``risk=`` moves it; 0 disables injection. (convention, untested against
+# other shares inside the band)
 DEFAULT_FAULT_RATE = 0.5
 
 # RL_FAULT_RATE = 0.8: the same share under mode="rl". RL raises it because
@@ -197,11 +197,11 @@ DEFAULT_AVG_TURNS = 12.0
 DEFAULT_MIN_USER_TURNS = 1
 
 # AGENT_MAX_TOKENS_FLOOR = 64: the smallest reply budget simulate() accepts;
-# below it every reply is cut mid-sentence and scores 0. (convention)
+# below it every reply is cut mid-sentence and scores 0. (convention, untested)
 AGENT_MAX_TOKENS_FLOOR = 64
 
 # DEFAULT_SEED = 0: the seed every draw starts from when simulate() is
-# given none; zero so two runs with no seed argument agree. (convention)
+# given none; zero so two runs with no seed argument agree. (convention, untested)
 DEFAULT_SEED = 0
 
 # DEFAULT_POOL_SIZE = 80: prompts the situation writer keeps per round
@@ -473,7 +473,7 @@ ROLLOUTS_PER_TASK = 4
 # this value under the platform name). Five points is the package's proof
 # bar (a 5-point move on 50+ judged tasks); Lambert 2025, chapter Evaluation,
 # puts held-constant eval noise at 0.25 to 1.5 points, so five is several
-# noise floors. (convention above the measured noise)
+# noise floors. (convention, untested; sits above the measured noise)
 PROVE_EFFECT = 0.05
 
 # ---------------------------------------------------------------------
@@ -751,7 +751,7 @@ WORLD_CREATED_ID_MODULUS = 100_000
 WORLD_ISSUED_ID_HEX = 12
 # WORLD_REF_CHARS = 8: characters of the call digest echoed as ``ref``,
 # enough to tell two calls apart in a row and short enough to read.
-# (convention)
+# (convention, untested)
 WORLD_REF_CHARS = 8
 # WORLD_EXPRESSION_CHARS = 200: a calculator expression is echoed back cut
 # to this many characters, so a runaway argument cannot bloat a row.
@@ -790,7 +790,7 @@ TRACE_EXEMPLAR_MAX_CHARS = 500
 # TRACE_EXEMPLAR_STRING_CHARS = 160: a string inside an exemplar is cut here
 # with an ellipsis. TRACE_EXEMPLAR_LIST_ITEMS = 2 / TRACE_EXEMPLAR_DICT_KEYS
 # = 12: bound the nesting so the 500-char cap is reachable by trimming,
-# not by dropping the whole payload. (convention)
+# not by dropping the whole payload. (convention, untested)
 TRACE_EXEMPLAR_STRING_CHARS = 160
 TRACE_EXEMPLAR_LIST_ITEMS = 2
 TRACE_EXEMPLAR_DICT_KEYS = 12
@@ -903,7 +903,7 @@ PLATFORM_HOLDOUT_PROVE_EFFECT = PROVE_EFFECT
 # limit)
 PLATFORM_REWARD_MODEL_BATCH = 256
 # PLATFORM_UNKNOWN_IDS_SHOWN = 3: unknown trace ids named in an error
-# before ", ..."; enough to spot a typo pattern. (convention)
+# before ", ..."; enough to spot a typo pattern. (convention, untested)
 PLATFORM_UNKNOWN_IDS_SHOWN = 3
 
 # ---------------------------------------------------------------------
@@ -1092,7 +1092,7 @@ MONITOR_DELTA = 0.1
 MONITOR_LENGTH_PCT = 0.25
 # MONITOR_BUFFER = 512: completions the reward wrapper keeps for the
 # feature scan. MONITOR_SCAN_MIN = 8: the fewest it scans, two groups of
-# MONITOR_K, so a correlation has something to correlate. (convention)
+# MONITOR_K, so a correlation has something to correlate. (convention, untested)
 MONITOR_BUFFER = 512
 MONITOR_SCAN_MIN = 8
 # MONITOR_SCAN_PERMUTATIONS = 50 / MONITOR_WINDOW_BOOTSTRAPS = 500: the
@@ -1137,7 +1137,7 @@ ENV_HOLDOUT_FRACTION = TRACE_PSEUDO_PRODUCTION_FRACTION
 # in score/ (one value, one home).
 ENV_DECONTAMINATION_NGRAM = DECONTAM_NGRAM
 # ENV_DECONTAMINATION_EXAMPLES = 3: overlaps shown in the report before
-# ", ..."; enough to see what kind of text leaked. (convention)
+# ", ..."; enough to see what kind of text leaked. (convention, untested)
 ENV_DECONTAMINATION_EXAMPLES = 3
 # ENV_MAX_TURNS_FALLBACK = 10: turn cap when a spec carries none; under
 # DEFAULT_AVG_TURNS because an exported task carries no simulated user
@@ -1146,7 +1146,7 @@ ENV_MAX_TURNS_FALLBACK = 10
 # ENV_EVAL_EXAMPLES = 5 / ENV_EVAL_ROLLOUTS = 3: the verifiers smoke eval
 # written into the exported pyproject: five tasks, three rollouts each,
 # enough to prove the package installs and grades, not to measure it.
-# (convention)
+# (convention, untested)
 ENV_EVAL_EXAMPLES = 5
 ENV_EVAL_ROLLOUTS = 3
 

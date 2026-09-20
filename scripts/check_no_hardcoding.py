@@ -36,6 +36,13 @@ A line that must keep a literal ends with ``# literal: <reason>`` and
 passes when the reason is a phrase: at least 12 characters and more than
 one word. ``# literal: x`` or ``# literal: heuristic`` does not pass.
 
+``defaults.py`` is read for one thing: a default with no source says the
+exact words ``(convention, untested`` (CONSTITUTION.md, belief 3 and rule
+12), so one grep finds every unsourced number. A comment that opens
+``(convention`` any other way, ``(convention)`` or ``(convention inside
+the band, ...)``, is a finding. Wrapped comment lines are joined before
+the check, so the phrase may break across a line.
+
     uv run python scripts/check_no_hardcoding.py          # exit 1 on a finding
     uv run python scripts/check_no_hardcoding.py --list   # print, exit 0
 
@@ -63,6 +70,9 @@ FREE_VALUES = {0, 1, 2, -1}
 LITERAL_REASON_MIN_CHARS = 12
 
 ALLOW_MARK = re.compile(r"#\s*literal:\s*(?P<reason>.+?)\s*$")
+#: The words a default with no source says, verbatim, from the open paren.
+CONVENTION_PHRASE = "(convention, untested"
+CONVENTION_MARK = re.compile(r"\(convention\b")
 CONSTANT_LINE = re.compile(r"^_?[A-Z][A-Z0-9_]*(?:, _?[A-Z][A-Z0-9_]*)*(?::[^=]+)? = ")
 ATTR_DOC_LINE = re.compile(r"^#:\s*\S")
 
@@ -230,6 +240,38 @@ def check_file(path: Path) -> list[Finding]:
     return findings
 
 
+def check_convention_phrase(path: Path) -> list[Finding]:
+    """Every ``(convention`` in a comment of ``path`` opens the exact
+    phrase ``(convention, untested``. Comment lines are joined into
+    paragraphs first, so a phrase wrapped over two lines is read whole;
+    a finding names the line the marker starts on."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    findings: list[Finding] = []
+    i = 0
+    while i < len(lines):
+        if not lines[i].lstrip().startswith("#"):
+            i += 1
+            continue
+        start = i
+        parts: list[str] = []
+        while i < len(lines) and lines[i].lstrip().startswith("#"):
+            parts.append(lines[i].lstrip().lstrip("#").strip())
+            i += 1
+        paragraph = " ".join(parts)
+        for m in CONVENTION_MARK.finditer(paragraph):
+            if paragraph.startswith(CONVENTION_PHRASE, m.start()):
+                continue
+            lineno, seen = start + 1, 0
+            for offset, part in enumerate(parts):
+                if seen + len(part) >= m.start():
+                    lineno = start + offset + 1
+                    break
+                seen += len(part) + 1
+            snippet = paragraph[m.start() : m.start() + 40]
+            findings.append(Finding(path, lineno, f'"{snippet}" is not "{CONVENTION_PHRASE}"'))
+    return findings
+
+
 def main(argv: list[str]) -> int:
     list_only = "--list" in argv
     findings: list[Finding] = []
@@ -246,8 +288,18 @@ def main(argv: list[str]) -> int:
             "attribute doc above it), or end the line with `# literal: <reason>` where "
             "the reason is a phrase."
         )
+    phrase = check_convention_phrase(PACKAGE / "defaults.py")
+    for finding in phrase:
+        print(finding)
+    if phrase:
+        print(
+            f"\n{len(phrase)} default(s) in defaults.py say convention without the exact "
+            f'words. A default with no source says "{CONVENTION_PHRASE}" (CONSTITUTION.md, '
+            "rule 12); qualify it after those words, not instead of them."
+        )
+    if findings or phrase:
         return 0 if list_only else 1
-    print("no inline thresholds in whileai/simulations")
+    print("no inline thresholds in whileai/simulations; every convention default says untested")
     return 0
 
 
