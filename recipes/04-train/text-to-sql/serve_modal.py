@@ -93,6 +93,55 @@ runs_volume = modal.Volume.from_name(RUNS_VOLUME, create_if_missing=True)
 )
 @modal.concurrent(max_inputs=64)
 @modal.web_server(port=8000, startup_timeout=20 * 60)
+def _rename_for_vllm(path: str) -> None:
+    """PEFT under transformers 5 saves a Qwen3.5 (VLM-class) adapter as
+    ``base_model.model.model.layers.N.*``; vLLM keeps that text stack under
+    ``language_model`` and activates nothing for a name it cannot place, so
+    the adapter loads without an error and serves the base model
+    (whilehq/whileai-sdk#588). Rewrite the header in place; tensor bytes are
+    untouched. Plain causal LMs already carry the right names and are left
+    alone."""
+    import json
+    import struct
+
+    with open(path, "rb") as f:
+        n = struct.unpack("<Q", f.read(8))[0]
+        header = json.loads(f.read(n))
+        data = f.read()
+    old_prefix = "base_model.model.model.layers."
+    if not any(k.startswith(old_prefix) for k in header):
+        return
+    model_cfg = {}
+    try:
+        from transformers import AutoConfig
+
+        model_cfg = AutoConfig.from_pretrained(
+            json.load(open(path.replace("adapter_model.safetensors", "adapter_config.json")))[
+                "base_model_name_or_path"
+            ]
+        ).to_dict()
+    except Exception as exc:
+        print(
+            f"adapter rename: could not read the base config ({exc}); renaming on key layout alone"
+        )
+    if model_cfg and "text_config" not in model_cfg:
+        return  # a plain causal LM: names already match
+    new_prefix = "base_model.model.model.language_model.layers."
+    renamed = {
+        (new_prefix + k[len(old_prefix) :] if k.startswith(old_prefix) else k): v
+        for k, v in header.items()
+    }
+    hb = json.dumps(renamed, separators=(",", ":")).encode()
+    hb += b" " * ((8 - len(hb) % 8) % 8)
+    with open(path, "wb") as f:
+        f.write(struct.pack("<Q", len(hb)))
+        f.write(hb)
+        f.write(data)
+    print(
+        f"adapter rename: {sum(k.startswith(old_prefix) for k in header)} tensors moved under language_model for vLLM"
+    )
+
+
 def serve():
     model = os.environ["T2S_SERVE_MODEL"]
     key = os.environ["VLLM_API_KEY"]
@@ -129,6 +178,7 @@ def serve():
         # files were there. Copy the adapter (a few hundred MB) to local disk.
         local = "/root/adapters/" + run_id.replace("/", "_")
         shutil.copytree(src, local, dirs_exist_ok=True)
+        _rename_for_vllm(local + "/adapter_model.safetensors")
         cmd += [
             "--enable-lora",
             "--lora-modules",
