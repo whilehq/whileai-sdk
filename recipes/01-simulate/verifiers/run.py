@@ -11,8 +11,10 @@ Run: python recipes/01-simulate/verifiers/run.py
 from __future__ import annotations
 
 import argparse
+import sys
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations.score.judging import run_judge
 from whileai.simulations.verify import (
     All,
@@ -97,6 +99,7 @@ def show(title, rows, verifier):
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     argparse.ArgumentParser(
         description="Verifiable rewards, offline demo. No arguments."
     ).parse_args(argv)

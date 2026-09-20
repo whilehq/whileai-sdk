@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from whileai.config import provenance
 from whileai.simulations import (
     compare_runs,
     decontaminate,
@@ -382,6 +383,7 @@ def demo_rows(n_tasks: int = 60, k: int = 4, seed: int = 0, easy: bool = True) -
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("rows", nargs="*", help="one graded eval file, or base and tuned")
     ap.add_argument("--train", help="training rows, to check contamination")

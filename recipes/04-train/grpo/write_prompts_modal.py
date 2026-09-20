@@ -19,6 +19,8 @@ from pathlib import Path
 
 import modal
 
+from whileai.config import provenance
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
@@ -118,6 +120,7 @@ def main(
     writer_model: str = WRITER_MODEL,
     seed: int = 0,
 ):
+    print(provenance(), file=sys.stderr)
     import json
 
     from prompts import summary

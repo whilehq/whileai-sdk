@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 TOOLS = [
     {
@@ -202,6 +203,7 @@ def report(rows: list[dict]) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("rows", nargs="?", help="graded JSONL; omit to simulate offline")
     parser.add_argument("--asks", type=int, default=12)

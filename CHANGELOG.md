@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `whileai.config.provenance()`: one line, `whileai <version> from <directory>`, ending
+  `(source tree, not the installed wheel)` when a clone's `whileai/` is shadowing the wheel
+  and `(source tree, installed editable)` after `pip install -e .`. Every recipe prints it
+  first, on stderr, so a run started from the repository root says which package it used;
+  the Modal recipes mount the one it names. `recipes/README.md` says to run a recipe from
+  its own directory (#443).
+
 ## 1.10 (2026-09-20)
 
 - `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving

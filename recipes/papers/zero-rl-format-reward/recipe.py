@@ -47,6 +47,8 @@ from pathlib import Path
 
 import modal
 
+from whileai.config import provenance
+
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen3.5-4B-Base"
 METRIC = "pass@1"
@@ -690,6 +692,7 @@ def selftest() -> None:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arm", choices=["baseline", "recipe", "both"], default="both")
     ap.add_argument("--steps", type=int, default=30)

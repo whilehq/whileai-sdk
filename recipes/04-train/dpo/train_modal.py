@@ -39,6 +39,8 @@ from pathlib import Path
 
 import modal
 
+from whileai.config import provenance
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "grpo"))
@@ -401,6 +403,7 @@ def main(
     constructed_negatives: bool = False,
     gpu: str = DEFAULT_GPU,
 ):
+    print(provenance(), file=sys.stderr)
     from pairs import load_export
     from reward import SYSTEM, build_prompts, split_holdout
 

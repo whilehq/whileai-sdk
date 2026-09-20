@@ -29,6 +29,7 @@ import requests
 
 import whileai.simulations as wai
 from whileai.auth import resolve_api_key
+from whileai.config import provenance
 from whileai.simulations.score.judging import run_judge
 
 STATE = Path(__file__).with_name("hosted-loop.json")
@@ -262,6 +263,7 @@ STEPS = {
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("step", nargs="?", default="all", choices=["all", *STEPS])
     parser.add_argument("--name", default="hosted-loop", help="dataset, agent and model name")

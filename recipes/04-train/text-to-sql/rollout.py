@@ -43,6 +43,7 @@ from sql_verifier import (
 )
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 SERVE_URL = "https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
 
@@ -124,6 +125,7 @@ def warm(spec: str, minutes: float = 15) -> None:
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="qwen3-4b", choices=sorted(MODELS))
     ap.add_argument(
