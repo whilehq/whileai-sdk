@@ -15,6 +15,21 @@ print(whileai.__version__)   # 0.88
 
 Python 3.10 to 3.13.
 
+## Set up a repo for your coding agent
+
+```bash
+whileai init
+```
+
+One command in the repository your agent works in. It writes a short block
+into `AGENTS.md` (Codex, Cursor and Copilot read it), points `CLAUDE.md` at
+it (Claude Code reads that), installs the tested skills under
+`.claude/skills/`, and runs the evals skill's `check.py` so the agent sees
+the verdict line before it touches your code. After that, "use whileai to
+build me better evals for my agent" lands on the playbook with no URL to
+remember. Run it again after an upgrade; `whileai status` says when the
+block is stale.
+
 ## Extras
 
 | Install | When |

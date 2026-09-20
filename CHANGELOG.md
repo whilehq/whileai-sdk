@@ -13,6 +13,33 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   wall clock under `pytest -n auto`: it sets `idle_judge_share=0` and
   asserts on the accounting, so `uv run pytest -q` is green on a loaded box
   (#461).
+## 1.00 (2026-09-20)
+
+- `whileai init` runs the evals check from any working directory; 0.99 resolved the script path against the skill folder and printed a can't-open-file error.
+## 0.99 (2026-09-19)
+
+- `whileai status` keeps stdout pure JSON; the `repo` block inside it (`agents_md`, `stale`, `skills`) says whether to run `whileai init`; no hint line (the 0.97 publish failed on a test that parses the JSON).
+
+## 0.98 (2026-09-19)
+
+- Dataset and adapter links point at the while-ai Hugging Face org, where the
+  sets live; the old org name is gone from recipes, results and docs.
+
+## 0.97 (2026-09-19)
+
+- `whileai init` sets a repository up for a coding agent: a block under
+  twenty lines in `AGENTS.md` (Codex, Cursor, Copilot), an `@AGENTS.md`
+  include in `CLAUDE.md` (Claude Code), the tested skills copied under
+  `.claude/skills/` (from the checkout, else from `main`), and the evals
+  skill's `check.py` run so the verdict line shows before the agent
+  touches your code. Re-running replaces the block in place; `whileai
+  status` reports the block, its version and the installed skills, and
+  says when it is stale. `whileai.init_repo` is the module.
+- PyPI keywords name what people search for: llm-evals, llm-as-a-judge,
+  pass-at-k, post-training, rlhf, sft, dpo, claude-code, agents-md.
+- The `ZEROPROOF_*` fallback and `~/.zeroproof` migration stay until 1.0, not
+  0.95: releases moved past 0.95 the night the deadline was written. Belief 9
+  no longer lists app.withwhile.com; that host was retired the same day.
 
 ## 0.96 (2026-09-19)
 
