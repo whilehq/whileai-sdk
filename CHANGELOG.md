@@ -11,6 +11,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   "cannot detect a transport". `backend=` takes one too. The transport error
   for an object the SDK cannot place now lists what `agent=` accepts and no
   longer tells you to pass `tools=` when you already did (#472).
+- The README's "Sixty seconds, offline" block and the docs landing and
+  quickstart pages run through `rows.export("train.jsonl")` under a test
+  (`tests/api/test_readme_offline_quickstart.py`), so the last step of the
+  first program a reader runs cannot raise again (#471, #458). The docs
+  snippet runner no longer filters leaked rows by hand; `select` drops them.
+  `seeded_agent` is unchanged: its `leak` mode quotes the privileged block on
+  purpose and labels the row `seeded == ["leak"]`, which is what the gate is
+  there to catch.
 - Warnings printed by `select`, `hack_scan` and `publish_gate` now send the
   reader to `select(mode="rl")`, the front-door name, instead of `optimize`;
   the hack-scan note says the advice is for a manual `hack_scan` call.
