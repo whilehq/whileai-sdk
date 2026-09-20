@@ -362,12 +362,12 @@ tracked.behavior(
 
 run = tracked.run("v4", method="GRPO", targets=["refunds"], trained_on=["refunds-grpo"])
 run.log(10, reward=0.41, kl=0.01)  # or trainer.add_callback(wai.TrainerCallback(run))
-run.score("refunds", 83, ci=2.7, n=240)  # points out of 100, every behavior, not only the targets
+run.score("refunds", 83, ci=2.7, n=240)  # points out of 100; every behavior, not only targets
 run.score("length", 76, ci=2.8, n=120)
-run.finish(hours=2.1, gpu="1xH100", cost_usd=31)  # prints the brief: what happened, what it means, what next
+run.finish(hours=2.1, gpu="1xH100", cost_usd=31)  # prints the brief
 
 print(tracked.verdict())  # one line: beats, trails, or about the same, and what that rests on
-print(tracked.brief())  # three parts, same text as the top of the agent's Runs page
+print(tracked.brief())  # what happened, what it means, what next: the Runs page text
 ```
 
 **The brief.** `tracked.brief()` is the same three parts the Runs page shows at the top of the agent's page, computed from the same rows (behaviors, runs, dashboard) by the same rules: what happened (scored runs, each behavior's newest score per version, in points), what it means (the verdict when two versions are scored; else the one fact that decides what the page can say, such as a perfect score on a set nobody can fail), and what to do next (the failed eval checks in the order they are worth doing, a set nobody can fail first, then size, then the test set's name, then the judge; three at most, each with the call). `run.finish()` prints it once the run has posted a score (`say=False` keeps it quiet), and `brief.markdown()` is the text a coding agent reads, the same one the page's "copy for agent" button copies, so the person and the agent work from one source. Scores are points out of 100; a score that reads as a fraction (score and interval at most 1) gets a warning from `run.score()` and is read as points by the brief.
