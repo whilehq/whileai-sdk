@@ -52,7 +52,12 @@ def next_version(current: str) -> str:
     how 2026-09-20 shipped 1.0..1.9 instead of 0.100..0.109).
     """
     major, minor = (int(p) for p in current.split("."))
-    return f"{major}.{minor + 1}"
+    if major != 0:
+        sys.exit(
+            f"version {current!r} is not 0.N; main carries a mis-numbered version. "
+            f"Set it back to the last published 0.N (pip index versions whileai) before cutting."
+        )
+    return f"0.{minor + 1}"
 
 
 def read_version(path: Path) -> str:

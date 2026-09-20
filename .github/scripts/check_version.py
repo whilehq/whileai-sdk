@@ -164,6 +164,11 @@ def main() -> int:
         )
     if current.pre or current.post or current.dev or current.local:
         fail(f"{version!r} has a pre/post/dev/local segment; releases must be plain.")
+    if current.release[0] != 0:
+        fail(
+            f"version must be 0.N; the counter never rolls to 1.0 (got {version!r}). "
+            f"Set pyproject back to the last published 0.N before cutting."
+        )
 
     prior = published(name)
     print(f"package        : {name}")

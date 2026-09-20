@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Versioning: `release.py` and the publish gate refuse any version whose major is not 0, so a
+  main that still says `1.N` cannot cut `1.N+1` (that is how #631 tried to ship 1.10).
 - `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving
   container inside the fifteen-minute window the README already promises, backing off from
   5 s to 60 s between tries, and at the deadline says what to do (`python run.py call`
