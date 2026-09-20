@@ -44,6 +44,7 @@ from __future__ import annotations
 import math
 import random
 import re
+import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -1353,7 +1354,9 @@ def decontaminate(
     the rows that survived, and a report with the count under each rule
     (``n_contaminated`` in total), hits per field, the eval text count, and
     the first offenders with their coverage (or ``similarity`` for semantic
-    hits).
+    hits). ``rules_skipped`` names each rule that could not run on these
+    inputs and why (empty when every rule ran), and ``notes`` says it in a
+    sentence: a zero under a rule that never ran is not a clearance.
 
     * ``rows``: the training rows.
     * ``against``: one or more evaluation sources: row lists, JSONL paths,
@@ -1378,8 +1381,12 @@ def decontaminate(
     * ``same_task`` (``n_same_task``): the row's ``scenario_id`` or
       ``task_id`` is an evaluation row's. A task is a situation, not a
       string (``task_key``), so a rephrasing of an eval situation is the
-      eval situation whatever the words say. Rows with no recorded id
-      skip this rule.
+      eval situation whatever the words say. It needs an id on both
+      sides: when no evaluation row (or no training row) carries one,
+      the rule does not run, ``rules_skipped["same_task"]`` says so, and
+      only the text rules stand between the sets. Every eval set not
+      written by ``simulate()`` (GSM8K, a Hub set, logged traces) is in
+      that case, so read ``n_same_task: 0`` next to ``rules_skipped``.
     * ``exact`` (``n_exact``): one of the row's ``fields`` is an
       evaluation text verbatim after normalization (case and whitespace).
     * near copy (``n_near``): one evaluation text covers at least
@@ -1388,6 +1395,9 @@ def decontaminate(
     * ``semantic`` (``n_semantic``), only with ``embedder``: the cosine
       similarity between the row's text and an evaluation prompt is at
       least ``similarity``, and the two carry different task ids or none.
+      It needs evaluation prompts to embed: when no evaluation row has a
+      ``prompt``, the rule does not run, ``rules_skipped["semantic"]``
+      says so, and a ``UserWarning`` is raised because you asked for it.
 
     One shared n-gram is the test Lambert 2025, chapter Evaluation, uses for
     free-form sets. Situations written from templates share whole sentences
@@ -1514,6 +1524,33 @@ def decontaminate(
                     if text.strip():
                         candidates.append((i, field, text))
     notes: list[str] = []
+    rules_skipped: dict[str, str] = {}  # rule -> why it could not run on these inputs
+    total = sum(1 for r in rows if isinstance(r, dict))
+    n_train_ids = sum(1 for r in rows if isinstance(r, dict) and _explicit_task(r) is not None)
+    if n_eval and not eval_tasks:
+        rules_skipped["same_task"] = (
+            f"0 of {n_eval} evaluation rows carried a scenario_id or task_id"
+        )
+    elif n_eval and total and not n_train_ids:
+        rules_skipped["same_task"] = f"0 of {total} training rows carried a scenario_id or task_id"
+    if "same_task" in rules_skipped:
+        others = "the text rules" + (" and the semantic rule" if embedder is not None else "")
+        notes.append(
+            f"{rules_skipped['same_task']}, so the same_task rule was not applied and "
+            f"n_same_task=0 says nothing about task overlap; only {others} ran. Every "
+            "eval set not written by simulate() is in this case; pass embedder= to see "
+            "paraphrases the text rules miss."
+        )
+    if embedder is not None and n_eval and not eval_prompts:
+        rules_skipped["semantic"] = (
+            f"none of the {n_eval} evaluation rows carried a prompt to embed"
+        )
+        line = (
+            f"{rules_skipped['semantic']}, so the semantic rule you asked for with embedder= "
+            "was not applied; n_semantic=0 is not a clearance."
+        )
+        notes.append(line)
+        warnings.warn(f"decontaminate: {line}", UserWarning, stacklevel=2)
     n_semantic = 0
     if embedder is not None and eval_prompts:
         eval_norms = list(eval_prompts)
@@ -1572,7 +1609,6 @@ def decontaminate(
                 "task, and raise similarity= if your embedder scores unrelated prompts high."
             )
     kept = [rows[i] for i in kept_index]
-    total = sum(1 for r in rows if isinstance(r, dict))
     n_exact = sum(1 for f in flagged if f["match"] == "exact")
     n_same_task = sum(1 for f in flagged if f["match"] == "same_task")
     return kept, {
@@ -1593,6 +1629,8 @@ def decontaminate(
         "fields": list(fields),
         "by_field": by_field,
         "examples": flagged[:20],
+        # rule -> why it could not run here; empty means every rule ran
+        "rules_skipped": rules_skipped,
         "notes": notes,
     }
 

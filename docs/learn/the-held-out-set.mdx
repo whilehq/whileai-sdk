@@ -70,7 +70,11 @@ contaminated: 1
 
 One planted copy, one row dropped. On a real set the count is rarely
 zero, and every row it drops is a row that would have made the after
-score lie.
+score lie. That catch came from the `same_task` rule, which needs a
+`scenario_id` or `task_id` on both sides; an eval set that carries none
+(a public benchmark, logged traces) leaves only the text rules, and the
+report says so in `rules_skipped` and `notes` rather than printing
+`n_same_task: 0` as if the ids had been compared.
 
 <Note>
 Public benchmarks have the same problem at scale: their questions are on
