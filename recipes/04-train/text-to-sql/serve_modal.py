@@ -70,29 +70,6 @@ hf_cache = modal.Volume.from_name(HF_CACHE, create_if_missing=True)
 runs_volume = modal.Volume.from_name(RUNS_VOLUME, create_if_missing=True)
 
 
-@app.function(
-    image=image,
-    gpu=GPU,
-    timeout=24 * 60 * 60,
-    scaledown_window=10 * 60,
-    volumes={"/root/.cache/huggingface": hf_cache, "/vol": runs_volume},
-    # Everything the server needs rides in the secret: the container re-imports
-    # this module without serve_config.json.
-    secrets=[
-        modal.Secret.from_dict(
-            {
-                "VLLM_API_KEY": KEY,
-                "HF_TOKEN": os.environ.get("HF_TOKEN", ""),
-                "T2S_SERVE_MODEL": MODEL,
-                "T2S_SERVE_ADAPTER": ADAPTER,
-                "T2S_SERVE_MAX_LEN": str(MAX_LEN),
-                "T2S_SERVE_TOOL_PARSER": TOOL_PARSER,
-            }
-        )
-    ],
-)
-@modal.concurrent(max_inputs=64)
-@modal.web_server(port=8000, startup_timeout=20 * 60)
 def _rename_for_vllm(path: str) -> None:
     """PEFT under transformers 5 saves a Qwen3.5 (VLM-class) adapter as
     ``base_model.model.model.layers.N.*``; vLLM keeps that text stack under
@@ -142,6 +119,29 @@ def _rename_for_vllm(path: str) -> None:
     )
 
 
+@app.function(
+    image=image,
+    gpu=GPU,
+    timeout=24 * 60 * 60,
+    scaledown_window=10 * 60,
+    volumes={"/root/.cache/huggingface": hf_cache, "/vol": runs_volume},
+    # Everything the server needs rides in the secret: the container re-imports
+    # this module without serve_config.json.
+    secrets=[
+        modal.Secret.from_dict(
+            {
+                "VLLM_API_KEY": KEY,
+                "HF_TOKEN": os.environ.get("HF_TOKEN", ""),
+                "T2S_SERVE_MODEL": MODEL,
+                "T2S_SERVE_ADAPTER": ADAPTER,
+                "T2S_SERVE_MAX_LEN": str(MAX_LEN),
+                "T2S_SERVE_TOOL_PARSER": TOOL_PARSER,
+            }
+        )
+    ],
+)
+@modal.concurrent(max_inputs=64)
+@modal.web_server(port=8000, startup_timeout=20 * 60)
 def serve():
     model = os.environ["T2S_SERVE_MODEL"]
     key = os.environ["VLLM_API_KEY"]
