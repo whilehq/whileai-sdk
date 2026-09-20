@@ -34,9 +34,12 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from .defaults import (
+    GPU_PRICE_SOURCE,
+    GPU_USD_PER_HOUR,
     PASS_THRESHOLD,
     PLATFORM_REWARD_MODEL_BATCH,
     RL_ROLLOUTS_PER_PROMPT,
+    SECONDS_PER_HOUR,
     TRAIN_MIN_MIXED_TASKS,
     TRAINING_ERROR_CHARS,
     TRAINING_FLUSH_EVERY,
@@ -77,6 +80,69 @@ HOLDOUT_KEYS = {
     "pass": ("holdoutPassBefore", "holdoutPassAfter"),
     "loss": ("holdoutLossBefore", "holdoutLossAfter"),
 }
+
+
+def _cost_fields(gpu: Any, seconds: Any) -> dict[str, Any]:
+    """``cost_usd`` and ``cost_basis`` for a run that reports its GPU and
+    its seconds: ``seconds / SECONDS_PER_HOUR * GPU_USD_PER_HOUR[gpu]``,
+    to the cent, with the basis naming the GPU, the rate and where the
+    rate came from (Modal's on-demand list price on the day it was read,
+    ``GPU_PRICE_SOURCE``). It is an estimate, not a bill. A GPU the table
+    does not name, or a missing gpu or seconds, gives ``cost_usd`` None
+    and a basis that says which. Rollouts and judge calls on the serving
+    endpoint are not priced; only the trainer's GPU time is."""
+    name = str(gpu).strip() if gpu else ""
+    known = ", ".join(GPU_USD_PER_HOUR)
+    if not name:
+        return {
+            "cost_usd": None,
+            "cost_basis": f"no estimate: the run reported no gpu ({known}; {GPU_PRICE_SOURCE})",
+        }
+    rate = GPU_USD_PER_HOUR.get(name.upper())
+    if rate is None:
+        return {
+            "cost_usd": None,
+            "cost_basis": (
+                f"no estimate: {name} is not in the rate table ({known}; {GPU_PRICE_SOURCE})"
+            ),
+        }
+    try:
+        secs = float(seconds)
+    except (TypeError, ValueError):
+        return {
+            "cost_usd": None,
+            "cost_basis": (
+                f"no estimate: the run reported no seconds "
+                f"({name} at ${rate:.2f}/h, {GPU_PRICE_SOURCE})"
+            ),
+        }
+    return {
+        "cost_usd": round(secs / SECONDS_PER_HOUR * rate, 2),
+        "cost_basis": f"estimate: {name} at ${rate:.2f}/h, {GPU_PRICE_SOURCE}",
+    }
+
+
+def _cost_line(fields: Mapping[str, Any]) -> str:
+    """The printed cost: ``about $0.02 (A10G, 56 s, estimate)``, or the
+    basis sentence when there is no estimate."""
+    cost = fields.get("cost_usd")
+    if cost is None:
+        return f"cost: {fields.get('cost_basis') or 'no estimate'}"
+    return f"about ${float(cost):.2f} ({fields.get('gpu')}, {float(fields['seconds']):.0f} s, estimate)"
+
+
+def _with_cost(run: dict[str, Any]) -> dict[str, Any]:
+    """Put ``cost_usd`` and ``cost_basis`` on a run record's ``summary``
+    when it carries ``gpu`` or ``seconds`` and no cost yet."""
+    summary = run.get("summary")
+    if not isinstance(summary, dict) or "cost_usd" in summary:
+        return run
+    gpu = summary.get("gpu", run.get("gpu"))
+    seconds = summary.get("seconds", run.get("seconds"))
+    if gpu is None and seconds is None:
+        return run
+    summary.update(_cost_fields(gpu, seconds))
+    return run
 
 
 def _holdout_summary(before: float, after: float, metric: str = "pass") -> dict[str, float]:
@@ -443,7 +509,9 @@ class TrainingRun:
     def refresh(self) -> str:
         """Read a hosted run's state from the platform: ``running``,
         ``done`` or ``failed``. Fills ``adapter``, ``training`` (before,
-        after, seconds, rows) and ``error`` once it has ended."""
+        after, seconds, rows, and ``cost_usd`` with its ``cost_basis``
+        when the platform reports the GPU: an estimate from Modal's list
+        price, ``GPU_USD_PER_HOUR``) and ``error`` once it has ended."""
         if not self._hosted or not self.dataset_id:
             return self.status
         out = self._call("GET", f"/datasets/{self.dataset_id}/train", self._api_key)
@@ -469,6 +537,8 @@ class TrainingRun:
 
     def _absorb(self, state: Mapping[str, Any]) -> None:
         self.training = dict(state)
+        if "seconds" in state or "gpu" in state:
+            self.training.update(_cost_fields(state.get("gpu"), state.get("seconds")))
         status = str(state.get("status") or self.status)
         self.status = status if status in ("running", "done", "failed", "stopped") else self.status
         if state.get("runId"):
@@ -506,6 +576,24 @@ class TrainingRun:
         return (
             f"TrainingRun({self.run_id!r}, {self.name!r}, status={self.status!r}, step={self.step})"
         )
+
+    def __str__(self) -> str:
+        """The run as a person reads it: name and status, the held-out
+        before and after when the platform has them, the cost line
+        (``about $0.02 (A10G, 56 s, estimate)``, from ``GPU_USD_PER_HOUR``;
+        the basis sentence when there is no estimate), and the reminder
+        that rollouts and judge calls are not priced."""
+        t = self.training
+        lines = [f"{self.name}: {self.status} ({self.url})"]
+        if t.get("before") is not None or t.get("after") is not None:
+            metric = t.get("metric") or "pass"
+            lines.append(f"holdout {metric} {t.get('before')} -> {t.get('after')}")
+        if "cost_basis" in t:
+            lines.append(_cost_line(t))
+            lines.append("rollouts and judge calls on the serving endpoint are not priced")
+        if self.error:
+            lines.append(f"error: {self.error}")
+        return "\n".join(lines)
 
 
 def training_run(
@@ -860,7 +948,12 @@ def train(
     trainer finishes it. ``run.refresh()`` reads where it is;
     ``run.wait()`` (or ``wait=True``) blocks until ``done`` or ``failed``,
     after which ``run.adapter`` names the weights and ``run.training``
-    carries before, after, rows and seconds. ``serve`` puts the adapter on
+    carries before, after, rows, seconds and, when the platform reports
+    the GPU, ``cost_usd`` with its ``cost_basis``: ``seconds / 3600 *
+    rate`` at Modal's on-demand list price (``GPU_USD_PER_HOUR``, read
+    2026-09-20), an estimate, not a bill; ``print(run)`` shows it as
+    ``about $0.02 (A10G, 56 s, estimate)``. Rollouts and judge calls on
+    the serving endpoint are not priced. ``serve`` puts the adapter on
     an endpoint.
 
     The knobs a run is reproduced and compared by (Lambert 2025, chapters
@@ -1204,8 +1297,17 @@ def list_runs(*, api_key: str | None = None) -> list[dict[str, Any]]:
 
 
 def get_run(run_id: str, *, api_key: str | None = None) -> dict[str, Any]:
-    """The run plus ``series``: its points, oldest first."""
-    return _call("GET", f"/runs/{run_id}", api_key)
+    """The run plus ``series``: its points, oldest first. A hosted run's
+    ``summary`` carries ``gpu`` and ``seconds``; ``get_run`` puts
+    ``cost_usd`` (``seconds / 3600 * rate``, to the cent) and
+    ``cost_basis`` (``estimate: A10G at $1.10/h, modal.com/pricing
+    2026-09-20``) beside them. The rate is Modal's on-demand list price on
+    the day it was read (``GPU_USD_PER_HOUR``), since the platform's
+    trainer runs on Modal; it is an estimate, not a bill. A GPU the table
+    does not name leaves ``cost_usd`` None and the basis says so.
+    Rollouts and judge calls on the serving endpoint are not priced."""
+    out = _call("GET", f"/runs/{run_id}", api_key)
+    return _with_cost(out) if isinstance(out, dict) else out
 
 
 def delete_run(run_id: str, *, api_key: str | None = None) -> dict[str, Any]:

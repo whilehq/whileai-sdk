@@ -80,8 +80,12 @@ yours, or point `data` at rows you already graded.
 - **Thinking mode.** Qwen3 reasons before it answers unless told not to.
   `call` sends `chat_template_kwargs: {"enable_thinking": false}` so the
   reply is the answer, not the reasoning.
-- **Cost.** SFT here is about a minute of A10G, GRPO a few minutes of L40S. Serving bills while the
-  GPU is awake; the endpoint idles back to zero on its own.
+- **Cost.** SFT here is about a minute of A10G, GRPO a few minutes of L40S, and
+  `run.training["cost_usd"]` says what that came to: an estimate at Modal's list price
+  (`cost_basis` names the rate and the day, `estimate: A10G at $1.10/h, modal.com/pricing
+  2026-09-20`), so a run this size is a few cents; `print(run)` shows it as
+  `about $0.02 (A10G, 56 s, estimate)`. Serving bills while the GPU is awake; the
+  endpoint idles back to zero on its own, and rollouts and judge calls are not priced.
 - **Holdout.** `split_pseudo_production` moves whole tasks and seeds the
   held-out side with one task per failure signature first, so on a tiny
   set (7 tasks here) the holdout ends up larger than the fraction asks.

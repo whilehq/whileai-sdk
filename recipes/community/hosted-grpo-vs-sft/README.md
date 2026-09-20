@@ -195,19 +195,22 @@ at the top of this README.
 
 ## Cost
 
-| item | measured | my arithmetic |
+| item | measured | estimate |
 |---|---|---|
-| hosted SFT | **56.4 s** on A10G | ~$0.02 |
-| hosted GRPO | **329.5 s** on L40S | ~$0.18 |
+| hosted SFT | **56.4 s** on A10G | $0.02 (`cost_usd`) |
+| hosted GRPO | **329.5 s** on L40S | $0.18 (`cost_usd`) |
 | 5 rollout passes (data + 3 eval arms) + cold starts | ~10 min on the shared serving GPU | ~$0.2–0.4 |
 | `hf_publish_run` | 20 s | — |
 | **total** | | **under $1** |
 
-**The dollar column is mine, not the product's.** Six ledger entries have now asked for
-a cost number. `run.summary` gives `seconds` and `gpu` — which is genuinely more than
-it used to — but there is no published rate anywhere in the SDK, `wai.models()`, or
-withwhile.com, so the right-hand column is me multiplying by a GPU price I brought
-from outside. Do not cite it as a While number.
+**The two training rows are the SDK's estimate.** `run.summary` gives `seconds` and
+`gpu`, and since [#399](https://github.com/whilehq/whileai-sdk/issues/399) it gives
+`cost_usd` beside them with `cost_basis` naming the rate:
+`estimate: A10G at $1.10/h, modal.com/pricing 2026-09-20`, Modal's on-demand list price
+on the day it was read, since the hosted trainer runs on Modal. That is `seconds / 3600 ×
+rate`, to the cent, and `print(run)` shows it as `about $0.02 (A10G, 56 s, estimate)`.
+It is an estimate, not a bill. The rollout row is still my arithmetic: rollouts and
+judge calls on the serving endpoint are not priced.
 
 ## What I would do next
 

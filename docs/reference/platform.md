@@ -295,6 +295,16 @@ model = wai.serve("refund-v2", run)  # adapter on an OpenAI-compatible endpoint
 wai.models()  # what the account hosts
 ```
 
+**What it cost.** A hosted run reports its `gpu` and its `seconds`; `run.training` and `wai.get_run(id)["summary"]` carry `cost_usd` beside them, `seconds / 3600 × rate` to the cent, with `cost_basis` naming the GPU, the rate and the day the rate was read: `estimate: A10G at $1.10/h, modal.com/pricing 2026-09-20`. It is an estimate, not a bill. The platform's trainer runs on Modal, so the rate is Modal's on-demand list price on 2026-09-20 (`whileai.simulations.defaults.GPU_USD_PER_HOUR`, the table below); a GPU not in the table leaves `cost_usd` None and the basis says so. `print(run)` shows the line as `about $0.02 (A10G, 56 s, estimate)`. Rollouts and judge calls on the shared serving endpoint are not priced.
+
+| GPU | USD per hour (Modal list price, 2026-09-20) |
+|---|---|
+| A10G | 1.10 |
+| L40S | 1.95 |
+| H100 | 3.95 |
+| A100 | 2.50 |
+| T4 | 0.59 |
+
 `epochs=` sets SFT, `steps=` sets GRPO, DPO and RM; each method has a default. Before it posts, `train` reads `wai.profile(ds)` and checks what the trainer will use: SFT trains on every row as pushed, so a set with failing rows is refused (`TrainingSelectionError`; push `scored.passes()`, or `check="warn"` to train on them on purpose); GRPO, DPO and RM learn only from tasks with both a pass and a fail, so none is refused and fewer than `min_mixed_tasks` (32) warns with the count used against the count given and the reason per dropped class. `profile(ds)["mixed_tasks"]` is how to size a grouped set; `whileai.simulations.training.selection_report(profile, method=)` is the check as a function. Hosted GRPO's reward is the trainer's own (reference first action against the judge's gold), not a parameter. `run.delta` is `delta_report` kept on the run and drawn on its page, including the per-group table when `by=` names a row key or marker; `wai.attach_delta(run_id, before, after)` does the same for a run that already finished. `holdout=` names the eval set (defaults to the train set's split sibling); a dataset already training returns that run. `serve` needs a finished run whose base is a served one (`Qwen/Qwen3-4B`, `microsoft/phi-4`; the list is `whileai.simulations.training.SERVED_BASES`). The trainer's default bases (Qwen2.5-0.5B for SFT, 1.5B for GRPO and DPO) train fast but cannot be served, so `train` warns when a run will not reach an endpoint. Qwen3 answers in thinking mode by default: leave room in `max_tokens` or send `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`.
 
 `method="rm"` trains a reward model [6] on the set's pass-vs-fail pairs and reports pair accuracy on the held-out pairs before and after. `wai.reward_model(run)` is that model as a judge, with the judge contract (`reward` 0/1 against the run's threshold, `rm_score` raw), so it goes wherever a judge goes:
