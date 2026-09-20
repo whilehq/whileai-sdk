@@ -26,7 +26,7 @@ Every knob `simulate()` takes. The defaults below are checked against the code b
 | `mode` | `"explore"` | `explore`, `sft`, `rl`, `adaptive` |
 | `fault_rate` | `0.5` | Share of tool calls the mock world breaks (`0.8` under `mode="rl"`). `0` off. Alias `risk=`. A callable `agent=` that answers its own tool calls never sees one |
 | `hard_share` | from mode | Share of situations drawn from the hard tiers (adversarial, boundary, ambiguous), 0 to 1. Under `runs=N`, `search["tier_mix"]` counts every run's rows and lists `per_run` |
-| `reproducible` | `False` | Round-synchronous scheduling: same seed, same concurrency, same agent, same rows. Needs the clock off; `concurrency: 1` always runs this way |
+| `reproducible` | `False` | Round-synchronous scheduling: same seed, same concurrency, same agent, same rows, on any CPython version (3.10 to 3.13; the draw never depends on the interpreter). Needs the clock off; `concurrency: 1` always runs this way |
 | `budget` | `1000` | Row cap, per run under `runs=N` (`report()["budget_per_run"]`). With `situations=N` the run stops once every situation has its rollouts (`stopped_because="situations_exhausted"`) whatever the budget still allows |
 | `time_budget` | `None` | Seconds. Off by default; `None` or `0` disables |
 | `until` | `"compute"` | `"saturation"` also stops when coverage plateaus |
@@ -48,7 +48,7 @@ What a researcher changes between runs: who plays the user and how patient they 
 
 | `advanced` key | Default | |
 |---|---|---|
-| `seed` | `0` | Reproducible draws. Bit-for-bit at `concurrency: 1` or with `reproducible=True`, within a process and across processes; otherwise which rows land before the cap depends on thread timing |
+| `seed` | `0` | Reproducible draws. Bit-for-bit at `concurrency: 1` or with `reproducible=True`, within a process, across processes and across CPython versions (3.10 to 3.13); otherwise which rows land before the cap depends on thread timing |
 | `concurrency` | `32` | Parallel rollouts |
 | `avg_turns` | `12` | Target conversation length in turns. The person speaks at most `avg_turns // 2` times; `12` leaves room to verify, look up, confirm, and write |
 | `patience` | `"normal"` | How long the person keeps answering the agent's questions. A level name, or a table `{"second": p, "later": q}` (or `(p, q)`) of walk-away chances fitted from your own traces. The first question is always attempted; from the second on the person may walk away (`normal`: 35% then 60%; `short`: 60% then 90%; `endless`: never). At any question the person may also leave when it asks for something they could not know. A row the person left ends on the agent's question and carries `ended_by="user_left"`; `search["ended_on_question"]` counts them |
