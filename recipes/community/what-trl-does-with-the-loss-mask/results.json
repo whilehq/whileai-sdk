@@ -1,0 +1,107 @@
+{
+ "recipe": "what-trl-does-with-the-loss-mask",
+ "question": "Does it matter that TRL ignores the loss_mask wai.export(format='trl') writes?",
+ "whileai": "0.88",
+ "stack": {
+  "trl": "0.19.1",
+  "transformers": "4.54.0",
+  "peft": "0.16.0",
+  "torch": "2.7.1"
+ },
+ "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+ "gpu": "A10G",
+ "modal_app": "ap-W5HWyHhAx9Sy435whg9R2x",
+ "model": "offline (seeded_agent, simulator=False; no model key)",
+ "data": {
+  "train_rows": 94,
+  "holdout_rows": 57,
+  "holdout_prompts": 57,
+  "split": "by scenario_id",
+  "decontaminate": {
+   "n": 94,
+   "n_kept": 90,
+   "n_contaminated": 4,
+   "n_near": 4,
+   "n_same_task": 0,
+   "note": "reported but NOT applied: both arms trained on the same 94 rows, so A-B is unaffected"
+  },
+  "export_report": {
+   "format": "trl",
+   "mask_mode": "assistant",
+   "n": 94,
+   "n_written": 94,
+   "trained_messages": 188,
+   "masked_messages": 282
+  }
+ },
+ "supervised_tokens": {
+  "as_exported": {
+   "n": 46480,
+   "of": 46480,
+   "frac": 1.0
+  },
+  "mask_honored": {
+   "n": 5168,
+   "of": 46480,
+   "frac": 0.1112
+  }
+ },
+ "trl_default_supervised_fraction_measured_on_cpu": 0.964,
+ "assistant_only_loss": "raises: Qwen2.5-Instruct chat template has no {% generation %} block",
+ "noise_floor": {
+  "mean_len": [
+   173.2,
+   167.6,
+   153.8
+  ],
+  "very_short": [
+   0.0,
+   0.0175,
+   0.0175
+  ],
+  "leak": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "arms": {
+  "as_exported": {
+   "mean_len": 125.7,
+   "very_short": 0.1579,
+   "leak": 0.0,
+   "train_loss": 1.6139
+  },
+  "mask_honored": {
+   "mean_len": 84.1,
+   "very_short": 0.4211,
+   "leak": 0.0,
+   "train_loss": 0.7296
+  }
+ },
+ "paired_delta_as_exported_minus_mask_honored_95ci": {
+  "mean_len": [
+   41.5789,
+   20.9825,
+   63.7193
+  ],
+  "very_short": [
+   -0.2632,
+   -0.4035,
+   -0.1228
+  ],
+  "leak_preregistered_primary": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "verdict": {
+  "leak_preregistered": "flat - 0.000 on every arm including base; no resolution (floor effect)",
+  "mean_len": "moved - interval excludes zero, both arms outside base band",
+  "very_short": "moved - interval excludes zero",
+  "headline": "The masking choice decisively changes the trained model. At 94 rows the arm honouring the mask is worse (42% stub replies vs 16%), consistent with supervision starvation at 11% of tokens. Direction may reverse with more data; the point is the user is never told which model they trained."
+ },
+ "cost_usd_estimate": 0.35,
+ "gpu_minutes": 19
+}
