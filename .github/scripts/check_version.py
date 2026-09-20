@@ -97,11 +97,11 @@ def tagged(version: str) -> bool:
     if proc.returncode != 0:
         return False
     # The tag must be one of ours. This repository carries tags from the
-    # packages it was before the rename (``zeroproof 0.10`` ... ``0.50``,
-    # ``zeroproof-simulations 1.1`` and ``1.2``), and on 2026-09-20 the
-    # stale ``v1.1`` and ``v1.2`` made the gate skip 1.01 and 1.02 as
-    # "already published" when PyPI had neither. A whileai release tag is
-    # annotated ``whileai <version>``; anything else is not a release.
+    # packages it was before the rename (their annotations name the old
+    # package), and on 2026-09-20 two of those, ``v1.1`` and ``v1.2``, made
+    # the gate skip 1.01 and 1.02 as "already published" when PyPI had
+    # neither. A whileai release tag is annotated ``whileai <version>``;
+    # anything else is not a release.
     subprocess.run(
         [
             "git",

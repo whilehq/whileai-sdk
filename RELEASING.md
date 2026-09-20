@@ -30,9 +30,9 @@ new code.
 ## Tags
 
 The gate treats `v<version>` as shipped only when the tag's annotation is
-`whileai <version>`; older tags in this repository (`zeroproof 0.x`,
-`zeroproof-simulations 1.x`) are not releases of this package and are
-ignored. If a version is skipped as "already published" while PyPI lacks it,
+`whileai <version>`; older tags in this repository, whose annotations name
+the packages it was before the rename, are not releases of this package and
+are ignored. If a version is skipped as "already published" while PyPI lacks it,
 check `git tag -l --format='%(subject)' v<version>` first.
 
 ## Cutting a release
