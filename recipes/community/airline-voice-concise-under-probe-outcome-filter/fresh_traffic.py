@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -21,6 +22,7 @@ import reward as R
 from prep import HOLDOUT_PROBES, TRAIN_PROBES
 
 import whileai as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 
@@ -53,6 +55,7 @@ def chat(url: str, model: str, row: dict, *, max_tokens: int, timeout: float) ->
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", required=True, help="the OpenAI-compatible base url, ending /v1")
     ap.add_argument("--model", default="method", help="base, baseline or method")

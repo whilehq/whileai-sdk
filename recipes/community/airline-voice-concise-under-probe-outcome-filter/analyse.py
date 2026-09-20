@@ -17,9 +17,11 @@ from __future__ import annotations
 import argparse
 import json
 import statistics as st
+import sys
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
@@ -158,6 +160,7 @@ def selftest() -> None:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--base-runs", type=int, default=3)
