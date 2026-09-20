@@ -42,8 +42,13 @@ uv add whileai datasets 'modal[api-proxy-support]'
 export WHILEAI_API_KEY=...        # run page + datasets at withwhile.com/platform
 modal token set --token-id ... --token-secret ...   # or MODAL_TOKEN_ID / _SECRET in the environment
 cd recipes/papers/<slug>
+python recipe.py --selftest         # free: the pure functions the change lives in; needs modal installed, not a token
 python recipe.py                    # both arms, writes results.json
 ```
+
+No `smoke.sh` in this directory: `recipe.py` is one file and imports `modal`
+at the top, which CI does not install, so `--selftest` is the offline check
+and you run it yourself.
 
 ## The contract
 

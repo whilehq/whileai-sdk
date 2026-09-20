@@ -62,6 +62,10 @@ a Postgres you can create a database on, `WHILEAI_API_KEY` from
 Qwen3-4B endpoint, the datasets page and the training page), and a Modal
 account for the RL step.
 
+**0. The free check.** `sh smoke.sh` runs the verifier's matching rule on
+rows with known answers, checks the shipped tasks and the prompt file the
+trainer mounts. No database, no key, no GPU.
+
 **1. The database.** Any Postgres 16 works; the scripts read `T2S_PG_DSN`
 (default `postgresql://postgres@127.0.0.1:5499/shop`).
 
@@ -94,12 +98,15 @@ runs but is wrong, 0 otherwise). Postgres is installed in the image and
 seeded in the container, so the reward needs nothing from your machine.
 
 ```bash
+PYTHONUTF8=1 modal run --detach train_grpo_modal.py --spawn --run-name t2s-r1-check \
+  --thinking --skip-eval --steps 10 --gpu H100 --accum 4 --max-completion-length 1536   # about 12 H100 minutes, under $1: does the reward move at all
 PYTHONUTF8=1 modal run --detach train_grpo_modal.py --spawn --run-name t2s-r1 \
-  --thinking --skip-eval --steps 100 --gpu H100 --accum 4 --max-completion-length 1536
+  --thinking --skip-eval --steps 100 --gpu H100 --accum 4 --max-completion-length 1536  # the round: under two hours, about $8
 ```
 
 About 65 s a step in thinking mode on an H100 (completions average 900
-tokens), so 100 steps is under two hours and roughly $8. `--skip-eval`
+tokens; $3.95 an hour at Modal's on-demand price), so 100 steps is under
+two hours and roughly $8. `--skip-eval`
 skips the slow in-container before/after sampling; the measurement comes
 from the served adapter in the next step, through vLLM, in minutes. `--spawn`
 submits the call and returns, so nothing depends on your laptop staying

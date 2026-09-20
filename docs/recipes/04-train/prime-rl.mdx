@@ -32,8 +32,9 @@ prime-rl, so no other key.
 uv add whileai modal
 modal token set --token-id ... --token-secret ...
 cd recipes/04-train/prime-rl
-python run.py --validate      # write the three configs, dry-run each on a CPU container
-python run.py                 # deploy, spawn the three runs (2 GPUs each), record call ids
+python run.py --dry-run       # free: write the three configs and stop; no Modal, no key
+python run.py --validate      # write the three configs, dry-run each on a CPU container (cents)
+python run.py                 # deploy, spawn the three runs (2 H100s each, about 15 min an arm): about $6
 python run.py --collect       # when they finish: results.json and the table
 ```
 

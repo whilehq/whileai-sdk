@@ -42,6 +42,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
   that does not say what it changed, a test with no rubric, a score with no graded rows, a
   version named by its settings, each with the call that posts it (`Brief.readable`). The
   same rules draw the "what your coding agent still owes" list on the experiment page.
+- Every recipe outside `papers/` has a `smoke.sh` CI runs with no key, no GPU and no spend
+  (17 added; the training ones run the data, reward, split or config path through
+  `reward.py`, `pairs.py`, `run.py --dry-run`, `generate.py --offline` and
+  `sql_verifier.py --selftest`), the `04-train` READMEs lead with the free line and the
+  `--steps 10` check with its cost before the real run, and the recipes index has a Costs
+  column at Modal's on-demand prices. `recipes/README.md` names the one exception and why
+  (#448).
 
 ## 0.109 (2026-09-20)
 

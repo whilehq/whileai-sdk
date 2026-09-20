@@ -14,7 +14,8 @@ come from the template writer and a scripted agent.
 uv add whileai
 whileai login                 # or export WHILEAI_API_KEY=...
 cd recipes/04-train/hosted-loop
-python run.py                   # data -> train -> serve -> call
+python run.py --dry-run         # free: simulate, grade, split, push nothing; no key
+python run.py                   # data -> train -> serve -> call: about a minute of A10G plus a cold start, about 5 cents
 python run.py train --method sft --epochs 2   # any step alone; state is in hosted-loop.json
 python run.py models            # what the account hosts
 ```
