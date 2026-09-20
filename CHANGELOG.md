@@ -11,6 +11,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   "cannot detect a transport". `backend=` takes one too. The transport error
   for an object the SDK cannot place now lists what `agent=` accepts and no
   longer tells you to pass `tools=` when you already did (#472).
+- The "generation knobs did not deliver what was set" warning fires only on
+  knobs the call passed by name. A `fault_rate` or `avg_turns` left at its
+  default is not a setting the run failed, and `avg_turns` is not checked
+  when the agent is played single-turn (a callable or HTTP agent), so the
+  offline no-key examples on the docs run clean. `report()["requested"]`
+  and `report()["delivered"]` are unchanged (#476).
 - The README's "Sixty seconds, offline" block and the docs landing and
   quickstart pages run through `rows.export("train.jsonl")` under a test
   (`tests/api/test_readme_offline_quickstart.py`), so the last step of the
