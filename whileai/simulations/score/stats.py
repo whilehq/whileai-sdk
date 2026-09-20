@@ -582,7 +582,8 @@ def holdout_size(
     or ``[]`` where it does not apply). The default answer is unchanged;
     the honest paths are the two that measure.
 
-    A saturated baseline cannot size anything. Rows whose tasks all pass
+    A saturated ``base=`` cannot size anything (``base`` is the before
+    arm's pass rate; there is no ``baseline=``). Rows whose tasks all pass
     give ``p = 1``, the binomial variance ``p(1-p)`` is 0, and both arms
     all passing give a measured paired sd of 0; the formula then returns
     the floor, ``MIN_HOLDOUT_TASKS``, which is the model collapsing, not
@@ -593,7 +594,7 @@ def holdout_size(
     rows are not used: ``n_tasks`` is the binomial model's answer at
     ``BASE_PASS_RATE`` and the rows' ``k``, ``sd_source`` is ``"model"``,
     ``saturated`` is ``True``, and ``warnings`` names the ceiling and the
-    fix: harder situations, so the baseline sits inside the 20-80
+    fix: harder situations, so ``base`` sits inside the 20-80
     difficulty band (Lambert 2025, chapter Reasoning; DAPO, arXiv
     2503.14476, drops prompts at accuracy 0 and 1 because they carry no
     signal), then size again on those rows.

@@ -208,7 +208,7 @@ grows:
 | Count | Rule | Today |
 |---|---|---|
 | names in `whileai.simulations.__all__` | 1 | 212 |
-| names in `whileai.__all__` (the front door) | 1 | 30 |
+| names in `whileai.__all__` (the front door) | 1 | 31 |
 | front-door calls returning a bare `dict` or tuple | 5 | 3 |
 | public calls or constructors with more than 8 parameters (record dataclasses exempt) | 3 | 27 |
 | public names starting `format_` | 5 | 13 |

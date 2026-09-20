@@ -20,8 +20,10 @@ import whileai as wai
 from tests.helpers import POLICY, TOOLS
 from whileai.config import reset
 
-# rule 1: the top level is the loop and its nouns, under thirty names
-TOP_LEVEL_CAP = 30
+# rule 1: the top level is the loop and its nouns, under thirty names.
+# `rows` (#613) made it thirty-one by the maintainer's call; the pin in
+# tests/api/test_style_ratchet.py moved with it, and the next name takes one off.
+TOP_LEVEL_CAP = 31
 
 
 @pytest.fixture(autouse=True)

@@ -35,9 +35,12 @@ import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .defaults import MESSAGE_EXAMPLES
+
+if TYPE_CHECKING:
+    from .data import RowList
 
 SCHEMA_VERSION = "1"
 SCHEMA_KEY = "schema_version"
@@ -882,6 +885,254 @@ def to_row(
     return stamp(row)
 
 
+# ------------------------------------------------------------------ rows
+
+#: What a reward is called on a row built from a precomputed score.
+GIVEN_SCORER = "given"
+#: The two callable shapes ``rows(reward=)`` wraps, by positional arity:
+#: ``fn(prompt, completion)`` and ``fn(prompt, completion, reference)``.
+#: One argument is the judge contract ``fn(row)`` and is passed as is.
+_ARITY_PROMPT_COMPLETION = 2
+_ARITY_WITH_REFERENCE = 3
+
+
+def _prompt_text(prompt: Any) -> str:
+    """The text a verifier and ``decontaminate`` read: the string itself,
+    or the last user turn of a message list (else its last turn)."""
+    if isinstance(prompt, str):
+        return prompt
+    turns = [m for m in prompt if isinstance(m, dict)]
+    for message in reversed(turns):
+        if message.get("role") == "user":
+            return str(message.get("content") or "")
+    return str(turns[-1].get("content") or "") if turns else ""
+
+
+def _per_prompt(name: str, values: Any, n: int) -> list[Any]:
+    """``values`` as one entry per prompt, or a ``ValueError`` naming the kwarg."""
+    if values is None:
+        return [None] * n
+    out = list(values)
+    if len(out) != n:
+        raise ValueError(f"{name}= must have one entry per prompt: {len(out)} for {n} prompts")
+    return out
+
+
+def _per_completion(name: str, values: Any, shape: list[int]) -> list[list[Any]]:
+    """``values`` nested like the completions: one entry per completion,
+    given either in that nesting or flat over every completion."""
+    if values is None:
+        return [[None] * k for k in shape]
+    try:
+        given = list(values)
+    except TypeError:
+        raise TypeError(
+            f"{name}= is one entry per completion, nested like completions= or flat; "
+            f"got {type(values).__name__}"
+        ) from None
+    nested: list[list[Any]]
+    if given and len(given) == len(shape) and all(isinstance(v, (list, tuple)) for v in given):
+        nested = [list(v) for v in given]
+    elif len(given) == sum(shape):
+        nested, at = [], 0
+        for k in shape:
+            nested.append(given[at : at + k])
+            at += k
+    else:
+        raise ValueError(
+            f"{name}= must have one entry per completion, nested like completions= "
+            f"or flat: got {len(given)} for {sum(shape)} completions over {len(shape)} prompts"
+        )
+    for i, (block, k) in enumerate(zip(nested, shape)):
+        if len(block) != k:
+            raise ValueError(
+                f"{name}[{i}] has {len(block)} entries for {k} completions of prompt {i}"
+            )
+    return nested
+
+
+def _reward_value(name: str, value: Any) -> float | int:
+    """A precomputed reward as a number in [0, 1]; 0 and 1 land as ints so
+    ``pass_at`` and ``select`` read them as the binary outcome they are.
+    A bool is a verdict, not a label, and is read as 0 or 1."""
+    number = _number(value)
+    if number is None or not 0.0 <= float(number) <= 1.0:
+        raise ValueError(f"{name} must be a number in [0, 1] (1 is a pass); got {value!r}")
+    return int(number) if float(number) in (0.0, 1.0) else float(number)
+
+
+def _as_judge(reward: Any) -> Any:
+    """The callable ``run_judge`` takes, from what ``rows()`` was given: a
+    ``Verifier`` as is, a judge-contract callable ``(row) -> verdict`` as
+    is, and ``fn(prompt, completion)`` or ``fn(prompt, completion,
+    reference)`` wrapped as a ``FunctionVerifier`` so the row records what
+    scored it."""
+    import inspect
+
+    from .verify.base import FunctionVerifier, Verifier
+
+    if isinstance(reward, Verifier):
+        return reward
+    try:
+        params = [
+            p
+            for p in inspect.signature(reward).parameters.values()
+            if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+        ]
+    except (TypeError, ValueError):  # a builtin or a C callable: the judge contract
+        return reward
+    arity = len(params)
+    name = getattr(reward, "__name__", None) or type(reward).__name__
+    if arity == 1:
+        return reward
+    if arity == _ARITY_PROMPT_COMPLETION:
+        return FunctionVerifier(lambda c, _r, row: reward(row["prompt"], c), name=name)
+    if arity == _ARITY_WITH_REFERENCE:
+        return FunctionVerifier(lambda c, r, row: reward(row["prompt"], c, r), name=name)
+    raise TypeError(
+        f"reward= callable {name} takes {arity} positional arguments; rows() calls it as "
+        "(prompt, completion), (prompt, completion, reference) or (row)"
+    )
+
+
+def rows(
+    prompts: Sequence[str | Sequence[dict]],
+    completions: Sequence[str | Sequence[str]],
+    reward: Any = None,
+    *,
+    references: Sequence[Any] | None = None,
+    task_ids: Sequence[str] | None = None,
+    markers: Sequence[Any] | None = None,
+) -> RowList:
+    """Rows from your own prompts and completions, in the shape every measurement reads.
+
+    The front door for a public benchmark: GSM8K questions and a model's
+    answers become the same rows ``simulate()`` emits, so ``pass_at``,
+    ``compare``, ``eval_variance``, ``holdout_size``, ``decontaminate``
+    and ``select`` take them unchanged. Every row carries the five keys the
+    measurement calls read, and nothing else is required:
+
+    * ``task_id``: what the rollouts of one prompt group under; every
+      interval is over tasks, never rows (Miller 2024, arXiv:2411.00640).
+      Defaults to a stable hash of the prompt text, so the same prompt gets
+      the same id on every call. The engine's ``scenario_id`` carries the
+      same value.
+    * ``prompt``: the prompt text, or the last user turn of a message list.
+    * ``final_text``: one completion.
+    * ``reward``: a number in [0, 1]; 0 and 1 are the binary outcome
+      ``pass_at`` counts and ``select`` bands on, anything between is a
+      partial score those two skip.
+    * ``markers``: ``{name: number}``, one behavior measurement per
+      completion. Input as well as output: ``compare(proxy="marker:name")``
+      and ``eval_variance`` read them wherever they came from.
+
+    ``prompts`` is a sequence of strings or message lists. ``completions``
+    is one string per prompt, or one sequence per prompt (k completions of
+    the same prompt: what ``pass_at``'s k-way numbers and ``select(mode="rl")``
+    need). ``reward`` is a ``Verifier`` (``wai.verify.MathEqual()``), a
+    callable ``(prompt, completion)`` or ``(prompt, completion, reference)``
+    returning a number in [0, 1], a judge-contract callable ``(row) ->
+    verdict``, or the precomputed numbers themselves, nested like
+    ``completions`` or flat; without it the rows carry no reward and only
+    ``decontaminate`` has a use for them. ``references`` is the gold per
+    prompt, kept under ``privileged.reference`` where a verifier reads it
+    and no training export projects it. ``task_ids`` names the tasks;
+    ``markers`` is one dict per completion, nested like ``completions``.
+
+    Returns a ``RowList``: a list of typed rows (``schema_version`` 1,
+    ``to_row`` shape) that also feeds ``select(...).export()``. A verifier
+    or callable is run through ``run_judge``, so the rows say what scored
+    them (``judge_name``, ``lineage``) exactly as ``data.grade()`` writes.
+
+    Reference: Lambert 2025 (rlhfbook), chapters Evaluation and Reasoning;
+    Miller 2024, arXiv:2411.00640, for the task-level intervals.
+
+    ```python
+    import whileai as wai
+
+    questions = ["What is 2 + 3?", "What is 7 * 6?", "What is 10 - 4?", "What is 9 / 3?"]
+    gold = ["5", "42", "6", "3"]
+    before = [["5", "4", "5", "5"], ["41", "41", "42", "40"], ["6"] * 4, ["3", "2", "3", "3"]]
+    after = [["5"] * 4, ["42", "42", "42", "41"], ["6"] * 4, ["3"] * 4]
+    base = wai.rows(questions, before, wai.verify.MathEqual(), references=gold)
+    tuned = wai.rows(questions, after, wai.verify.MathEqual(), references=gold)
+    print(wai.pass_at(base))                         # pass@1 with its interval
+    print(wai.select(base, mode="rl", band=(0.2, 0.8)))  # drops the unanimous groups
+    print(wai.compare(base, tuned))                  # is the change real
+    ```
+    """
+    from .data import RowList
+
+    prompt_list = list(prompts)
+    completion_list = list(completions)
+    n = len(prompt_list)
+    if len(completion_list) != n:
+        raise ValueError(
+            f"completions= must have one entry per prompt (a string, or a sequence of k "
+            f"strings): {len(completion_list)} for {n} prompts"
+        )
+    groups: list[list[str]] = [
+        [c] if isinstance(c, str) else [str(x) for x in c] for c in completion_list
+    ]
+    shape = [len(g) for g in groups]
+    refs = _per_prompt("references", references, n)
+    ids = _per_prompt("task_ids", task_ids, n)
+    marks = _per_completion("markers", markers, shape)
+    given: list[list[Any]] | None = None
+    judge = None
+    if callable(reward):
+        judge = _as_judge(reward)
+    elif reward is not None:
+        given = _per_completion("reward", reward, shape)
+
+    out: list[dict] = []
+    for i, prompt in enumerate(prompt_list):
+        text = _prompt_text(prompt)
+        task_id = str(ids[i]) if ids[i] is not None else "task_" + _short_hash(text)
+        task = Task(task_id=task_id, prompt=text)
+        for j, completion in enumerate(groups[i]):
+            extra: dict[str, Any] = {"rollout_index_present": True}
+            if not isinstance(prompt, str):
+                extra["messages"] = [
+                    *(dict(m) for m in prompt if isinstance(m, dict)),
+                    {"role": "assistant", "content": completion},
+                ]
+            rollout = Rollout(
+                rollout_id=_short_hash(task_id, j),
+                task_id=task_id,
+                index=j,
+                final_text=completion,
+                extra=extra,
+            )
+            judgments: list[Judgment] = []
+            if given is not None:
+                judgments.append(
+                    Judgment(
+                        rollout_id=rollout.rollout_id,
+                        scorer=ScorerRef(name=GIVEN_SCORER, kind="rule"),
+                        reward=_reward_value(f"reward[{i}][{j}]", given[i][j]),
+                    )
+                )
+            marker_objs: list[Marker] = []
+            for name, value in (marks[i][j] or {}).items():
+                number = _number(value)
+                if number is None:
+                    raise ValueError(f"markers[{i}][{j}][{name!r}] must be a number; got {value!r}")
+                marker_objs.append(
+                    Marker(rollout_id=rollout.rollout_id, name=str(name), value=float(number))
+                )
+            row = to_row(task, rollout, judgments, marker_objs)
+            row["task_id"] = task_id
+            if refs[i] is not None:
+                row["privileged"] = {"reference": refs[i]}
+            out.append(row)
+    if judge is None:
+        return RowList(out)
+    from .score.judging import run_judge
+
+    return run_judge(out, judge, source="grade").rows
+
+
 def as_dict(obj: Any) -> dict:
     """Plain dict of any schema object, for JSON."""
     return asdict(obj)
@@ -924,6 +1175,7 @@ __all__ = [
     "detect_shape",
     "from_row",
     "load_json_schema",
+    "rows",
     "stamp",
     "to_row",
     "validate",

@@ -68,6 +68,16 @@
       "page": "docs/learn/the-held-out-set.mdx",
       "contains": "SentenceTransformer(\"BAAI/bge-small-en-v1.5\")",
       "reason": "the semantic pass needs sentence-transformers, an extra that downloads a model; decontaminate's docstring carries the measurement behind it"
+    },
+    {
+      "page": "docs/recipes/02-measure/public-benchmark.mdx",
+      "contains": "rows = wai.rows(questions, answers, wai.verify.MathEqual(), references=gold, task_ids=ids)",
+      "reason": "the road in six lines; questions, answers, gold, ids and the three base passes are bound in run.py, which smoke.sh runs"
+    },
+    {
+      "page": "docs/recipes/02-measure/public-benchmark.mdx",
+      "contains": "from datasets import load_dataset",
+      "reason": "remakes the checked-in GSM8K sample with the datasets package, which is not a dependency; the sample is in the tree"
     }
   ]
 }
