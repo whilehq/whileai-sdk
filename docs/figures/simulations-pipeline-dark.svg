@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 344" width="720" height="344" role="img" aria-label="How simulate() turns an agent definition into graded rows and cuts">
-<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9CA3AF"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5CB08A"/></marker></defs>
-<rect width="720" height="344" rx="6" fill="#0B1220"/>
+<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9CA3AF"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#FFA65C"/></marker></defs>
+<rect width="720" height="344" rx="6" fill="#2A1A33"/>
 <text x="16" y="24" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="600" fill="#9CA3AF" text-anchor="start">IN</text>
 <rect x="16" y="32" width="200" height="56" rx="6" fill="#121A2B" stroke="#334155"/>
 <text x="116.0" y="55.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">describe the behavior</text>
@@ -10,9 +10,9 @@
 <text x="356.0" y="55.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">point at its traces</text>
 <text x="356.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">traces=, OTel spans</text>
 <text x="480" y="56" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#9CA3AF" text-anchor="start">either way, the same engine</text>
-<path d="M 116 88 L 116 110" fill="none" stroke="#5CB08A" stroke-width="1.5" marker-end="url(#arrow-green)"/>
-<path d="M 356 88 L 356 110" fill="none" stroke="#5CB08A" stroke-width="1.5" marker-end="url(#arrow-green)"/>
-<rect x="16" y="112" width="200" height="56" rx="6" fill="#12261D" stroke="#5CB08A"/>
+<path d="M 116 88 L 116 110" fill="none" stroke="#FFA65C" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<path d="M 356 88 L 356 110" fill="none" stroke="#FFA65C" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<rect x="16" y="112" width="200" height="56" rx="6" fill="#3A2740" stroke="#FFA65C"/>
 <text x="116.0" y="135.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">six axes</text>
 <text x="116.0" y="151.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">a pairwise grid</text>
 <path d="M 216 140.0 L 248 140.0" fill="none" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -23,8 +23,8 @@
 <rect x="480" y="112" width="200" height="56" rx="6" fill="#121A2B" stroke="#334155"/>
 <text x="580.0" y="135.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">agent</text>
 <text x="580.0" y="151.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">agent= or a callable</text>
-<path d="M 580 168 L 580 184 L 116 184 L 116 200" fill="none" stroke="#5CB08A" stroke-width="1.5" marker-end="url(#arrow-green)"/>
-<rect x="16" y="202" width="200" height="56" rx="6" fill="#12261D" stroke="#5CB08A"/>
+<path d="M 580 168 L 580 184 L 116 184 L 116 200" fill="none" stroke="#FFA65C" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<rect x="16" y="202" width="200" height="56" rx="6" fill="#3A2740" stroke="#FFA65C"/>
 <text x="116.0" y="225.0" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="600" fill="#E5E7EB" text-anchor="middle">rows</text>
 <text x="116.0" y="241.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#9CA3AF" text-anchor="middle">ungraded</text>
 <path d="M 216 230.0 L 248 230.0" fill="none" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#arrow)"/>

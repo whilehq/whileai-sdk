@@ -9,10 +9,19 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   coding agent can backfill the record, hours, cost, a score or a note from any later session with
   the same `finish` / `score` / `note` / `archive` calls; the Runs page's "missing" list is what it
   fills. An unknown id raises `PlatformError(404)` naming `tracked.runs()`. Closes #514.
+- `tracked.noise_floor(behavior, *reruns)` (#485): the row lists of two or more re-runs of the same
+  eval on the same version go through `eval_variance`, the floor is t(df=runs-1) x run_std x sqrt(2)
+  in points (the rule `delta_report(run_std=, run_std_runs=)` and recipes/papers/README.md already
+  state), and it is posted on the behavior, so the Runs page's Judge tile and the verdict's re-run
+  band read a measured number. `Behavior.noise_floor` was a field nothing in the SDK filled. One
+  re-run raises; two warn. The zero-rl-format-reward recipe posts its base re-runs this way.
 - Learn lesson 8, "A teacher can score every word" (docs/learn/learn-without-a-reward): on-policy
   distillation and self-distillation in plain words, the per-word score by hand, `wai.OPD` and
   `wai.OPSD` printed, the prime-rl config report, and the three-arm run's table; figure
   `learn-two-scores`. The Learn index and nav carry eight lessons.
+- Docs and brand: plum and apricot replace the mint palette. Logo, favicon, README banner,
+  every guide figure, the Mintlify colors and `docs/style.css` tokens (`--wai-accent`,
+  `--wai-accent-deep`) carry it; `docs/reference/design.md` documents it. No code change.
 - `recipes/04-train/prime-rl`: GRPO, OPSD and OPD on one taskset on prime-rl, on Modal with
   your keys, from `wai.prime_rl_config`; a While-owned launcher over Prime Intellect's published
   image, deploy-and-spawn so a run outlives the shell, per-prompt held-out eval read back from the

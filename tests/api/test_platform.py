@@ -200,6 +200,60 @@ def test_behavior_warns_when_judge_is_reward(caplog):
     assert "reward_is_judge=False" in caplog.text
 
 
+def _rerun(pass_rates: dict[str, float], k: int = 4) -> list[dict]:
+    """One eval re-run's rows: k rollouts a task at the given pass rate."""
+    rows = []
+    for task, p in pass_rates.items():
+        passes = round(p * k)
+        for i in range(k):
+            rows.append({"prompt": task, "reward": 1 if i < passes else 0, "final_text": "ok"})
+    return rows
+
+
+def test_noise_floor_measures_three_reruns_and_posts_points():
+    fake = Fake()
+    t = track("a", transport=fake)
+    base = {f"t{i}": 0.5 for i in range(10)}
+    out = t.noise_floor(
+        "math500", _rerun(base), _rerun({**base, "t0": 0.75}), _rerun({**base, "t1": 0.25})
+    )
+    # run means 0.50, 0.525, 0.475: run_std 0.025; t(df=2)=4.30 x 0.025 x sqrt(2) = 0.152 -> points
+    assert out["run_std"] == 0.025 and out["runs"] == 3 and out["t"] == 4.3
+    assert out["noise_floor"] == pytest.approx(4.3 * 0.025 * 2**0.5 * 100, abs=0.01)
+    assert out["behavior"] == "math500" and out["rule"].startswith("t(df=2)=4.30 x run_std")
+    # One write after track() registered the agent: the floor lands on the behavior.
+    writes = [(m, p, b) for m, p, b in fake.calls if m != "GET" and p != "/agents"]
+    assert len(writes) == 1
+    method, path, body = writes[0]
+    assert method == "PUT" and path == "/agents/a/behaviors/math500"
+    assert body == {"noiseFloor": out["noise_floor"]}
+
+
+def test_noise_floor_needs_two_reruns():
+    t = track("a", transport=Fake())
+    with pytest.raises(ValueError, match="two or more re-runs"):
+        t.noise_floor("math500", _rerun({"t0": 0.5, "t1": 0.5}))
+
+
+def test_noise_floor_keeps_the_behavior_fields_and_warns_on_two(caplog):
+    class WithBehaviors(Fake):
+        def __call__(self, method, path, body=None):
+            if method == "GET" and path.endswith("/behaviors"):
+                self.calls.append((method, path, body))
+                return {"behaviors": [{"name": "math500", "testVersion": "v2", "n": 160}]}
+            return super().__call__(method, path, body)
+
+    fake = WithBehaviors()
+    t = track("a", transport=fake)
+    base = {f"t{i}": 0.5 for i in range(10)}
+    with caplog.at_level(logging.WARNING, logger="whileai.platform"):
+        out = t.noise_floor("math500", _rerun(base), _rerun({**base, "t0": 0.75}))
+    assert out["runs"] == 2 and "difference, not a distribution" in caplog.text
+    _, path, body = fake.calls[-1]
+    assert path == "/agents/a/behaviors/math500"
+    assert body == {"testVersion": "v2", "n": 160, "noiseFloor": out["noise_floor"]}
+
+
 # ------------------------------------------------------------------ runs
 
 
