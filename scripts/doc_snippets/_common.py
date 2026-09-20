@@ -135,11 +135,10 @@ data = wai.simulate(
 scored = data.grade(judge=my_judge)
 rollouts = data.trajectories
 
-# `rows` is a training set by the time the export blocks reach it, so it is
-# the graded rows with the privileged-context leaks already dropped. Keeping
-# them would make every export block fail on a check the page teaches earlier.
-_leaked = {(x["scenario_id"], x["rollout_index"]) for x in wai.leak_report(scored.rows)["leaked"]}
-rows = [r for r in scored.rows if (r["scenario_id"], r["rollout_index"]) not in _leaked]
+# `rows` is what the export blocks write. The graded rows are enough: the
+# agent above is honest, and `select` drops a reply that quotes its own
+# privileged context (#471), so nothing here filters by hand.
+rows = scored.rows
 
 # A before/after pair and a set of preference pairs, which later blocks compare
 # and export without building them first.
