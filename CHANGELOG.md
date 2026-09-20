@@ -5,6 +5,15 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `recipes/04-train/prime-rl`: GRPO, OPSD and OPD on one taskset on prime-rl, on Modal with
+  your keys, from `wai.prime_rl_config`; a While-owned launcher over Prime Intellect's published
+  image, deploy-and-spawn so a run outlives the shell, per-prompt held-out eval read back from the
+  run volume into `wai.compare`. Run `e2e1`: OPD +0.725 [+0.673, +0.772] and GRPO +0.724 on the
+  held-out LCS, the same number without a reward; OPSD +0.182 on a 0.6B student that barely used
+  the hint. `wai.OPSD(privileged=)` now takes any task field (a public taskset's `answer`);
+  `prime_rl_config` stamps `harness.id = "null"` and `runtime.type = "subprocess"` on every source,
+  writes no split key (a verifiers v1 taskset names its own, `dataset_split`), and takes
+  `source.`, `train_source.` and `eval_source.` overrides. New guide: docs/distillation.
 ## 1.05 (2026-09-20)
 
 - The release gate counts a `v<version>` tag as shipped only when its

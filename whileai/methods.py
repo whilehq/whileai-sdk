@@ -201,8 +201,10 @@ class OPD:
 class OPSD:
     """On-policy self-distillation: the teacher is the student with a hint.
 
-    ``privileged`` names what the teacher sees and the student does not,
-    read from the task's ``info`` under that key: ``demonstration`` (a
+    ``privileged`` names what the teacher sees and the student does not: the
+    task field the trainer reads it from (``info`` first, then the task's
+    top-level fields, so a public taskset's ``answer`` works as given). The
+    four named forms are: ``demonstration`` (a
     passing rollout of the same task, SDFT, Shenfeld et al. 2026,
     arXiv:2601.19897), ``reference`` (the answer, Zhao et al. 2026,
     arXiv:2601.18734), ``hint`` (Penaloza et al. 2026, arXiv:2602.04942) or
@@ -238,9 +240,13 @@ class OPSD:
     name: ClassVar[str] = "opsd"
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "privileged", _check_choice("privileged", self.privileged, PRIVILEGED)
-        )
+        key = str(self.privileged).strip()
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]*", key):
+            raise ValueError(
+                f"privileged must be one of {', '.join(PRIVILEGED)} or the name of the task "
+                f"field that carries the teacher's context; got {self.privileged!r}"
+            )
+        object.__setattr__(self, "privileged", key)
         object.__setattr__(
             self, "divergence", _check_choice("divergence", self.divergence, DIVERGENCES)
         )
@@ -434,6 +440,23 @@ def _set_dotted(table: dict[str, Any], dotted: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
+def _source(name: str, taskset: str | None = None) -> dict[str, Any]:
+    """One train or eval source. ``harness.id = "null"`` and ``runtime.type =
+    "subprocess"`` are what every prime-rl example config and our own runs set
+    for a taskset with no agent harness of its own. Which rows a source reads
+    is the taskset's own config field (verifiers v1 gives each taskset its own,
+    ``dataset_split`` on the bundled ones), so it is not written here; set it
+    with a ``train_source.env.taskset.<field>`` / ``eval_source.env.taskset.<field>``
+    override, or ``source.<key>`` for both."""
+    return {
+        "name": name,
+        "env": {
+            "taskset": {"id": taskset or name},
+            "agent": {"harness": {"id": "null"}, "runtime": {"type": "subprocess"}},
+        },
+    }
+
+
 def _taskset_id(env: Any) -> tuple[str, list[str]]:
     """The taskset id prime-rl addresses, and any warning about where it came from."""
     warnings: list[str] = []
@@ -525,7 +548,9 @@ def prime_rl_config(
     steps and prompts per step; ``lora`` writes a rank-16 adapter
     (``TRAINING_LORA_RANK``) or trains full weights. Any other prime-rl key
     is an override in dotted form, ``prime_rl_config(..., **{"trainer.optim.lr": 2e-5})``,
-    and lands verbatim.
+    and lands verbatim; ``source.<key>`` lands on the train and the eval source,
+    ``train_source.<key>`` and ``eval_source.<key>`` on one of them (which rows a
+    taskset reads is its own field, ``dataset_split`` on the bundled ones).
 
     The result prints what was written, which of the method's knobs the
     trainer reads and where, which it ignores and why (prime-rl's ``opd``
@@ -592,7 +617,8 @@ def prime_rl_config(
         else:
             algo = {"type": "opsd", "demo_key": inner.privileged, "template": inner.template}
             honored["privileged"] = (
-                f"orchestrator.algo.demo_key = {inner.privileged!r} (read from each task's info)"
+                f"orchestrator.algo.demo_key = {inner.privileged!r} (read from the task's info, "
+                "then its top-level fields)"
             )
             honored["template"] = "orchestrator.algo.template"
             kind, _ = inner.anchor_parts()
@@ -656,20 +682,13 @@ def prime_rl_config(
             "algo": algo,
             "train": {
                 "sampling": {"max_completion_tokens": max_tokens, "temperature": temperature},
-                "source": [
-                    {"name": taskset, "env": {"taskset": {"id": taskset, "split": "train"}}}
-                ],
+                "source": [_source(taskset)],
             },
             "eval": {
                 "interval": max(1, int(steps) // 4),
                 "num_examples": PRIME_RL_EVAL_EXAMPLES,
                 "group_size": PRIME_RL_EVAL_GROUP,
-                "source": [
-                    {
-                        "name": f"{taskset}-eval",
-                        "env": {"taskset": {"id": taskset, "split": "eval"}},
-                    }
-                ],
+                "source": [_source(f"{taskset}-eval", taskset)],
             },
         },
     }
@@ -681,6 +700,20 @@ def prime_rl_config(
         config["trainer"]["loss"] = loss
     comments["seq_len"] = "prompt plus response cap; raise it for long tool output"
     for key, value in overrides.items():
+        blocks = {
+            "source.": ("train", "eval"),
+            "train_source.": ("train",),
+            "eval_source.": ("eval",),
+        }
+        prefix = next((p for p in blocks if key.startswith(p)), None)
+        if prefix:
+            orchestrator: dict[str, Any] = config["orchestrator"]
+            for block in blocks[prefix]:
+                sources: list[dict[str, Any]] = orchestrator[block]["source"]
+                for src in sources:
+                    _set_dotted(src, key[len(prefix) :], value)
+            honored[key] = f"override, written on the {' and '.join(blocks[prefix])} source"
+            continue
         _set_dotted(config, key, value)
         honored[key] = "override, written as given"
 

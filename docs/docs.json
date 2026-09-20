@@ -101,7 +101,8 @@
               "evals",
               "reward-hacking",
               "safety-evals",
-              "character-training"
+              "character-training",
+              "distillation"
             ]
           },
           {
@@ -151,6 +152,7 @@
                   "recipes/04-train/grpo",
                   "recipes/04-train/hosted-loop",
                   "recipes/04-train/identity",
+                  "recipes/04-train/prime-rl",
                   "recipes/04-train/report-run",
                   "recipes/04-train/resist-planted-instruction",
                   "recipes/04-train/text-to-sql"
