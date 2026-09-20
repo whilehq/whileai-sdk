@@ -27,7 +27,6 @@ from whileai.platform import (
     track,
 )
 
-
 BRIEF_GETS = ("/agents/a/behaviors", "/runs?agent=a", "/agents/a/dashboard")
 
 
