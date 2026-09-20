@@ -1,0 +1,163 @@
+---
+title: "A teacher can score every word"
+sidebarTitle: "8. Learn without a reward"
+description: "Lesson 8. Training with no reward at all: a stronger model, or the same model shown the answer, scores each word the student wrote. When that beats a reward, when it cannot, and the two calls."
+---
+
+Lesson 3 gave every reply one score: did the agent do the job, 0 or 1.
+That score arrives after the reply is finished, and every word in the
+reply shares it, the right words and the wrong ones alike. There is a
+second way to train that needs no score at all. Let another model read
+the reply the student wrote and say, for each word, how much more likely
+it would have been to write that word. Words the teacher liked get pushed
+up. Words it did not get pushed down. Nobody had to define "did the job".
+
+<img className="block dark:hidden" src="/figures/learn-two-scores-light.svg" alt="Top: five tokens share one reward for the whole reply. Bottom: the same five tokens each get their own number, log teacher minus log student, green above zero and orange below" />
+<img className="hidden dark:block" src="/figures/learn-two-scores-dark.svg" alt="Top: five tokens share one reward for the whole reply. Bottom: the same five tokens each get their own number, log teacher minus log student, green above zero and orange below" />
+
+## The mechanism
+
+The student writes a reply. For every word in it, two numbers exist: how
+likely the student was to write that word, and how likely the teacher
+would have been. Their difference (the log of one minus the log of the
+other) is the score for that word. The field calls this **on-policy
+distillation**: on-policy because the words are the student's own, not
+copied from the teacher; distillation because the student is pulled
+toward the teacher's judgment.
+
+Who the teacher is decides the method.
+
+- **A stronger frozen model** that already does the job. That is **OPD**.
+  It needs a server that reports how likely it found each word, and it
+  needs the same tokenizer as the student, or the words do not line up.
+- **The same model, shown the answer.** The student sees the question.
+  The teacher is the student's own weights with the answer pasted into
+  the prompt. That is **OPSD**, on-policy self-distillation. No second
+  model, but it only works if seeing the answer changes what the model
+  writes, which small models barely manage.
+
+Why bother, when a reward exists? Because a reward is silent when every
+attempt scores the same. Eight replies to a hard question that all fail
+give the reward nothing to prefer, and the update is zero. A teacher
+still has an opinion about every word of every failed reply. That is
+where self-distillation beats a reward on hard math sets in the papers,
+and it is also why it is dangerous on models that think out loud: the
+teacher, having seen the answer, dislikes the "wait, let me check" words
+that make thinking models good.
+
+## Run it
+
+First, the score by hand, on a five-letter reply. Made-up probabilities;
+the arithmetic is the whole idea.
+
+```python
+import math
+
+student = {"t": 0.5, "l": 0.6, "i": 0.7, "u": 0.2, "b": 0.9}
+teacher = {"t": 0.9, "l": 0.8, "i": 0.7, "u": 0.8, "b": 0.6}
+for tok in student:
+    a = math.log(teacher[tok]) - math.log(student[tok])
+    print(f"{tok}: student {student[tok]:.1f} teacher {teacher[tok]:.1f} advantage {a:+.2f}")
+```
+
+```text
+t: student 0.5 teacher 0.9 advantage +0.59
+l: student 0.6 teacher 0.8 advantage +0.29
+i: student 0.7 teacher 0.7 advantage +0.00
+u: student 0.2 teacher 0.8 advantage +1.39
+b: student 0.9 teacher 0.6 advantage -0.41
+```
+
+The fourth letter is the one to learn: the student nearly never wrote it,
+the teacher nearly always would. The last letter goes the other way. A
+reward would have given all five letters the same number.
+
+Now the two methods as objects. Each carries its defaults, and a bad
+teacher is refused with the reason.
+
+```python
+import whileai as wai
+
+teacher = wai.Endpoint(url="http://localhost:8001/v1", model="Qwen/Qwen3-8B")
+print(wai.OPD(teacher))
+print(wai.OPSD(privileged="answer"))
+try:
+    wai.OPD(wai.OpenAI("gpt-4.1-mini"))
+except ValueError as e:
+    print("refused:", e)
+```
+
+```text
+OPD(teacher=Qwen/Qwen3-8B @ http://localhost:8001/v1, reverse_kl, top_k=32, samples=4, temperature=1.0, max_tokens=8192)
+OPSD(privileged=answer, reverse_kl, anchor=ema:0.01, samples=1, temperature=1.0, max_tokens=4096)
+refused: OPD teacher: OpenAI(model='gpt-4.1-mini', key=OPENAI_API_KEY) has no URL. The teacher is scored on the student's own tokens, which needs a server that returns prompt log-probabilities (vLLM, SGLang); pass wai.Endpoint(url='https://.../v1', model='<served name>').
+```
+
+`privileged="answer"` names the field of each task the teacher alone
+sees. A chat API cannot be the teacher because it never reports how
+likely it found the student's words; a server you run does.
+
+Last, the file the trainer reads. The library trains nothing itself; it
+writes the config for prime-rl, which runs on your GPUs, and prints which
+of your knobs the trainer will read and which it will ignore.
+
+```python
+import whileai as wai
+
+teacher = wai.Endpoint(url="http://localhost:8001/v1", model="Qwen/Qwen3-8B")
+cfg = wai.prime_rl_config("reverse-text", wai.OPD(teacher), model="Qwen/Qwen3-4B", out="opd.toml")
+print(cfg)
+```
+
+```text
+prime-rl config: opd.toml
+  method opd, model Qwen/Qwen3-4B, taskset reverse-text, 2 GPUs (1 inference, 1 trainer)
+  100 steps x 64 prompts x 4 rollouts, max_off_policy_steps 8
+  reads: teacher -> orchestrator.algo.teacher (name, base_url; key from VLLM_API_KEY); samples -> orchestrator.group_size; temperature -> orchestrator.train.sampling.temperature; max_tokens -> orchestrator.train.sampling.max_completion_tokens; learning_rate -> trainer.optim.lr = 0.0001
+  ignores: top_k=32: prime-rl scores the teacher's full-vocabulary prefill; the top-k support is not a knob there
+  run: uv run rl @ opd.toml
+```
+
+## What it looked like on a real run
+
+We trained one small model three ways on the same task (reverse a
+sentence letter by letter), from the same start, for the same twenty
+steps, and scored each on 128 sentences it never trained on. The
+[recipe](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/prime-rl)
+and the [guide](/distillation) carry the intervals and the configs.
+
+| Teacher | Score before | Score after |
+|---|---|---|
+| None: a reward (GRPO) | 0.08 | 0.81 |
+| A stronger frozen model (OPD) | 0.11 | 0.83 |
+| The same model, shown the answer (OPSD) | 0.07 | 0.25 |
+
+The frozen teacher reached the reward's number with no reward. The
+self-teacher moved a fifth as far, and the log shows why: showing this
+0.6B model the answer barely changed what it wrote, so its per-word
+scores stayed near zero for the whole run. Lesson 4's rule applies here
+too: three scores of the untrained model spread from 0.07 to 0.11, so a
+change under 0.12 would have been noise.
+
+## Where it comes from
+
+1. Agarwal, R. et al. On-Policy Distillation of Language Models: Learning
+   from Self-Generated Mistakes. ICLR 2024. arXiv:2306.13649. The method,
+   and why the student's own words beat copied ones.
+2. Yang, A. et al. Qwen3 Technical Report. arXiv:2505.09388, 2025. The
+   same score as RL at a tenth of the GPU hours.
+3. Shenfeld, I. et al. Self-Distillation Enables Continual Learning.
+   arXiv:2601.19897, 2026. The same model, shown a demonstration, as the
+   teacher.
+4. Zhao, S. et al. Self-Distilled Reasoner: On-Policy Self-Distillation
+   for Large Language Models. arXiv:2601.18734, 2026. Beats GRPO where
+   every attempt fails.
+5. Kaur, S. et al. Rethinking On-Policy Self-Distillation for Thinking
+   Models. arXiv:2607.05184, 2026. Why it costs points on models that
+   think out loud.
+
+## Next
+
+You have read the whole course. The [quickstart](/get-started/quickstart)
+is the same loop with a real model on both sides, and the
+[distillation guide](/distillation) is this lesson at research depth.

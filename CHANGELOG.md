@@ -5,6 +5,10 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Learn lesson 8, "A teacher can score every word" (docs/learn/learn-without-a-reward): on-policy
+  distillation and self-distillation in plain words, the per-word score by hand, `wai.OPD` and
+  `wai.OPSD` printed, the prime-rl config report, and the three-arm run's table; figure
+  `learn-two-scores`. The Learn index and nav carry eight lessons.
 - `recipes/04-train/prime-rl`: GRPO, OPSD and OPD on one taskset on prime-rl, on Modal with
   your keys, from `wai.prime_rl_config`; a While-owned launcher over Prime Intellect's published
   image, deploy-and-spawn so a run outlives the shell, per-prompt held-out eval read back from the

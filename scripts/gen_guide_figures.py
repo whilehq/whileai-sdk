@@ -522,6 +522,42 @@ def distillation_paths(p):
     return c.render()
 
 
+def learn_two_scores(p):
+    c = Canvas(300, p, "One score for the whole reply, or one score for every word")
+    tokens = ["t", "l", "i", "u", "b"]
+    student = [0.5, 0.6, 0.7, 0.2, 0.9]
+    teacher = [0.9, 0.8, 0.7, 0.8, 0.6]
+    adv = ["+0.59", "+0.29", "+0.00", "+1.39", "-0.41"]
+    c.text(16, 46, "a reward (GRPO)", size=12, color="muted", fam=MONO)
+    for i, tok in enumerate(tokens):
+        c.box(16 + i * 64, 56, 52, 40, tok, None, mono=True)
+    c.arrow(16 + 5 * 64 - 12, 76, 372, 76)
+    c.box(376, 56, 328, 40, "0.8 for the whole reply", None, hl=True, mono=True)
+    c.text(376, 112, "one number, after the reply is finished; every word", size=11.5, color="body")
+    c.text(376, 128, "shares it, the right ones and the wrong ones alike", size=11.5, color="body")
+    c.text(16, 166, "a teacher (OPD, OPSD)", size=12, color="muted", fam=MONO)
+    for i, tok in enumerate(tokens):
+        x = 16 + i * 128
+        good = not adv[i].startswith("-")
+        c.text(x + 8, 184, adv[i], size=13, fam=MONO, color="green" if good else "warm", weight=700)
+        c.box(x, 192, 116, 56, tok, [f"student {student[i]}", f"teacher {teacher[i]}"], mono=True)
+    c.text(
+        16,
+        274,
+        "one number per word: how much more likely the teacher was to write it.",
+        size=11.5,
+        color="body",
+    )
+    c.text(
+        16,
+        290,
+        "log teacher - log student. Above zero: do more of that. Below: less.",
+        size=11.5,
+        color="muted",
+    )
+    return c.render()
+
+
 FIGURES = {
     "simulations-pipeline": simulations_pipeline,
     "engine-eight-steps": engine_eight_steps,
@@ -531,6 +567,7 @@ FIGURES = {
     "safety-channels": safety_channels,
     "character-pipeline": character_pipeline,
     "distillation-paths": distillation_paths,
+    "learn-two-scores": learn_two_scores,
 }
 
 
