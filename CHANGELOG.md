@@ -5,6 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `HarnessSweep` pins `prompt` as the label before `@`: name variants `prompt@model` and the Runs page groups by prompt and by model as two axes (the first live sweep had eight one-run columns).
 - README banner: the whale lockup and tagline are centered in the image; the old files had ~300px of empty space on the right, so the logo sat left of the badges below it.
 
 ## 1.02 (2026-09-20)
