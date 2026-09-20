@@ -15,6 +15,7 @@
   "recipes/04-train/text-to-sql/README.md": 1,
   "recipes/04-train/text-to-sql/rollout.py": 2,
   "recipes/04-train/text-to-sql/serve_modal.py": 1,
+  "recipes/05-export/hugging-face/README.md": 1,
   "recipes/community/can-the-judge-be-trusted/run.py": 2,
   "recipes/community/force-the-branch/run.py": 2,
   "recipes/community/hosted-grpo-vs-sft/run.py": 2,
