@@ -133,6 +133,13 @@ class SweepReport:
         return "\n".join(lines)
 
 
+def prompt_of(harness: Harness) -> str:
+    """The prompt name a variant's label carries: name the variants
+    ``prompt@model`` (``policy+act@sonnet5``) and the page groups by prompt
+    and by model as two axes; a label with no ``@`` is the prompt itself."""
+    return harness.version.split("@", 1)[0]
+
+
 class HarnessSweep:
     """Score many harness variants of one agent on the same frozen asks and
     post one run per variant, its record pinned to the prompt, model and
@@ -144,7 +151,8 @@ class HarnessSweep:
     headline score; every marker the judge sets becomes a behavior beside
     it. ``noise_runs`` scores the first variant that many times and takes
     the spread as the noise floor. ``labels`` are hand labels for
-    ``judge_trust``, posted as the behaviors' ``Judge``.
+    ``judge_trust``, posted as the behaviors' ``Judge``. Name variants
+    ``prompt@model`` and the Runs page groups by each.
     """
 
     def __init__(
@@ -322,7 +330,7 @@ class HarnessSweep:
                     ),
                     provenance=Provenance(
                         pins={
-                            "prompt": harness.version,
+                            "prompt": prompt_of(harness),
                             **({"tools": ",".join(sorted(harness.tools))} if harness.tools else {}),
                         }
                     ),

@@ -113,7 +113,9 @@ def test_sweep_scores_every_variant_on_the_same_asks_and_posts_runs():
             _agent(1000),
         ),
         "careful": (
-            Harness(label="careful", instructions=POLICY, tools=TOOLS, model="claude-haiku-4-5"),
+            Harness(
+                label="careful@haiku45", instructions=POLICY, tools=TOOLS, model="claude-haiku-4-5"
+            ),
             _agent(200),
         ),
     }
@@ -121,19 +123,19 @@ def test_sweep_scores_every_variant_on_the_same_asks_and_posts_runs():
     assert isinstance(report, SweepReport)
     assert report.n_asks == 12 and report.k == 4 and report.noise_floor == 0.0
     labels = [v.label for v in report.ranked]
-    assert labels[0] == "careful", labels
-    assert report.best is not None and report.best.label == "careful"
+    assert labels[0] == "careful@haiku45", labels
+    assert report.best is not None and report.best.label == "careful@haiku45"
     text = str(report)
-    assert "winner: careful" in text and "harness sweep on refund_policy" in text
+    assert "winner: careful@haiku45" in text and "harness sweep on refund_policy" in text
     # One run per variant, each pinned to its prompt label, model and fingerprint.
     runs = [b for m, p, b in fake.calls if p == "/runs"]
-    assert [r["harness"] for r in runs] == ["eager", "careful"]
+    assert [r["harness"] for r in runs] == ["eager", "careful@haiku45"]
     for r, (h, _a) in zip(runs, variants.values()):
         pins = r["record"]["provenance"]["pins"]
         assert (
             pins["harness"] == h.fingerprint
             and pins["model"] == "claude-haiku-4-5"
-            and pins["prompt"] == h.label
+            and pins["prompt"] == h.label.split("@")[0]
         )
         assert pins["tools"] == "issue_refund,lookup_order"
     assert all(v.run_id for v in report.variants)
@@ -145,7 +147,7 @@ def test_sweep_scores_every_variant_on_the_same_asks_and_posts_runs():
         report.variants[0].scores
     )
     d = report.to_dict()
-    assert d["best"] == "careful" and d["variants"][0]["label"] == "careful"
+    assert d["best"] == "careful@haiku45" and d["variants"][0]["label"] == "careful@haiku45"
 
 
 def test_sweep_refuses_variants_that_faced_different_asks():

@@ -373,7 +373,7 @@ Every object is a pydantic model that validates before it leaves the process, an
 
 ### Sweep the harness
 
-For an agent on a frontier model the harness is the experiment: the prompt, the tool set and the model. `HarnessSweep` scores every variant on the same frozen asks and posts one run per fingerprint, so the Runs page groups the dots by prompt or by model and the verdict says which win is real.
+For an agent on a frontier model the harness is the experiment: the prompt, the tool set and the model. Name each variant `prompt@model` and the Runs page groups the dots by prompt and by model as two axes. `HarnessSweep` scores every variant on the same frozen asks and posts one run per fingerprint, so the Runs page groups the dots by prompt or by model and the verdict says which win is real.
 
 ```python
 from whileai.platform import Harness, HarnessSweep, track
