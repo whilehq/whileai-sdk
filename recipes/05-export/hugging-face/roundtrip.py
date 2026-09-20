@@ -17,6 +17,7 @@ import argparse
 import sys
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations.ingest.platform import PlatformError
 
 
@@ -80,6 +81,7 @@ def push_run_half(run_id: str, repo: str | None) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

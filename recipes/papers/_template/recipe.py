@@ -23,11 +23,13 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import sys
 from datetime import date
 from importlib.metadata import version
 from pathlib import Path
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen3-4B"
@@ -64,6 +66,7 @@ def mean_length(rows: list[dict]) -> float:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", choices=["baseline", "recipe", "both"], default="both")
     ap.add_argument("--steps", type=int, default=40)

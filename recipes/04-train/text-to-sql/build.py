@@ -34,6 +34,7 @@ from sql_verifier import (
 )
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations.score.hack_scan import format_hack_scan, hack_scan
 from whileai.simulations.score.judging import run_judge
 from whileai.simulations.score.passat import pass_at
@@ -205,6 +206,7 @@ def report_md(
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--policy", default="qwen3-4b")
     ap.add_argument(

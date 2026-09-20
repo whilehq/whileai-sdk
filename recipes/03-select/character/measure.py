@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 TARGET = "marker:trait"
@@ -61,6 +62,7 @@ def demo(*, seed: int = 0, k: int = 4) -> tuple[list[dict], list[dict]]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

@@ -46,6 +46,7 @@ from judge import HELPFUL, SAFETY_MARKERS, safety_judge, safety_only_judge
 from suite import ATTACKS, CATEGORIES, LABELED, SEEDS, SYSTEM_PROMPT, TOOLS, classify
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 GRID_SITUATIONS = 8  # situations the simulator writes on top of the suite
 _WATCHED = {
@@ -196,6 +197,7 @@ def compare(before: list[dict], after: list[dict], *, seed: int = 0) -> dict[str
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--k", type=int, default=4, help="repeats per ask")
     ap.add_argument("--seed", type=int, default=0)

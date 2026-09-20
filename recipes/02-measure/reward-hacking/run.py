@@ -28,9 +28,11 @@ import argparse
 import json
 import random
 import re
+import sys
 from typing import Any
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations.generate.agents import current_rollout
 
 TOOLS = [
@@ -211,6 +213,7 @@ def section(title: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> dict[str, Any]:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

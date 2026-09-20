@@ -21,11 +21,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sql_verifier import OUT
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 STATE = OUT / "train_state.json"
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--sft", required=True)
     ap.add_argument("--holdout", required=True)

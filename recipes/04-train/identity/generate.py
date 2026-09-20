@@ -28,6 +28,8 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 
+from whileai.config import provenance
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -449,6 +451,7 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--name", default="Pepsi")
     parser.add_argument("--maker", default="PepsiCo")

@@ -17,10 +17,12 @@ import json
 import math
 import random
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 
 WORD = re.compile(r"[a-z0-9]+")
 
@@ -352,6 +354,7 @@ def run_all(
 
 
 def main():
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--pairs", type=int, default=1500)
     ap.add_argument("--seed", type=int, default=0)

@@ -43,6 +43,7 @@ from datetime import date
 from typing import Any
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 # ---------------------------------------------------------------- the agent
 
@@ -444,6 +445,7 @@ def report(agent_name: str, scored: wai.ScoredData, *, k: int) -> dict[str, Any]
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument(
         "--agent", choices=[*AGENTS, "all"], default="all", help="which scripted bot to eval"

@@ -25,6 +25,11 @@ modal run recipes/04-train/grpo/train_modal.py --steps 80 --gpu H100 --run-name 
 modal run recipes/04-train/grpo/train_modal.py --monitor-every 5 --stop-on feature   # end the run on a named hack
 ```
 
+The image mounts whichever `whileai` Python resolves on your machine
+(`add_local_python_source("whileai")`): the installed wheel, or the clone's
+`whileai/` when you run from the repo root. The first line the run prints,
+`whileai <version> from <dir>`, says which.
+
 Default: 200 prompts, 20% held out by scenario, Qwen2.5-1.5B-Instruct, 40
 steps of 8 generations, one A10G, under fifteen minutes. The run's URL is
 printed at the start. No key means the same run with the numbers printed at

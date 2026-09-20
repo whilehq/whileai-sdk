@@ -34,6 +34,7 @@ import sys
 from pathlib import Path
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "rows"
@@ -923,6 +924,7 @@ def stage_report(args) -> dict:
 
 
 def main(argv=None) -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__ or "")
     ap.add_argument(
         "stage",

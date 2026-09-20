@@ -17,6 +17,7 @@ from pathlib import Path
 
 try:
     import whileai.simulations as wai
+    from whileai.config import provenance
 except ImportError:  # a fresh clone, before the package is installed
     raise SystemExit(
         "This recipe needs the SDK importable. From the repository root run "
@@ -255,6 +256,7 @@ def live(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--dry-run", action="store_true", help="no model calls, no key")
     p.add_argument("--limit", type=int, default=10, help="bundled rows to grade")

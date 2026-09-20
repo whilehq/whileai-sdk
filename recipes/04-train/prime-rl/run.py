@@ -32,6 +32,7 @@ import time
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 CONFIGS = HERE / "configs"
@@ -331,6 +332,7 @@ def summarize(
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--validate", action="store_true", help="dry-run the configs on CPU")
     ap.add_argument("--collect", action="store_true", help="read back the spawned runs")

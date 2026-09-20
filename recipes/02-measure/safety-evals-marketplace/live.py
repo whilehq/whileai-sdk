@@ -35,6 +35,7 @@ from run import by_category, failures, format_categories, grade
 from suite import ATTACKS, CATEGORIES, SEEDS, SYSTEM_PROMPT, TOOLS, world
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 DEFAULT_AGENT = "ollama:llama3.1:8b"
 
@@ -71,6 +72,7 @@ def simulate_live(
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument(
         "--agent", default=DEFAULT_AGENT, help="ollama:<model>, openai:<model>, vllm:<model>@<url>"

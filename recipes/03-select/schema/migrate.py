@@ -19,6 +19,7 @@ from collections import Counter
 from pathlib import Path
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations import schema
 
 TOOLS = [
@@ -165,6 +166,7 @@ def migrate(rows: list[dict], out: Path) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("path", nargs="?", help="JSONL to migrate; omit to simulate")
     parser.add_argument("--out", default="out")
