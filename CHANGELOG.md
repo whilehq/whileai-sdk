@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 1.02 (2026-09-20)
+
 - `whileai.platform.HarnessSweep`: many prompt, tool and model variants of one agent, scored on the same frozen asks (`tasks=` a previous run), one run per harness fingerprint with `prompt`, `model` and `tools` pinned under `record.provenance.pins`, the noise floor from scoring one variant twice, the judge checked against hand labels when given. `SweepReport` prints the ranked table and names a winner only when its interval clears every other variant and the noise floor. The Runs page groups the dots by prompt or model (website #100).
 
 ## 1.01 (2026-09-20)
