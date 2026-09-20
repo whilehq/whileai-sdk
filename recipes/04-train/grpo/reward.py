@@ -157,7 +157,14 @@ def messages_for(prompt: str) -> list[dict[str, str]]:
 
 def build_prompts(n: int = 200, seed: int = 0) -> list[dict[str, Any]]:
     """``n`` first-turn prompts from the simulator's offline template writer,
-    each with its ``case``. No model, no key."""
+    each with its ``case``. No model, no key.
+
+    The same ``seed`` gives the same list, in the same order, on every
+    call: ``reproducible=True`` makes ``simulate`` pick each batch of
+    situations only after the last batch has landed, so which rows fall
+    under ``budget`` no longer depends on thread timing at
+    ``concurrency=4`` (whilehq/whileai-sdk#450: two runs at ``--seed 0``
+    got 112 and 119 prompts and two different holdouts)."""
     import whileai.simulations as wai
 
     def silent_agent(message: str) -> dict:
@@ -174,6 +181,7 @@ def build_prompts(n: int = 200, seed: int = 0) -> list[dict[str, Any]]:
         simulator=False,
         time_budget=None,
         concurrency=4,
+        reproducible=True,
     )
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
