@@ -92,7 +92,7 @@ service for hosted training and serving. The library needs no account.
     nothing about maturity. PEP 440 drops leading zeros, which is why the
     counter is never padded (`1.07` is `1.7` on PyPI). On 2026-09-20 the
     bump script rolled `0.99` over to `1.00` and nothing in this file said
-    it could not; those uploads are yanked and re-cut as `0.100` to `0.108`.
+    it could not; those uploads are yanked and re-cut as `0.100` to `0.109`.
 
 ## How it shows up
 

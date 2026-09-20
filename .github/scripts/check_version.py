@@ -6,7 +6,7 @@ House rule: the version is ``0.N`` and N goes up by one per release, forever.
 
 It never rolls over to 1.0 and is never zero-padded. PEP 440 drops leading
 zeros, so a padded "1.07" is "1.7" on PyPI; that is how 2026-09-20 shipped
-1.0 and 1.3..1.8 instead of 0.100..0.108 (1.01 and 1.02 never uploaded: old
+1.0 and 1.3..1.9 instead of 0.100..0.109 (1.01 and 1.02 never uploaded: old
 tags v1.1 and v1.2 made the gate skip them). Those releases are yanked and
 listed in ``MISNUMBERED`` so the counter continues from 0.99. The rule is
 enforced on the normalized release tuple: (0, 99) -> (0, 100) -> (0, 101).
@@ -35,10 +35,10 @@ PYPI = "https://pypi.org/pypi/{name}/json"
 PYPI_RELEASE = "https://pypi.org/pypi/{name}/{version}/json"
 
 # Uploaded on 2026-09-20 under the wrong numbers (the counter rolled 0.99 over
-# to 1.00 and PEP 440 dropped the zero padding). Re-uploaded as 0.100..0.108
+# to 1.00 and PEP 440 dropped the zero padding). Re-uploaded as 0.100..0.109
 # and yanked on PyPI; neither a yanked release nor one of these counts as the
 # latest, or the counter could never continue past 0.99.
-MISNUMBERED = {(1, 0), (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8)}
+MISNUMBERED = {(1, n) for n in range(10)}  # 1.0 .. 1.9
 
 
 def local_version(path: str = "pyproject.toml") -> tuple[str, str]:

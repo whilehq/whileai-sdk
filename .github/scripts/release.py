@@ -49,7 +49,7 @@ def next_version(current: str) -> str:
 
     Mirrors ``check_version.next_allowed``. The major stays 0; no zero
     padding, because PEP 440 drops it (``1.07`` is ``1.7`` on PyPI, which is
-    how 2026-09-20 shipped 1.0..1.8 instead of 0.100..0.108).
+    how 2026-09-20 shipped 1.0..1.9 instead of 0.100..0.109).
     """
     major, minor = (int(p) for p in current.split("."))
     return f"{major}.{minor + 1}"

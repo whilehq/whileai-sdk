@@ -22,11 +22,11 @@ the counter is a whole number. Old spellings still resolve (`==0.4` is the
 `0.04` line in the changelog).
 
 **2026-09-20 mis-numbering.** The bump script rolled 0.99 over to 1.00 and
-padded, so PyPI got 1.0 and 1.3 to 1.8 (1.01 and 1.02 never uploaded). They
-were re-uploaded from the same commits as 0.100 to 0.108, yanked, and are
+padded, so PyPI got 1.0 and 1.3 to 1.9 (1.01 and 1.02 never uploaded). They
+were re-uploaded from the same commits as 0.100 to 0.109, yanked, and are
 listed in `MISNUMBERED` in the gate so the counter continues from 0.99.
-`pip install whileai` ignores a yanked release; a pin like `==1.8` still
-installs, and is the same code as `==0.108`.
+`pip install whileai` ignores a yanked release; a pin like `==1.9` still
+installs, and is the same code as `==0.109`.
 
 ## The old name
 
