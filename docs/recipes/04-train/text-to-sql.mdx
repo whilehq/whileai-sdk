@@ -216,7 +216,11 @@ training file.
   longer than the 300 s default and the SDK re-rolled each one up to
   `repeats` times. Sampling 601 prompts ran 6.5 hours and never finished.
   `rollout.py --timeout 900 --concurrency 16` finishes; the rule is timeout
-  >= max_tokens / per-request tokens per second.
+  >= max_tokens / per-request tokens per second. Since whilehq/whileai-sdk#470
+  the SDK's default is that rule at 4 tokens a second,
+  `max(300, agent_max_tokens / 4)` (1,024 s at 4,096 tokens), so leaving
+  `timeout=` unset no longer re-rolls a reply for taking the time it was
+  allowed.
 - **Pinned prompts do not need the situation writer.** With
   `--agent "vllm:..."` the engine drafts scene briefs and result shapes with
   the same model even when every prompt is pinned (`degraded` says
@@ -226,6 +230,20 @@ training file.
   went 177 s to 133 s. Sample long runs in chunks (`--limit 75`, then 150,
   ...): rows already on disk are skipped, so a killed run resumes, and each
   chunk prints its rate (whilehq/whileai-sdk#470).
+- **A long run is no longer a black box.** The first 2,400-row pass ran four
+  hours with nothing on stdout, no row on disk until it returned, and every
+  row lost on a kill; the cause (long replies timing out and re-rolling up to
+  `repeats` times) was only visible in the server log. whilehq/whileai-sdk#470
+  put three things in `simulate()`: a progress line on the
+  `whileai.simulations` logger (stderr when nothing listens) every 10 events
+  or 10 s that counts rows landed, re-rolled and lost by reason, with the
+  same dict on `on_progress=`; `checkpoint="rows.jsonl"`, which appends each
+  row the moment it lands and, called again with the same path and
+  `tasks=`, skips finished tasks and returns the union; and
+  `data.search["rollouts"]` (`landed`, `resumed`, `rerolled_by`, `lost_by`,
+  `timed_out`) with a `UserWarning` when re-rolls outnumber rows. With
+  `checkpoint=` the `--limit` chunking above is optional: one call on all
+  601 prompts resumes from its own file.
 - **Newer checkpoints, newer stack, and the weight sync is where it breaks.**
   Qwen3.5-* (`Qwen3_5ForConditionalGeneration`) need vLLM >= 0.26 and
   transformers 5: `--stack new` in the trainer, `--vllm 0.29.0` in
