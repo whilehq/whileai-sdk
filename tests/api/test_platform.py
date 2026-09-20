@@ -765,3 +765,103 @@ def test_run_carries_the_harness_fingerprint():
         body["harness"] == "h1"
         and body["record"]["provenance"]["pins"]["harness"] == t.harness.fingerprint
     )
+
+
+# ------------------------------------------------------------------ open
+
+
+class FakeWithRuns(Fake):
+    """The Fake plus a stored run row, as GET /runs/{id} returns it."""
+
+    def __init__(self, rows=None, **kw):
+        super().__init__(**kw)
+        self.rows = rows or {}
+
+    def __call__(self, method, path, body=None):
+        if path.startswith("/runs/") and path.count("/") == 2 and method == "GET":
+            self.calls.append((method, path, body))
+            run_id = path.rsplit("/", 1)[1]
+            if run_id not in self.rows:
+                raise PlatformError(404, f"GET {path}: No run {run_id}")
+            return self.rows[run_id]
+        return super().__call__(method, path, body)
+
+
+ROW = {
+    "id": "run_7f3a",
+    "agent": "a",
+    "version": "v4",
+    "base": "Qwen/Qwen3-4B",
+    "method": "grpo",
+    "targets": ["refunds"],
+    "trainedOn": ["refunds-grpo"],
+    "status": "evaluated",
+    "steps": 300,
+    "notes": "Reward flattened at step 300.",
+    "record": {"optimizer": {"lossType": "dapo", "lr": 5e-5}},
+    "train": [{"step": 10, "reward": 0.4}, {"step": 300, "reward": 0.7}],
+    "evals": [{"behavior": "refunds", "score": 83, "ci": 2.7, "n": 240}],
+    "createdAt": "2026-09-19T00:00:00Z",
+}
+
+
+def test_open_binds_a_run_without_posting():
+    fake = FakeWithRuns({"run_7f3a": ROW})
+    t = track("a", transport=fake)
+    run = t.open("run_7f3a")
+    assert isinstance(run, Run)
+    assert run.id == "run_7f3a" and run.tracked.id == ROW["agent"]
+    assert run.version == "v4" and run.spec.method == "grpo"
+    assert run.spec.trained_on == ["refunds-grpo"]
+    assert run.spec.record.optimizer.loss_type == "dapo"
+    assert run.status == "evaluated" and run.notes == "Reward flattened at step 300."
+    assert run.step == 300 and run.total_steps == 300
+    assert run.scores["refunds"].score == 83 and run.scores["refunds"].ci == 2.7
+    assert fake.calls[1:] == [("GET", "/runs/run_7f3a", None)]  # [0] is track()'s register
+    assert fake.paths("POST") == ["/agents"]  # no POST /runs: the row is not rewritten
+
+
+def test_open_then_finish_sends_get_then_patch_and_no_post():
+    fake = FakeWithRuns({"run_7f3a": ROW})
+    t = track("a", transport=fake)
+    run = t.open("run_7f3a")
+    run.finish(hours=2.1, cost_usd=31, record={"data": {"train": "refunds-grpo", "n_train": 1024}})
+    assert [(m, p) for m, p, _ in fake.calls[1:]] == [
+        ("GET", "/runs/run_7f3a"),
+        ("PATCH", "/runs/run_7f3a"),
+    ]
+    _, _, body = fake.calls[-1]
+    assert body["hours"] == 2.1 and body["costUsd"] == 31
+    assert body["record"] == {"data": {"train": "refunds-grpo", "nTrain": 1024}}
+    assert body["steps"] == 300
+    assert "version" not in body  # a PATCH fills gaps; it never rewrites the row
+
+    run.note("Backfilled from the run log.")
+    assert fake.calls[-1] == ("PATCH", "/runs/run_7f3a", {"notes": "Backfilled from the run log."})
+    run.archive()
+    assert fake.calls[-1] == ("PATCH", "/runs/run_7f3a", {"archived": True})
+    assert fake.paths("POST") == ["/agents"]
+
+
+def test_open_unknown_id_names_runs():
+    fake = FakeWithRuns({})
+    t = track("a", transport=fake)
+    with pytest.raises(PlatformError, match=r"No run 'run_none'.*tracked\.runs\(\)") as info:
+        t.open("run_none")
+    assert info.value.status == 404
+    assert fake.paths("POST") == ["/agents"]
+
+
+def test_open_refuses_another_agents_run():
+    fake = FakeWithRuns({"run_7f3a": {**ROW, "agent": "b"}})
+    t = track("a", transport=fake)
+    with pytest.raises(ValueError, match="belongs to agent 'b'"):
+        t.open("run_7f3a")
+
+
+def test_open_keeps_the_name_when_the_row_does_not_validate():
+    fake = FakeWithRuns({"run_7f3a": {**ROW, "method": "x" * 40, "evals": [{"behavior": "r"}]}})
+    t = track("a", transport=fake)
+    run = t.open("run_7f3a")
+    assert run.version == "v4" and run.spec.method is None
+    assert run.scores == {}
