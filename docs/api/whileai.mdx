@@ -1490,7 +1490,9 @@ that also sits in the training data measures memory, not the change
 the rows that survived, and a report with the count under each rule
 (`n_contaminated` in total), hits per field, the eval text count, and
 the first offenders with their coverage (or `similarity` for semantic
-hits).
+hits). `rules_skipped` names each rule that could not run on these
+inputs and why (empty when every rule ran), and `notes` says it in a
+sentence: a zero under a rule that never ran is not a clearance.
 
 * `rows`: the training rows.
 * `against`: one or more evaluation sources: row lists, JSONL paths,
@@ -1515,8 +1517,12 @@ rows dropped:
 * `same_task` (`n_same_task`): the row's `scenario_id` or
   `task_id` is an evaluation row's. A task is a situation, not a
   string (`task_key`), so a rephrasing of an eval situation is the
-  eval situation whatever the words say. Rows with no recorded id
-  skip this rule.
+  eval situation whatever the words say. It needs an id on both
+  sides: when no evaluation row (or no training row) carries one,
+  the rule does not run, `rules_skipped["same_task"]` says so, and
+  only the text rules stand between the sets. Every eval set not
+  written by `simulate()` (GSM8K, a Hub set, logged traces) is in
+  that case, so read `n_same_task: 0` next to `rules_skipped`.
 * `exact` (`n_exact`): one of the row's `fields` is an
   evaluation text verbatim after normalization (case and whitespace).
 * near copy (`n_near`): one evaluation text covers at least
@@ -1525,6 +1531,9 @@ rows dropped:
 * `semantic` (`n_semantic`), only with `embedder`: the cosine
   similarity between the row's text and an evaluation prompt is at
   least `similarity`, and the two carry different task ids or none.
+  It needs evaluation prompts to embed: when no evaluation row has a
+  `prompt`, the rule does not run, `rules_skipped["semantic"]`
+  says so, and a `UserWarning` is raised because you asked for it.
 
 One shared n-gram is the test Lambert 2025, chapter Evaluation, uses for
 free-form sets. Situations written from templates share whole sentences
