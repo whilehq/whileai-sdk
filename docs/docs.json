@@ -217,7 +217,8 @@
               "learn/why-one-number-is-not-a-result",
               "learn/the-held-out-set",
               "learn/which-rows-to-train-on",
-              "learn/train-and-prove"
+              "learn/train-and-prove",
+              "learn/learn-without-a-reward"
             ]
           }
         ]
