@@ -319,7 +319,8 @@ Marker stats (`marker_summary(rows)["grounded"]`): `mean`, `ci95` (not
 `degenerate`, and `note` (too few tasks) or `warning` (never varied).
 
 `judge_trust(rows)`: `ok`, `agreement.{agreement, ci95, kappa, n}`,
-`gold_kind` (`"human"`, `"model"`, `"unknown"`), `n_labeled`,
+`gold_kind` (`"human"`, `"program"`, `"model"`, `"unknown"`; the first two
+are trusted), `n_labeled`,
 `held_out_halves`, `length_sensitivity`, `perturbation`, `probes`,
 `disagreements`, and `warnings`, where every line names its fix.
 

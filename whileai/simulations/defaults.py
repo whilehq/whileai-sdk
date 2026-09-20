@@ -602,6 +602,16 @@ LENGTH_GAP_FLAG = 0.15
 # 0.992 on MT-Bench (arXiv:2606.19544), so a tenth of verdicts moving is
 # far outside the measured range. Convention on the exact number.
 FLIP_FLAG = 0.10
+# PROBE_MIN_N = 20: rows a judge probe needs in its denominator (originally
+# failing replies for an additive probe, re-judged replies for a
+# replacement one) before ``flagged`` may be true. Under it one flipped row
+# is already FLIP_FLAG: 1 of 10 is 0.10 exactly, and its 95% Wilson
+# interval runs 0.02 to 0.40, so the flag would rest on a single verdict
+# (#347). At 20 one row is 0.05, half the flag, and the interval on 2 of
+# 20 is 0.03 to 0.30. Below the floor the probe says "low power" with the
+# rate it could resolve at POWER instead of flagging. Convention on the
+# exact number (convention, untested).
+PROBE_MIN_N = 20
 # MAX_SKIPPED_SHARE = 0.10: share of a judge_trust gold sample the judge may
 # leave out of the agreement count (a reward that is not exactly 0 or 1,
 # so ``judge_agreement`` skips the row) before ``ok`` is false. The rows
@@ -1886,6 +1896,7 @@ __all__ = [
     "PRIME_RL_LEARNING_RATE_LORA",
     "PRIME_RL_SEQ_LEN",
     "PRIME_RL_STEPS",
+    "PROBE_MIN_N",
     "PROGRESS_MIN_BUDGET",
     "PROGRESS_MIN_ROWS_FOR_ESTIMATE",
     "PROVE_EFFECT",

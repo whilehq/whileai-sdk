@@ -85,3 +85,50 @@ def test_annotator_agreement_reports_pairs_kappa_and_disagreements():
 
 def test_public_surface():
     assert "attach_labels" in wai.__all__ and "annotator_agreement" in wai.__all__
+
+
+# ------------------------------------------------ #343: a program's labels are gold
+
+
+def test_attach_labels_rejects_an_unknown_kind_and_maps_verifier():
+    import pytest
+
+    rows = [_row(i) for i in range(4)]
+    with pytest.raises(ValueError, match="human, program, model"):
+        attach_labels(rows, {"s0#0": 1}, kind="banana")
+    assert "gold_reward" not in rows[0]
+    with pytest.raises(ValueError, match="human, program, model"):
+        attach_labels(rows, [{"key": "s0#0", "label": 1, "kind": "banana"}])
+    attach_labels(rows, {"s0#0": 1, "s1#0": 0}, kind="verifier", annotator="rule:amount>200")
+    assert rows[0]["gold_kind"] == "program" and rows[0]["gold_labels"][0]["kind"] == "program"
+    attach_labels(rows, [{"key": "s2#0", "label": 1, "kind": "verifier"}])
+    assert rows[2]["gold_kind"] == "program"
+
+
+def test_program_gold_measures_the_judge():
+    from whileai.simulations.score.agreement import judge_agreement
+    from whileai.simulations.score.judge_trust import format_judge_trust, judge_trust
+
+    rows = [{**_row(i), "reward": i % 2} for i in range(60)]
+    labels = {f"s{i}#0": i % 2 for i in range(60)}
+    attach_labels(rows, labels, kind="program", annotator="rule:amount>200")
+    out = judge_agreement(rows)
+    assert out["gold_kind"] == "program" and out["ok"] is True and out["agreement"] == 1.0
+    assert not any("came from a model" in w for w in out["warnings"])
+    report = judge_trust(rows)
+    assert report["ok"] is True and report["gold_kind"] == "program"
+    assert format_judge_trust(report).startswith("PASS")
+    # a warning about program gold names the kind, never "human"
+    noisy = [
+        {**r, "reward": 1 - r["reward"] if i % 5 == 0 else r["reward"]} for i, r in enumerate(rows)
+    ]
+    report = judge_trust(noisy)
+    low = [w for w in report["warnings"] if w.startswith("Judge agreement with")]
+    assert low and all("gold labels (program)" in w and "human labels" not in w for w in low)
+    assert any('attach_labels(kind="program")' in w for w in low) or all(
+        "Change the judge" in w for w in low
+    )
+    # model gold still reads as model gold
+    model = [{**_row(i), "reward": i % 2} for i in range(60)]
+    attach_labels(model, labels, kind="model")
+    assert judge_agreement(model)["ok"] is False

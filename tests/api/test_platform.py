@@ -24,7 +24,10 @@ from whileai.platform import (
     RunSpec,
     Score,
     Tracked,
+    VersionScore,
+    brief_of,
     describe,
+    eval_checks,
     track,
 )
 
@@ -909,3 +912,120 @@ def test_open_keeps_the_name_when_the_row_does_not_validate():
     run = t.open("run_7f3a")
     assert run.version == "v4" and run.spec.method is None
     assert run.scores == {}
+
+
+# ------------------------------------------- #614: a program grader has no judge
+
+
+def test_verdict_graded_by_a_program_asks_for_no_judge_agreement():
+    out = _verdict(_dash(regressions=0, behavior={"judge": None, "gradedBy": "program"}))
+    assert out == (
+        "refunds: v4 beats v3 by 5 (interval excludes zero, clears the noise floor of 2.4); "
+        "graded by a program, n=240"
+    )
+    assert "unproven" not in out and "judge agreement" not in out
+    # the other gaps still hold: n, contamination, the training reward
+    out = _verdict(_dash(regressions=0, behavior={"judge": None, "gradedBy": "program", "n": 40}))
+    assert out.startswith("unproven:") and "n=40 under 50" in out
+    assert "judge agreement" not in out and "graded by a program" in out
+    # graded_by="judge" and None keep today's line
+    out = _verdict(_dash(regressions=0, behavior={"judge": None, "gradedBy": "judge"}))
+    assert "judge agreement unmeasured" in out
+    out = _verdict(_dash(regressions=0, behavior={"judge": None}))
+    assert "judge agreement unmeasured" in out
+    with pytest.raises(ValidationError):
+        Behavior(name="x", graded_by="banana")
+
+
+def test_graded_by_goes_over_the_wire_and_reaches_the_evals_table():
+    fake = Fake()
+    t = track("a", transport=fake)
+    beh = t.behavior("gsm8k", test_version="v1", n=200, noise_floor=2.12, graded_by="program")
+    method, path, body = fake.calls[-1]
+    assert (method, path) == ("PUT", "/agents/a/behaviors/gsm8k")
+    assert body["gradedBy"] == "program" and beh.graded_by == "program"
+    versions = [
+        VersionScore(v="base", score=61, ci=3, n=200),
+        VersionScore(v="v1", score=70, ci=3, n=200),
+    ]
+    judge = next(c for c in eval_checks(beh, versions).checks if c.key == "judge")
+    assert judge.ok is True and judge.value == "graded by a program"
+    # and the brief's "do next" no longer asks for hand labels
+    runs = [
+        {
+            "id": "r1",
+            "version": v.v,
+            "createdAt": f"2026-09-2{i}",
+            "evals": [{"behavior": "gsm8k", "score": v.score, "ci": v.ci, "n": v.n}],
+        }
+        for i, v in enumerate(versions)
+    ]
+    brief = brief_of("a", [beh], runs)
+    says = [s.say for s in brief.next]
+    assert not any("check the judge" in s or "hand labels" in s for s in says), says
+    assert not any("attach_labels" in s.cmd for s in brief.next)
+
+
+def test_graded_by_survives_a_server_that_drops_it():
+    class Dropping(Fake):
+        """A store that predates the field: PUT echoes without gradedBy,
+        GET lists without it, the dashboard's behavior block has none."""
+
+        def __call__(self, method, path, body=None):
+            self.calls.append((method, path, body))
+            if "/behaviors/" in path:
+                return {
+                    "name": path.rsplit("/", 1)[1],
+                    **{k: v for k, v in body.items() if k != "gradedBy"},
+                }
+            if path.endswith("/behaviors"):
+                return {"behaviors": [{"name": "gsm8k", "n": 200, "noiseFloor": 2.12}]}
+            return super().__call__(method, path, body)
+
+    dash = _dash(
+        regressions=0, behavior={"name": "gsm8k", "judge": None, "n": 200, "noiseFloor": 2.12}
+    )
+    fake = Dropping(dashboard=dash)
+    t = track("a", transport=fake)
+    beh = t.behavior("gsm8k", n=200, noise_floor=2.12, graded_by="program")
+    assert beh.graded_by == "program"
+    assert t.behaviors()[0].graded_by == "program"
+    out = str(t.verdict())
+    assert "graded by a program" in out and "judge agreement" not in out
+    judge = next(c for c in t.evals()[0].checks if c.key == "judge")
+    assert judge.ok is True
+    # a fresh handle with no local declaration reads what the server has
+    assert track("a", transport=Dropping(dashboard=dash)).behaviors()[0].graded_by is None
+
+
+def test_brief_does_not_say_promote_one_after_a_promotion():
+    versions = [
+        VersionScore(v="base", score=61, ci=3, n=200),
+        VersionScore(v="v1", score=70, ci=3, n=200),
+    ]
+    runs = [
+        {
+            "id": f"r{i}",
+            "version": v.v,
+            "createdAt": f"2026-09-2{i}",
+            "evals": [{"behavior": "gsm8k", "score": v.score, "ci": v.ci, "n": v.n}],
+        }
+        for i, v in enumerate(versions)
+    ]
+    beh = Behavior(
+        name="gsm8k",
+        test_version="v1",
+        n=200,
+        noise_floor=2.12,
+        graded_by="program",
+        contamination=0,
+        reward_is_judge=False,
+    )
+    # nothing promoted yet: the old advice stands
+    assert "promote one" in brief_of("a", [beh], runs).means
+    # promoted, but the dashboard carries no resolved verdict (server verdict has no delta)
+    dash = Dashboard.model_validate(
+        {"agent": {"id": "a", "name": "a", "serving": "base"}, "verdict": {"serving": "base"}}
+    )
+    means = brief_of("a", [beh], runs, dash).means
+    assert "promote one" not in means and "base is the served version" in means

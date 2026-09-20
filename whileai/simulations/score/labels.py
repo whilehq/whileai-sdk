@@ -3,8 +3,8 @@
 Lambert 2025, chapter Preference Data: the trusted label a judge is checked
 against is a person's, several people disagree, and the disagreement is
 signal, not noise to average away. ``judge_trust`` and ``judge_agreement``
-read ``gold_reward`` and ``gold_kind``, and only a person's labels count as a
-measurement of the judge; a model's labels are marked as such.
+read ``gold_reward`` and ``gold_kind``, and a person's or a program's labels
+count as a measurement of the judge; a model's labels are marked as such.
 
 ``attach_labels`` takes labels from a file or a list (each with a row
 identity, a 0/1 label, and optionally an annotator, a note and a time),
@@ -22,7 +22,15 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from .agreement import GOLD_KIND_KEY, _kappa, _label, gold_kind_of, row_key
+from .agreement import (
+    GOLD_KIND_ALIASES,
+    GOLD_KIND_KEY,
+    GOLD_KINDS,
+    _kappa,
+    _label,
+    gold_kind_of,
+    row_key,
+)
 
 GOLD_KEY = "gold_reward"
 LABELS_KEY = "gold_labels"
@@ -68,17 +76,29 @@ def attach_labels(
     ``scenario_id`` + ``rollout_index``, or ``prompt`` (+ ``final_text``),
     and carries ``label`` (or ``reward`` / ``gold_reward``: 0 or 1), and
     optionally ``annotator``, ``note``, ``ts``. ``annotator`` here is the
-    default for labels that name none. ``kind`` is recorded on each label
-    (``"human"``; ``"model"`` for a stronger model's labels).
+    default for labels that name none. ``kind`` is recorded on each label:
+    ``"human"`` for a person's, ``"program"`` (or its alias
+    ``"verifier"``) for a deterministic rule's (execution match, a unit
+    test, a rule over tool calls), ``"model"`` for a stronger model's.
+    Any other string raises ``ValueError`` naming the accepted set, so a
+    typo cannot silently downgrade the gold (#343).
 
     Each row gains ``gold_labels`` (every label, appended unless
     ``replace``), ``gold_reward``, the majority of its labels, and
-    ``gold_kind``: ``"human"`` when every label on the row is a person's,
-    else the other kind. ``judge_trust`` and ``judge_agreement`` only
-    count human gold as a measurement of the judge. A tie leaves both
-    unset. Labels that name no row, or carry no 0/1 value, are counted
-    and listed.
+    ``gold_kind``: the one kind every label on the row shares, else
+    ``"mixed"``. ``judge_trust`` and ``judge_agreement`` count human and
+    program gold as a measurement of the judge: a deterministic rule is
+    at least as strong a gold as a rater, since it cannot be argued into
+    a pass and agrees with itself on every run (Lambert 2025, chapter
+    Evaluation, verifiable rewards). A tie leaves both unset. Labels that
+    name no row, or carry no 0/1 value, are counted and listed.
     """
+    kind = GOLD_KIND_ALIASES.get(kind, kind)
+    if kind not in GOLD_KINDS:
+        raise ValueError(
+            f"attach_labels(kind={kind!r}): kind is one of {', '.join(GOLD_KINDS)} "
+            "('verifier' reads as 'program')"
+        )
     # every identity a label may use points at the row
     index: dict[str, dict] = {}
     for row in rows:
@@ -109,10 +129,17 @@ def attach_labels(
         if target is None:
             unmatched.append(str(key))
             continue
+        own = str(item.get("kind") or kind)
+        own = GOLD_KIND_ALIASES.get(own, own)
+        if own not in GOLD_KINDS:
+            raise ValueError(
+                f"attach_labels: label {key!r} carries kind={own!r}; kind is one of "
+                f"{', '.join(GOLD_KINDS)} ('verifier' reads as 'program')"
+            )
         record = {
             "label": value,
             "annotator": str(item.get("annotator") or annotator or "unknown"),
-            "kind": str(item.get("kind") or kind),
+            "kind": own,
             "ts": item.get("ts") or now,
         }
         if item.get("note"):
