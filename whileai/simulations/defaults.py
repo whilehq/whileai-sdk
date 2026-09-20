@@ -964,6 +964,26 @@ TRAINING_POLL_MIN_S = 1.0
 # TRAINING_ERROR_CHARS = 2000: a finish error is cut here; the run page
 # shows one screen of it.
 TRAINING_ERROR_CHARS = 2000
+# GPU_USD_PER_HOUR = {A10G 1.10, L40S 1.95, H100 3.95, A100 2.50, T4 0.59}:
+# what one GPU-hour of a hosted training run costs, as an estimate. The
+# platform's trainer runs on Modal, so Modal's on-demand list price is the
+# honest rate. Modal quotes per second (A10 $0.000306, L40S $0.000542,
+# H100 SXM5 $0.001097, A100 80 GB $0.000694, T4 $0.000164); the table is
+# those rates times 3600, to the cent. A run's ``cost_usd`` is
+# ``seconds / SECONDS_PER_HOUR * rate``. Rollouts and judge calls on the
+# shared serving endpoint are not priced. (https://modal.com/pricing, read
+# 2026-09-20)
+GPU_USD_PER_HOUR: Mapping[str, float] = MappingProxyType(
+    {"A10G": 1.10, "L40S": 1.95, "H100": 3.95, "A100": 2.50, "T4": 0.59}
+)
+# GPU_PRICE_SOURCE = "modal.com/pricing 2026-09-20": the page and the day
+# GPU_USD_PER_HOUR was read from, quoted in every ``cost_basis`` so the
+# reader can check the rate behind the number. (https://modal.com/pricing,
+# read 2026-09-20)
+GPU_PRICE_SOURCE = "modal.com/pricing 2026-09-20"
+# SECONDS_PER_HOUR = 3600: the unit conversion between a run's ``seconds``
+# and the per-hour rate. (definition)
+SECONDS_PER_HOUR = 3600
 
 # TRAINING_KNOBS = {knob: {lo, hi, ref, why}}: accepted range and reference
 # value per knob, by method. ``lo``/``hi`` are what ``train`` accepts; ``ref``
@@ -1806,6 +1826,8 @@ __all__ = [
     "FAULT_STATUSES",
     "FINGERPRINT_STEM_MIN_LEN",
     "FLIP_FLAG",
+    "GPU_PRICE_SOURCE",
+    "GPU_USD_PER_HOUR",
     "HACK_THRESHOLD",
     "HOLDOUT_BUCKET_HEX_CHARS",
     "HUNG_SLOT_S",
@@ -1911,6 +1933,7 @@ __all__ = [
     "SAMPLING_TEMPERATURE_MAX",
     "SATURATION_CAP",
     "SCENARIO_ID_CHARS",
+    "SECONDS_PER_HOUR",
     "SEMANTIC_SIMILARITY",
     "SFT_COMPLETIONS_PER_PROMPT",
     "SFT_PHRASINGS_PER_SITUATION",

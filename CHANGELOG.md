@@ -49,6 +49,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `PROBE_MIN_N` (20) rows in the denominator, else the probe reads `low power (n=10;
   resolves about 0.4 at 80% power)` and stays unflagged; the `keyword_stuffing` skip
   says to pass `rubric=` to `judge_trust`.
+- Hosted training runs carry a cost: `run.training` and `wai.get_run(id)["summary"]` get
+  `cost_usd` (`seconds / 3600 × rate`, to the cent) and `cost_basis` (`estimate: A10G at
+  $1.10/h, modal.com/pricing 2026-09-20`) beside `gpu` and `seconds`, and `print(run)` shows
+  `about $0.02 (A10G, 56 s, estimate)`. The rates are `GPU_USD_PER_HOUR` in defaults.py,
+  Modal's on-demand list prices read on 2026-09-20 (A10G 1.10, L40S 1.95, H100 3.95, A100
+  2.50, T4 0.59), since the platform's trainer runs on Modal; a GPU not in the table leaves
+  `cost_usd` None and the basis says so. Rollouts and judge calls on the serving endpoint
+  stay unpriced. The hosted-grpo-vs-sft recipe drops its "dollar column is mine"
+  disclaimer for the SDK's line (#399).
 - `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving
   container inside the fifteen-minute window the README already promises, backing off from
   5 s to 60 s between tries, and at the deadline says what to do (`python run.py call`
