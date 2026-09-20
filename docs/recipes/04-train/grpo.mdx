@@ -29,7 +29,9 @@ drawn.
 uv add whileai modal
 modal profile activate <your workspace>
 export WHILEAI_API_KEY=...          # for the dashboard; optional
-modal run recipes/04-train/grpo/train_modal.py
+sh recipes/04-train/grpo/smoke.sh                            # free: prompts, split, reward on scripted policies; no key, no GPU
+modal run recipes/04-train/grpo/train_modal.py --steps 10    # about 3 minutes of A10G, about 5 cents: does the reward curve move at all
+modal run recipes/04-train/grpo/train_modal.py               # the run: 40 steps, under 15 minutes, about 30 cents
 modal run recipes/04-train/grpo/train_modal.py --steps 80 --gpu H100 --run-name refund-grpo-v2
 modal run recipes/04-train/grpo/train_modal.py --monitor-every 5 --stop-on feature   # end the run on a named hack
 ```

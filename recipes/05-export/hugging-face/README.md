@@ -74,6 +74,10 @@ the imported set on your account; `--private` makes the pushed dataset repo
 private. Adapter repos are always pushed private: a checkpoint is not a
 release.
 
+Every step here is a platform call, so `smoke.sh` is the wiring check only:
+the imports resolve, and a run with no key exits with one line naming
+`WHILEAI_API_KEY`, not a traceback. Nothing in this recipe costs GPU time.
+
 Output for the import half:
 
 ```

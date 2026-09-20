@@ -85,6 +85,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
   training seed per arm; add a seed to resolve". `recipes/papers/check.py` applies the rule
   (`checks.train_seeds`, verdicts `moved` / `flat` / `unresolved`), so every one-seed paper
   recipe now reads `unresolved` with its numbers unchanged (#356).
+- Every recipe outside `papers/` has a `smoke.sh` CI runs with no key, no GPU and no spend
+  (17 added; the training ones run the data, reward, split or config path through
+  `reward.py`, `pairs.py`, `run.py --dry-run`, `generate.py --offline` and
+  `sql_verifier.py --selftest`), the `04-train` READMEs lead with the free line and the
+  `--steps 10` check with its cost before the real run, and the recipes index has a Costs
+  column at Modal's on-demand prices. `recipes/README.md` names the one exception and why
+  (#448).
 
 ## 0.109 (2026-09-20)
 
