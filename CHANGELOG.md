@@ -5,6 +5,16 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `skills/manage-experiments`: the playbook a coding agent follows before it posts a second
+  version, a sweep or a replicate, so the page stays readable to the team: the question
+  first (`tracked.experiment`), arms named in words with the numbers in `record.optimizer`
+  and `record.data`, seeds as replicates never as behavior names, points not fractions,
+  failed rows and a note with every score, `readback(tracked)` to read the account the way
+  a teammate would, archive not delete. Written against what real agents posted on
+  2026-09-20 (`dapo-lr5e-05-s17-30st`, `looks_up_before_answering_seed1`, `0.75`).
+  `whileai init` installs it as a default skill and the `AGENTS.md` block names it; docs
+  page `platform/experiments`.
+
 ## 1.08 (2026-09-20)
 
 - `Behavior(rubric=)` and `run.score(..., examples=[Example(prompt=, reply=, ok=, why=)])`: the

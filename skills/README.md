@@ -19,6 +19,7 @@ that passed this morning.
 | `tool-call-efficiency/` | the agent solves tasks but spends too many calls | GRPO, reward = solved within budget |
 | `watch/` | a version is serving and the Live tile needs a number a day | nothing; it scores yesterday's traffic |
 | `strengthen-your-evals/` | an agent on a frontier model or your own weights needs evals that can fail and a number with an interval | nothing; it builds the frozen test, checks the judge, and reports every behavior |
+| `manage-experiments/` | you are about to post a second version, a sweep, a replicate or a new question | nothing; it makes the runs readable: question first, arms in words, seeds in the record, points not fractions, failed rows and a note per score, archive dead arms |
 | `whileai-simulations/` | you need more situations than the traces contain | nothing; it is the simulate-grade-select loop |
 
 ## Every skill ends the same way
