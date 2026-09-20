@@ -10,6 +10,15 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   grader scored that second reply: on the text-to-SQL holdout 15% of Qwen3.5-9B rows
   and 65% of Qwen3.5-4B rows were scored on the wrong turn (0.53 read as 0.60 and 0.14
   as 0.35 once re-graded on the first reply) (#586).
+- `tracked.evals()`: the Runs page's Evals table as data, one `EvalHealth` per behavior with the
+  eight checks (frozen, size, judge, length bias, noise floor, clean, reward is not the judge,
+  can fail), each with its value, the failure and the fix in plain words, the call, the rule and
+  its source; same fields and thresholds as the page (`eval_checks(behavior, versions)` is the
+  pure function, and the brief's "do next" now reads from it). `tracked.delete()` removes an
+  agent and everything under it (`DELETE /agents/{id}`), the call a coding agent needs to undo
+  an agent posted to the wrong account. Together with `runs`/`open`/`archive`/`delete_run`,
+  `dashboard`, `verdict` and `brief`, a coding agent now reads and edits everything the page
+  shows.
 - `HarnessSweep` checks every variant label against the platform's 40-character run-version cap, and for duplicates, before the first rollout; a cold start lost seven minutes of model calls to a `ValidationError` raised while posting. `labels=` also takes a `Judge` measured on the frozen run (hand labels attach to the replies a person read; a sweep rolls new ones, so `judge_trust` on them found nothing). New `concurrency=` (parallel rollouts per variant; the library default of 32 is more than a small provider key allows). The printed report says when the test has under 50 asks, since the platform verdict then reads unproven. The offline writer's id regex now also matches digits-then-letters ids (`12B`, `4A`), so a tool description that names apartment units, seats or gates seeds asks that reach them.
 - `tracked.brief()`: what happened, what it means, what to do next, in sentences, from the
   rows the platform holds (behaviors, runs, dashboard). The Runs page shows the same three

@@ -45,6 +45,7 @@ describe it by hand::
 
     print(tracked.verdict())  # refunds: v4 beats v3 by 5 (interval excludes zero); 1 regression
     print(tracked.brief())  # what happened, what it means, what to do next: the top of the Runs page
+    print(*tracked.evals(), sep="\n")  # the Evals table: eight checks per behavior
 
 Say what the runs are for, and show your working. The experiment block
 sits at the top of the Runs page, a figure grid follows the run table,
@@ -72,6 +73,7 @@ import contextlib
 import hashlib
 import json
 import logging
+import math
 import re
 import threading
 import time
@@ -745,101 +747,300 @@ def _scores_for(runs: Sequence[Mapping[str, Any]], behavior: str) -> list[Versio
     return [v for _, v in by.values()]
 
 
-def _eval_steps(b: Behavior, versions: list[VersionScore]) -> list[tuple[str, str, str]]:
-    """The checks the Runs page runs on a behavior, failed ones only:
-    (key, sentence, fix). Same thresholds as the page."""
-    out: list[tuple[str, str, str]] = []
-    if versions and all(v.score >= _SATURATED for v in versions):
-        top = max(versions, key=lambda v: v.score)
-        out.append(
-            (
-                "canfail",
-                f"add harder tasks ({b.name}: {top.v} already passes {_one(top.score)}, "
-                "nothing to learn)",
-                "count failure-capable asks; steer with simulate(hard_share=) or "
-                "dimensions={'stance': [...]}",
-            )
+class EvalCheck(_Wire):
+    """One thing a held-out test must have, as the Runs page checks it.
+
+    ``ok`` is True, False, or None when it cannot be measured yet (not
+    counted). ``why`` and ``action`` are the failure and the fix in plain
+    words; ``fix`` is the call; ``rule`` and ``cite`` are where the
+    threshold comes from.
+    """
+
+    key: str
+    label: str
+    ok: bool | None = None
+    value: str = ""
+    why: str = ""
+    action: str = ""
+    rule: str = ""
+    cite: str = ""
+    fix: str = ""
+
+
+class EvalHealth(_Wire):
+    """Can this behavior's held-out test prove a gain: the eight checks the
+    Runs page runs, and the verdict. ``str()`` it for the terminal."""
+
+    name: str
+    checks: list[EvalCheck] = Field(default_factory=list)
+    good: int = 0
+    total: int = 0
+    verdict: str = "good"
+
+    @property
+    def failed(self) -> list[EvalCheck]:
+        return [c for c in self.checks if c.ok is False]
+
+    def __str__(self) -> str:
+        head = f"{self.name}: {self.verdict} ({self.good} of {self.total} checks pass)"
+        lines = [head]
+        for c in self.checks:
+            mark = "ok" if c.ok else ("--" if c.ok is None else "no")
+            line = f"  {mark} {c.label}: {c.value}"
+            if c.ok is False:
+                line += f" -> {c.action} ({c.fix})"
+            lines.append(line)
+        return "\n".join(lines)
+
+
+_EVAL_RULES = {
+    "min_n": 50,
+    "min_agreement": 0.8,
+    "min_human_n": 50,
+    "max_length_bias": 0.3,
+    "saturated_base": 95,
+}
+_CITE = {
+    "evaluation": "rlhfbook.com, Evaluation",
+    "miller": "Miller 2024, arXiv 2411.00640",
+    "zheng": "Zheng et al. 2023, arXiv 2306.05685",
+    "dubois": "Dubois et al. 2024, arXiv 2404.04475",
+    "gao": "Gao et al. 2022, arXiv 2210.10760",
+    "dapo": "DAPO, arXiv 2503.14476",
+}
+
+
+def _median(xs: list[float]) -> float | None:
+    if not xs:
+        return None
+    ordered = sorted(xs)
+    m = len(ordered) // 2
+    return ordered[m] if len(ordered) % 2 else (ordered[m - 1] + ordered[m]) / 2
+
+
+def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
+    """The eight checks the Runs page runs on one behavior, from the same
+    fields and thresholds (lib/evals.ts on the site): frozen, size, judge,
+    length bias, noise floor, clean, reward is not the judge, can fail.
+    Pure: the behavior and its scores per version (in points) in."""
+    checks: list[EvalCheck] = []
+    R = _EVAL_RULES
+    cis = [v.ci for v in versions if v.ci is not None]
+    med = _median(cis)
+    resolves = None if med is None else math.sqrt(2) * med
+
+    checks.append(
+        EvalCheck(
+            key="frozen",
+            label="frozen",
+            ok=bool(b.test_version),
+            value=b.test_version or "unnamed",
+            why="the test set has no name, so scores cannot be compared",
+            action="name the test set",
+            rule="The held-out set is a named artifact; a score is comparable only with the same name.",
+            cite=_CITE["evaluation"],
+            fix='Behavior(name, test_version="v1"); bump it when the asks change',
         )
+    )
+
     n = b.n if b.n is not None else next((v.n for v in versions if v.n is not None), None)
     if n is None:
-        out.append(
-            (
-                "size",
-                f"declare n ({b.name}: size not declared)",
-                "Behavior(name, n=<held-out asks>)",
-            )
+        size_value, size_why, size_action = "n not declared", "size not declared", "declare n"
+    elif resolves is not None:
+        size_value = f"n={n} · resolves ≥ {_one(resolves)} pts"
+        size_why = f"only {n} tasks, so it can only see gaps over {_one(resolves)} pts"
+        size_action = f"add {R['min_n'] - n}+ tasks" if n < R["min_n"] else "add tasks"
+    else:
+        size_value, size_why = f"n={n}", f"only {n} tasks"
+        size_action = f"add {R['min_n'] - n}+ tasks" if n < R["min_n"] else "add tasks"
+    checks.append(
+        EvalCheck(
+            key="size",
+            label="size",
+            ok=n is not None and n >= R["min_n"],
+            value=size_value,
+            why=size_why,
+            action=size_action,
+            rule=(
+                f"At least {R['min_n']} held-out items, and the interval decides what a "
+                "difference can resolve: |Δ| must clear sqrt(ci_a² + ci_b²)."
+            ),
+            cite=_CITE["miller"],
+            fix="wai.holdout_size(effect, rows=) says how many asks a gain needs",
         )
-    elif n < _MIN_N:
-        out.append(
-            (
-                "size",
-                f"add {_MIN_N - n}+ tasks ({b.name}: only {n} tasks, the interval is too wide "
-                "to see a gain of a few points)",
-                "wai.holdout_size(effect, rows=) says how many asks a gain needs",
-            )
-        )
-    if not b.test_version:
-        out.append(
-            (
-                "frozen",
-                f"name the test set ({b.name}: no name, so scores cannot be compared)",
-                'Behavior(name, test_version="v1"); bump it when the asks change',
-            )
-        )
+    )
+
     j = b.judge
     agreement = getattr(j, "agreement", None) if j is not None else None
     human_n = getattr(j, "human_n", None) if j is not None else None
     if agreement is None:
-        out.append(
-            (
-                "judge",
-                f"check the judge against people ({b.name}: judge never checked against people)",
+        j_value, j_why, j_action = (
+            "unmeasured",
+            "judge never checked against people",
+            "check the judge against people",
+        )
+    elif agreement < R["min_agreement"]:
+        j_value = f"{agreement:.2f} on {human_n if human_n is not None else '?'}"
+        j_why = f"judge agrees with people {agreement:.2f}, under {R['min_agreement']}"
+        j_action = "get a judge that agrees with people"
+    else:
+        few = (human_n or 0) < R["min_human_n"]
+        j_value = f"{agreement:.2f} on {human_n if human_n is not None else '?'}" + (
+            " (few)" if few else ""
+        )
+        j_why = f"judge checked on only {human_n or 0} hand labels"
+        j_action = f"label {R['min_human_n'] - (human_n or 0)}+ more by hand"
+    checks.append(
+        EvalCheck(
+            key="judge",
+            label="judge",
+            ok=agreement is not None
+            and agreement >= R["min_agreement"]
+            and (human_n or 0) >= R["min_human_n"],
+            value=j_value,
+            why=j_why,
+            action=j_action,
+            rule=(
+                f"Agreement with people at least {R['min_agreement']} on at least "
+                f"{R['min_human_n']} hand labels; a program grader is held to the same bar."
+            ),
+            cite=_CITE["zheng"],
+            fix=(
                 "wai.attach_labels(rows, labels, kind='human'); wai.judge_trust(rows, judge); "
-                "Judge(agreement=, human_n=)",
-            )
+                "Judge(agreement=, human_n=)"
+            ),
         )
-    elif agreement < 0.8 or (human_n or 0) < _MIN_N:
-        out.append(
-            (
-                "judge",
-                f"get a judge that agrees with people ({b.name}: agreement {agreement:g} "
-                f"on {human_n or 0} hand labels)",
-                "wai.judge_trust(rows, judge); Judge(agreement=, human_n=)",
-            )
+    )
+
+    lb = getattr(j, "length_bias", None) if j is not None else None
+    checks.append(
+        EvalCheck(
+            key="length",
+            label="length",
+            ok=None if lb is None else abs(lb) <= R["max_length_bias"],
+            value="—" if lb is None else f"r = {lb:.2f}",
+            why="" if lb is None else f"judge pays for words (r = {lb:.2f})",
+            action="penalize length in the judge",
+            rule=(
+                f"|r| between score and reply length at most {R['max_length_bias']}; above it "
+                "the judge pays for words."
+            ),
+            cite=_CITE["dubois"],
+            fix="judge_trust reports length_sensitivity; Judge(length_bias=)",
         )
-    if b.noise_floor is None:
-        out.append(
-            (
-                "noise",
-                f"score one version twice ({b.name}: noise floor not measured, so no gap is provable)",
-                "tracked.noise_floor(behavior, rows_a, rows_b)",
-            )
+    )
+
+    noise = b.noise_floor
+    base = next((v for v in versions if v.v == "base"), None)
+    if base is None and versions:
+        base = min(versions, key=lambda v: v.score)
+    if noise is not None and base is not None and len(versions) > 1:
+        clears = sum(1 for v in versions if v.v != base.v and abs(v.score - base.score) > noise)
+        noise_value = f"±{noise:g} · {clears} of {len(versions) - 1} clear it"
+    else:
+        noise_value = "not measured" if noise is None else f"±{noise:g}"
+    checks.append(
+        EvalCheck(
+            key="noise",
+            label="noise floor",
+            ok=noise is not None,
+            value=noise_value,
+            why="noise floor not measured, so no gap is provable",
+            action="score one version twice",
+            rule=(
+                "Score the same version twice on the same set; a difference inside that spread "
+                "is not a result. Post-training evals move 0.25 to 1.5 points between runs of "
+                "one setup."
+            ),
+            cite=_CITE["evaluation"],
+            fix="tracked.noise_floor(behavior, rows_a, rows_b) from two scorings of one version",
         )
-    if b.contamination is None:
-        out.append(
-            (
-                "contamination",
-                f"check for leaks ({b.name}: not checked for leaks into training data)",
-                "wai.decontaminate(train, holdout); Behavior(contamination=<dropped>)",
-            )
+    )
+
+    c = b.contamination
+    checks.append(
+        EvalCheck(
+            key="contamination",
+            label="clean",
+            ok=c == 0,
+            value="not checked"
+            if c is None
+            else ("0 found" if c == 0 else f"{c} in training data"),
+            why=(
+                "not checked for leaks into training data"
+                if c is None
+                else f"{c} held-out tasks are in the training data"
+            ),
+            action="check for leaks" if c is None else "drop leaked tasks from training",
+            rule="No held-out item appears in the training data; the count is the proof.",
+            cite=_CITE["evaluation"],
+            fix="wai.decontaminate(train, holdout); Behavior(contamination=<dropped>)",
         )
-    if b.reward_is_judge is None:
-        out.append(
-            (
-                "reward",
-                f"declare reward_is_judge ({b.name}: not declared whether the reward is the judge)",
-                "Behavior(reward_is_judge=False)",
-            )
+    )
+
+    rj = b.reward_is_judge
+    checks.append(
+        EvalCheck(
+            key="reward",
+            label="reward ≠ judge",
+            ok=rj is False,
+            value="not declared" if rj is None else ("same model" if rj else "different"),
+            why=(
+                "not declared whether the reward is the judge"
+                if rj is None
+                else "the judge is also the training reward"
+            ),
+            action="declare reward_is_judge" if rj is None else "score with a different model",
+            rule="A judge that is also the training reward gets exploited and cannot see it.",
+            cite=_CITE["gao"],
+            fix="score with a program or a different model; Behavior(reward_is_judge=False)",
         )
-    elif b.reward_is_judge:
-        out.append(
-            (
-                "reward",
-                f"score with a different model ({b.name}: the judge is also the training reward)",
-                "score with a program or a different model; Behavior(reward_is_judge=False)",
-            )
+    )
+
+    best = max(versions, key=lambda v: v.score) if versions else None
+    if base is None:
+        cf_value = "no scores"
+    elif base.score >= R["saturated_base"]:
+        cf_value = f"{base.v} already {_one(base.score)}"
+    elif best is not None and best.v != base.v:
+        cf_value = f"{base.v} {_one(base.score)} → best {_one(best.score)}"
+    else:
+        cf_value = f"{base.v} {_one(base.score)}"
+    checks.append(
+        EvalCheck(
+            key="canfail",
+            label="can fail",
+            ok=None if base is None else base.score < R["saturated_base"],
+            value=cf_value,
+            why=""
+            if base is None
+            else f"{base.v} already passes {_one(base.score)}, nothing to learn",
+            action="add harder tasks",
+            rule=(
+                f"A base under {R['saturated_base']} points leaves room to move; an ask every "
+                "version passes carries no signal."
+            ),
+            cite=_CITE["dapo"],
+            fix="count failure-capable asks; steer with simulate(hard_share=) or dimensions={'stance': [...]}",
         )
-    return out
+    )
+
+    measured = [k for k in checks if k.ok is not None]
+    bad = [k for k in measured if k.ok is False]
+    return EvalHealth(
+        name=b.name,
+        checks=checks,
+        good=sum(1 for k in measured if k.ok),
+        total=len(measured),
+        verdict=("weak · " + ", ".join(k.label for k in bad)) if bad else "good",
+    )
+
+
+def _eval_steps(b: Behavior, versions: list[VersionScore]) -> list[tuple[str, str, str]]:
+    """The failed checks as (key, sentence, fix), for the brief."""
+    return [
+        (c.key, f"{c.action} ({b.name}: {c.why})", c.fix) for c in eval_checks(b, versions).failed
+    ]
 
 
 def brief_of(
@@ -1715,6 +1916,23 @@ class Tracked:
         """Bring an archived run back into the experiment."""
         return self.archive(run_id, archived=False)
 
+    def evals(self) -> list[EvalHealth]:
+        """Can each behavior's held-out test prove a gain: the eight checks
+        the Runs page's Evals table shows, one ``EvalHealth`` per behavior,
+        from the same rows and thresholds. ``print(*tracked.evals(), sep="\\n")``."""
+        runs = self.runs()
+        out = []
+        for b in self.behaviors():
+            versions, _ = _points(_scores_for(runs, b.name))
+            out.append(eval_checks(b, versions))
+        return out
+
+    def delete(self) -> dict[str, Any]:
+        """Remove this agent and everything under it (behaviors, runs, scores,
+        figures) for good. For an agent posted to the wrong account or a
+        smoke test; there is no undo and the page forgets it at once."""
+        return self._call("DELETE", f"/agents/{self.id}")
+
     def delete_run(self, run_id: str) -> dict[str, Any]:
         """Remove a run, its train points and its evals for good. Prefer
         ``archive``; delete only what was never a real attempt (a smoke
@@ -2003,6 +2221,8 @@ __all__ = [
     "Data",
     "Delta",
     "Described",
+    "EvalCheck",
+    "EvalHealth",
     "EvalSetup",
     "Experiment",
     "Figure",
@@ -2036,6 +2256,7 @@ __all__ = [
     "catalog",
     "datasets",
     "describe",
+    "eval_checks",
     "get_run",
     "hf_publish",
     "import_hf",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from whileai.platform import Behavior, Dashboard, Judge, brief_of, track
+from whileai.platform import Behavior, Dashboard, Judge, VersionScore, brief_of, eval_checks, track
 
 RUN = {
     "id": "run_1",
@@ -152,3 +152,70 @@ def test_finish_prints_the_brief_only_after_a_score(capsys):
     run.score("refunds", 84.0, ci=2.0, n=240)
     run.finish(say=False)
     assert capsys.readouterr().out == ""
+
+
+def test_eval_checks_mirror_the_runs_page_table():
+    """Jacob's behavior after the re-report: named, n=4, all passed in points."""
+    b = Behavior(name="grounded_answer", test_version="seeds-v1", n=4)
+    h = eval_checks(b, [VersionScore(v="executor-baseline", score=100, ci=0, n=4)])
+    assert [c.key for c in h.checks] == [
+        "frozen",
+        "size",
+        "judge",
+        "length",
+        "noise",
+        "contamination",
+        "reward",
+        "canfail",
+    ]
+    assert h.total == 7 and h.good == 1  # length is not measurable, not counted
+    assert h.verdict == "weak · size, judge, noise floor, clean, reward ≠ judge, can fail"
+    assert [c.key for c in h.failed] == [
+        "size",
+        "judge",
+        "noise",
+        "contamination",
+        "reward",
+        "canfail",
+    ]
+    size = h.checks[1]
+    assert size.value == "n=4 · resolves ≥ 0 pts" and size.action == "add 46+ tasks"
+    text = str(h)
+    assert text.startswith("grounded_answer: weak")
+    assert "ok frozen: seeds-v1" in text and "-- length" in text
+    assert "no can fail: executor-baseline already 100 -> add harder tasks" in text
+
+
+def test_eval_checks_all_good():
+    b = Behavior(
+        name="refunds",
+        test_version="t1",
+        n=240,
+        judge=Judge(agreement=0.86, human_n=60, length_bias=0.08),
+        noise_floor=2.4,
+        contamination=0,
+        reward_is_judge=False,
+    )
+    h = eval_checks(
+        b,
+        [
+            VersionScore(v="base", score=61, ci=2.7, n=240),
+            VersionScore(v="v4", score=83, ci=2.7, n=240),
+        ],
+    )
+    assert h.verdict == "good" and h.good == h.total == 8
+    noise = next(c for c in h.checks if c.key == "noise")
+    assert noise.value == "±2.4 · 1 of 1 clear it"
+    canfail = next(c for c in h.checks if c.key == "canfail")
+    assert canfail.value == "base 61 → best 83"
+
+
+def test_tracked_evals_and_delete_use_the_api():
+    from tests.api.test_platform import Fake
+
+    fake = Fake()
+    t = track("a", transport=fake)
+    t.behavior("refunds", test_version="t1", n=240)
+    assert [h.name for h in t.evals()] == []  # the fake answers GET /behaviors with {ok: true}
+    assert t.delete() == {"ok": True}
+    assert fake.calls[-1][:2] == ("DELETE", "/agents/a")
