@@ -70,7 +70,8 @@ I cannot process your request. The order ID "88213" is not valid or does not exi
 
 The rows here are small on purpose (a scripted agent, template situations)
 so the loop finishes in minutes. The loss drop shows the wiring works; it
-says nothing about the agent. Replace `scripted_agent` and `judge` with
+says nothing about the agent. The reply under `== call` is the same kind
+of wiring check: it shows the endpoint answers, and yours will differ. Replace `scripted_agent` and `judge` with
 yours, or point `data` at rows you already graded.
 
 ## What to know before you run it
@@ -81,7 +82,9 @@ yours, or point `data` at rows you already graded.
   SFT runs on an A10G and takes about a minute here; GRPO and DPO run
   on an L40S (`--method grpo --steps 10` took 137 s on Qwen3-4B).
 - **Cold starts.** The serving GPU scales to zero. The first call after
-  idle can take a few minutes; `call` waits up to fifteen.
+  idle can take a few minutes; `call` waits up to fifteen, and a 502, 503
+  or 504 while the container is still waking is retried inside that window
+  rather than raised.
 - **Thinking mode.** Qwen3 reasons before it answers unless told not to.
   `call` sends `chat_template_kwargs: {"enable_thinking": false}` so the
   reply is the answer, not the reasoning.

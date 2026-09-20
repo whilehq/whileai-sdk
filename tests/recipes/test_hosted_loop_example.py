@@ -11,6 +11,7 @@ import re
 from types import SimpleNamespace
 
 import pytest
+import requests
 from example_helpers import EXAMPLES, load_script
 
 import whileai.simulations as wai
@@ -268,6 +269,76 @@ def test_call_step_posts_a_chat_completion_with_the_resolved_key(hl, monkeypatch
     assert seen["timeout"] >= 600, "the first call after idle pays a cold start"
     out = capsys.readouterr().out
     assert "HTTP 200" in out and "Looking up 88213." in out
+
+
+def _fake_clock(monkeypatch, hl):
+    """A ``time`` whose ``sleep`` advances ``time`` so the window runs out
+    without waiting; returns the recorded sleeps."""
+    slept: list[float] = []
+    now = [0.0]
+
+    def sleep(s):
+        slept.append(s)
+        now[0] += s
+
+    monkeypatch.setattr(hl, "time", SimpleNamespace(time=lambda: now[0], sleep=sleep))
+    return slept
+
+
+def _response(status: int, content: str = "ok"):
+    def raise_for_status():
+        if status >= 400:
+            raise requests.HTTPError(f"{status} Server Error")
+
+    return SimpleNamespace(
+        status_code=status,
+        raise_for_status=raise_for_status,
+        json=lambda: {"choices": [{"message": {"content": content}}]},
+    )
+
+
+def test_call_step_retries_a_502_from_the_cold_container(hl, monkeypatch, capsys):
+    """Issue #445: a 502/503/504 while the container wakes is retried inside
+    the same window the README documents, not raised as a traceback."""
+    hl.save(endpoint="https://example.modal.run/v1", model_name="hl")
+    slept = _fake_clock(monkeypatch, hl)
+    replies = iter([_response(502), _response(503), _response(200, "Refunded order 88213.")])
+    posts: list[float] = []
+
+    def fake_post(url, **kw):
+        posts.append(kw["timeout"])
+        return next(replies)
+
+    monkeypatch.setattr(hl.requests, "post", fake_post)
+    hl.step_call(_args())
+    assert len(posts) == 3, "two warm-up statuses, then the reply"
+    assert slept == [hl.WARMUP_RETRY_S, min(2 * hl.WARMUP_RETRY_S, hl.WARMUP_RETRY_MAX_S)]
+    assert posts[0] == hl.CALL_WINDOW_S and posts[-1] < posts[0], "retries wait out the same window"
+    out = capsys.readouterr().out
+    assert "HTTP 502" in out and "HTTP 503" in out and "still starting" in out
+    assert "HTTP 200" in out and "Refunded order 88213." in out
+
+
+def test_call_step_gives_up_at_the_deadline_with_what_to_do(hl, monkeypatch):
+    hl.save(endpoint="https://example.modal.run/v1", model_name="hl")
+    slept = _fake_clock(monkeypatch, hl)
+    monkeypatch.setattr(hl.requests, "post", lambda url, **kw: _response(502))
+    with pytest.raises(SystemExit) as exc:
+        hl.step_call(_args())
+    message = str(exc.value.code)
+    assert "HTTP 502" in message and "still starting" in message
+    assert "python run.py call" in message, "the error says what to do next"
+    assert slept and sum(slept) <= hl.CALL_WINDOW_S, "every retry stays inside the window"
+    assert max(slept) == hl.WARMUP_RETRY_MAX_S, "the gap backs off to the cap"
+
+
+def test_call_step_raises_other_errors_at_once(hl, monkeypatch):
+    hl.save(endpoint="https://example.modal.run/v1", model_name="hl")
+    slept = _fake_clock(monkeypatch, hl)
+    monkeypatch.setattr(hl.requests, "post", lambda url, **kw: _response(401))
+    with pytest.raises(requests.HTTPError):
+        hl.step_call(_args())
+    assert slept == [], "a 401 is not a cold start"
 
 
 def test_models_step_lists_what_the_account_hosts(hl, monkeypatch, capsys):
