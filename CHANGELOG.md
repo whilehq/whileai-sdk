@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+## 1.08 (2026-09-20)
+
 - `Behavior(rubric=)` and `run.score(..., examples=[Example(prompt=, reply=, ok=, why=)])`: the
   platform keeps how the judge was set up and a sample of up to 20 graded rows per score,
   so the Evals page shows what passed and what failed, not only the number. The full set
