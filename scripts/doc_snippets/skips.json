@@ -38,6 +38,31 @@
       "page": "docs/reference/platform.md",
       "contains": "push_to=\"me/my-set\"",
       "reason": "uploads to the reader's own Hugging Face repo with their HF_TOKEN; huggingface_hub is an extra and no token is set here"
+    },
+    {
+      "page": "docs/reference/parameters.md",
+      "contains": "vllm:Qwen/Qwen3-4B@https://your-vllm-host/v1",
+      "reason": "scores the rows under the reader's own served model at your-vllm-host; there is no server here, and reference_logprobs swallows the connection error per row, so the block used to pass by reaching for a host that does not exist"
+    },
+    {
+      "page": "docs/recipes/05-export/hugging-face.mdx",
+      "contains": "push_to=\"me/my-set\"",
+      "reason": "uploads the reader's rows to their own Hugging Face repo with their HF_TOKEN; huggingface_hub is an extra and no token is set here"
+    },
+    {
+      "page": "docs/recipes/03-select/prime-intellect-rl.mdx",
+      "contains": "import verifiers as vf",
+      "reason": "sketches the environment file on Prime Intellect's side: it needs the verifiers package, which is not a dependency, and names (load_prompts, mock_tools, the reward funcs) that file defines"
+    },
+    {
+      "page": "docs/recipes/04-train/dpo.mdx",
+      "contains": "rows = wai.pull(\"ds_...\")",
+      "reason": "pulls a set from the platform by an id that is the reader's; the check has no network, so no id resolves here"
+    },
+    {
+      "page": "docs/recipes/community/force-the-branch.mdx",
+      "contains": "markers[\"escalated_over_200\"] = 0.0 if credited_over_200 else 1.0",
+      "reason": "quotes the previous run's marker rule to show its defect; the names are bound in that judge, not on the page"
     }
   ]
 }

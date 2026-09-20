@@ -173,7 +173,8 @@ the same.
 ## Wiring your own agent
 
 Replace the scripted agent with anything that honors the callable contract
-or an OpenAI-compatible endpoint, and keep the rest:
+or an OpenAI-compatible endpoint (`OPENAI_API_KEY`, and `OPENAI_BASE_URL` for
+a non-OpenAI one), and keep the rest:
 
 ```python
 import whileai.simulations as wai
