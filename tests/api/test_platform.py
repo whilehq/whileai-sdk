@@ -412,7 +412,7 @@ def test_dashboard_and_verdict_are_typed():
         "agent": {"id": "a", "name": "a", "serving": "v3", "candidate": "v4"},
         "behavior": {"name": "refunds", "testVersion": "v2", "n": 240},
         "behaviors": ["refunds", "length"],
-        "versions": [{"v": "base", "score": 62, "ci": 3.1}, {"v": "v4", "score": 83, "ci": 2.7}],
+        "versions": [{"v": "v3", "score": 78, "ci": 3.1}, {"v": "v4", "score": 83, "ci": 2.7}],
         "deltas": [
             {"name": "refunds", "delta": 5, "target": True},
             {"name": "length", "delta": -4},
