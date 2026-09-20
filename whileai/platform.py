@@ -81,7 +81,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic.alias_generators import to_camel
@@ -236,6 +236,17 @@ class Behavior(_Wire):
     Gao et al. 2022, arXiv:2210.10760, and Lambert 2025, chapter Reward
     Modeling: a judge that is also the reward gets exploited and cannot see it
     happen, which is what ``reward_is_judge`` records and warns about.
+
+    ``graded_by`` says what scores the held-out test: ``"judge"`` (a
+    model, checked against people through ``judge``) or ``"program"`` (a
+    verifier such as ``wai.verify.MathEqual``, execution match, a rule
+    over tool calls). Lambert 2025, chapter Evaluation, on verifiable
+    rewards: a deterministic rule is the strongest grader there is, so
+    with ``graded_by="program"`` the verdict does not ask for judge
+    agreement, since there is no judge to agree, and says "graded by a
+    program" where it would print that agreement (#614). It is a
+    different fact from ``reward_is_judge``, which is about the training
+    reward; a program-graded eval can still train on a judge's reward.
     """
 
     name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -245,6 +256,7 @@ class Behavior(_Wire):
     noise_floor: float | None = Field(default=None, ge=0)
     contamination: int | None = Field(default=None, ge=0)
     reward_is_judge: bool | None = None
+    graded_by: Literal["program", "judge"] | None = None
     description: str | None = Field(default=None, max_length=400)
     rubric: str | None = Field(default=None, max_length=RUBRIC_MAX)
     """How the judge was set up, in the words it was given: what counts as
@@ -556,6 +568,9 @@ class Verdict(_Wire):
     behaviors whose point estimate came out lower, with no interval on
     that check yet. The line ends with what the number rests on (judge
     agreement, n) and starts with "unproven:" when one is missing or short.
+    A behavior graded by a program (``Behavior(graded_by="program")``)
+    has no judge to agree with anyone, so that gap is not asked for and
+    the line says "graded by a program" instead (#614).
     """
 
     candidate: str | None = None
@@ -570,6 +585,7 @@ class Verdict(_Wire):
     judge_agreement: float | None = None
     judge_human_n: int | None = None
     reward_is_judge: bool | None = None
+    graded_by: Literal["program", "judge"] | None = None
     contamination: int | None = None
     #: The other behaviors on which a different run also beat the served
     #: version by the same rule: the "moved, replicated" of the learn course.
@@ -626,7 +642,10 @@ class Verdict(_Wire):
             gaps.append("n not declared")
         elif self.n < 50:
             gaps.append(f"n={self.n} under 50")
-        if self.judge_agreement is None:
+        program = self.graded_by == "program"
+        if program:
+            pass  # no judge, so no agreement to ask for
+        elif self.judge_agreement is None:
             gaps.append("judge agreement unmeasured")
         elif self.judge_agreement < 0.8:
             gaps.append(f"judge agreement {self.judge_agreement:g} under 0.8")
@@ -635,7 +654,9 @@ class Verdict(_Wire):
         if self.contamination:
             gaps.append(f"contamination {self.contamination}")
         rests: list[str] = []
-        if self.judge_agreement is not None:
+        if program:
+            rests.append("graded by a program")
+        elif self.judge_agreement is not None:
             rests.append(
                 f"judge agreement {self.judge_agreement:g}"
                 + (f" on {self.judge_human_n}" if self.judge_human_n else "")
@@ -688,6 +709,8 @@ class Dashboard(_Wire):
                 v.judge_human_n = beh.judge.human_n
         if v.reward_is_judge is None:
             v.reward_is_judge = beh.reward_is_judge
+        if v.graded_by is None:
+            v.graded_by = beh.graded_by
         if v.contamination is None:
             v.contamination = beh.contamination
 
@@ -1143,7 +1166,11 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
     j = b.judge
     agreement = getattr(j, "agreement", None) if j is not None else None
     human_n = getattr(j, "human_n", None) if j is not None else None
-    if agreement is None:
+    program = b.graded_by == "program"
+    if program:
+        # A verifier has no agreement to measure: there is no judge (#614).
+        j_value, j_why, j_action = "graded by a program", "", ""
+    elif agreement is None:
         j_value, j_why, j_action = (
             "unmeasured",
             "judge never checked against people",
@@ -1164,15 +1191,19 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
         EvalCheck(
             key="judge",
             label="judge",
-            ok=agreement is not None
-            and agreement >= R["min_agreement"]
-            and (human_n or 0) >= R["min_human_n"],
+            ok=program
+            or (
+                agreement is not None
+                and agreement >= R["min_agreement"]
+                and (human_n or 0) >= R["min_human_n"]
+            ),
             value=j_value,
             why=j_why,
             action=j_action,
             rule=(
                 f"Agreement with people at least {R['min_agreement']} on at least "
-                f"{R['min_human_n']} hand labels; a program grader is held to the same bar."
+                f"{R['min_human_n']} hand labels; a program grader (graded_by='program') has "
+                "no judge to check."
             ),
             cite=_CITE["zheng"],
             fix=(
@@ -1431,6 +1462,15 @@ def brief_of(
         means = (
             f"{smallest} asks give an interval too wide to see a gain of a few points; the "
             "versions cannot be told apart yet."
+        )
+    elif serving_now := (vd.serving if vd is not None else None) or (
+        dash.agent.serving if dash is not None else None
+    ):
+        # Something is already promoted: the pre-promotion advice would
+        # contradict the verdict printed beside it (#614).
+        means = (
+            f"{serving_now} is the served version; each other version scored on the same set "
+            "gets a verdict against it."
         )
     else:
         means = "Versions are scored on the same set; promote one to get a verdict against it."
@@ -1852,6 +1892,10 @@ class Tracked:
         self._api_key = api_key
         self._transport = transport
         self.record: dict[str, Any] | None = None
+        # What this process declared, by name: the verdict is built here,
+        # so a field the server does not store yet (``graded_by``) still
+        # reaches it from the local declaration (#614).
+        self._declared: dict[str, Behavior] = {}
 
     def _call(self, method: str, path: str, body: Any = None) -> Any:
         if self._transport is not None:
@@ -1881,12 +1925,22 @@ class Tracked:
             )
         body = item.wire()
         body.pop("name", None)
+        self._declared[item.name] = item
         out = self._call("PUT", f"/agents/{self.id}/behaviors/{item.name}", body)
-        return Behavior.model_validate(out) if isinstance(out, dict) and out.get("name") else item
+        got = Behavior.model_validate(out) if isinstance(out, dict) and out.get("name") else item
+        return self._with_declared(got)
+
+    def _with_declared(self, beh: Behavior) -> Behavior:
+        """Fill ``graded_by`` from the local declaration when the server's
+        row does not carry it (the field is newer than the store)."""
+        local = self._declared.get(beh.name)
+        if local is not None and beh.graded_by is None and local.graded_by is not None:
+            beh.graded_by = local.graded_by
+        return beh
 
     def behaviors(self) -> list[Behavior]:
         rows = self._call("GET", f"/agents/{self.id}/behaviors").get("behaviors") or []
-        return [Behavior.model_validate(r) for r in rows]
+        return [self._with_declared(Behavior.model_validate(r)) for r in rows]
 
     def noise_floor(
         self,
@@ -2243,7 +2297,12 @@ class Tracked:
     def dashboard(self, behavior: str | None = None) -> Dashboard:
         """The Runs screen as data: versions, train, deltas, judge, live, verdict."""
         q = f"?behavior={behavior}" if behavior else ""
-        return Dashboard.model_validate(self._call("GET", f"/agents/{self.id}/dashboard{q}"))
+        dash = Dashboard.model_validate(self._call("GET", f"/agents/{self.id}/dashboard{q}"))
+        if dash.behavior is not None:
+            self._with_declared(dash.behavior)
+            if dash.verdict.graded_by is None:
+                dash.verdict.graded_by = dash.behavior.graded_by
+        return dash
 
     def verdict(self, behavior: str | None = None, *, version: str | None = None) -> Verdict:
         """Does the candidate beat the served version, and is it real? ``str()`` it.

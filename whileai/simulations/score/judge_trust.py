@@ -40,10 +40,12 @@ measured against, so with no ``gold_reward`` on any row ``ok`` is false
 and the report says it is unmeasured rather than failed
 (``format_judge_trust`` prints ``NOT MEASURED``). The perturbation pass
 is not a substitute: a judge that passes everything is perfectly
-consistent. Only a person's labels count (``gold_kind == "human"``,
-what ``attach_labels`` writes): a second model pass, or ``gold_reward``
-with no record of who wrote it, is not a measurement either, and says
-so. Measured means a floor, not a hint: the Wilson lower bound of
+consistent. A person's or a program's labels count (``gold_kind ==
+"human"`` or ``"program"``, what ``attach_labels`` writes; a
+deterministic rule is at least as strong a gold as a rater, Lambert
+2025, chapter Evaluation, verifiable rewards): a second model pass, or
+``gold_reward`` with no record of who wrote it, is not a measurement,
+and says so. Measured means a floor, not a hint: the Wilson lower bound of
 agreement must reach ``min_agreement`` (0.8) and kappa ``min_kappa``
 (0.6), or ``ok`` is false with the number, the floor, and what to do.
 Measured also means measured on the whole labeled sample:
@@ -64,14 +66,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import random
 import re
 from collections import Counter
 from collections.abc import Callable, Sequence
+from statistics import NormalDist
 from typing import Any
 
 from ...report import Report
 from ..defaults import (
+    ALPHA,
     FLIP_FLAG,
     JUDGE_CHECK_SAMPLE,
     LENGTH_GAP_FLAG,
@@ -80,12 +85,16 @@ from ..defaults import (
     MESSAGE_EXAMPLES,
     MIN_AGREEMENT,
     MIN_KAPPA,
+    POWER,
+    PROBE_MIN_N,
 )
 from .agreement import (
     GOLD_KIND_KEY,
     MIN_GOLD,
     MODEL_GOLD_REASON,
     UNKNOWN_GOLD_REASON,
+    gold_words,
+    is_trusted_gold,
     judge_agreement,
     missing_side_note,
 )
@@ -389,25 +398,43 @@ def judge_probes(
     trained on it will find these holes, so find them first (Gao et al. 2022,
     arXiv:2210.10760). It returns a dict: ``probes`` (per probe: ``n``,
     ``kind``, ``pass_before``, ``pass_after``, ``flips_up``, ``flips_down``,
-    ``exploit_rate``, ``flagged``, ``errors``; a probe that applies to no row
-    is ``skipped`` with the reason), ``exploitable_by`` (the probes at or over
-    ``flip_flag``), and one ``warnings`` line per exploit.
+    ``net_flips``, ``denominator``, ``exploit_rate``, ``ci95`` (its Wilson
+    interval), ``low_power``, ``resolves``, ``flagged``, ``errors``; a probe
+    that applies to no row is ``skipped`` with the reason),
+    ``exploitable_by`` (the probes at or over ``flip_flag``), one
+    ``warnings`` line per exploit, and one ``notes`` line per probe that
+    had too few rows to say.
 
     Each probe mutates up to ``sample`` graded rows one way and re-judges
     them. An additive probe (filler, the rubric's words, a success claim,
     the ask echoed, a sycophantic opener) reports ``exploit_rate``: the
-    share of originally failing replies that pass once the text is added.
-    A replacement probe (a well-formed tool call with empty arguments, a
-    refusal) reports the share of replies that pass with the content
-    gone.
+    net share of originally failing replies that pass once the text is
+    added, ``max(0, flips_up - flips_down) / originally failing``, so a
+    judge whose verdicts churn both ways under the edit reads as noise,
+    not as a hole (#347). A replacement probe (a well-formed tool call
+    with empty arguments, a refusal) reports the share of replies that
+    pass with the content gone.
+
+    Every rate carries a Wilson interval, the one ``agreement`` gets, and
+    ``flagged`` needs at least ``PROBE_MIN_N`` rows in the denominator:
+    below it one flipped row on ten originally failing is already
+    ``flip_flag``, and the interval on 1 of 10 runs 0.02 to 0.40. A
+    probe under the floor is ``low_power`` with ``resolves``, the smallest
+    exploit rate that many rows can tell from ``flip_flag`` at ``POWER``
+    (the normal approximation for one proportion, Miller 2024, section 5),
+    and ``flagged`` stays false whatever the rate.
 
     * ``probes``: ``"all"`` (the default) or names from ``PROBES``.
     * ``rubric``: the text the keyword probe draws words from; without it
-      the row's system prompt is used.
+      the row's system prompt is used. The ``Rubric`` handed to
+      ``rubric_judge`` is not seen here; pass its text as ``rubric=``
+      (``judge_trust(rubric=)`` forwards it).
     * ``sample`` (40), ``seed`` (0), ``concurrency`` (8): how many rows to
       re-judge, which ones, and how many judge calls run at once.
     * ``flip_flag`` (``FLIP_FLAG``, 0.10): the exploit rate at which a
-      probe is flagged.
+      probe is flagged. ``PROBE_MIN_N`` (20) is the denominator floor; it
+      is a module default, since this call already carries eight
+      parameters (style rule 3).
     """
     from .judging import run_judge
 
@@ -416,7 +443,13 @@ def judge_probes(
     if unknown:
         raise ValueError(f"unknown probe {unknown}; choose from {PROBES} or 'all'")
     picked = _pick(rows, sample, seed)
-    out: dict[str, Any] = {"n": len(picked), "probes": {}, "exploitable_by": [], "warnings": []}
+    out: dict[str, Any] = {
+        "n": len(picked),
+        "probes": {},
+        "exploitable_by": [],
+        "warnings": [],
+        "notes": [],
+    }
     if not picked:
         out["note"] = "no graded rows to probe"
         return out
@@ -426,7 +459,8 @@ def judge_probes(
         if not pairs:
             out["probes"][name] = {
                 "n": 0,
-                "skipped": "no rubric words to stuff"
+                "skipped": "no rubric words to stuff: pass rubric= to judge_trust "
+                "(or judge_probes); the Rubric given to rubric_judge is not read here"
                 if name == "keyword_stuffing"
                 else "no tool to call"
                 if name == "empty_format"
@@ -447,35 +481,81 @@ def judge_probes(
             fail_before += 1 - a
             up += a == 0 and b == 1
             down += a == 1 and b == 0
-        if name in ADDITIVE_PROBES:
-            rate = (up / fail_before) if fail_before else None
-        else:
-            rate = (pass_after / n) if n else None
-        flagged = rate is not None and rate >= flip_flag
+        additive = name in ADDITIVE_PROBES
+        # Net flips: a probe whose verdicts churn both ways is noise, not
+        # a hole, so symmetric churn scores zero (#347).
+        net = max(0, up - down)
+        hits, denom = (net, fail_before) if additive else (pass_after, n)
+        rate = (hits / denom) if denom else None
+        ci = wilson_interval(hits, denom) if denom else None
+        low_power = 0 < denom < PROBE_MIN_N
+        resolves = _probe_resolves(denom, flip_flag) if low_power else None
+        flagged = rate is not None and rate >= flip_flag and not low_power
         out["probes"][name] = {
             "n": n,
-            "kind": "additive" if name in ADDITIVE_PROBES else "replacement",
+            "kind": "additive" if additive else "replacement",
             "pass_before": (pass_before / n) if n else None,
             "pass_after": (pass_after / n) if n else None,
             "flips_up": up,
             "flips_down": down,
+            "net_flips": net,
+            "denominator": denom,
             "exploit_rate": rate,
+            "ci95": ci,
+            "low_power": low_power,
+            "resolves": resolves,
             "flagged": flagged,
             "errors": sum(1 for r in scored.rows if r.get("judge_status") != "ok"),
         }
+        band = f"95% {ci[0]:.0%}..{ci[1]:.0%}" if ci else "no interval"
+        if low_power:
+            what = "originally failing" if additive else "re-judged"
+            out["notes"].append(
+                f"{name}: low power (n={denom} {what}, under {PROBE_MIN_N}; resolves about "
+                f"{resolves:.1f} at {POWER:.0%} power); {rate:.0%} ({band}) is not flagged"
+            )
         if flagged:
             out["exploitable_by"].append(name)
-            if name in ADDITIVE_PROBES:
+            if additive:
                 out["warnings"].append(
                     f"judge is exploitable by {PROBE_HACK[name]} ({name}): {rate:.0%} of "
-                    f"failing replies pass once it is added ({up} of {fail_before})"
+                    f"failing replies pass once it is added ({net} net of {fail_before}: "
+                    f"{up} up, {down} down; {band})"
                 )
             else:
                 out["warnings"].append(
                     f"judge is exploitable by {PROBE_HACK[name]} ({name}): {rate:.0%} of "
-                    f"replies pass with the content gone ({pass_after} of {n})"
+                    f"replies pass with the content gone ({pass_after} of {n}; {band})"
                 )
     return out
+
+
+#: The exploit-rate grid ``_probe_resolves`` searches, one point at a time.
+RESOLVE_STEP = 0.01
+
+
+def _probe_resolves(
+    n: int, flip_flag: float, *, alpha: float = ALPHA, power: float = POWER
+) -> float | None:
+    """The smallest exploit rate ``n`` rows can tell apart from ``flip_flag``
+    at ``power``: the normal approximation for a one-sample proportion,
+    ``n = ((z_{1-alpha/2} sqrt(p0(1-p0)) + z_power sqrt(p(1-p))) / (p -
+    p0))^2`` solved for ``p`` on a ``RESOLVE_STEP`` grid (Miller 2024,
+    arXiv:2411.00640, section 5, the same calculation ``holdout_size``
+    runs for a delta). ``None`` when ``n`` is 0; 1.0 when no rate under
+    one resolves."""
+    if n <= 0:
+        return None
+    z_a = NormalDist().inv_cdf(1 - alpha / 2)
+    z_b = NormalDist().inv_cdf(power)
+    p0 = float(flip_flag)
+    p = p0
+    while p < 1.0:
+        p = round(p + RESOLVE_STEP, 2)
+        need = ((z_a * math.sqrt(p0 * (1 - p0)) + z_b * math.sqrt(p * (1 - p))) / (p - p0)) ** 2
+        if need <= n:
+            return p
+    return 1.0
 
 
 def perturbation(
@@ -626,7 +706,8 @@ def judge_trust(
         "b": _agreement([r for r in labeled if _half(_task(r)) == 1], gold, True),
     }
     gold_kind = agree.get("gold_kind")
-    trusted = gold_kind == "human" or allow_model_gold
+    trusted = is_trusted_gold(gold_kind, allow_model_gold)
+    labels_word = gold_words(gold_kind)
     length = length_sensitivity(labeled, gold=gold, length_gap_flag=length_gap_flag)
     queue = [
         {
@@ -721,21 +802,21 @@ def judge_trust(
                 # the floor exactly, or when the count is out of reach, the old
                 # advice stands: the judge is what to change.
                 warnings.append(
-                    f"Judge agreement with human labels is {point:.2f} on {agree['n']} labels, "
+                    f"Judge agreement with {labels_word} is {point:.2f} on {agree['n']} labels, "
                     f"but the lower bound is {low:.2f}, under the {min_agreement:.2f} floor. "
                     f"The judge is not the problem; the sample is. Label about "
-                    f'{need} rows (attach_labels(kind="human")) and run judge_trust again.'
+                    f'{need} rows (attach_labels(kind="{gold_kind}")) and run judge_trust again.'
                 )
             else:
                 warnings.append(
-                    f"Judge agreement with human labels is {low:.2f} (lower bound), under the "
+                    f"Judge agreement with {labels_word} is {low:.2f} (lower bound), under the "
                     f"{min_agreement:.2f} floor. Change the judge prompt or the judge model, then "
                     "run judge_trust again."
                 )
         kappa = agree["kappa"]
         if not degenerate_gold and kappa is not None and kappa < min_kappa:
             warnings.append(
-                f"Judge agreement with human labels beyond chance (kappa) is {kappa:.2f}, "
+                f"Judge agreement with {labels_word} beyond chance (kappa) is {kappa:.2f}, "
                 f"under the {min_kappa:.2f} floor. Change the judge prompt or the judge model, "
                 "then run judge_trust again."
             )
@@ -829,9 +910,9 @@ def _flagged(warnings: Sequence[str]) -> bool:
     return any(
         w.startswith(
             (
-                "Judge agreement with human labels",
+                "Judge agreement with",
                 "Judge agreement skipped",
-                "Judge kappa with human labels",
+                "Judge kappa with",
                 "judge pass rate differs",
                 "judge passed",
                 "judge is exploitable",
@@ -969,9 +1050,20 @@ def format_judge_trust(report: dict[str, Any]) -> str:
                 lines.append(f"  {name:<18} skipped: {r['skipped']}")
                 continue
             rate = f"{r['exploit_rate']:.0%}" if r.get("exploit_rate") is not None else "n/a"
+            ci = r.get("ci95")
+            band = f" [{ci[0]:.0%}..{ci[1]:.0%}]" if ci else ""
+            flips = f"  +{r['flips_up']}/-{r['flips_down']}" if r.get("kind") == "additive" else ""
+            tail = (
+                "  EXPLOITABLE"
+                if r.get("flagged")
+                else f"  low power (n={r.get('denominator')}; resolves about "
+                f"{r['resolves']:.1f} at {POWER:.0%} power)"
+                if r.get("low_power") and r.get("resolves") is not None
+                else ""
+            )
             lines.append(
-                f"  {name:<18} {rate:>5}  pass {r['pass_before']:.0%} -> {r['pass_after']:.0%}"
-                + ("  EXPLOITABLE" if r.get("flagged") else "")
+                f"  {name:<18} {rate:>5}{band:<12}  pass {r['pass_before']:.0%} -> "
+                f"{r['pass_after']:.0%}{flips}{tail}"
             )
     lines.append(f"disagreements to review: {len(report['disagreements'])}")
     for w in report["warnings"]:

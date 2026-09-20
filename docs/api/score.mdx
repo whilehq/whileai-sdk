@@ -146,11 +146,15 @@ Returns `n`, `agreement`, `kappa` (Cohen, chance-corrected), the
 confusion counts, `pass_when_gold_fail` (the leak rate: gold
 failures the judge passed) and `fail_when_gold_pass`, both pass
 rates, `gold_kind` (where the labels came from: `"human"`,
-`"model"`, `"unknown"` for rows with no record), `ok` (rows were
-compared and the labels are a person's), and `warnings`. A second
-judge pass is model gold; rows with `gold_reward` but no
-`gold_kind` are unknown; either makes `ok` false with the reason
-unless `allow_model_gold=True`.
+`"program"`, `"model"`, `"unknown"` for rows with no record),
+`ok` (rows were compared and the labels are a person's or a
+program's), and `warnings`. A second judge pass is model gold; rows
+with `gold_reward` but no `gold_kind` are unknown; either makes
+`ok` false with the reason unless `allow_model_gold=True`. A
+program's labels (`attach_labels(kind="program")`: a verifier, a
+unit test, a rule over tool calls) are trusted like a person's, since
+a deterministic rule is at least as strong a gold as a rater (Lambert
+2025, chapter Evaluation, verifiable rewards).
 
 ## audit
 
@@ -858,25 +862,43 @@ Reach for it when a judge is about to become a training reward: a policy
 trained on it will find these holes, so find them first (Gao et al. 2022,
 arXiv:2210.10760). It returns a dict: `probes` (per probe: `n`,
 `kind`, `pass_before`, `pass_after`, `flips_up`, `flips_down`,
-`exploit_rate`, `flagged`, `errors`; a probe that applies to no row
-is `skipped` with the reason), `exploitable_by` (the probes at or over
-`flip_flag`), and one `warnings` line per exploit.
+`net_flips`, `denominator`, `exploit_rate`, `ci95` (its Wilson
+interval), `low_power`, `resolves`, `flagged`, `errors`; a probe
+that applies to no row is `skipped` with the reason),
+`exploitable_by` (the probes at or over `flip_flag`), one
+`warnings` line per exploit, and one `notes` line per probe that
+had too few rows to say.
 
 Each probe mutates up to `sample` graded rows one way and re-judges
 them. An additive probe (filler, the rubric's words, a success claim,
 the ask echoed, a sycophantic opener) reports `exploit_rate`: the
-share of originally failing replies that pass once the text is added.
-A replacement probe (a well-formed tool call with empty arguments, a
-refusal) reports the share of replies that pass with the content
-gone.
+net share of originally failing replies that pass once the text is
+added, `max(0, flips_up - flips_down) / originally failing`, so a
+judge whose verdicts churn both ways under the edit reads as noise,
+not as a hole (#347). A replacement probe (a well-formed tool call
+with empty arguments, a refusal) reports the share of replies that
+pass with the content gone.
+
+Every rate carries a Wilson interval, the one `agreement` gets, and
+`flagged` needs at least `PROBE_MIN_N` rows in the denominator:
+below it one flipped row on ten originally failing is already
+`flip_flag`, and the interval on 1 of 10 runs 0.02 to 0.40. A
+probe under the floor is `low_power` with `resolves`, the smallest
+exploit rate that many rows can tell from `flip_flag` at `POWER`
+(the normal approximation for one proportion, Miller 2024, section 5),
+and `flagged` stays false whatever the rate.
 
 * `probes`: `"all"` (the default) or names from `PROBES`.
 * `rubric`: the text the keyword probe draws words from; without it
-  the row's system prompt is used.
+  the row's system prompt is used. The `Rubric` handed to
+  `rubric_judge` is not seen here; pass its text as `rubric=`
+  (`judge_trust(rubric=)` forwards it).
 * `sample` (40), `seed` (0), `concurrency` (8): how many rows to
   re-judge, which ones, and how many judge calls run at once.
 * `flip_flag` (`FLIP_FLAG`, 0.10): the exploit rate at which a
-  probe is flagged.
+  probe is flagged. `PROBE_MIN_N` (20) is the denominator floor; it
+  is a module default, since this call already carries eight
+  parameters (style rule 3).
 
 ### judge_trust
 
@@ -1352,16 +1374,22 @@ mapping. A dict label names its row by `key` / `rollout_id`,
 `scenario_id` + `rollout_index`, or `prompt` (+ `final_text`),
 and carries `label` (or `reward` / `gold_reward`: 0 or 1), and
 optionally `annotator`, `note`, `ts`. `annotator` here is the
-default for labels that name none. `kind` is recorded on each label
-(`"human"`; `"model"` for a stronger model's labels).
+default for labels that name none. `kind` is recorded on each label:
+`"human"` for a person's, `"program"` (or its alias
+`"verifier"`) for a deterministic rule's (execution match, a unit
+test, a rule over tool calls), `"model"` for a stronger model's.
+Any other string raises `ValueError` naming the accepted set, so a
+typo cannot silently downgrade the gold (#343).
 
 Each row gains `gold_labels` (every label, appended unless
 `replace`), `gold_reward`, the majority of its labels, and
-`gold_kind`: `"human"` when every label on the row is a person's,
-else the other kind. `judge_trust` and `judge_agreement` only
-count human gold as a measurement of the judge. A tie leaves both
-unset. Labels that name no row, or carry no 0/1 value, are counted
-and listed.
+`gold_kind`: the one kind every label on the row shares, else
+`"mixed"`. `judge_trust` and `judge_agreement` count human and
+program gold as a measurement of the judge: a deterministic rule is
+at least as strong a gold as a rater, since it cannot be argued into
+a pass and agrees with itself on every run (Lambert 2025, chapter
+Evaluation, verifiable rewards). A tie leaves both unset. Labels that
+name no row, or carry no 0/1 value, are counted and listed.
 
 ## logprobs
 

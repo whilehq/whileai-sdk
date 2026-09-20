@@ -31,6 +31,24 @@ to 0.109 releases under the wrong numbers; they are yanked.
   first, on stderr, so a run started from the repository root says which package it used;
   the Modal recipes mount the one it names. `recipes/README.md` says to run a recipe from
   its own directory (#443).
+- `Behavior(graded_by="program")` (#614): a behavior scored by a verifier has no judge, so
+  the verdict no longer holds it at `unproven` for "judge agreement unmeasured", the line
+  says `graded by a program` where it printed the agreement, the Evals judge check passes,
+  and the brief's "do next" stops asking for hand labels. `reward_is_judge` is unchanged
+  (it is about the training reward). The field also reaches the verdict from the local
+  declaration when the server does not store it yet. The brief no longer prints "promote
+  one to get a verdict" once a version is serving.
+- `attach_labels(kind=)` (#343) accepts `"human"`, `"program"` (alias `"verifier"`) and
+  `"model"` and raises on anything else; `gold_kind="program"` is trusted gold in
+  `judge_agreement` and `judge_trust` (a deterministic rule is at least as strong a gold
+  as a rater, Lambert 2025, chapter Evaluation), and every warning names the actual kind
+  (`gold labels (program)`) instead of asserting the labels were human or a model's.
+- `judge_probes` (#347): every `exploit_rate` carries a Wilson `ci95`, printed beside it;
+  an additive probe's rate is net flips (`max(0, flips_up - flips_down)`), so symmetric
+  churn is not an exploit and the warning shows both counts; `flagged` needs
+  `PROBE_MIN_N` (20) rows in the denominator, else the probe reads `low power (n=10;
+  resolves about 0.4 at 80% power)` and stays unflagged; the `keyword_stuffing` skip
+  says to pass `rubric=` to `judge_trust`.
 - `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving
   container inside the fifteen-minute window the README already promises, backing off from
   5 s to 60 s between tries, and at the deadline says what to do (`python run.py call`
