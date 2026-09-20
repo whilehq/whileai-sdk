@@ -26,6 +26,7 @@ CLI_EXAMPLES = [
     "04-train/hosted-loop/run.py",
     "04-train/prime-rl/run.py",
     "04-train/report-run/run.py",
+    "04-train/sft/wiring.py",
     "03-select/character/from_model_spec.py",
     "03-select/character/measure.py",
     "03-select/character/run.py",
@@ -69,6 +70,7 @@ CLI_EXAMPLES = [
 NEEDS_MODAL = {
     "04-train/dpo/train_modal.py",
     "04-train/grpo/train_modal.py",
+    "04-train/sft/train_modal.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic

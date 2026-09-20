@@ -101,6 +101,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `--steps 10` check with its cost before the real run, and the recipes index has a Costs
   column at Modal's on-demand prices. `recipes/README.md` names the one exception and why
   (#448).
+- `recipes/04-train/sft`: LoRA SFT on one A10G from the course's own `train.jsonl`
+  (`select(mode="sft").export`), TRL `SFTTrainer` with a PEFT adapter, three base passes for the
+  noise floor and one trained pass on the held-out set, the paired `wai.compare(run_std=)` at the
+  end, a `--steps 10` wiring run and an offline `smoke.sh`. Lesson 7 of the course runs it instead
+  of skipping the training, its before/after is the base model against the trained one with the
+  numbers from that run, and the course judge from lesson 3 on is a program over `messages` that
+  scores a real model's rows, not the stand-in's `seeded` answer key (#593).
+- Lesson 5 plants a paraphrase next to the identical copy and shows one caught and one missed,
+  says what the 8-gram rule cannot see (word overlap does not see a paraphrase), and names
+  `embedder=` as the semantic pass with the one-line call; the defaults are unchanged (#480).
 
 ## 0.109 (2026-09-20)
 
