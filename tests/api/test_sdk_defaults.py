@@ -39,6 +39,8 @@ def test_default_budget_is_500():
         "output",
         "tasks",
         "runs",
+        "checkpoint",
+        "on_progress",
         "advanced",
         # the common knobs, named so an editor shows them (same road as advanced=)
         "repeats",
@@ -73,6 +75,8 @@ def test_default_budget_is_500():
     assert params["time_budget"].default is None
     assert params["spec"].default is None
     assert params["output"].default is None
+    assert params["checkpoint"].default is None
+    assert params["on_progress"].default is None
     assert params["advanced"].default is None
     # On 2026-09-17 the knobs most runs touch (repeats, repeat_policy,
     # concurrency, simulator, seed, ...) graduated to named params after a

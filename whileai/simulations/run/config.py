@@ -39,11 +39,12 @@ from ..defaults import (
     SFT_COMPLETIONS_PER_PROMPT,
     SFT_PHRASINGS_PER_SITUATION,
     STOP_GRACE_S,
+    TIMEOUT_TOKENS_PER_SECOND,
     RunKnobs,
     resolve_knobs,
 )
 from ..generate.adapters import resolve_system_prompt
-from ..generate.agents import LOCAL_MODEL_TIMEOUT, Patience, patience_hazards
+from ..generate.agents import LOCAL_MODEL_TIMEOUT, Patience, patience_hazards, reply_budget
 from ..generate.diversity import adaptive_allocator
 from ..generate.scenarios import SEARCH_ARMS, check_dimensions
 from .spec import spec_rubric
@@ -204,6 +205,21 @@ def _pinned_tasks(tasks: Any) -> list[dict]:
     # same k instead of silently comparing k=4 against k=1.
     out[0]["base_k"] = max(rollouts.values())
     return out
+
+
+def default_rollout_timeout(agent_max_tokens: int | None = None) -> float:
+    """Seconds one agent call may take when ``timeout=`` is not given.
+
+    ``max(LOCAL_MODEL_TIMEOUT, reply budget / TIMEOUT_TOKENS_PER_SECOND)``:
+    300 s, or the reply budget (``agent_max_tokens=``, else the model
+    default) at 4 tokens a second, whichever is longer. A flat 300 s
+    re-rolled every 4,096-token reply of a loaded 9B server and turned a
+    two-hour run into six and a half (#470); the budget the caller set
+    is the time the call needs.
+    """
+    return max(
+        float(LOCAL_MODEL_TIMEOUT), reply_budget(agent_max_tokens) / TIMEOUT_TOKENS_PER_SECOND
+    )
 
 
 def _merge_advanced(advanced: dict | None, passed: dict) -> tuple[dict, dict]:
@@ -383,6 +399,11 @@ class RunConfig:
     # output and grading
     output: str | None
     out_path: Path | None
+    # checkpoint= : every row appended here as it lands; a re-run with the
+    # same path and tasks= loads them and rolls out only what is missing
+    checkpoint_path: Path | None
+    # on_progress= : called with the progress dict on every progress line
+    on_progress: Callable[[dict], None] | None
     grade: bool
     grader: Any
     llm_grade: bool
@@ -471,6 +492,8 @@ def resolve_run_config(
     execute: Callable | None = None,
     output: str | None = None,
     tasks: Any = None,
+    checkpoint: str | None = None,
+    on_progress: Callable[[dict], None] | None = None,
     advanced: dict | None = None,
     passed: dict | None = None,
 ) -> RunConfig:
@@ -685,6 +708,12 @@ def resolve_run_config(
     probe = max(1, int(cfg.pop("probe", DEFAULT_PROBE)))
 
     out_path = Path(output).expanduser() if output else None
+    checkpoint_path = Path(checkpoint).expanduser() if checkpoint else None
+    if on_progress is not None and not callable(on_progress):
+        raise TypeError(
+            "on_progress= takes a callable progress_dict -> None, called on every progress "
+            f"line; got {type(on_progress).__name__}"
+        )
     if texture is not None:
         cfg["texture_rate"] = float(texture)
     mutate_failures = bool(cfg.pop("mutate_failures", True))
@@ -765,8 +794,12 @@ def resolve_run_config(
         if traces is None:
             raise ValueError("steering_weight= needs traces=")
     # Seconds per completion. The default survives a served model's cold
-    # start (two to three minutes); slow customer backends raise it.
-    rollout_timeout = float(cfg.pop("timeout", LOCAL_MODEL_TIMEOUT) or LOCAL_MODEL_TIMEOUT)
+    # start (two to three minutes) and scales with the reply budget, so a
+    # long reply is not re-rolled for taking the time it was allowed.
+    raw_timeout = cfg.pop("timeout", None)
+    rollout_timeout = (
+        float(raw_timeout) if raw_timeout else default_rollout_timeout(agent_max_tokens)
+    )
 
     # advanced={"world": {...}}: the mock world's dials (search_hits,
     # exists_share, default_fault_mode, name pools, ...). Validated here so a
@@ -830,6 +863,8 @@ def resolve_run_config(
         targeted_regions=targeted_regions,
         output=output,
         out_path=out_path,
+        checkpoint_path=checkpoint_path,
+        on_progress=on_progress,
         grade=grade,
         grader=grader,
         llm_grade=llm_grade,

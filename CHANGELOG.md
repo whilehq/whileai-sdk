@@ -5,6 +5,17 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `simulate()` on a long run is watchable and resumable (#470). The progress line on the
+  `whileai.simulations` logger now counts rollouts re-rolled and lost by reason next to rows
+  landed, fires on re-rolls too (every 10 events or 10 s), and `on_progress=` receives the same
+  dict on every line. `checkpoint=<path>` appends each row as JSONL the moment it lands; a call
+  with the same `checkpoint=` and `tasks=` loads the rows on disk, skips finished tasks, tops up
+  partial ones and returns the union (`lineage.resumed` on each loaded row). The final counts
+  are `data.search["rollouts"]` (`landed`, `resumed`, `rerolled`, `rerolled_by`, `timed_out`,
+  `lost`, `lost_by`), and `warnings` plus a `UserWarning` say so when re-rolls outnumber rows.
+  The per-call `timeout` default is `max(300, agent_max_tokens / 4)` seconds
+  (`TIMEOUT_TOKENS_PER_SECOND` in defaults.py) instead of a flat 300 s, so a 4,096-token reply
+  budget gets 1,024 s.
 - `recipes/04-train/prime-rl`: GRPO, OPSD and OPD on one taskset on prime-rl, on Modal with
   your keys, from `wai.prime_rl_config`; a While-owned launcher over Prime Intellect's published
   image, deploy-and-spawn so a run outlives the shell, per-prompt held-out eval read back from the
