@@ -8,7 +8,7 @@ import contextlib
 import hashlib
 import json
 import logging
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -316,10 +316,69 @@ class RowList(list):
     object is not callable`` on the other (#344). Both now hold one of
     these, so ``.rows`` and ``.rows()`` work on either type while
     ``.rows`` still behaves like a plain list.
+
+    It also carries ``system_prompt`` and ``tools``, the agent
+    configuration the rows were generated under. A row stores the
+    conversation without them (the run knows them, the row does not), so
+    the list is where they travel: a slice, a ``+`` and every list
+    ``select``, ``decontaminate``, ``passes()`` or ``failures()`` hand
+    back keep them, and ``select(...).export(...)`` writes them into the
+    file. ``list(rows)`` is a plain list and drops them; pass
+    ``system_prompt=`` and ``tools=`` to ``export`` then (#592).
     """
+
+    def __init__(
+        self,
+        rows: Iterable[dict] = (),
+        *,
+        system_prompt: str | None = None,
+        tools: Sequence[dict] | None = None,
+    ):
+        super().__init__(rows)
+        if system_prompt is None:
+            system_prompt = getattr(rows, "system_prompt", "")
+        if tools is None:
+            tools = getattr(rows, "tools", None)
+        self.system_prompt: str = str(system_prompt or "")
+        self.tools: list[dict] = list(tools or [])
 
     def __call__(self) -> RowList:
         return self
+
+    def _like(self, rows: Iterable[dict]) -> RowList:
+        return RowList(rows, system_prompt=self.system_prompt, tools=self.tools)
+
+    def __getitem__(self, index):
+        out = super().__getitem__(index)
+        return self._like(out) if isinstance(index, slice) else out
+
+    def __add__(self, other):
+        return self._like(list(self) + list(other))
+
+    def __radd__(self, other):
+        return self._like(list(other) + list(self))
+
+    def copy(self) -> RowList:
+        return self._like(self)
+
+
+def row_config(source: Any) -> tuple[str, list[dict]]:
+    """The system prompt and tool schemas ``source`` was generated under.
+
+    Read off ``profile`` (a ``SimulationData`` or ``ScoredData``), else off
+    the list itself (a ``RowList`` or ``Selection``); a plain list, a path
+    or anything else gives ``("", [])``.
+    """
+    profile = getattr(source, "profile", None)
+    if profile is not None:
+        return (
+            str(getattr(profile, "policy", "") or ""),
+            list(getattr(profile, "tools", None) or []),
+        )
+    return (
+        str(getattr(source, "system_prompt", "") or ""),
+        list(getattr(source, "tools", None) or []),
+    )
 
 
 @dataclass
@@ -792,7 +851,10 @@ class SimulationData:
         (``export_row``, privileged fields scrubbed), ``ScoredData.rows``
         are the scored trajectories as judged.
         """
-        return RowList(export_row(t) for t in self.trajectories)
+        system, tools = row_config(self)
+        return RowList(
+            (export_row(t) for t in self.trajectories), system_prompt=system, tools=tools
+        )
 
     def __iter__(self) -> Iterator[dict]:
         """Iterates as plain trajectory dicts, the way ``ScoredData``

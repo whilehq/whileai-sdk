@@ -129,6 +129,12 @@ graded, its reward and reason. From there:
 | RL groups | `select_for_rl`, `export_dataset` | `group_id`, `k`, `n0`, `n1`, group reward mean and std, the `calibration` stamp |
 | leakage check | `decontaminate` | same task id, same normalised text, 80 percent 8-gram cover (the Llama 2 rule), cosine at or above 0.85 with an `embedder=` |
 
+The rows a run hands back (`scored.rows`, a slice of it, `passes()`, what
+`decontaminate` kept) carry the run's system prompt and tool schemas, so
+`select(rows).export(path)` writes both; a plain `list` carries neither,
+so `export` takes `system_prompt=` and `tools=` and warns when a
+tool-calling file would go out without its schema.
+
 With `logprobs=True` every agent turn also carries the summed log-probability
 of its tokens, their count, the per-token list when the backend returns one,
 `policy_version` and the sampling settings: what an off-policy correction

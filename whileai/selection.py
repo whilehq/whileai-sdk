@@ -8,15 +8,20 @@
 A ``Selection`` is a list of rows (it feeds anything a row list feeds) that
 also carries ``report`` (the dict ``optimize`` computes), ``mode`` and the
 system prompt and tools the rows were generated under, so export needs no
-re-typing.
+re-typing. The prompt and tools come from the source: a run or a graded
+run's profile, or the ``RowList`` the rows arrived in (``scored.rows``, a
+slice of it, what ``decontaminate`` or ``passes()`` returned). A plain
+``list`` carries neither, so ``export`` warns and takes ``system_prompt=``
+and ``tools=`` (#592).
 """
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from typing import Any
 
-from .simulations.data import RowList
+from .simulations.data import RowList, row_config
 
 
 class Selection(RowList):
@@ -31,11 +36,9 @@ class Selection(RowList):
         system_prompt: str = "",
         tools: Sequence[dict] | None = None,
     ):
-        super().__init__(rows)
+        super().__init__(rows, system_prompt=system_prompt, tools=tools)
         self.report: dict[str, Any] = report if report is not None else {}
         self.mode = mode
-        self.system_prompt = system_prompt
-        self.tools = list(tools or [])
 
     # -- printing ---------------------------------------------------------
 
@@ -93,23 +96,36 @@ class Selection(RowList):
         format: str = "openai",
         unroll: bool = False,
         validate: bool = True,
+        system_prompt: str | None = None,
+        tools: Sequence[dict] | None = None,
     ) -> dict[str, Any]:
         """Write the rows trainer-ready: ``export_dataset`` with this
         selection's system prompt and tools already filled in. ``format``
         is ``"openai"`` (chat JSONL with a ``loss_mask`` per message) or
         ``"trl"`` (what ``SFTTrainer`` loads); ``unroll=True`` makes one
-        sample per agent turn."""
+        sample per agent turn. ``system_prompt=`` and ``tools=`` replace
+        what the selection carries, for rows that arrived as a plain
+        list. It warns when the written rows call tools but carry no tool
+        schema, or came from a run with a system prompt and carry none: a
+        tool-calling file whose prompts never show the tools trains a
+        model to call a schema it was never shown (#592)."""
         from .simulations.export import export_dataset
 
-        return export_dataset(
+        system = self.system_prompt if system_prompt is None else str(system_prompt)
+        schemas = list(self.tools if tools is None else tools)
+        report = export_dataset(
             list(self),
             output=output,
-            system_prompt=self.system_prompt,
-            tools=self.tools or None,
+            system_prompt=system,
+            tools=schemas or None,
             format=format,
             unroll=unroll,
             validate=validate,
         )
+        for line in _missing_config(self, report):
+            report.setdefault("warnings", []).append(line)
+            warnings.warn(line, UserWarning, stacklevel=2)
+        return report
 
     def push(self, name: str, **kwargs: Any) -> dict:
         """Upload to the platform as a dataset: ``push_rows`` with this
@@ -162,14 +178,47 @@ def select(
         truncated=truncated,
         output=output,
     )
-    profile = getattr(source, "profile", None)
+    system, tools = row_config(source)
     return Selection(
         picked,
         report=report,
         mode=str(report.get("mode") or mode or "rl"),
-        system_prompt=str(getattr(profile, "policy", "") or ""),
-        tools=list(getattr(profile, "tools", None) or []),
+        system_prompt=system,
+        tools=tools,
     )
+
+
+def _missing_config(rows: Sequence[dict], report: dict[str, Any]) -> list[str]:
+    """One sentence per configuration the written file lacks: no tool
+    schema on rows that call tools, no system prompt on rows a run with
+    one produced."""
+    out: list[str] = []
+    n = int(report.get("n") or 0)
+    if n and not report.get("with_tools") and any(_calls_tools(r) for r in rows):
+        out.append(
+            "the rows call tools but the file carries no tool schema, so a model trained "
+            "on it learns to call tools it was never shown; pass tools= to export, or "
+            "select from scored.rows (a slice, decontaminate or passes() of it) instead "
+            "of a plain list."
+        )
+    if n and not report.get("with_system") and any(_had_system_prompt(r) for r in rows):
+        out.append(
+            "the rows were generated under a system prompt but the file carries none, so "
+            "a model trained on it never sees its rules; pass system_prompt= to export, or "
+            "select from scored.rows instead of a plain list."
+        )
+    return out
+
+
+def _calls_tools(row: dict) -> bool:
+    if row.get("steps") or row.get("tool_trace"):
+        return True
+    return any(isinstance(m, dict) and m.get("tool_calls") for m in (row.get("messages") or []))
+
+
+def _had_system_prompt(row: dict) -> bool:
+    lineage = row.get("lineage")
+    return bool(isinstance(lineage, dict) and lineage.get("system_prompt_sha"))
 
 
 __all__ = ["Selection", "select"]

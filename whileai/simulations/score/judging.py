@@ -254,7 +254,7 @@ class ScoredData:
         self.model = model
         # the AgentProfile of the run these rows came from, when grade()
         # made them; select() and export read the prompt and tools off it
-        self.profile: Any = None
+        self._profile: Any = None
         # Plain-words notes on whether the score means anything: no row
         # called a tool, a marker that never fired, a unanimous verdict.
         # Filled by ``run_judge`` from ``coverage_warnings``; printed once.
@@ -262,6 +262,26 @@ class ScoredData:
 
     def __iter__(self) -> Iterator[dict]:
         return iter(self.rows)
+
+    @property
+    def profile(self) -> Any:
+        """The ``AgentProfile`` of the run these rows came from, set by
+        ``grade()``. Setting it also stamps the prompt and tools on
+        ``.rows``, so a slice or a ``decontaminate`` of them still exports
+        with both (#592)."""
+        return self._profile
+
+    @profile.setter
+    def profile(self, value: Any) -> None:
+        self._profile = value
+        self.rows.system_prompt = str(getattr(value, "policy", "") or "")
+        self.rows.tools = list(getattr(value, "tools", None) or [])
+
+    def _view(self, rows: list[dict]):
+        """A subset of ``.rows`` that still carries the prompt and tools."""
+        from ..data import RowList
+
+        return RowList(rows, system_prompt=self.rows.system_prompt, tools=self.rows.tools)
 
     def compare_judges(
         self,
@@ -307,9 +327,9 @@ class ScoredData:
         """Rows with a continuous reward strictly between 0 and 1. The
         scalar lane: 1 pass, 0 fail, partials here, None unjudged - every
         contract-legal reward is visible in exactly one view."""
-        return [
-            r for r in self.rows if isinstance(r.get("reward"), float) and 0.0 < r["reward"] < 1.0
-        ]
+        return self._view(
+            [r for r in self.rows if isinstance(r.get("reward"), float) and 0.0 < r["reward"] < 1.0]
+        )
 
     def select_by_reward_range(self, lo: float, hi: float, *, inclusive: bool = True) -> list[dict]:
         """Rows whose numeric reward falls in [lo, hi] (or (lo, hi))."""
@@ -320,10 +340,10 @@ class ScoredData:
                 continue
             if lo <= value <= hi if inclusive else lo < value < hi:
                 out.append(r)
-        return out
+        return self._view(out)
 
     def select_by_reward(self, reward) -> list[dict]:
-        return [r for r in self.rows if r.get("reward") == reward]
+        return self._view([r for r in self.rows if r.get("reward") == reward])
 
     def passes(self) -> list[dict]:
         return self.select_by_reward(1)
@@ -353,7 +373,7 @@ class ScoredData:
 
     def unjudged(self) -> list[dict]:
         """Rows the judge could not score. Never treated as failures."""
-        return [r for r in self.rows if r.get("judge_status") != "ok"]
+        return self._view([r for r in self.rows if r.get("judge_status") != "ok"])
 
     def select(
         self,

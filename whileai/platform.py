@@ -544,6 +544,9 @@ class Verdict(_Wire):
     judge_human_n: int | None = None
     reward_is_judge: bool | None = None
     contamination: int | None = None
+    #: The other behaviors on which a different run also beat the served
+    #: version by the same rule: the "moved, replicated" of the learn course.
+    replicated: list[str] = Field(default_factory=list)
 
     def __str__(self) -> str:
         b = self.behavior or "?"
@@ -584,6 +587,8 @@ class Verdict(_Wire):
                 f"{b}: {self.candidate} {word} {self.serving} by {abs(delta):g} "
                 f"(interval excludes zero{note})"
             )
+            if delta > 0 and self.replicated:
+                head += f"; moved, replicated on {', '.join(self.replicated)}"
         if self.regressions:
             head += (
                 f"; {self.regressions} behavior{'' if self.regressions == 1 else 's'} lower "
@@ -730,8 +735,11 @@ def _points(versions: list[VersionScore]) -> tuple[list[VersionScore], bool]:
     ], True
 
 
-def _scores_for(runs: Sequence[Mapping[str, Any]], behavior: str) -> list[VersionScore]:
-    """Newest score per version on one behavior, read off the runs' evals."""
+def _newest_scores(
+    runs: Sequence[Mapping[str, Any]], behavior: str
+) -> dict[str, tuple[str, VersionScore]]:
+    """Newest score per version on one behavior, with when it was posted,
+    read off the runs' evals."""
     by: dict[str, tuple[str, VersionScore]] = {}
     for r in runs:
         for e in r.get("evals") or []:
@@ -742,9 +750,118 @@ def _scores_for(runs: Sequence[Mapping[str, Any]], behavior: str) -> list[Versio
             if prev is None or at > prev[0]:
                 by[r["version"]] = (
                     at,
-                    VersionScore(v=r["version"], score=e["score"], ci=e.get("ci"), n=e.get("n")),
+                    VersionScore(
+                        v=r["version"],
+                        score=e["score"],
+                        ci=e.get("ci"),
+                        n=e.get("n"),
+                        run=r.get("id"),
+                    ),
                 )
-    return [v for _, v in by.values()]
+    return by
+
+
+def _scores_for(runs: Sequence[Mapping[str, Any]], behavior: str) -> list[VersionScore]:
+    """Newest score per version on one behavior, read off the runs' evals."""
+    return [v for _, v in _newest_scores(runs, behavior).values()]
+
+
+def _beats(candidate: VersionScore, served: VersionScore, floor: float | None) -> bool:
+    """Candidate over served: the difference interval excludes zero and the
+    gap clears the behavior's noise floor, the rule ``Verdict.__str__``
+    says "beats" by."""
+    if candidate.ci is None or served.ci is None:
+        return False
+    delta = candidate.score - served.score
+    return delta > math.sqrt(candidate.ci**2 + served.ci**2) and (floor is None or delta > floor)
+
+
+def _winners(
+    behaviors: Sequence[Behavior], runs: Sequence[Mapping[str, Any]], serving: str | None
+) -> dict[str, set[str]]:
+    """Per behavior, the runs (ids, or versions when the row has none) whose
+    newest score beats the served version's on that behavior."""
+    out: dict[str, set[str]] = {}
+    if not serving:
+        return out
+    for b in behaviors:
+        scores = _scores_for(runs, b.name)
+        served = next((v for v in scores if v.v == serving), None)
+        if served is None:
+            continue
+        for v in scores:
+            if v.v != serving and _beats(v, served, b.noise_floor):
+                out.setdefault(b.name, set()).add(v.run or v.v)
+    return out
+
+
+def _resolve_verdict(
+    dash: Dashboard,
+    behaviors: Sequence[Behavior],
+    runs: Sequence[Mapping[str, Any]],
+    *,
+    version: str | None = None,
+) -> Verdict:
+    """The verdict on the dashboard's behavior with the candidate resolved
+    per behavior: the newest version scored on that behavior that is not
+    the served one (``version=`` names it instead), so a second held-out
+    set with its own arm does not blank the first one's verdict and
+    re-scoring the served version demotes nothing. Newest is by the
+    score's ``createdAt`` from the run rows; the dashboard's own order
+    breaks ties. ``replicated`` lists the other behaviors on which a
+    different run also beat the served version.
+
+    The server's verdict is returned as is when the dashboard carries no
+    behavior block or no scores on it: there is nothing to resolve from.
+    """
+    beh = dash.behavior
+    server = dash.verdict
+    if beh is None or not dash.versions:
+        return server
+    name = beh.name
+    serving = server.serving or dash.agent.serving
+    versions = dash.versions
+    if version is not None:
+        cand = next((v for v in versions if v.v == version), None)
+        if cand is None:
+            scored = ", ".join(v.v for v in versions)
+            raise ValueError(f"{version!r} has no score on {name!r}; scored there: {scored}.")
+    else:
+        when = {v: at for v, (at, _) in _newest_scores(runs, name).items()}
+        pool = [(when.get(v.v, ""), i, v) for i, v in enumerate(versions) if v.v != serving]
+        cand = max(pool)[2] if pool else None
+    out = server.model_copy(update={"candidate": cand.v if cand else None, "serving": serving})
+    served = next((v for v in versions if v.v == serving), None) if serving else None
+    out.replicated = []
+    out.regressions = 0
+    if cand is None or served is None or cand.v == serving:
+        out.delta = None if cand is None or served is None else 0.0
+        out.excludes_zero = None
+        return out
+    points = any(v.score > 1 or (v.ci or 0) > 1 for v in versions)
+    delta = round(cand.score - served.score, 1 if points else 3)
+    out.delta = delta
+    out.excludes_zero = (
+        None
+        if cand.ci is None or served.ci is None
+        else abs(delta) > math.sqrt(cand.ci**2 + served.ci**2)
+    )
+    if server.candidate == cand.v and dash.deltas:
+        out.regressions = sum(1 for d in dash.deltas if d.delta is not None and d.delta < 0)
+    else:
+        for other in dash.behaviors:
+            if other == name:
+                continue
+            scores = {v.v: v.score for v in _scores_for(runs, other)}
+            if cand.v in scores and serving in scores and scores[cand.v] < scores[serving]:
+                out.regressions += 1
+    if _beats(cand, served, beh.noise_floor):
+        wins = _winners(behaviors, runs, serving)
+        mine = cand.run or cand.v
+        out.replicated = sorted(
+            b for b, rs in wins.items() if b != name and any(r != mine for r in rs)
+        )
+    return out
 
 
 class EvalCheck(_Wire):
@@ -1936,8 +2053,29 @@ class Tracked:
     def delete_run(self, run_id: str) -> dict[str, Any]:
         """Remove a run, its train points and its evals for good. Prefer
         ``archive``; delete only what was never a real attempt (a smoke
-        test, a run posted to the wrong agent)."""
-        return self._call("DELETE", f"/runs/{run_id}")
+        test, a run posted to the wrong agent). Takes the run id
+        (``run.id``, or ``tracked.runs()``), not the version name; a
+        version name raises with the id it maps to."""
+        try:
+            return self._call("DELETE", f"/runs/{run_id}")
+        except PlatformError as e:
+            if e.status != 404:
+                raise
+            same = [
+                str(r["id"])
+                for r in self.runs(archived=True)
+                if r.get("version") == run_id and r.get("id")
+            ]
+            if not same:
+                raise
+            ids = (
+                f"its run id is {same[0]}"
+                if len(same) == 1
+                else f"its run ids are {', '.join(same)}"
+            )
+            raise PlatformError(
+                404, f"No run {run_id!r}. {run_id!r} is a version name; {ids}."
+            ) from None
 
     def promote(self, version: str) -> dict[str, Any]:
         """Make ``version`` the served one. Usually the person's button."""
@@ -1953,15 +2091,27 @@ class Tracked:
         q = f"?behavior={behavior}" if behavior else ""
         return Dashboard.model_validate(self._call("GET", f"/agents/{self.id}/dashboard{q}"))
 
-    def verdict(self, behavior: str | None = None) -> Verdict:
-        """Does the candidate beat the served version, and is it real? ``str()`` it."""
-        return self.dashboard(behavior).verdict
+    def verdict(self, behavior: str | None = None, *, version: str | None = None) -> Verdict:
+        """Does the candidate beat the served version, and is it real? ``str()`` it.
+
+        The candidate is resolved per behavior: the newest version scored
+        on that behavior that is not the served one, so two held-out sets
+        each get their own verdict whatever order the arms were posted in,
+        and re-scoring the served version demotes nothing. ``version=``
+        names the candidate instead; it must be scored on the behavior.
+        When a different run also beats the served version on another
+        behavior, the line ends "moved, replicated on <behavior>".
+        """
+        dash = self.dashboard(behavior)
+        return _resolve_verdict(dash, self.behaviors(), self.runs(), version=version)
 
     def brief(self, behavior: str | None = None) -> Brief:
         """What happened, what it means, what to do next: the same three
         parts the Runs page shows at the top of this agent's page, from the
         same rows. ``print(tracked.brief())``; ``.markdown()`` for an agent."""
-        return brief_of(self.id, self.behaviors(), self.runs(), self.dashboard(behavior))
+        behaviors, runs, dash = self.behaviors(), self.runs(), self.dashboard(behavior)
+        dash.verdict = _resolve_verdict(dash, behaviors, runs)
+        return brief_of(self.id, behaviors, runs, dash)
 
     def __repr__(self) -> str:
         return f"Tracked({self.id!r}, model={self.model!r})"
