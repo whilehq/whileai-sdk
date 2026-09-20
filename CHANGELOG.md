@@ -16,6 +16,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   reward per step and the frozen test at checkpoints on one chart), the flipped asks as
   the "why", the reward-up-held-out-flat sentence said out loud, `readback(tracked)` now
   checks for the four lines and the picture. `whileai init` block reworded, same length.
+- `tracked.brief()` and `run.finish()` end with "what a person cannot read yet": an iteration
+  that does not say what it changed, a test with no rubric, a score with no graded rows, a
+  version named by its settings, each with the call that posts it (`Brief.readable`). The
+  same rules draw the "what your coding agent still owes" list on the experiment page.
 
 ## 1.09 (2026-09-20)
 
