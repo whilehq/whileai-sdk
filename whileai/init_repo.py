@@ -131,7 +131,7 @@ def install_skills(
 
 def run_check(root: Path, name: str = CHECK_SKILL, timeout: float = 180) -> tuple[int, str]:
     """Run a skill's ``check.py`` offline and return (exit code, last lines)."""
-    script = root / ".claude" / "skills" / name / "check.py"
+    script = (Path(root) / ".claude" / "skills" / name / "check.py").resolve()
     if not script.exists():
         return 1, f"{script} not found"
     try:

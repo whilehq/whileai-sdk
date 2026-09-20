@@ -5,6 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `whileai init` runs the evals check from any working directory; 0.99 resolved the script path against the skill folder and printed a can't-open-file error.
 ## 0.99 (2026-09-19)
 
 - `whileai status` keeps stdout pure JSON; the `repo` block inside it (`agents_md`, `stale`, `skills`) says whether to run `whileai init`; no hint line (the 0.97 publish failed on a test that parses the JSON).
