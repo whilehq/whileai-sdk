@@ -5,6 +5,11 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- The release gate counts a `v<version>` tag as shipped only when its
+  annotation reads `whileai <version>`. Tags left from the packages this
+  repository was before the rename made it skip 1.01 and 1.02 (below) as
+  already published; the two stale tags are deleted and the check no longer
+  trusts a bare tag name.
 - `recipes/04-train/grpo` (and DPO, which shares `build_prompts`): the same `--seed` now writes the same prompt set and holdout on every run. `build_prompts` calls `simulate` with `reproducible=True`; at `concurrency=4` without it, which situations landed under the budget depended on thread timing, and two runs at `--seed 0` got 112 and 119 prompts with different holdouts (#450). The READMEs carry the real counts (117 prompts, 92 train, 25 holdout on Python 3.12; one more prompt on 3.10 and 3.11, where `sum()` adds floats differently) in place of "about seventy / fourteen", and say to freeze a set across machines with `--prompts-file`.
 - `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
 
@@ -19,10 +24,14 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## 1.02 (2026-09-20)
 
+- Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
+  this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `whileai.platform.HarnessSweep`: many prompt, tool and model variants of one agent, scored on the same frozen asks (`tasks=` a previous run), one run per harness fingerprint with `prompt`, `model` and `tools` pinned under `record.provenance.pins`, the noise floor from scoring one variant twice, the judge checked against hand labels when given. `SweepReport` prints the ranked table and names a winner only when its interval clears every other variant and the noise floor. The Runs page groups the dots by prompt or model (website #100).
 
 ## 1.01 (2026-09-20)
 
+- Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
+  this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `simulate(agent=wai.OpenAI("gpt-4.1-mini"), ...)` works, positional or
   keyword: a backend object is resolved the way `configure(agent=)` resolves
   it (its spec string, its key kept for the provider), instead of raising
