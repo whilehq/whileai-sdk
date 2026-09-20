@@ -288,12 +288,12 @@ def publish_gate(
         if out_of_band:
             warnings.append(
                 f"{out_of_band} mixed ask(s) fall outside the {lo:.0%}-{hi:.0%} band and "
-                "were not pruned; run optimize(mode='rl') before push to enforce it"
+                'were not pruned; run select(mode="rl") before push to enforce it'
             )
         if signal["n_all_zero"] or signal["n_all_one"]:
             warnings.append(
                 f"{signal['n_all_zero'] + signal['n_all_one']} unanimous ask(s) still "
-                "present; optimize(mode='rl') drops them"
+                'present; select(mode="rl") drops them'
             )
         if calibration["n_unstamped"]:
             warnings.append(f"{calibration['n_unstamped']} row(s) have no 0/1 reward")
@@ -301,7 +301,7 @@ def publish_gate(
             k = calibration["pass_at"]["k"]
             warnings.append(
                 f"{calibration['n_carried']} row(s) keep the calibration measured before "
-                f"optimize(mode='rl') pruned their ask; the stamp is the graded pass rate "
+                f'select(mode="rl") pruned their ask; the stamp is the graded pass rate '
                 f"over k repeats, this report's pass_at is over the {k} row(s) per ask "
                 "that remain"
             )
@@ -319,7 +319,7 @@ def publish_gate(
         scan=scan if not refusal else None,
     )
     if duplicates["n_dropped"]:
-        hygiene[0] = hygiene[0].replace(" dropped", " present; optimize(mode='rl') drops them", 1)
+        hygiene[0] = hygiene[0].replace(" dropped", ' present; select(mode="rl") drops them', 1)
     warnings.extend(hygiene)
     # The judge check grade ran on these rows, when any carried human gold.
     trust = next(
