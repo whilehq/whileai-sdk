@@ -233,6 +233,7 @@
             "pages": [
               "platform/index",
               "platform/naming",
+              "platform/experiments",
               "get-started/cli",
               "reference/platform"
             ]
