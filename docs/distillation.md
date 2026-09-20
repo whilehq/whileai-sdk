@@ -4,6 +4,8 @@ sidebarTitle: "Distillation"
 description: "Train without a reward: a frozen teacher (OPD) or the same model with a hint (OPSD) scores every token the student samples. What the papers say, the two calls, and a three-arm run on prime-rl with your own GPUs."
 ---
 
+**What you learn:** GRPO, OPSD and OPD on one taskset on prime-rl from `wai.prime_rl_config`, a launcher over Prime Intellect's published image, per-prompt held-out deltas with intervals from `wai.compare`. **Needs:** Modal, two H100s an arm; nothing to read the method. **Takes:** about 15 min an arm.
+
 On-policy distillation trains a student on its own samples, scored token by
 token by a teacher, with no reward function [1]. In OPD the teacher is a
 stronger frozen model [2, 3]. In OPSD the teacher is the same model shown
@@ -162,7 +164,7 @@ in the recipe's `results.json`.
 ## Next
 
 <CardGroup cols={2}>
-  <Card title="Simulations" href="/simulations">The rows a taskset is built from, and `export_environment` for a verifiers package.</Card>
+  <Card title="How it works" href="/concepts/how-it-works">The rows a taskset is built from, and `export_environment` for a verifiers package.</Card>
   <Card title="Reward hacking" href="/reward-hacking">What to watch on any training curve, distillation included.</Card>
   <Card title="Character training" href="/character-training">A privileged teacher of a different kind: the principle only the judge sees.</Card>
   <Card title="Parameters" href="/reference/parameters">Every knob and its source.</Card>

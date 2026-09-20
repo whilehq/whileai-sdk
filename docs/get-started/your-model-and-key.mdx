@@ -4,6 +4,8 @@ sidebarTitle: "Your model and your key"
 description: "How to name the model the agent runs on, which environment variable each provider reads, where the requests go, and the three things that reach While only when you ask."
 ---
 
+**What you learn:** the model as a string per provider, which variable holds its key, where the requests go, and what reaches While only when you ask. **Needs:** the key of the provider you name; nothing to read. **Takes:** five minutes.
+
 The shortest answer is a backend object: `wai.OpenAI("gpt-4.1-mini",
 api_key="sk-...")`, `wai.Anthropic(...)`, `wai.Endpoint(model, url=)`,
 `wai.Ollama(...)`, `wai.Hosted()`. Its repr says where the call goes and

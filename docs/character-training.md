@@ -4,6 +4,8 @@ sidebarTitle: "Character training"
 description: "Change the weights so a model has a stable way of talking without a system prompt: sources, the recipe, and what to measure."
 ---
 
+**What you learn:** a constitution to traits, graded replies per trait, a judge checked against the spec's own labels, length-matched pairs and masked SFT rows, before/after on an adversarial holdout. **Needs:** nothing offline; a model endpoint for the live run. **Takes:** seconds offline, 2.5 min live.
+
 Character training changes the weights so a model has a stable way of
 talking without a system prompt. It is the same machinery as any
 post-training run [1], aimed at the manner of a reply, and mostly a data

@@ -1,8 +1,15 @@
 ---
 title: "How it works"
 sidebarTitle: "How it works"
-description: "What happens inside one rollout: the prompt, the reply, the score and the held-out copy, and the five steps that turn an agent's weak spots into training data."
+description: "How the simulator thinks and why: the four pieces of a rollout, the situations it covers, a world that says no, a judge that is measured, and the rows it returns."
 ---
+
+You give the SDK an agent's definition; it gives back graded conversations
+you can train on. This page is how it thinks and why. The eight steps with
+their estimators and code paths are on [the engine](/concepts/engine).
+
+<img className="block dark:hidden" src="/figures/simulations-pipeline-light.svg" alt="A description or traces feed six axes, a seeded world, the agent and your judge; graded rows become SFT, DPO, GRPO and an RL environment" />
+<img className="hidden dark:block" src="/figures/simulations-pipeline-dark.svg" alt="A description or traces feed six axes, a seeded world, the agent and your judge; graded rows become SFT, DPO, GRPO and an RL environment" />
 
 A rollout has four pieces. Three train the model. One evaluates it.
 
@@ -15,8 +22,32 @@ A rollout has four pieces. Three train the model. One evaluates it.
 
 <Note>
 The test is not training data. It is the only piece the model never sees,
-which is why a score on it means something.
+which is why a score on it means something [1].
 </Note>
+
+## The problem it solves
+
+An agent's failures are specific: it hands off too early on one kind of
+request, invents an order number under one kind of pressure. Fixing that in
+the weights needs enough varied examples of the situation done right that
+the model learns the behavior, not the example. Writing those by hand is the
+expensive part. The simulator replaces the writing, not the judgment.
+
+## Two ways in
+
+**Describe the behavior.** One sentence starts it: "a personal finance
+assistant that confirms before it moves money." The SDK drafts the tools,
+builds a world, writes the people, runs the conversations.
+
+**Point at the agent's traces.** Graded traces, OpenTelemetry spans
+included, become a picture of which situations fail, which are new since the
+last model version, and which stopped failing. That picture sets the
+generation budget. Traces reproduce tools, faults and world states; a failure
+that lives in the wording of a reply has no trigger in the world, so pass
+`grader=` and the search mutates on graded failures too.
+
+Both paths use the same engine. Nothing in the agent changes; the SDK reads
+what it does.
 
 ## The loop
 
@@ -36,62 +67,177 @@ which is why a score on it means something.
   </Step>
   <Step title="Prove">
     Evaluate on a held-out set. A paired before and after per task
-    category, with a 95% confidence interval.
+    category, with a 95% confidence interval [1].
   </Step>
 </Steps>
 
 Then it starts again. The next day's traffic is the next training set.
 
-## Five steps inside one run
+## How the simulator thinks
 
-<Steps>
-  <Step title="Pick a prompt">
-    Each prompt combines a task category, a tool condition and a customer
-    stance. Sometimes the tool is broken on purpose.
-  </Step>
-  <Step title="Track coverage">
-    Every prompt lands in a square on a grid of situations. A few per
-    square counts as covered. Generation stops when the squares stop
-    filling.
-  </Step>
-  <Step title="Focus on what works">
-    There are several ways to come up with the next prompt. The ones that
-    keep finding new behavior get more of the budget.
-  </Step>
-  <Step title="Run the conversation">
-    A separate model plays the customer. A mock world answers every tool
-    call. Two results come out: a score to train on and a test kept out of
-    training.
-  </Step>
-  <Step title="Cut it into training data">
-    Good replies become examples. Good and bad replies to the same prompt
-    become pairs. The tests go in a set of their own.
-  </Step>
-</Steps>
+**Situations are coordinates, not prompts.** A thousand user requests from a
+model are a thousand variations of the same polite ask. The SDK declares six
+axes (tool, policy rule, user stance, world state, tool condition, history)
+and renders points in that space as a pairwise covering array: every pair of
+axis values appears together at least once, because most real failures are
+two things interacting [2]. On a cold start nine in ten fault cells flip to
+success, so the tool-condition axis is sampled, not covered, unless you raise
+`fault_rate` or pass `prefer_success=False`. `data.coverage["pairwise"]`
+holds `pairs_planned`, `pairs_covered` and `fraction`: a 64-row offline run
+plans 381 pairs and covers 139, and that 0.36 is arithmetic, not a failed
+eval. Policy coverage is a different question; `coverage_gap(asks, tools=...,
+system_prompt=...)` answers it.
 
-## What goes in
+**The next situation comes from what worked.** Five writers fill the grid.
+Each batch, the writers that found new behavior get more of the budget, and
+generation stops when the squares stop filling [3].
 
-| Input | Detail |
-|---|---|
-| **Your agent** | Its tools and its policy. Nothing in the agent changes; the SDK reads what it does. |
-| **Its traffic** | Real conversations, so simulation spends its budget where the agent is actually weak. Plain OpenTelemetry traces work. |
-| **Or one sentence** | For an agent that does not exist yet: describe the behavior you want, and the SDK drafts the policy and the rollout set from it. |
+**People are sampled, not described.** A coordinate says the customer is in
+a hurry and the order was already cancelled. A second layer decides how they
+write: lowercase, clipped, sarcastic. The writer sees an aside in prose, not
+the labels, because a model told to be terse writes an essay about being
+terse. The same person shows up on turn five that showed up on turn one.
 
-## What comes out
+**The world answers honestly.** Tool calls go to a simulated world that is
+deterministic per seed, returns records shaped like the tool's own schema,
+remembers what it created, and says no. An unknown identifier is not found.
+An argument that echoes the schema ("first name", user@example.com) is
+refused with a hint. A world that never says no teaches an agent that never
+expects it.
 
-| Output | Detail |
-|---|---|
-| **A score** | A paired before and after per task category on a held-out set, with a confidence interval. |
-| **Training data** | Every rollout, with its reward and the reason it was kept or dropped. |
-| **Your own model** | An open-weight model trained on your work, served from your own endpoint. |
+**Grading is the customer's authority.** Rows come back ungraded. The
+deterministic conduct checks catch structural failures (an action claimed
+without a tool call, an identifier the person never gave, success declared
+after a failed call); then your grader decides what good means. Two things
+are insisted on, because a judge is a reward model. The hosted grader (Phi-4)
+is a different family from the hosted policy (Qwen), since a judge grading
+its own writing prefers it [4]. And every label says who made it: the hosted
+grader stamps model, rubric hash and settings; a custom judge passes
+`data.grade(judge=..., version=...)`. The judge is measured, not trusted:
+hand-label a sample, `attach_labels(rows, labels, kind="human")`, and
+`judge_agreement` reports agreement, kappa and `pass_when_gold_fail`, the
+rate at which the judge passed a row you failed [4]. A `gold_reward` column
+with no author is reported as unmeasured.
+
+**Failure is loud.** When the hosted writer fails, the offline template
+writer takes over and `data.degraded` carries `generator_fallback`; a run
+with no rows keeps the writer's last error in `data.search["writer_errors"]`.
+A dataset that looks real and is not is worse than none.
+
+## Which model runs it
+
+Four roles take their own model: the agent (`agent=`), the situation writer
+(`simulator=`), the simulated person (`user_model=`) and the judge (`spec=`
+on `grade()`). All take the same spec.
+
+| Spec | Backend | Key |
+| --- | --- | --- |
+| `ollama:<model>` | a local Ollama server | none |
+| `vllm:<model>@<url>` | vLLM, or any OpenAI-compatible endpoint you serve | `VLLM_API_KEY` when the endpoint wants one |
+| `openai:<model>` | OpenAI, or a compatible endpoint via `OPENAI_BASE_URL` | `OPENAI_API_KEY` |
+| `anthropic:<model>` | the Claude Messages API | `ANTHROPIC_API_KEY`, or `WHILEAI_ANTHROPIC_API_KEY` to override it |
+| `typesafe:<model>` | TypeSafe's Jev, a decision model; the judge only (`spec=`) | `TYPESAFE_API_KEY`, or `WHILEAI_TYPESAFE_API_KEY` to override it |
+
+```python
+import whileai.simulations as wai
+
+data = wai.simulate(
+    agent="anthropic:claude-haiku-4-5",
+    tools=my_tools,
+    system_prompt=my_system_prompt,
+    simulator="anthropic:claude-sonnet-5",
+    output="rollout.jsonl",
+)
+```
+
+Omitting `agent=` runs the While-hosted model on your account key. One model
+in two roles is the regime to avoid: `data.degraded` then carries
+`same_model` and `warnings` names the call that separates them [4].
+
+`spec="typesafe:jev-latest"` grades with a decision model: the verdict is a
+probability, `failure_class` is the judge's own choice over the failure
+vocabulary, and `judge_meta.confidence` within `DECISION_UNSURE_BAND` (0.1)
+of even marks the row `unsure`. It cannot play the agent, writer or user.
+
+## What you get
+
+A JSONL file of chat-format conversations with tool schemas. Each row carries
+its situation (axes, world state, scheduled faults), persona tags, and once
+graded, its reward and reason. From there:
+
+| cut | call | carries |
+| --- | --- | --- |
+| SFT | `data.training_set()` | a `loss_mask` per message: agent turns only (`mask_mode="final"` keeps the last); `export(format="trl")` drops it, because TRL reads none, and writes `mask_mode="final"` as prompt/completion rows TRL honors |
+| preference pairs | `build_preference_pairs`, `export_preference` | raw scores, `margin`, `same_policy`, `length_delta`, a warning when chosen is usually longer |
+| RL groups | `select_for_rl`, `export_dataset` | `group_id`, `k`, `n0`, `n1`, group reward mean and std, the `calibration` stamp; only tasks in the 20 to 80 percent band, because a group that all passes or all fails carries no gradient [5, 6] |
+| leakage check | `decontaminate` | same task id, same normalised text, 80 percent 8-gram cover (the Llama 2 rule [7]), cosine at or above 0.85 with an `embedder=` |
+
+<img className="block dark:hidden" src="/figures/difficulty-band-light.svg" alt="A histogram of tasks by pass rate at k=8: the 20 to 80 percent band is shaded and kept, the all-pass and all-fail bars are grey and dropped as unanimous groups, the bars just outside the band are dropped as too hard or too easy" />
+<img className="hidden dark:block" src="/figures/difficulty-band-dark.svg" alt="A histogram of tasks by pass rate at k=8: the 20 to 80 percent band is shaded and kept, the all-pass and all-fail bars are grey and dropped as unanimous groups, the bars just outside the band are dropped as too hard or too easy" />
+
+The rows a run hands back (`scored.rows`, a slice of it, `passes()`, what
+`decontaminate` kept) carry the run's system prompt and tool schemas, so
+`select(rows).export(path)` writes both; a plain `list` carries neither,
+so `export` takes `system_prompt=` and `tools=` and warns when a
+tool-calling file would go out without its schema.
+
+With `logprobs=True` every agent turn also carries the summed log-probability
+of its tokens, their count, the per-token list when the backend returns one,
+`policy_version` and the sampling settings: what an off-policy correction
+and a KL to a reference model need.
+
+## Hugging Face, both directions
+
+Two routes to the Hub. The local one uses your own token and never calls
+the platform: `export(..., push_to=)` uploads the file it just wrote, and
+`wai.hub.push` uploads a file, an adapter directory or rows you already
+hold. Repos are private until you say otherwise. Needs `HF_TOKEN` (or
+`hf auth login`) and `pip install 'whileai[hf]'`.
+
+```python
+import whileai as wai
+
+wai.export(rows, "train.jsonl", format="trl", push_to="me/my-set")  # -> a private dataset repo
+wai.hub.push("out/adapter", "me/my-lora")  # a LoRA directory -> a private model repo
+wai.hub.push(rows, "me/my-set", token="hf_...", private=False)  # rows -> train.jsonl, public
+```
+
+The platform route is a platform feature: it moves a set that already
+lives on your account through the Hugging Face account connected on the
+website, and brings any Hub split onto your account to be measured first.
+Connect the account once on any dataset page. Needs `WHILEAI_API_KEY` or
+`whileai login`.
+
+```python
+import whileai.simulations as wai
+
+
+wai.hf_status()  # connected? namespaces
+hf = wai.hf_publish("ds_...", repo="airline-refunds", wait=True)
+hf["commit"], hf["tag"]  # one commit per push, tagged zp-<dataset id>
+row = wai.import_hf("cornell-movie-review-data/rotten_tomatoes", split="test", purpose="eval")
+wai.profile(row["datasetId"])  # rows, prompts, pass rate, support, mixed
+wai.hf_publish_run("run_...", private=True)  # a finished run's LoRA adapter, as a model repo
+```
+
+One repo holds one split per purpose (`train`, `holdout`, `eval`). A push
+replaces the old parts, the commit message carries the delta, `whileai.json`
+keeps the history, and `load_dataset(repo, split, revision="zp-ds_...")`
+loads exactly one push.
+
+## Return shapes
+
+`simulate` returns `SimulationData`; `evaluate` and `grade` return
+`ScoredData`. `.rows` and `.rows()` both work; print `scored.warnings`
+before any number. Field by field: [Evals](/evals#7-return-shapes).
 
 ## Proving it
 
-After training, the new model answers the test set. So does the old one.
+After training, the new model answers the held-out set. So does the old one.
 The report is a pass@1 per task category, before and after, so a gain on
 refunds cannot hide a loss on cancellations.
 
-Nothing counts as better until the held-out interval excludes zero.
+Nothing counts as better until the held-out interval excludes zero [1].
 
 The first public run of this method is written up in
 [We trained a support agent to hand customers off at the right time](https://withwhile.com/blog/simulated-data-pipeline-for-fine-tuning):
@@ -99,6 +245,34 @@ a 15-dollar simulated set took a telecom support agent, one that runs a
 phone company's support chat with real account tools, from 5% to 30% on a
 public benchmark.
 
-The mechanics behind each step, with references, are on
-[the engine](/concepts/engine). The calls that run them are in the
-[reference](/reference/overview).
+## What it is not
+
+Not ground truth. Every row is a simulation kept by a grader; review it as
+you would a contractor's work. The world is not your database and the people
+are not your customers. The value is coverage, variety, and honesty about
+both.
+
+## Where it goes next
+
+The same simulator serves as a live environment for on-policy RL: the
+trainer drives the policy, the SDK supplies situations, world, person and
+reward. `export_environment(data, out, reward=...)` writes an installable
+`verifiers` environment with train and holdout splits, the world dials in
+`spec.json`, and the 20 to 80 percent difficulty band [5, 6].
+
+## References
+
+1. Lambert, N. [Reinforcement Learning from Human Feedback](https://rlhfbook.com), chapter [Evaluation](https://rlhfbook.com/c/16-evaluation). 2025.
+2. Kuhn, D. R., Wallace, D. R., Gallo, A. M. [Software Fault Interactions and Implications for Software Testing](https://doi.org/10.1109/TSE.2004.24). IEEE TSE 30(6), 2004.
+3. Lehman, J., Stanley, K. O. [Abandoning Objectives: Evolution Through the Search for Novelty Alone](https://doi.org/10.1162/EVCO_a_00025). Evolutionary Computation 19(2), 2011.
+4. Zheng, L. et al. [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685). NeurIPS 2023.
+5. Shao, Z. et al. [DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models](https://arxiv.org/abs/2402.03300). 2024.
+6. Yu, Q. et al. [DAPO: An Open-Source LLM Reinforcement Learning System at Scale](https://arxiv.org/abs/2503.14476). 2025. Dynamic sampling; the 20 to 80 band is the same rule with a margin for k=8 noise, and Lambert 2025, chapter [Reasoning](https://rlhfbook.com/c/07-reasoning), measures it from sixteen rollouts.
+7. Touvron, H. et al. [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://arxiv.org/abs/2307.09288). 2023. The 8-gram contamination rule.
+
+## What to run next
+
+[`recipes/01-simulate/bring-your-own-agent`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/01-simulate/bring-your-own-agent)
+is the shortest version of the loop above, offline and in seconds;
+[`recipes/03-select/prime-intellect-rl`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/03-select/prime-intellect-rl)
+is the `verifiers` export, and needs a key.

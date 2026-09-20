@@ -4,6 +4,8 @@ sidebarTitle: "Reward hacking"
 description: "How the SDK looks for over-optimization before a run, during it, and after: the gap between training reward and the eval you care about."
 ---
 
+**What you learn:** reward hacking caught before, during and after training: the within-ask scan, the judge probes, the trajectory flags, the proxy-vs-target verdict. **Needs:** nothing. **Takes:** seconds.
+
 RL collects every bit of reward, including the bits the author did not mean
 to pay for. The result is over-optimization: training reward climbs while
 the eval you care about falls [1]. Five checks look for the gap before,
@@ -168,4 +170,4 @@ right and carry no gradient. A supply problem, not a hack.
 1. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
 2. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
 3. Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. NeurIPS 2023. arXiv:2306.05685.
-4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Over-optimization* and *Tool Use*.
+4. Lambert, N. [Reinforcement Learning from Human Feedback](https://rlhfbook.com). 2025. Chapters [Over-optimization](https://rlhfbook.com/c/14-over-optimization) and [Tool Use](https://rlhfbook.com/c/13-tools).

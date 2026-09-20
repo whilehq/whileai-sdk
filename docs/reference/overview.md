@@ -17,7 +17,7 @@ Have an agent and want a pass rate with an interval? Start at [Evals](/evals): o
 Releases of `whileai` before 0.3 were an unrelated encrypted agent-to-agent messaging client. Pin `whileai<0.3` if you still depend on it.
 </Note>
 
-Two ways in, one engine. Give it the agent's tools and system prompt and it samples situations across everything that agent can be asked. Give it graded traces as well (`traces=`, plain row dicts, see [Close the loop](/reference/what-to-run#close-the-loop-aim-the-budget-with-traces)) and it aims the budget at the situations that fail in production, so new rows land where the agent is weak. Every row is a full conversation: user turns, agent turns, tool calls, tool results, scheduled faults. Rows come back ungraded; your grader decides what good means. The default mode, `explore`, draws one unique situation per row. How it thinks: [Simulations](/simulations).
+Two ways in, one engine. Give it the agent's tools and system prompt and it samples situations across everything that agent can be asked. Give it graded traces as well (`traces=`, plain row dicts, see [Close the loop](/reference/what-to-run#close-the-loop-aim-the-budget-with-traces)) and it aims the budget at the situations that fail in production, so new rows land where the agent is weak. Every row is a full conversation: user turns, agent turns, tool calls, tool results, scheduled faults. Rows come back ungraded; your grader decides what good means. The default mode, `explore`, draws one unique situation per row. How it thinks: [How it works](/concepts/how-it-works).
 
 ## How a row gets made
 

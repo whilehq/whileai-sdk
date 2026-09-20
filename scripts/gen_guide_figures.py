@@ -47,6 +47,7 @@ MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 class Canvas:
     def __init__(self, h: int, p: dict, label: str):
         self.p = p
+        label = label.replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
         self.parts: list[str] = [
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {h}" width="{W}" '
             f'height="{h}" role="img" aria-label="{label}">',
@@ -558,6 +559,208 @@ def learn_two_scores(p):
     return c.render()
 
 
+def loop(p):
+    c = Canvas(
+        296,
+        p,
+        "The loop: simulate, grade, validate the judge, measure, select, guard, train and export; the new traces feed the next run",
+    )
+    w, h, gap = 160, 56, 16
+    r1 = row(
+        c,
+        36,
+        [
+            ("Simulate", 'simulate(mode="rl")', True),
+            ("Grade", "data.grade(judge=)", False),
+            ("Validate the judge", ["judge_trust", "judge_probes"], False),
+            ("Measure", "pass_at, delta_report", True),
+        ],
+        w=w,
+        h=h,
+        gap=gap,
+    )
+    c.path(
+        f"M {r1[3] + w / 2} 92 L {r1[3] + w / 2} 118 L {r1[0] + w / 2} 118 L {r1[0] + w / 2} 144"
+    )
+    w2, gap2 = 224, 8
+    r2 = row(
+        c,
+        146,
+        [
+            ("Select", 'scored.select(mode="rl")', True),
+            ("Guard", "decontaminate, hack_scan", False),
+            ("Train and export", "rows.export, platform.train", False),
+        ],
+        w=w2,
+        h=h,
+        gap=gap2,
+    )
+    c.path(
+        f"M {r2[2] + w2 / 2} 202 L {r2[2] + w2 / 2} 228 L 8 228 L 8 20 "
+        f"L {r1[0] + w / 2} 20 L {r1[0] + w / 2} 34",
+        green=True,
+        dashed=True,
+    )
+    c.text(
+        24,
+        250,
+        "serve it, then the new traces aim the next run: simulate(traces=)",
+        size=11.5,
+        color="green",
+    )
+    c.text(
+        16,
+        280,
+        "offline, no key: simulator=False, seeded_agent, a callable judge",
+        size=11.5,
+        fam=MONO,
+        color="body",
+    )
+    return c.render()
+
+
+def difficulty_band(p):
+    c = Canvas(
+        312,
+        p,
+        'Tasks by pass rate at k=8: select(mode="rl") keeps the 20 to 80 percent band and drops unanimous groups',
+    )
+    # tasks per pass rate 0/8 .. 8/8; illustrative counts, the shape most runs have
+    counts = [14, 5, 6, 8, 9, 8, 6, 4, 12]
+    ox, oy, cw, ch = 56, 216, 600, 150
+    bw = cw / 9
+    scale = ch / max(counts)
+
+    def xr(r):
+        return ox + (r * 8 + 0.5) * bw
+
+    c.parts.append(
+        f'<rect x="{xr(0.2):.1f}" y="{oy - ch - 16}" width="{xr(0.8) - xr(0.2):.1f}" '
+        f'height="{ch + 16}" fill="{p["tint"]}"/>'
+    )
+    for i, n in enumerate(counts):
+        x = ox + i * bw + 5
+        hh = n * scale
+        if i in (0, 8):
+            fill, stroke = p["line"], p["muted"]
+        elif i in (1, 7):
+            fill, stroke = p["warm_tint"], p["warm"]
+        else:
+            fill, stroke = p["green"], p["green"]
+        c.parts.append(
+            f'<rect x="{x:.1f}" y="{oy - hh:.1f}" width="{bw - 10:.1f}" height="{hh:.1f}" '
+            f'rx="2" fill="{fill}" stroke="{stroke}"/>'
+        )
+        c.text(
+            x + (bw - 10) / 2, oy + 16, f"{i}/8", size=11, fam=MONO, color="muted", anchor="middle"
+        )
+    c.parts.append(
+        f'<line x1="{ox}" y1="{oy}" x2="{ox + cw}" y2="{oy}" stroke="{p["line"]}" stroke-width="1"/>'
+    )
+    c.text(
+        ox + cw / 2,
+        oy + 34,
+        "pass rate per task, k=8 rollouts",
+        size=11.5,
+        color="muted",
+        anchor="middle",
+    )
+    c.text(ox - 8, oy - ch - 4, "tasks", size=11.5, color="muted", anchor="end")
+    c.text(
+        xr(0.5),
+        28,
+        "band 20%..80% pass rate: kept",
+        size=12,
+        fam=MONO,
+        color="green",
+        weight=600,
+        anchor="middle",
+    )
+    for i in (0, 8):
+        cx = ox + i * bw + bw / 2
+        c.text(cx, 44, "unanimous", size=10.5, color="muted", anchor="middle")
+        c.text(cx, 58, "dropped", size=10.5, color="muted", anchor="middle")
+    c.text(ox + 1.5 * bw, 148, "too hard", size=10.5, color="warm", anchor="middle")
+    c.text(ox + 1.5 * bw, 161, "dropped", size=10.5, color="warm", anchor="middle")
+    c.text(ox + 7.5 * bw, 152, "too easy", size=10.5, color="warm", anchor="middle")
+    c.text(ox + 7.5 * bw, 165, "dropped", size=10.5, color="warm", anchor="middle")
+    c.text(
+        16,
+        272,
+        'select(mode="rl"): a group that all passes or all fails carries no gradient, so it is dropped',
+        size=11.5,
+        color="body",
+    )
+    c.text(
+        16,
+        290,
+        "DIFFICULTY_BAND = (0.2, 0.8) in defaults.py; the counts are illustrative",
+        size=11.5,
+        fam=MONO,
+        color="muted",
+    )
+    return c.render()
+
+
+def three_sets(p):
+    c = Canvas(
+        284,
+        p,
+        "Train, holdout and eval as three sets: select writes train, the paired before and after runs on holdout, evaluate rows stay out of training, and decontaminate checks the overlap",
+    )
+    w, h, gap = 208, 72, 32
+    boxes = [
+        ("train", ['purpose="train"', 'select(mode="rl").export()'], True),
+        ("holdout", ['purpose="holdout"', "delta_report(before, after)"], False),
+        ("eval", ['purpose="eval"', 'lineage.source == "eval"'], False),
+    ]
+    xs = []
+    for i, (title, subs, hl) in enumerate(boxes):
+        x = 16 + i * (w + gap)
+        c.box(x, 40, w, h, title, subs, hl=hl, mono=True)
+        xs.append(x + w / 2)
+    c.path(f"M {xs[0]} 112 L {xs[0]} 150 L {xs[1]} 150 L {xs[1]} 116", green=True)
+    c.path(f"M {xs[0]} 150 L {xs[2]} 150 L {xs[2]} 116", green=True)
+    c.text(
+        xs[0] + 16,
+        172,
+        "decontaminate(train, against=[holdout, eval])",
+        size=12,
+        fam=MONO,
+        color="green",
+        weight=600,
+    )
+    c.text(
+        16,
+        200,
+        "drops a train row that shares a task id or the same normalised text with either set,",
+        size=11.5,
+        color="body",
+    )
+    c.text(
+        16,
+        216,
+        "80 percent of its 8-grams, or cosine at or above 0.85 with an embedder=",
+        size=11.5,
+        color="body",
+    )
+    c.text(
+        16,
+        244,
+        "eval_sourced: every selector warns before an evaluate() row reaches a training file",
+        size=11.5,
+        color="muted",
+    )
+    c.text(
+        16,
+        266,
+        "the number that counts is measured on holdout: tasks the model never trained on",
+        size=11.5,
+        color="muted",
+    )
+    return c.render()
+
+
 FIGURES = {
     "simulations-pipeline": simulations_pipeline,
     "engine-eight-steps": engine_eight_steps,
@@ -568,6 +771,9 @@ FIGURES = {
     "character-pipeline": character_pipeline,
     "distillation-paths": distillation_paths,
     "learn-two-scores": learn_two_scores,
+    "loop": loop,
+    "difficulty-band": difficulty_band,
+    "three-sets": three_sets,
 }
 
 

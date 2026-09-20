@@ -4,6 +4,8 @@ sidebarTitle: "Overview"
 description: "A scientific post-training library for language models: SFT and RL on open models, with the measurement that says whether training helped. Your models, your keys, your compute."
 ---
 
+**What you learn:** the loop, simulate to export, as one program. **Needs:** nothing. **Takes:** about twenty seconds on a laptop.
+
 `whileai` is a post-training library for language models: SFT and RL on
 open models, with the measurement that says whether training helped. The
 loop is simulate, grade, measure with intervals, select, train, prove on a
@@ -94,6 +96,9 @@ offline in under a minute, ending at the quickstart above.
 
 ## The loop
 
+<img className="block dark:hidden" src="/figures/loop-light.svg" alt="The loop as seven boxes: Simulate, Grade, Validate the judge, Measure, Select, Guard, Train and export, with a dashed return arrow from Train and export back to Simulate labelled simulate(traces=)" />
+<img className="hidden dark:block" src="/figures/loop-dark.svg" alt="The loop as seven boxes: Simulate, Grade, Validate the judge, Measure, Select, Guard, Train and export, with a dashed return arrow from Train and export back to Simulate labelled simulate(traces=)" />
+
 | Step | Call | What it computes |
 |---|---|---|
 | Simulate | `simulate(agent, tools=, system_prompt=, mode="rl", repeats=k)` | A covering array over tools, world state and user stance. k rollouts per prompt. Scheduled tool faults. |
@@ -113,8 +118,8 @@ generated from the package on each release, so they cannot drift.
 ## Guides
 
 <CardGroup cols={3}>
-  <Card title="Simulations" href="/simulations">
-    How the engine thinks and why.
+  <Card title="How it works" href="/concepts/how-it-works">
+    How the simulator thinks and why.
   </Card>
   <Card title="Character training" href="/character-training">
     A stable way of talking, in the weights.

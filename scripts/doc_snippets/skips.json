@@ -30,7 +30,7 @@
       "reason": "a no/yes contrast: the 'no' half is a deliberately bad call shape, not a program"
     },
     {
-      "page": "docs/simulations.md",
+      "page": "docs/concepts/how-it-works.mdx",
       "contains": "push_to=\"me/my-set\"",
       "reason": "uploads to the reader's own Hugging Face repo with their HF_TOKEN; huggingface_hub is an extra and no token is set here"
     },

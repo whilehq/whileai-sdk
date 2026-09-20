@@ -4,6 +4,8 @@ sidebarTitle: "Install"
 description: "Install whileai and check it works."
 ---
 
+**What you learn:** install the package, set the two kinds of key, and set up a repo for a coding agent. **Needs:** Python 3.10 to 3.13. **Takes:** a minute.
+
 ```bash
 uv add whileai
 ```
@@ -60,4 +62,14 @@ print(wai.settings)                                      # which model and key e
 ```
 
 Both keys can come from env vars instead: `WHILEAI_API_KEY`, `OPENAI_API_KEY`.
+`whileai login` saves the While key at `~/.whileai/credentials.json`;
+`WHILEAI_HOME=/some/fresh/dir` isolates a second account, and
+`whileai status` prints which key the SDK will use.
+
+**The trial.** `whileai signup --email you@example.com` makes an account
+with no browser. A fresh key gets 25,000 input and 50,000 output tokens a
+day, about twelve hosted situations of a four-tool agent; a run past that
+stops with `Hosted model daily quota exceeded`. `simulate(...,
+simulator=False)` writes situations offline with no quota, and one sign-in
+at the While site (the link `whileai status` prints) lifts the limit.
 Other backends: [connect your agent](/get-started/connect-your-agent).
