@@ -12,6 +12,12 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `export` takes `system_prompt=` and `tools=` for rows that came as a plain list, and
   warns when the written rows call tools with no schema or came from a run with a
   system prompt and carry none (#592).
+- `tracked.verdict(behavior)` resolves the candidate per behavior: the newest version scored on
+  that behavior that is not the served one, by the score's `createdAt`, so a replication on a second
+  held-out set no longer blanks the first set's verdict and re-scoring the served version demotes
+  nothing. `verdict(behavior, version=)` names the candidate; when a different run also beats the
+  served version on another behavior the line ends "moved, replicated on <behavior>". `delete_run`
+  given a version name says so and names the run id (#597).
 - `simulate(max_turns=1)` is now one user line and one reply. A reply holding a
   "?" used to earn a second user line written by the agent model itself, and the
   grader scored that second reply: on the text-to-SQL holdout 15% of Qwen3.5-9B rows
