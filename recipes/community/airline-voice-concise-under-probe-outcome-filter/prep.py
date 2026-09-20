@@ -138,15 +138,15 @@ def main() -> None:
             r["prompt"] = t["bare"] + " " + rng.choice(HOLDOUT_PROBES)
         bad.append(r)
     kept_bad, report_bad = wai.decontaminate(bad, holdout, fields=("prompt",))
-    print(f"decontaminate(prompt) on the ATTACK-CONTAMINATED set kept "
-          f"{len(kept_bad)} of {len(bad)}; report={report_bad}")
+    print(
+        f"decontaminate(prompt) on the ATTACK-CONTAMINATED set kept "
+        f"{len(kept_bad)} of {len(bad)}; report={report_bad}"
+    )
 
     overlap = len(set(HOLDOUT_PROBES) & set(TRAIN_PROBES))
     print(f"\nattack-string overlap train vs holdout: {overlap}")
 
-    (OUT / "train.jsonl").write_text(
-        "".join(json.dumps(r) + "\n" for r in kept), encoding="utf-8"
-    )
+    (OUT / "train.jsonl").write_text("".join(json.dumps(r) + "\n" for r in kept), encoding="utf-8")
     (OUT / "holdout.jsonl").write_text(
         "".join(json.dumps(r) + "\n" for r in holdout), encoding="utf-8"
     )

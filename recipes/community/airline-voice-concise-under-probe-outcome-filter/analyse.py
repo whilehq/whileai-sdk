@@ -23,7 +23,7 @@ import whileai as wai
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"
-TARGET = "pass_at_1"          # reward = concise_and_covered
+TARGET = "pass_at_1"  # reward = concise_and_covered
 PROXY = "marker:shaped_reward"
 
 CONCISE_WORDS = 120
@@ -63,8 +63,10 @@ def mean_reward(rows: list[dict]) -> float:
 
 def summarise(name: str, rows: list[dict]) -> dict:
     pa = wai.pass_at(rows)
+
     def m(k):
         return sum(r["markers"][k] for r in rows) / len(rows)
+
     return {
         "arm": name,
         "n_rows": len(rows),
@@ -99,7 +101,8 @@ def analyse(base_runs: list[list[dict]], arms: dict[str, list[dict]]) -> dict:
 
     def rep(before, after, label):
         r = wai.compare(
-            before, after,
+            before,
+            after,
             target=TARGET,
             proxy=PROXY,
             must_not_regress=["covered_all"],
@@ -122,6 +125,7 @@ def analyse(base_runs: list[list[dict]], arms: dict[str, list[dict]]) -> dict:
 
 def selftest() -> None:
     import random
+
     rng = random.Random(7)
 
     def mk(p: float, words: int, n_tasks: int = 40) -> list[dict]:
@@ -131,12 +135,17 @@ def selftest() -> None:
                 w = max(5, words + rng.randint(-25, 25))
                 cov = rng.random() < 0.92
                 good = cov and w <= CONCISE_WORDS and rng.random() < p
-                raw.append({
-                    "task_id": f"t{t}", "probe": t % 5 == 0, "words": w,
-                    "truncated": False, "covered_all": cov,
-                    "shaped_reward": (1.0 if cov else 0.0) - 0.3 * min(w / 120, 1),
-                    "reward": 1.0 if good else 0.0,
-                })
+                raw.append(
+                    {
+                        "task_id": f"t{t}",
+                        "probe": t % 5 == 0,
+                        "words": w,
+                        "truncated": False,
+                        "covered_all": cov,
+                        "shaped_reward": (1.0 if cov else 0.0) - 0.3 * min(w / 120, 1),
+                        "reward": 1.0 if good else 0.0,
+                    }
+                )
         return to_rows(raw)
 
     base_runs = [mk(0.9, 200), mk(0.9, 205), mk(0.9, 196)]

@@ -39,11 +39,13 @@ image = (
         "accelerate==1.8.1",
         "whileai",
     )
-    .env({
-        "HF_HOME": "/root/.cache/huggingface",
-        "TOKENIZERS_PARALLELISM": "false",
-        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
-    })
+    .env(
+        {
+            "HF_HOME": "/root/.cache/huggingface",
+            "TOKENIZERS_PARALLELISM": "false",
+            "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+        }
+    )
     .add_local_file(str(HERE / "reward.py"), "/root/reward.py")
     .add_local_file(str(HERE / "data" / "train.jsonl"), "/root/train.jsonl")
 )
@@ -71,14 +73,18 @@ def train(arm: str = "baseline", steps: int = 40, k: int = 4, seed: int = 11) ->
     import reward as R
 
     metric = {"baseline": "score", "method": "outcome"}[arm]
-    rows = [json.loads(ln) for ln in Path("/root/train.jsonl").read_text().splitlines() if ln.strip()]
+    rows = [
+        json.loads(ln) for ln in Path("/root/train.jsonl").read_text().splitlines() if ln.strip()
+    ]
     print(f"[{arm}] filter metric = {metric}; {len(rows)} train prompts", flush=True)
 
     tok = AutoTokenizer.from_pretrained(BASE_MODEL)
 
     def to_prompt(r: dict) -> str:
         return tok.apply_chat_template(
-            R.messages_for(r), tokenize=False, add_generation_prompt=True,
+            R.messages_for(r),
+            tokenize=False,
+            add_generation_prompt=True,
             enable_thinking=False,
         )
 
@@ -107,9 +113,7 @@ def train(arm: str = "baseline", steps: int = 40, k: int = 4, seed: int = 11) ->
             out = super()._generate_and_score_completions(inputs)
             adv = out.get("advantages")
             if adv is None:
-                raise RuntimeError(
-                    "TRL did not return 'advantages'; this trainer pins trl==0.19.1"
-                )
+                raise RuntimeError("TRL did not return 'advantages'; this trainer pins trl==0.19.1")
             n = adv.numel()
             if len(stash) != n:
                 raise RuntimeError(
@@ -149,9 +153,9 @@ def train(arm: str = "baseline", steps: int = 40, k: int = 4, seed: int = 11) ->
         max_prompt_length=2304,
         max_steps=steps,
         learning_rate=1e-5,
-        beta=0.0,                     # no KL: the filter is the only thing acting
+        beta=0.0,  # no KL: the filter is the only thing acting
         temperature=1.0,
-        num_iterations=1,             # on-policy
+        num_iterations=1,  # on-policy
         seed=seed,
         gradient_checkpointing=False,  # ON corrupts Qwen3 generation on this stack
         bf16=True,
@@ -166,9 +170,19 @@ def train(arm: str = "baseline", steps: int = 40, k: int = 4, seed: int = 11) ->
         args=cfg,
         train_dataset=ds,
         peft_config=LoraConfig(
-            r=32, lora_alpha=64, lora_dropout=0.0, task_type="CAUSAL_LM",
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                            "gate_proj", "up_proj", "down_proj"],
+            r=32,
+            lora_alpha=64,
+            lora_dropout=0.0,
+            task_type="CAUSAL_LM",
+            target_modules=[
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+            ],
         ),
     )
     trainer.train()

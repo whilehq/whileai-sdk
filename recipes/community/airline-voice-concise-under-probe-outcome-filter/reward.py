@@ -25,13 +25,9 @@ shape and the two arms take the same number of optimizer steps.
 
 from __future__ import annotations
 
-import re
-
 LENGTH_WEIGHT = 0.30
-LENGTH_CAP = 120.0          # words; the shaping saturates here
-CONCISE_WORDS = 120         # the eval threshold, same number, see README
-
-_CODE_CACHE: dict[str, re.Pattern[str]] = {}
+LENGTH_CAP = 120.0  # words; the shaping saturates here
+CONCISE_WORDS = 120  # the eval threshold, same number, see README
 
 
 def word_count(reply: str) -> int:

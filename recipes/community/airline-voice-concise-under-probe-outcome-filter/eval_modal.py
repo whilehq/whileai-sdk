@@ -68,13 +68,17 @@ def evaluate(
 
     import reward as R
 
-    rows = [json.loads(ln) for ln in Path("/root/holdout.jsonl").read_text().splitlines() if ln.strip()]
+    rows = [
+        json.loads(ln) for ln in Path("/root/holdout.jsonl").read_text().splitlines() if ln.strip()
+    ]
     tok = AutoTokenizer.from_pretrained(BASE_MODEL)
 
     def render(rs):
         return [
             tok.apply_chat_template(
-                R.messages_for(r), tokenize=False, add_generation_prompt=True,
+                R.messages_for(r),
+                tokenize=False,
+                add_generation_prompt=True,
                 enable_thinking=False,
             )
             for r in rs
@@ -99,7 +103,7 @@ def evaluate(
         model=BASE_MODEL,
         enable_lora=True,
         max_lora_rank=32,
-        max_model_len=4096,   # the policy prompt alone is ~1,700 tokens
+        max_model_len=4096,  # the policy prompt alone is ~1,700 tokens
         gpu_memory_utilization=0.85,
         dtype="bfloat16",
     )
@@ -128,17 +132,15 @@ def evaluate(
                         "truncated": truncated,
                         "covered_all": R.covered(text, row["required"]),
                         "shaped_reward": R.shaped_reward(text, row["required"]),
-                        "reward": R.concise_and_covered(
-                            text, row["required"], truncated=truncated
-                        ),
+                        "reward": R.concise_and_covered(text, row["required"], truncated=truncated),
                     }
                 )
         n = len(graded)
         print(
-            f"[{tag}] n={n} target={sum(g['reward'] for g in graded)/n:.3f} "
-            f"covered={sum(g['covered_all'] for g in graded)/n:.3f} "
-            f"words={sum(g['words'] for g in graded)/n:.0f} "
-            f"trunc={sum(g['truncated'] for g in graded)/n:.3f}",
+            f"[{tag}] n={n} target={sum(g['reward'] for g in graded) / n:.3f} "
+            f"covered={sum(g['covered_all'] for g in graded) / n:.3f} "
+            f"words={sum(g['words'] for g in graded) / n:.0f} "
+            f"trunc={sum(g['truncated'] for g in graded) / n:.3f}",
             flush=True,
         )
         return graded
@@ -164,9 +166,7 @@ def evaluate(
         written[arm] = len(g)
 
         # Fresh traffic at the same adapter, one sample per conversation.
-        f = run_once(
-            f"fresh_{arm}", seed=2000, lora=lora, which=(fresh, fresh_prompts), n=1
-        )
+        f = run_once(f"fresh_{arm}", seed=2000, lora=lora, which=(fresh, fresh_prompts), n=1)
         (out_dir / f"fresh_{arm}.jsonl").write_text("".join(json.dumps(r) + "\n" for r in f))
         written[f"fresh_{arm}"] = len(f)
 
@@ -186,6 +186,9 @@ def main(
     base_runs: int = 3,
     max_tokens: int = 768,
 ) -> None:
-    print(json.dumps(evaluate.remote(
-        arms=arms, samples=samples, base_runs=base_runs, max_tokens=max_tokens
-    ), indent=2))
+    print(
+        json.dumps(
+            evaluate.remote(arms=arms, samples=samples, base_runs=base_runs, max_tokens=max_tokens),
+            indent=2,
+        )
+    )

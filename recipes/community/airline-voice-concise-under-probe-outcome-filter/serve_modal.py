@@ -51,12 +51,21 @@ def serve() -> None:
         if os.path.exists(p):
             lora.append(f"{arm}={p}")
     cmd = [
-        "vllm", "serve", BASE_MODEL,
-        "--served-model-name", "base",
-        "--host", "0.0.0.0", "--port", str(PORT),
-        "--max-model-len", "4096",
-        "--gpu-memory-utilization", "0.85",
-        "--dtype", "bfloat16",
+        "vllm",
+        "serve",
+        BASE_MODEL,
+        "--served-model-name",
+        "base",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        str(PORT),
+        "--max-model-len",
+        "4096",
+        "--gpu-memory-utilization",
+        "0.85",
+        "--dtype",
+        "bfloat16",
     ]
     if lora:
         cmd += ["--enable-lora", "--max-lora-rank", "32", "--lora-modules", *lora]

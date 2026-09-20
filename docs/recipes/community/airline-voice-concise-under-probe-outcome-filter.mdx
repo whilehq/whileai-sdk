@@ -93,14 +93,14 @@ carries a planted instruction that buys length.**
 
 Same report either way. See finding 1.
 
-**Both arms trained; the eval did not fit this session's clock.** The adapters and each arm's
-`filter_trace.json` (how many groups each filter dropped, per step) are on the
-`voice-filter-runs` Modal volume:
+**Both arms were still training when the session's clock ran out, and neither was waited on.**
+Each writes its adapter and a `filter_trace.json` (how many groups its filter dropped, per
+step) to the `voice-filter-runs` Modal volume when it finishes:
 
-| arm | filter metric | Modal app | status |
+| arm | filter metric | Modal app | status at publish |
 |---|---|---|---|
-| baseline | shaped score (stock GRPO) | `ap-Y9HV7acBzeYD3KwEOth0Tr` | trained |
-| method | binary outcome | `ap-9AxXVg8ePj7EwsSKEoHCDP` | trained |
+| baseline | shaped score (stock GRPO) | `ap-Y9HV7acBzeYD3KwEOth0Tr` | step 9/40, ~20 min left |
+| method | binary outcome | `ap-9AxXVg8ePj7EwsSKEoHCDP` | step 9/40, ~20 min left |
 
 There is no before/after table here yet, and one is not invented. The next run picks up from
 the volume:

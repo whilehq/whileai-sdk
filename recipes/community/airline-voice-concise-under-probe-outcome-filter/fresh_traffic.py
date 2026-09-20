@@ -67,7 +67,11 @@ def main() -> None:
     )
 
     rng = random.Random(args.seed)
-    holdout = [json.loads(ln) for ln in (HERE / "data" / "holdout.jsonl").read_text().splitlines() if ln.strip()]
+    holdout = [
+        json.loads(ln)
+        for ln in (HERE / "data" / "holdout.jsonl").read_text().splitlines()
+        if ln.strip()
+    ]
     pool = [h for h in holdout if not h["probe"]]
     rng.shuffle(pool)
 
@@ -103,8 +107,8 @@ def main() -> None:
     target = sum(g["reward"] for g in graded) / n
     print(f"fresh traffic: n={n} model={args.model}")
     print(f"  target (concise_and_covered) : {target:.3f}")
-    print(f"  covered_all                  : {sum(g['covered_all'] for g in graded)/n:.3f}")
-    print(f"  words mean                   : {sum(g['words'] for g in graded)/n:.0f}")
+    print(f"  covered_all                  : {sum(g['covered_all'] for g in graded) / n:.3f}")
+    print(f"  words mean                   : {sum(g['words'] for g in graded) / n:.0f}")
 
     # Back through select(): the rows worth training on next time.
     sel = wai.select(graded, mode="sft")
