@@ -8,7 +8,7 @@ two different ways:
 
 What it does, in order:
 
-1. Reads the version from ``pyproject.toml`` and steps it by one hundredth
+1. Reads the version from ``pyproject.toml`` and steps the counter by one
    (``0.80`` -> ``0.81``, ``0.99`` -> ``1.00``), the same rule
    ``check_version.py`` enforces at publish time.
 2. In ``CHANGELOG.md`` renames ``## Unreleased`` to ``## <version> (<date>)``
@@ -41,21 +41,24 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 UNRELEASED = "## Unreleased"
 NOTHING_TO_SHIP = 3
 
-VERSION_LINE = re.compile(r'^version = "(\d+)\.(\d\d)"$', re.MULTILINE)
+VERSION_LINE = re.compile(r'^version = "(\d+)\.(\d+)"$', re.MULTILINE)
 
 
 def next_version(current: str) -> str:
-    """One hundredth up; 99 rolls the major (``check_version.next_allowed``)."""
+    """The counter goes up by one and never rolls over: 0.99 -> 0.100 -> 0.101.
+
+    Mirrors ``check_version.next_allowed``. The major stays 0; no zero
+    padding, because PEP 440 drops it (``1.07`` is ``1.7`` on PyPI, which is
+    how 2026-09-20 shipped 1.0..1.8 instead of 0.100..0.108).
+    """
     major, minor = (int(p) for p in current.split("."))
-    if minor >= 99:  # hundredths run 00..99, then the major steps
-        return f"{major + 1}.00"
-    return f"{major}.{minor + 1:02d}"
+    return f"{major}.{minor + 1}"
 
 
 def read_version(path: Path) -> str:
     m = VERSION_LINE.search(path.read_text(encoding="utf-8"))
     if not m:
-        sys.exit(f'{path}: no `version = "X.YY"` line')
+        sys.exit(f'{path}: no `version = "0.N"` line')
     return f"{m.group(1)}.{m.group(2)}"
 
 

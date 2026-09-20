@@ -5,20 +5,28 @@ anything else is a no-op for the release pipeline.
 
 ## The version scheme
 
-Versions are `MAJOR.MINOR` in hundredths and move exactly one step at a time.
+The version is `0.N`. N is a counter that goes up by one per release and
+never rolls over or resets.
 
 ```
-1.01 -> 1.02 -> 1.03 ... 1.98 -> 1.99 -> 2.00
+0.98 -> 0.99 -> 0.100 -> 0.101 -> ... -> 0.1000
 ```
 
-Skipping a version, moving backwards, adding a third component, or tagging a
-release candidate all fail the gate in `.github/scripts/check_version.py`.
+There is no 1.0. Skipping a number, moving backwards, adding a third
+component, zero-padding, or tagging a release candidate all fail the gate in
+`.github/scripts/check_version.py`, and `release.py` only ever cuts N+1.
 
-**PEP 440 strips leading zeros.** PyPI stores `1.01` as `1.1`, and the two are
-literally equal, so `pip install whileai==1.1` and `==1.01` fetch
-the same release. Ordering is unaffected (`1.10 > 1.9 > 1.2`), and from `1.10`
-onward the stored version matches what you typed. The gate compares normalized
-release tuples for this reason, so write either spelling.
+**PEP 440 strips leading zeros**, which is why the counter is never padded:
+a padded `1.07` is `1.7` on PyPI, and `0.100` sorts after `0.99` only because
+the counter is a whole number. Old spellings still resolve (`==0.4` is the
+`0.04` line in the changelog).
+
+**2026-09-20 mis-numbering.** The bump script rolled 0.99 over to 1.00 and
+padded, so PyPI got 1.0 and 1.3 to 1.8 (1.01 and 1.02 never uploaded). They
+were re-uploaded from the same commits as 0.100 to 0.108, yanked, and are
+listed in `MISNUMBERED` in the gate so the counter continues from 0.99.
+`pip install whileai` ignores a yanked release; a pin like `==1.8` still
+installs, and is the same code as `==0.108`.
 
 ## The old name
 

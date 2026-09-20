@@ -1,9 +1,15 @@
 # Changelog
 
-Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
-`pip install whileai==0.4` is the `0.04` line below.
+The version is `0.N` and N counts up by one per release, forever (`0.99`
+then `0.100`). PyPI drops leading zeros, so `pip install whileai==0.4` is the
+`0.04` line below. The 2026-09-20 uploads 1.0 and 1.3 to 1.8 were the 0.100
+to 0.108 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
+
+- Versioning: the counter never rolls over (`0.99` then `0.100`); `release.py` and the
+  publish gate enforce it, the 2026-09-20 uploads 1.0 and 1.3 to 1.8 are re-cut as 0.100 to
+  0.108 and yanked, and the constitution carries the rule as belief 10 (One counter).
 
 ## 1.09 (2026-09-20)
 
