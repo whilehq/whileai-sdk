@@ -22,6 +22,7 @@ import concurrent.futures
 import hashlib
 import json
 import logging
+import math
 import re
 import sys
 import threading
@@ -415,6 +416,9 @@ class Run:
         # Loop state the seed reservation reads; _init_loop_state resets both.
         self.prompt_rollouts: dict[str, int] = {}
         self.used: set[str] = set()
+        # prompt -> (id(meta), situation key): the key is a pure function
+        # of the prompt's meta, and every pool scan asked for it again
+        self._situation_key_cache: dict[str, tuple[int, str]] = {}
 
     # ------------------------------------------------------------ driver
 
@@ -1679,7 +1683,7 @@ class Run:
     @staticmethod
     def _mean_novelty(rows: list[dict]) -> float:
         vals = [float(r["novelty"]) for r in rows if r.get("novelty") is not None]
-        return sum(vals) / len(vals) if vals else 1.0
+        return math.fsum(vals) / len(vals) if vals else 1.0
 
     def _novelty_parents(self) -> list[dict]:
         """The failing rows the writer mutates from: the newest
@@ -1717,7 +1721,23 @@ class Run:
             gen.set_search_context(**ctx_kwargs)
         return bump
 
-    def _prompt_available(self, prompt: str) -> bool:
+    def _situation_key(self, prompt: str, meta: dict) -> str:
+        hit = self._situation_key_cache.get(prompt)
+        if hit is not None and hit[0] == id(meta):
+            return hit[1]
+        sk = _situation_key_from_meta(meta, prompt)
+        self._situation_key_cache[prompt] = (id(meta), sk)
+        return sk
+
+    def _prompt_available(
+        self, prompt: str, *, room: bool | None = None, waiting: int | None = None
+    ) -> bool:
+        """Whether a pool prompt may be scheduled now.
+
+        ``room`` and ``waiting`` are ``_room_for_a_new_ask()`` and
+        ``_seeds_waiting()``; a scan over the pool computes them once
+        and passes them in, since neither depends on the prompt.
+        """
         c = self.c
         if prompt in self.used or prompt in self.discarded:
             return False
@@ -1732,7 +1752,7 @@ class Run:
             # up front when it does.
             return True
         meta = self.generator.meta.get(prompt) or {}
-        sk = _situation_key_from_meta(meta, prompt)
+        sk = self._situation_key(prompt, meta)
         if self.explore_only:
             rid = str(meta.get("region_id") or "")
             if rid and rid in self.used_scenario_ids:
@@ -1740,14 +1760,18 @@ class Run:
             if sk and sk in self.used_situations:
                 return False
         elif sk:
-            if not self._room_for_a_new_ask():
+            if room is None:
+                room = self._room_for_a_new_ask()
+            if not room:
                 # Every row left is owed to a seed that has not gone out.
                 return False
             if (
                 c.n_situations_target
                 and not self.cap_lifted["lifted"]
                 and sk not in self.used_situations
-                and len(self.used_situations) + self._seeds_waiting() >= c.n_situations_target
+                and len(self.used_situations)
+                + (self._seeds_waiting() if waiting is None else waiting)
+                >= c.n_situations_target
             ):
                 return False
             if len(self.situation_prompts.get(sk, [])) >= c.n_req and prompt not in (
@@ -1757,7 +1781,10 @@ class Run:
         return True
 
     def _available(self) -> list[str]:
-        unused = [p for p in self.generated_pool if self._prompt_available(p)]
+        room, waiting = self._room_for_a_new_ask(), self._seeds_waiting()
+        unused = [
+            p for p in self.generated_pool if self._prompt_available(p, room=room, waiting=waiting)
+        ]
         if self.seed_prompts:
             seed_set = set(self.seed_prompts)
             unused.sort(key=lambda p: 0 if p in seed_set else 1)
@@ -1842,7 +1869,10 @@ class Run:
         data = self.data
         rows = data.trajectories
         now = time.monotonic()
-        unused_n = sum(1 for p in self.generated_pool if self._prompt_available(p))
+        room, waiting = self._room_for_a_new_ask(), self._seeds_waiting()
+        unused_n = sum(
+            1 for p in self.generated_pool if self._prompt_available(p, room=room, waiting=waiting)
+        )
         inflight_n = len(self.inflight)
         writers_n = len(self.scenario_futs)
         self._write_progress(

@@ -41,13 +41,20 @@ MODAL_EMBED_TIMEOUT_S = 20.0
 MODAL_PROBE_TIMEOUT_S = 1.5
 
 
+# Every float sum on the batch-selection path goes through ``math.fsum``,
+# never the builtin ``sum``. ``fsum`` is correctly rounded, so its result
+# is fixed by IEEE 754 alone; builtin ``sum`` of floats changed algorithm
+# in CPython 3.12 (compensated summation, gh-100425), and the last-ulp
+# differences flipped the sign of near-zero novelty scores and with it the
+# sort order that picks the batch. Same seed then drew different rows on
+# 3.11 and 3.12 (issue #410).
 def _normalize(vec: list[float]) -> list[float]:
-    norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+    norm = math.sqrt(math.fsum(x * x for x in vec)) or 1.0
     return [x / norm for x in vec]
 
 
 def _cos(a: list[float], b: list[float]) -> float:
-    return sum(x * y for x, y in zip(a, b))
+    return math.fsum(x * y for x, y in zip(a, b))
 
 
 def _hash_vector(text: str, dim: int = _DIM) -> list[float]:
@@ -300,8 +307,8 @@ def kmeans(
     while len(centers) < k:
         distances = []
         for vec in vectors:
-            distances.append(min(sum((a - b) ** 2 for a, b in zip(vec, c)) for c in centers))
-        total = sum(distances)
+            distances.append(min(math.fsum((a - b) ** 2 for a, b in zip(vec, c)) for c in centers))
+        total = math.fsum(distances)
         if total <= 0:
             centers.append(list(vectors[len(centers) % n]))
             continue
@@ -320,7 +327,7 @@ def kmeans(
         for vec in vectors:
             best, best_d = 0, None
             for ci, center in enumerate(centers):
-                d = sum((a - b) ** 2 for a, b in zip(vec, center))
+                d = math.fsum((a - b) ** 2 for a, b in zip(vec, center))
                 if best_d is None or d < best_d:
                     best, best_d = ci, d
             new_labels.append(best)
@@ -331,7 +338,7 @@ def kmeans(
             members = [vectors[i] for i, lab in enumerate(labels) if lab == cluster]
             if members:
                 centers[cluster] = [
-                    sum(row[j] for row in members) / len(members) for j in range(dim)
+                    math.fsum(row[j] for row in members) / len(members) for j in range(dim)
                 ]
     return labels, centers
 
@@ -342,7 +349,7 @@ def select_diverse(vectors: list[list[float]], k: int) -> list[int]:
     if not vectors:
         return []
     dim = len(vectors[0])
-    centroid = [sum(v[i] for v in vectors) / len(vectors) for i in range(dim)]
+    centroid = [math.fsum(v[i] for v in vectors) / len(vectors) for i in range(dim)]
     centroid = _normalize(centroid)
     first = min(range(len(vectors)), key=lambda i: _cos(vectors[i], centroid))
     chosen = [first]

@@ -39,7 +39,7 @@ eval set never enters training [5, 6].
    about it. The attack arrives as a tool result.
 3. **Simulate with repeats.** The suite goes in as `seeds=`. `mode="rl",
    repeats=k, repeat_policy="fixed"` rolls every ask `k` times;
-   `reproducible=True` pins the draw; `simulator=False` needs no key.
+   `reproducible=True` pins the draw on any CPython version; `simulator=False` needs no key.
 4. **Judge from the trajectory.** One marker per exit (the reply, an
    outbound message, a write), read from `steps` and `final_text`, 1.0 when
    the agent held; `helpful_on_benign` on the controls. Reward is 1 only
