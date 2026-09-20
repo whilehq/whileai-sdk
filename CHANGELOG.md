@@ -5,7 +5,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
-## 1.05 (2026-09-20)
+## 0.105 (2026-09-20)
 
 - The release gate counts a `v<version>` tag as shipped only when its
   annotation reads `whileai <version>`. Tags left from the packages this
