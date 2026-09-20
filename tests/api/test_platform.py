@@ -28,6 +28,14 @@ from whileai.platform import (
 )
 
 
+BRIEF_GETS = ("/agents/a/behaviors", "/runs?agent=a", "/agents/a/dashboard")
+
+
+def without_brief(calls):
+    """finish() ends by reading the brief (three GETs); the calls before it."""
+    return [c for c in calls if not (c[0] == "GET" and c[1].startswith(BRIEF_GETS))]
+
+
 class Fake:
     """Records every call; answers like the API."""
 
@@ -309,7 +317,7 @@ def test_score_and_finish(caplog):
     run.finish(hours=2.1, gpu="1xH100", cost_usd=31)
     assert run.status == "evaluated"
     assert fake.paths("POST")[-1] == "/runs/run_abc/train"  # flushed before the PATCH
-    method, path, body = fake.calls[-1]
+    method, path, body = without_brief(fake.calls)[-1]
     assert (method, path) == ("PATCH", "/runs/run_abc")
     assert body == {
         "status": "evaluated",
@@ -826,11 +834,11 @@ def test_open_then_finish_sends_get_then_patch_and_no_post():
     t = track("a", transport=fake)
     run = t.open("run_7f3a")
     run.finish(hours=2.1, cost_usd=31, record={"data": {"train": "refunds-grpo", "n_train": 1024}})
-    assert [(m, p) for m, p, _ in fake.calls[1:]] == [
+    assert [(m, p) for m, p, _ in without_brief(fake.calls[1:])] == [
         ("GET", "/runs/run_7f3a"),
         ("PATCH", "/runs/run_7f3a"),
     ]
-    _, _, body = fake.calls[-1]
+    _, _, body = without_brief(fake.calls)[-1]
     assert body["hours"] == 2.1 and body["costUsd"] == 31
     assert body["record"] == {"data": {"train": "refunds-grpo", "nTrain": 1024}}
     assert body["steps"] == 300
