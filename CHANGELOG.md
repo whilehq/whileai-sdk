@@ -54,6 +54,19 @@ to 0.109 releases under the wrong numbers; they are yanked.
   that does not say what it changed, a test with no rubric, a score with no graded rows, a
   version named by its settings, each with the call that posts it (`Brief.readable`). The
   same rules draw the "what your coding agent still owes" list on the experiment page.
+- `eval_variance(...)["noise_band"]` is now the band `compare(run_std=, run_std_runs=)` applies:
+  the two-sided t quantile at `noise_band_df` = runs - 1 times sqrt(2) times `run_std` (4.30 from
+  three re-runs, not 1.96, which let about one pure-noise delta in five through); the new
+  `noise_band_df` key says the df, `platform.noise_floor` reads the band off the report, and
+  `recipes/papers/check.py` imports the package's `noise_band` instead of carrying a copy (#616).
+- `compare` / `delta_report` take `train_runs=`, the rows of every independent training seed
+  per arm: the headline interval widens by the between-seed spread (each arm's `std**2 /
+  n_seeds`, t at `sum(n - 1)` df; Lambert 2025, chapter Evaluation; Miller 2024,
+  arXiv:2411.00640) and the printed line shows the arithmetic; "moved" needs `MIN_TRAIN_SEEDS`
+  (2) seeds on every trained arm, and one seed per arm reads `unresolved` with the line "one
+  training seed per arm; add a seed to resolve". `recipes/papers/check.py` applies the rule
+  (`checks.train_seeds`, verdicts `moved` / `flat` / `unresolved`), so every one-seed paper
+  recipe now reads `unresolved` with its numbers unchanged (#356).
 
 ## 0.109 (2026-09-20)
 

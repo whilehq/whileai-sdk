@@ -54,8 +54,9 @@ def test_provenance_names_the_imported_package() -> None:
 def _entrypoints() -> list[Path]:
     """Recipe scripts a reader runs that use the SDK on the local side: a
     top-level ``whileai`` import, or a Modal image that mounts the local
-    ``whileai`` (``add_local_python_source``). ``papers/check.py`` is stdlib
-    on purpose, so it runs before the package is installed."""
+    ``whileai`` (``add_local_python_source``). ``papers/check.py`` counts
+    too: since #616 it imports the package's ``noise_band`` from the
+    checkout instead of carrying a copy, so it says which one it used."""
     out: list[Path] = []
     for path in sorted(RECIPES.rglob("*.py")):
         text = path.read_text(encoding="utf-8")

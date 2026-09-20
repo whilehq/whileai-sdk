@@ -817,13 +817,22 @@ def main() -> None:
             target="pass_at_1",
             run_std=run_std,
             run_std_runs=int(checks.get("run_std_runs") or EVAL_RUNS),
+            # one training seed per arm: the report says unresolved (#356)
+            train_runs={"before": [arm_rows["baseline"]], "after": [arm_rows["recipe"]]},
             proxy=PROXY,
         )
         results["delta"] = {
             "recipe_vs_baseline": d["target_delta"],
             "ci": list(d["target_ci95"] or (0.0, 0.0)),
-            "verdict": "moved" if d["target_verdict"] == "moved" else "flat",
+            "verdict": (
+                "unresolved"
+                if d["target_verdict"] == "unresolved"
+                else "moved"
+                if d["target_verdict"] == "moved"
+                else "flat"
+            ),
         }
+        checks["train_seeds"] = {"baseline": 1, "recipe": 1}
         checks["over_optimized"] = bool(d.get("over_optimized"))
         results["verified"] = date.today().isoformat()
         results.pop("partial_run", None)

@@ -34,7 +34,7 @@ Run 2026-09-18, both arms, one H100, 46.2 GPU minutes, $3.08.
 | Baseline (strict boxed reward, -1 without a box) | 0.63 | [0.57, 0.68] | 0.80 | 30 | 26.4 |
 | Recipe (correctness only) | 0.72 | [0.66, 0.77] | 0.88 | 30 | 19.8 |
 
-Recipe vs baseline: **+0.094 [+0.052, +0.139]** over 160 paired tasks. Verdict: **moved**. The interval excludes zero and the delta is above the 0.067 noise band the three base re-runs set.
+Recipe vs baseline: **+0.094 [+0.052, +0.139]** over 160 paired tasks. Verdict: **unresolved**. One training seed per arm; a second seed on each arm, passed as `train_runs=`, would resolve it to moved or flat. The interval excludes zero and the delta is above the 0.067 noise band the three base re-runs set, and both of those measure the eval, not the training.
 
 Both arms beat the base. The strict arm gained 12 points in 30 steps, the lenient arm 21. The paper's finding is the gap between them, and the gap survives its own noise floor.
 

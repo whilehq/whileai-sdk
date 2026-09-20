@@ -1922,12 +1922,7 @@ class Tracked:
         (``test_version``, ``n``, ``judge``) are kept.
         """
         from .simulations.defaults import MIN_RERUNS
-        from .simulations.score.stats import (
-            POINTS_PER_UNIT,
-            _t_quantile,
-            eval_variance,
-            noise_band,
-        )
+        from .simulations.score.stats import POINTS_PER_UNIT, _t_quantile, eval_variance
 
         if len(reruns) < 2:  # a spread needs a pair of runs
             raise ValueError(
@@ -1952,9 +1947,11 @@ class Tracked:
                 runs,
                 MIN_RERUNS,
             )
-        df = runs - 1
+        # ``eval_variance`` already carries the t-corrected band at
+        # ``noise_band_df`` = runs - 1 (#616); the floor is that in points.
+        df = int(report["noise_band_df"])
         t = _t_quantile(df)
-        floor = round(noise_band(run_std, df=df) * POINTS_PER_UNIT, 2)
+        floor = round(float(report["noise_band"]) * POINTS_PER_UNIT, 2)
         if isinstance(behavior, Behavior):
             item = behavior
         else:

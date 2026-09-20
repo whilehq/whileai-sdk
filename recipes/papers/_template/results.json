@@ -8,18 +8,56 @@
   "n_holdout": 0,
   "k": 4,
   "arms": {
-    "base": {"score": 0.0, "ci": [0.0, 0.0], "steps": 0, "gpu_minutes": 0},
-    "baseline": {"score": 0.0, "ci": [0.0, 0.0], "steps": 0, "gpu_minutes": 0},
-    "recipe": {"score": 0.0, "ci": [0.0, 0.0], "steps": 0, "gpu_minutes": 0}
+    "base": {
+      "score": 0.0,
+      "ci": [
+        0.0,
+        0.0
+      ],
+      "steps": 0,
+      "gpu_minutes": 0
+    },
+    "baseline": {
+      "score": 0.0,
+      "ci": [
+        0.0,
+        0.0
+      ],
+      "steps": 0,
+      "gpu_minutes": 0
+    },
+    "recipe": {
+      "score": 0.0,
+      "ci": [
+        0.0,
+        0.0
+      ],
+      "steps": 0,
+      "gpu_minutes": 0
+    }
   },
-  "delta": {"recipe_vs_baseline": 0.0, "ci": [0.0, 0.0], "verdict": "flat"},
+  "delta": {
+    "recipe_vs_baseline": 0.0,
+    "ci": [
+      0.0,
+      0.0
+    ],
+    "verdict": "unresolved"
+  },
   "checks": {
     "run_std": 0.0,
     "run_std_runs": 3,
+    "train_seeds": {
+      "baseline": 1,
+      "recipe": 1
+    },
     "decontaminated_dropped": 0,
     "over_optimized": false,
     "length_before": 0.0,
-    "length_after": {"baseline": 0.0, "recipe": 0.0},
+    "length_after": {
+      "baseline": 0.0,
+      "recipe": 0.0
+    },
     "hack_scan_top": "",
     "seed": 0
   },
