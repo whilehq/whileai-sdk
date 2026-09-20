@@ -1,13 +1,15 @@
 """Gate the release version before anything is published.
 
-House rule: versions move in hundredths and only ever by one step.
+House rule: the version is ``0.N`` and N goes up by one per release, forever.
 
-    1.01 -> 1.02 -> 1.03 ... 1.99 -> 2.00
+    0.98 -> 0.99 -> 0.100 -> 0.101 -> ...
 
-PEP 440 strips leading zeros, so PyPI stores "1.01" as "1.1" and treats the two
-as equal. Ordering still behaves (1.10 > 1.9 > 1.2), so the scheme works, but
-the rule is enforced on the normalized release tuple rather than the string:
-(1, 1) -> (1, 2) -> ... -> (1, 99) -> (2, 0).
+It never rolls over to 1.0 and is never zero-padded. PEP 440 drops leading
+zeros, so a padded "1.07" is "1.7" on PyPI; that is how 2026-09-20 shipped
+1.0 and 1.3..1.8 instead of 0.100..0.108 (1.01 and 1.02 never uploaded: old
+tags v1.1 and v1.2 made the gate skip them). Those releases are yanked and
+listed in ``MISNUMBERED`` so the counter continues from 0.99. The rule is
+enforced on the normalized release tuple: (0, 99) -> (0, 100) -> (0, 101).
 
 Exit codes:
   0  version is a valid single step, publish
@@ -32,6 +34,12 @@ PYPI = "https://pypi.org/pypi/{name}/json"
 # for many minutes.
 PYPI_RELEASE = "https://pypi.org/pypi/{name}/{version}/json"
 
+# Uploaded on 2026-09-20 under the wrong numbers (the counter rolled 0.99 over
+# to 1.00 and PEP 440 dropped the zero padding). Re-uploaded as 0.100..0.108
+# and yanked on PyPI; neither a yanked release nor one of these counts as the
+# latest, or the counter could never continue past 0.99.
+MISNUMBERED = {(1, 0), (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8)}
+
 
 def local_version(path: str = "pyproject.toml") -> tuple[str, str]:
     with open(path, "rb") as fh:
@@ -55,14 +63,17 @@ def published(name: str) -> list[tuple[int, ...]]:
     from packaging.version import InvalidVersion, Version
 
     out = []
-    for raw in data.get("releases", {}):
+    for raw, files in data.get("releases", {}).items():
         try:
             release = Version(raw).release
         except InvalidVersion:
             continue
         # A name-reservation upload (0.0.1) is not part of the scheme.
-        if len(release) == 2:
-            out.append(release)
+        if len(release) != 2 or release in MISNUMBERED:
+            continue
+        if files and all(f.get("yanked") for f in files):
+            continue
+        out.append(release)
     return sorted(out)
 
 
@@ -94,12 +105,41 @@ def tagged(version: str) -> bool:
     )
     if proc.returncode not in (0, 2):
         print(f"git ls-remote failed ({proc.returncode}): {proc.stderr.strip()[:200]}")
-    return proc.returncode == 0
+    if proc.returncode != 0:
+        return False
+    # The tag must be one of ours. This repository carries tags from the
+    # packages it was before the rename (their annotations name the old
+    # package), and on 2026-09-20 two of those, ``v1.1`` and ``v1.2``, made
+    # the gate skip 1.01 and 1.02 as "already published" when PyPI had
+    # neither. A whileai release tag is annotated ``whileai <version>``;
+    # anything else is not a release.
+    subprocess.run(
+        [
+            "git",
+            "fetch",
+            "--quiet",
+            "--no-tags",
+            "origin",
+            f"refs/tags/v{version}:refs/tags/v{version}",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    subject = subprocess.run(
+        ["git", "for-each-ref", "--format=%(subject)", f"refs/tags/v{version}"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if not subject.startswith("whileai "):
+        print(f"tag v{version} exists but is not a whileai release ({subject!r}); ignoring it")
+        return False
+    return True
 
 
 def next_allowed(prev: tuple[int, ...]) -> tuple[int, ...]:
+    """The counter goes up by one; it never rolls the major (0.99 -> 0.100)."""
     major, minor = prev[0], (prev[1] if len(prev) > 1 else 0)
-    return (major + 1, 0) if minor >= 99 else (major, minor + 1)
+    return (major, minor + 1)
 
 
 def fail(msg: str) -> None:
@@ -119,7 +159,7 @@ def main() -> int:
 
     if len(current.release) != 2:
         fail(
-            f"version must be MAJOR.MINOR in hundredths (e.g. 1.02), got {version!r}. "
+            f"version must be 0.N with one counter (e.g. 0.102), got {version!r}. "
             f"Three-part versions are not part of this scheme."
         )
     if current.pre or current.post or current.dev or current.local:
@@ -134,7 +174,7 @@ def main() -> int:
     if not prior:
         # First release. Anything sane is fine; require it to start at x.1 or x.0.
         if current.release[1] not in (0, 1):
-            fail(f"first release should be x.00 or x.01, got {version!r}")
+            fail(f"first release should be 0.0 or 0.1, got {version!r}")
         print(f"::notice::first release of {name} {current}")
         return emit(publish=True, version=str(current))
 
@@ -166,7 +206,7 @@ def main() -> int:
     allowed = next_allowed(latest)
     if current.release != allowed:
         fail(
-            f"version must step by exactly one hundredth. "
+            f"version must step the counter by exactly one (0.99 then 0.100). "
             f"published {'.'.join(map(str, latest))}, "
             f"expected {'.'.join(map(str, allowed))}, got {current}"
         )
