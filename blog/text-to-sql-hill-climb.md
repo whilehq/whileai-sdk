@@ -15,7 +15,7 @@ keywords:
 tags: [text-to-sql, rl, verifiers, checkpoints]
 reading_time: 8 min
 code: https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/text-to-sql
-data: https://huggingface.co/datasets/zero-proof-ai/text-to-sql-shop
+data: https://huggingface.co/datasets/while-ai/text-to-sql-shop
 ---
 
 # Teaching a Small Model to Write SQL for Your Database, and Checking Whether It Worked
@@ -32,7 +32,7 @@ the fifth round went from 53% to 74% on a bigger test of 459 unseen
 questions, with the band nowhere near zero. The whole story is below, in
 order, including the four rounds that did not work. All the data and every
 trained checkpoint are public on Hugging Face at
-[`zero-proof-ai/text-to-sql-shop`](https://huggingface.co/datasets/zero-proof-ai/text-to-sql-shop),
+[`while-ai/text-to-sql-shop`](https://huggingface.co/datasets/while-ai/text-to-sql-shop),
 and the code is a recipe in the open-source
 [whileai SDK](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/text-to-sql).
 
@@ -105,7 +105,7 @@ the uncertainty band to about six points.
 
 Each checkpoint's 560 test replies are a separate config in the Hugging Face
 dataset (`eval-base`, `eval-r1`, and so on), and each trained checkpoint is
-a model repo (`zero-proof-ai/text-to-sql-shop-r3` and so on), so every
+a model repo (`while-ai/text-to-sql-shop-r3` and so on), so every
 number in this table can be recomputed by anyone.
 
 ## What we learned
