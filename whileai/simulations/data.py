@@ -589,8 +589,6 @@ class SimulationData:
         unanimous = degenerate_note(self.trajectories)
         if unanimous:
             log.warning(unanimous)
-            if unanimous not in self.warnings:
-                self.warnings.append(unanimous)
         self._rewrite(path)
         return self
 

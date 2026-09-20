@@ -1,8 +1,9 @@
-"""A reward that scores every row the same says so: on the pass_at line, in
-the graded run's warnings, and through the log. A confident
-``pass@1 0.00 [0.00..0.00]`` on a tool-calling agent is believable, and it
-sent a researcher to the agent when the checker was reading the wrong tool
-call shape (#594)."""
+"""A reward that scores every row the same says so: on the pass_at line and
+through the log. A confident ``pass@1 0.00 [0.00..0.00]`` on a tool-calling
+agent is believable, and it sent a researcher to the agent when the checker
+was reading the wrong tool call shape (#594). The sentence stays out of
+``scored.warnings``: the eval gates read that list as "hollow, do not
+evaluate", and a small run a careful agent passes outright is not hollow."""
 
 from __future__ import annotations
 
@@ -45,34 +46,30 @@ def test_mixed_rewards_do_not_warn():
     rates = wai.pass_at(_rows([1, 0, 1, 1] * 4))
     assert SENTENCE not in rates.note
     assert SENTENCE not in str(rates)
-    assert sim.coverage_warnings(_rows([1, 0, 1, 1] * 4)) == []
     assert degenerate_note(_rows([1, 0])) == ""
     # one graded row cannot be unanimous, and ungraded rows are not counted
     assert degenerate_note(_rows([0])) == ""
     assert degenerate_note([{"task_id": "a"}, {"task_id": "b"}]) == ""
 
 
-def test_coverage_warnings_name_a_unanimous_run():
-    notes = sim.coverage_warnings(_rows([0] * 4))
-    assert notes == ["every row scored 0 (4 of 4); " + SENTENCE]
-    notes = sim.coverage_warnings(_rows([1.0] * 4))
-    assert notes == ["every row scored 1 (4 of 4); " + SENTENCE]
+def test_the_note_stays_out_of_the_hollow_list():
+    assert sim.coverage_warnings(_rows([0] * 4)) == []
+    assert sim.coverage_warnings(_rows([1.0] * 4)) == []
 
 
-def test_grade_judge_path_warns_and_does_not_raise(caplog):
+def test_grade_judge_path_logs_and_does_not_raise(caplog):
     data = simulate_offline(budget=8)
     with caplog.at_level(logging.WARNING, logger="whileai.simulations"):
         scored = data.grade(judge=lambda row: 0.0)
-    assert any(SENTENCE in note for note in scored.warnings)
     assert any(SENTENCE in rec.getMessage() for rec in caplog.records)
     assert SENTENCE in str(wai.pass_at(scored.rows))
+    assert not any(SENTENCE in note for note in scored.warnings)
 
 
-def test_grade_grader_path_warns_and_does_not_raise(caplog):
+def test_grade_grader_path_logs_and_does_not_raise(caplog):
     data = simulate_offline(budget=8)
     with caplog.at_level(logging.WARNING, logger="whileai.simulations"):
         data.grade(lambda row: 1.0)
-    assert any(SENTENCE in note for note in data.warnings)
     assert any(SENTENCE in rec.getMessage() for rec in caplog.records)
     assert "every row scored 1" in str(data.pass_at)
 
@@ -82,5 +79,5 @@ def test_grade_with_a_reward_that_varies_stays_quiet(caplog):
     with caplog.at_level(logging.WARNING, logger="whileai.simulations"):
         scored = data.grade(judge=lambda row: float(len(row.get("steps") or []) > 1))
     assert {r["reward"] for r in scored.rows} == {0.0, 1.0}
-    assert not any(SENTENCE in note for note in scored.warnings)
     assert not any(SENTENCE in rec.getMessage() for rec in caplog.records)
+    assert SENTENCE not in str(wai.pass_at(scored.rows))

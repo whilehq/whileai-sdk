@@ -354,9 +354,7 @@ def coverage_warnings(
     is, because it reads as a result. A run can be hollow in part, too:
     rows that called no tool score on the reply alone and lift the pass
     rate of the rows that did the work, so they get their own note once
-    there are two of them (or a tenth of the run). A run where every
-    graded row scored the same value gets a note too: that number is
-    about the checker, not the agent. ``run_judge`` (so ``evaluate`` and
+    there are two of them (or a tenth of the run). ``run_judge`` (so ``evaluate`` and
     ``data.grade``) attaches these to ``ScoredData.warnings`` and logs
     them once. ``tools=`` is the declared tool list (OpenAI or bare shape,
     or just names); ``evaluate(data, judge)`` and ``data.grade`` read it
@@ -426,15 +424,6 @@ def coverage_warnings(
                 f"marker {name!r} fired on 0 of {n} rows; its rate is not a measurement. "
                 "Add a seed ask that exercises it, or drop it from the report."
             )
-    # Every row scoring the same value is the cheapest checker check there
-    # is, and a uniform 0 on a tool-calling agent is believable enough to
-    # be read as the agent's fault (#594). Lazy: passat groups through
-    # optimize, which this module imports.
-    from .passat import degenerate_note
-
-    unanimous = degenerate_note(row_list)
-    if unanimous:
-        out.append(unanimous)
     return out
 
 
