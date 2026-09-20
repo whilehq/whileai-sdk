@@ -369,7 +369,7 @@ def detect(target: Any) -> str:
     raise ValueError(
         f"cannot detect a transport for {type(target).__name__}; agent= takes a callable "
         "(message -> trajectory), an http(s) URL, a backend object such as "
-        "wai.OpenAI('gpt-4.1-mini'), a spec string such as 'openai:gpt-4.1-mini', a "
+        "OpenAI(model), a provider:model spec string, a "
         "LangChain, LangGraph, OpenAI Agents or Claude SDK agent, or a subprocess "
         "command list; leave it unset to play tools= and system_prompt= on the "
         "configured or hosted model."
