@@ -1,8 +1,8 @@
 """A model-written prompt set for the refund environment.
 
-The offline template writer in ``reward.build_prompts`` gives about seventy
-distinct prompts from four hundred situations, so the holdout is fifteen
-prompts and every pass@1 interval is a quarter wide. This module is the
+The offline template writer in ``reward.build_prompts`` gives 117
+distinct prompts at the default 200 situations and seed 0, so the holdout
+is 25 prompts and every pass@1 interval is about a quarter wide. This module is the
 model writer: for each template seed, an instruct model writes several
 customer messages in the same situation (different tone, length, detail,
 kind of customer), the rule's ``case_for`` checks each one still belongs

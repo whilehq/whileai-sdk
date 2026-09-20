@@ -105,6 +105,39 @@ def test_build_prompts_offline_and_split():
     assert r.split_holdout(items, 0.25) == (train, held)  # deterministic
 
 
+def test_same_seed_writes_the_same_prompt_and_holdout_files(tmp_path):
+    """whilehq/whileai-sdk#450: two runs at ``--seed 0`` got 112 and 119
+    prompts and two different holdouts, so their before/after numbers were
+    not paired. The data step is the offline call ``train_modal.main``
+    makes at its defaults (200 situations, 20% held out); one seed writes
+    byte-identical prompt, train and holdout files twice over, and another
+    seed writes different ones. The counts are the README's."""
+    r, _ = _modules()
+
+    def write(seed: int, tag: str) -> dict[str, bytes]:
+        items = r.build_prompts(200, seed=seed)
+        train, held = r.split_holdout(items, 0.2)
+        out: dict[str, bytes] = {}
+        for name, rows in (("prompts", items), ("train", train), ("holdout", held)):
+            path = tmp_path / f"{name}-{tag}.jsonl"
+            path.write_text("".join(json.dumps(x) + "\n" for x in rows), encoding="utf-8")
+            out[name] = path.read_bytes()
+        out["counts"] = f"{len(items)} {len(train)} {len(held)}".encode()
+        return out
+
+    a = write(0, "a")
+    b = write(0, "b")
+    assert a == b
+    assert a["counts"] == b"117 92 25"
+    text = README.read_text(encoding="utf-8")
+    assert (
+        "builds the same 117\nprompts (91 name an order id), the same 92 train and the same 25 holdout"
+        in text
+    )
+    c = write(1, "c")
+    assert c["prompts"] != a["prompts"] and c["holdout"] != a["holdout"]
+
+
 # --------------------------------------------------- model-written prompts
 
 
