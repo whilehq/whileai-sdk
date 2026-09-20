@@ -16,6 +16,10 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   The per-call `timeout` default is `max(300, agent_max_tokens / 4)` seconds
   (`TIMEOUT_TOKENS_PER_SECOND` in defaults.py) instead of a flat 300 s, so a 4,096-token reply
   budget gets 1,024 s.
+- `tracked.open(run_id)` binds a `Run` to a run that already exists (GET, never POST), so a
+  coding agent can backfill the record, hours, cost, a score or a note from any later session with
+  the same `finish` / `score` / `note` / `archive` calls; the Runs page's "missing" list is what it
+  fills. An unknown id raises `PlatformError(404)` naming `tracked.runs()`. Closes #514.
 - `tracked.noise_floor(behavior, *reruns)` (#485): the row lists of two or more re-runs of the same
   eval on the same version go through `eval_variance`, the floor is t(df=runs-1) x run_std x sqrt(2)
   in points (the rule `delta_report(run_std=, run_std_runs=)` and recipes/papers/README.md already

@@ -79,20 +79,19 @@ A 2,400-row `simulate(tasks=...)` through a served model is hours of work, and t
 - **A call timeout sized to the reply.** `timeout=` unset is `max(300, agent_max_tokens / 4)` seconds: 300 s, or the reply budget at 4 tokens a second per request, whichever is longer. A reasoning model that writes 4,096 tokens gets 1,024 s, not the flat 300 s that re-rolled every long reply. Set it yourself when you know the server: `timeout >= agent_max_tokens / tokens-per-second-per-request`.
 
 ```python
-import logging
-
-logging.basicConfig(level=logging.INFO)  # or leave it: the line goes to stderr
-data = wai.simulate(
-    "vllm:Qwen/Qwen3.5-9B@http://localhost:8000/v1",
-    tasks="tasks.jsonl",
+# the same call on a served model: agent="vllm:Qwen/Qwen3.5-9B@http://host:8000/v1",
+# agent_max_tokens=4096, and the progress line on the whileai.simulations logger
+rerun = wai.simulate(
+    wai.seeded_agent(TOOLS),
+    tools=TOOLS,
+    system_prompt=POLICY,
+    simulator=False,
+    tasks=data,
     repeats=4,
-    agent_max_tokens=4096,
-    checkpoint="rows.jsonl",  # rows land here as they finish
+    checkpoint="rows.jsonl",  # rows land here as they finish; call again to resume
     on_progress=lambda p: print(p["rows"], p["rerolled"], p["lost_by"]),
 )
-data.search[
-    "rollouts"
-]  # {"landed": ..., "resumed": ..., "rerolled_by": {...}, "lost_by": {...}, "timed_out": ...}
+print(rerun.search["rollouts"])  # landed, resumed, rerolled_by, lost_by, timed_out
 ```
 
 ## Engine internals

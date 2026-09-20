@@ -80,7 +80,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic.alias_generators import to_camel
 
 from whileai._env import getenv
@@ -1294,6 +1294,66 @@ class Tracked:
         out unless ``archived=True``; each row then carries ``archived``."""
         rows = list(self._call("GET", f"/runs?agent={self.id}").get("runs") or [])
         return rows if archived else [r for r in rows if not r.get("archived")]
+
+    def open(
+        self,
+        run_id: str,
+        *,
+        flush_every: int = FLUSH_EVERY,
+        flush_seconds: float = FLUSH_SECONDS,
+    ) -> Run:
+        """Bind a ``Run`` to a run that already exists, from any later
+        session. One GET, no POST: ``finish(record=, hours=, cost_usd=)``,
+        ``note``, ``score`` and ``archive`` then PATCH the same row a run
+        opened here would, so the Runs page's "missing" list (record, score,
+        hours + cost) can be filled by a coding agent that did not train
+        the run. ``tracked.run(...)`` is the wrong call for that: a POST with
+        an existing id overwrites the row and resets its train sequence.
+
+        Lambert 2025, chapter Evaluation: a score is only readable next to
+        the setup that produced it, so the record travels with the run, not
+        with the session that trained it.
+
+        Raises ``PlatformError(404)`` when no run has that id;
+        ``tracked.runs()`` lists them.
+        """
+        try:
+            out = self._call("GET", f"/runs/{run_id}")
+        except PlatformError as e:
+            if e.status == 404:
+                raise PlatformError(
+                    404,
+                    f"No run {run_id!r} on this account; tracked.runs() lists the ids of "
+                    f"{self.id!r}.",
+                ) from None
+            raise
+        owner = out.get("agent")
+        if owner and owner != self.id:
+            raise ValueError(
+                f"run {run_id!r} belongs to agent {owner!r}, not {self.id!r}; "
+                f"open it from track({owner!r})."
+            )
+        fields = {k: v for k, v in out.items() if k != "id"}
+        try:
+            spec = RunSpec.model_validate(fields)
+        except ValidationError:
+            # A row written by hand or by a newer server: keep the name, drop the rest.
+            spec = RunSpec(version=str(out.get("version") or run_id)[:40])
+        spec.id = run_id
+        run = Run(self, run_id, spec, flush_every=flush_every, flush_seconds=flush_seconds)
+        run.status = str(out.get("status") or "running")
+        run.notes = out.get("notes") or None
+        if (steps := _number(out.get("steps"))) is not None:
+            run.total_steps = int(steps)
+        seen = (_number(p.get("step")) for p in out.get("train") or [] if isinstance(p, Mapping))
+        run.step = max((int(s) for s in seen if s is not None), default=0)
+        for row in out.get("evals") or []:
+            try:
+                item = Score.model_validate(row)
+            except ValidationError:
+                continue
+            run.scores[item.behavior] = item
+        return run
 
     def archive(self, run_id: str, *, archived: bool = True) -> dict[str, Any]:
         """Take a run out of the experiment without losing it. An archived
