@@ -61,9 +61,16 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "export": ("whileai.simulations.export", "export_dataset"),
     "SimulationData": ("whileai.simulations.data", "SimulationData"),
     "ScoredData": ("whileai.simulations.score.judging", "ScoredData"),
+    # training methods as objects, and the trainer config written from them;
+    # their home is whileai.methods
+    "OPD": ("whileai.methods", "OPD"),
+    "OPSD": ("whileai.methods", "OPSD"),
+    "Async": ("whileai.methods", "Async"),
+    "prime_rl_config": ("whileai.methods", "prime_rl_config"),
     # namespaces
     "verify": ("whileai.simulations.verify", None),
     "platform": ("whileai.platform", None),
+    "methods": ("whileai.methods", None),
     "simulations": ("whileai.simulations", None),
     # the platform client's old top-level names, kept importable; their
     # home is whileai.platform
@@ -94,8 +101,9 @@ def __dir__() -> list[str]:
 if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .auth import LoginError, account, login, logout, resolve_api_key, signup
     from .judge import Judge
+    from .methods import OPD, OPSD, Async, prime_rl_config
     from .selection import Selection, select
-    from .simulations import platform, simulations, verify  # type: ignore[attr-defined]
+    from .simulations import methods, platform, simulations, verify  # type: ignore[attr-defined]
     from .simulations.data import SimulationData
     from .simulations.export import export_dataset as export
     from .simulations.generate.offline_agent import seeded_agent
@@ -115,7 +123,6 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
 # whileai.platform.
 __all__ = [
     "Anthropic",
-    "Backend",
     "Endpoint",
     "Hosted",
     "Judge",
@@ -134,6 +141,7 @@ __all__ = [
     "export",
     "hack_scan",
     "judge_trust",
+    "methods",
     "pass_at",
     "platform",
     "preflight",

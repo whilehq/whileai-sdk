@@ -5,6 +5,18 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- Training methods as objects: `wai.OPD(teacher)` (on-policy distillation, Agarwal et al. 2023,
+  arXiv:2306.13649), `wai.OPSD(privileged=)` (on-policy self-distillation, Shenfeld et al. 2026,
+  arXiv:2601.19897) and `wai.Async(method, off_policy_steps=)` (bounded-staleness RL, Noukhovitch et
+  al. 2024, arXiv:2410.18252; Khatri et al. 2025, arXiv:2510.13786), every default named and cited in
+  `defaults.py`. `wai.prime_rl_config(env, method, model=, out=)` writes the TOML prime-rl runs it
+  with and prints which knobs the trainer reads, which it ignores and why, and the launch line; a
+  knob prime-rl cannot honor (`tis`) is refused, not dropped. `wai.train(method=<object>)` says to
+  use it. Nothing trains here: the trainer is prime-rl on your GPUs with your keys. Design and the
+  four proof recipes to follow: whilehq/whileai-sdk#564. `Backend` leaves the front door (the base
+  class of `OpenAI`, `Anthropic`, `Endpoint`, `Ollama`, `Hosted`; still importable) to make room
+  for the `methods` namespace under the thirty-name cap.
+
 - `recipes/04-train/grpo` (and DPO, which shares `build_prompts`): the same `--seed` now writes the same prompt set and holdout on every run. `build_prompts` calls `simulate` with `reproducible=True`; at `concurrency=4` without it, which situations landed under the budget depended on thread timing, and two runs at `--seed 0` got 112 and 119 prompts with different holdouts (#450). The READMEs carry the real counts (117 prompts, 92 train, 25 holdout on Python 3.12; one more prompt on 3.10 and 3.11, where `sum()` adds floats differently) in place of "about seventy / fourteen", and say to freeze a set across machines with `--prompts-file`.
 - `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
 
