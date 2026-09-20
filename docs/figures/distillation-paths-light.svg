@@ -1,30 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 318" width="720" height="318" role="img" aria-label="Three ways to a per-token signal: a reward (GRPO), a frozen teacher (OPD), the same model with a hint (OPSD)">
-<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6B7280"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#B85F14"/></marker></defs>
+<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6B7280"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3F8F6B"/></marker></defs>
 <rect width="720" height="318" rx="6" fill="#FFFFFF"/>
-<rect x="16" y="32" width="200" height="56" rx="6" fill="#FFF3E8" stroke="#B85F14"/>
-<text x="116.0" y="55.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#2A1A33" text-anchor="middle">student samples</text>
+<rect x="16" y="32" width="200" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="116.0" y="55.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">student samples</text>
 <text x="116.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">k replies per prompt, T=1.0</text>
 <path d="M 216 60.0 L 248 60.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
 <rect x="248" y="32" width="200" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
-<text x="348.0" y="55.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#2A1A33" text-anchor="middle">score every token</text>
+<text x="348.0" y="55.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">score every token</text>
 <text x="348.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">who scores decides the method</text>
 <path d="M 448 60.0 L 480 60.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
 <rect x="480" y="32" width="200" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
-<text x="580.0" y="55.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#2A1A33" text-anchor="middle">update</text>
+<text x="580.0" y="55.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">update</text>
 <text x="580.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">prime-rl, your GPUs</text>
-<path d="M 348 88 L 348 108" fill="none" stroke="#B85F14" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<path d="M 348 88 L 348 108" fill="none" stroke="#3F8F6B" stroke-width="1.5" marker-end="url(#arrow-green)"/>
 <rect x="16" y="118" width="200" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
-<text x="116.0" y="135.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#2A1A33" text-anchor="middle">"grpo"</text>
+<text x="116.0" y="135.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">"grpo"</text>
 <text x="116.0" y="151.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">reward on the reply</text>
 <text x="116.0" y="165.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">advantage = r - group mean</text>
 <path d="M 216 146.0 L 248 146.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="248" y="118" width="200" height="56" rx="6" fill="#FFF3E8" stroke="#B85F14"/>
-<text x="348.0" y="135.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#2A1A33" text-anchor="middle">wai.OPD(teacher)</text>
+<rect x="248" y="118" width="200" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="348.0" y="135.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">wai.OPD(teacher)</text>
 <text x="348.0" y="151.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">frozen server, logprobs</text>
 <text x="348.0" y="165.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">A_t = log p_T - log p_S</text>
 <path d="M 448 146.0 L 480 146.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
-<rect x="480" y="118" width="200" height="56" rx="6" fill="#FFF3E8" stroke="#B85F14"/>
-<text x="580.0" y="135.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#2A1A33" text-anchor="middle">wai.OPSD("answer")</text>
+<rect x="480" y="118" width="200" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="580.0" y="135.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">wai.OPSD("answer")</text>
 <text x="580.0" y="151.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">same model + hint</text>
 <text x="580.0" y="165.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">A_t = log p(y|x,hint) - log p(y|x)</text>
 <text x="16" y="206" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#4B5563" text-anchor="start">needs a verifier or a judge;</text>
@@ -35,5 +35,5 @@
 <text x="480" y="222" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#6B7280" text-anchor="start">costs points on thinking models</text>
 <path d="M 116 244 L 116 262" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4 3"/>
 <rect x="16" y="264" width="688" height="40" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
-<text x="360.0" y="289.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#2A1A33" text-anchor="middle">wai.prime_rl_config(taskset, method, model=, out=)  -&gt;  reads / ignores / uv run rl @ file</text>
+<text x="360.0" y="289.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">wai.prime_rl_config(taskset, method, model=, out=)  -&gt;  reads / ignores / uv run rl @ file</text>
 </svg>
