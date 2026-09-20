@@ -96,8 +96,6 @@
           {
             "group": "Guides",
             "pages": [
-              "simulations",
-              "engine",
               "evals",
               "reward-hacking",
               "safety-evals",
@@ -269,6 +267,16 @@
       }
     ]
   },
+  "redirects": [
+    {
+      "source": "/engine",
+      "destination": "/concepts/engine"
+    },
+    {
+      "source": "/simulations",
+      "destination": "/concepts/how-it-works"
+    }
+  ],
   "footer": {
     "socials": {
       "github": "https://github.com/whilehq/whileai-sdk"

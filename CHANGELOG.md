@@ -58,6 +58,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `cost_usd` None and the basis says so. Rollouts and judge calls on the serving endpoint
   stay unpriced. The hosted-grpo-vs-sft recipe drops its "dollar column is mine"
   disclaimer for the SDK's line (#399).
+- Docs review #441: one engine page (`concepts/engine`) and one simulator page
+  (`concepts/how-it-works`), `/engine` and `/simulations` redirect to them; `evals.md`
+  opens on the eval and the trial paragraph moves to Install; numbered references with
+  rlhfbook chapter links on evals, how-it-works, safety-evals and reward-hacking; a
+  what-you-learn / needs / takes line on every guide and get-started page; three figures
+  from `gen_guide_figures.py` (the loop, the 20 to 80 band, train/holdout/eval with the
+  decontamination arrow).
 - `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving
   container inside the fifteen-minute window the README already promises, backing off from
   5 s to 60 s between tries, and at the deadline says what to do (`python run.py call`
