@@ -5,6 +5,8 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `SweepReport` sizes its columns to the longest label and model name; long `prompt@model` labels no longer run into the next column.
+
 ## 1.03 (2026-09-20)
 
 - `HarnessSweep` pins `prompt` as the label before `@`: name variants `prompt@model` and the Runs page groups by prompt and by model as two axes (the first live sweep had eight one-run columns).

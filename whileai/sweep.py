@@ -117,10 +117,17 @@ class SweepReport:
             head += f", noise floor {self.noise_floor:g}"
         if self.judge and self.judge.agreement is not None:
             head += f", judge agreement {self.judge.agreement:.2f} on {self.judge.human_n}"
-        lines = [head, f"  {'variant':<18}{'model':<22}{'harness':<14}{'pass@1':>7}{'±':>6}"]
+        w_label = max(7, *(len(v.label) for v in self.variants)) + 2
+        w_model = max(5, *(len(v.model or "-") for v in self.variants)) + 2
+        lines = [
+            head,
+            f"  {'variant':<{w_label}}{'model':<{w_model}}{'harness':<14}{'pass@1':>7}{'±':>6}",
+        ]
         for v in self.ranked:
             s, ci, _ = v.headline
-            lines.append(f"  {v.label:<18}{(v.model or '-'):<22}{v.fingerprint:<14}{s:>7}{ci:>6}")
+            lines.append(
+                f"  {v.label:<{w_label}}{(v.model or '-'):<{w_model}}{v.fingerprint:<14}{s:>7}{ci:>6}"
+            )
         best = self.best
         if best is None and self.variants:
             top = self.ranked[0]
