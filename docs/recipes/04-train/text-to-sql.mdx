@@ -367,6 +367,7 @@ reply budget, same verifier, k=4.
 | Qwen3.5-4B, default template | 0.35 (0.32..0.38) | 0.05 | 0.67 | 0.51 | 0.06 | 21% |
 | Qwen3.5-9B r1 steps 25/50/75 and r2 step 25, adapter as PEFT saved it | 0.61-0.62 | 0.38-0.42 | 0.80-0.81 | 0.11 | 0.08 | 7% |
 | Qwen3.5-9B **r1, step 75, adapter renamed for vLLM** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | **0.82 (0.79..0.85)** | **0.75** | **0.87** | 0.00 | 0.03 | 0% |
+| Qwen3.5-9B r1, step 75, second holdout pass (replication) | 0.83 (0.79..0.86) | 0.75 | 0.88 | 0.00 | 0.03 | 0% |
 
 Every number in this table is scored on the first reply. The rows were
 first graded at 0.53 (9B) and 0.14 (4B) with "21% / 79% cut by the reply
@@ -396,10 +397,13 @@ Served correctly, **r1 step 75 is 0.82 (0.79..0.85) on the 459 tasks:
 +0.26, hard +0.25 (0.53 -> 0.78), every interval above zero; pass^4 0.75,
 no reply cut off, 99.9% carry a query. Against the best Qwen3-4B (r5
 final, 0.74): +0.081 (+0.056..+0.107). One 78-step round on a 9B did what
-five rounds on the 4B did, from a higher start. Replication (a second
-holdout pass) and the step-25/50 and r2 step-25 rows, all correctly
-served, are running; until the repeat lands the verdict is
-`moved_unreplicated`. Round 2 stays stopped: its log showed 60-88% of
+five rounds on the 4B did, from a higher start. A second holdout pass on
+the same adapter scored 0.83 (0.79..0.86): +0.221 (+0.194..+0.249) vs the
+base, +0.088 (+0.063..+0.113) vs Qwen3-4B r5, and +0.007 (-0.003..+0.018)
+vs the first pass, so the verdict is **moved, replicated x2**. The
+step-25/50 and r2 step-25 rows, correctly served, are being re-run one at
+a time (a first attempt ran two eval jobs against one serve app and mixed
+adapters in one file; those rows were discarded). Round 2 stays stopped: its log showed 60-88% of
 groups at zero variance from step 1, the band cut on the base was solved
 by round 1, and the next round re-cuts it from the current checkpoint
 (202 of 601 prompts land in the 0.2-0.8 band on step 75, 118 shared with
