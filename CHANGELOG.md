@@ -5,6 +5,23 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `wai.hub.push(source, "org/name", token=, private=True)` and `wai.export(..., push_to="org/name")`:
+  push a file, an adapter directory or rows to the Hugging Face Hub with your own token (`token=`,
+  else `HF_TOKEN`, else the cached `hf auth login`) through `huggingface_hub`
+  (`pip install 'whileai[hf]'`), no platform call, private by default; a directory holding
+  `adapter_config.json` becomes a model repo. The export report gains `hub`. The platform route
+  (`hf_publish`, `hf_publish_run`, `import_hf`) is unchanged and its recipe page now says it is a
+  platform feature (#506).
+- `export(format="trl")` writes no `loss_mask`: trl 0.19.1's `SFTTrainer` never reads one (its
+  `DataCollatorForLanguageModeling` unlabels tokens only from `completion_mask` and
+  `assistant_masks`, both built by the trainer), so the file trained on every token while the
+  report said `mask_mode: assistant`, measured at 9x the marked tokens on 94 rows (#508).
+  `mask_mode="final"` and `unroll=True` now write prompt/completion rows, which TRL trains exactly
+  as the mask asks through the `completion_mask` it builds; `mask_mode="assistant"` writes
+  `messages` rows and the report's `mask_mode` says TRL trains on every token unless
+  `assistant_only_loss=True` (a `{% generation %}` chat template). `trained_messages` and
+  `masked_messages` count what TRL trains; `to_trl(rows, "completion")` is the reshape on rows
+  you hold. The `openai` format is unchanged (#507).
 - `simulate()` on a long run is watchable and resumable (#470). The progress line on the
   `whileai.simulations` logger now counts rollouts re-rolled and lost by reason next to rows
   landed, fires on re-rolls too (every 10 events or 10 s), and `on_progress=` receives the same

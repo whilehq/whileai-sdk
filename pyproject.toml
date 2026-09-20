@@ -51,6 +51,9 @@ whileai-simulations = "whileai.simulations.score.quality:main"
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "pytest-xdist>=3.6", "ruff>=0.12",
        "mypy>=1.16", "types-requests", "ty>=0.0.82"]
 rl = ["verifiers>=0.3; python_version >= '3.11' and python_version < '3.14'"]
+# wai.hub.push / export(push_to=): the Hub client that authenticates with the
+# user's own HF_TOKEN; imported lazily, so the base install stays two deps.
+hf = ["huggingface_hub>=0.20"]
 
 [tool.setuptools]
 include-package-data = false

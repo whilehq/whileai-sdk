@@ -484,7 +484,7 @@ _, leak = wai.decontaminate(
 )
 assert leak["n_same_task"] == leak["n"] > 0, leak
 
-# 6. Export what TRL loads, with a loss mask per message.
+# 6. Export what TRL loads, in the shape it trains on.
 SFT_PATH = OUT_DIR / "refund-sft.trl.jsonl"
 export = wai.export_dataset(clean, str(SFT_PATH), system_prompt=POLICY, tools=TOOLS, format="trl")
 print(f"wrote {export['n_written']} rows to {export['path']}; mask {export['mask_mode']}")
@@ -492,8 +492,8 @@ print(f"wrote {export['n_written']} rows to {export['path']}; mask {export['mask
 sft_rows = [json.loads(line) for line in SFT_PATH.read_text(encoding="utf-8").splitlines()]
 assert len(sft_rows) == len(clean) == export["n_written"]
 assert all(r["messages"][0]["role"] == "system" for r in sft_rows)
-assert all(len(r["loss_mask"]) == len(r["messages"]) for r in sft_rows)
-assert all(r["loss_mask"] == wai.loss_mask(r["messages"]) for r in sft_rows)
+assert all("loss_mask" not in r for r in sft_rows), "TRL reads no per-message mask (#507)"
+assert export["mask_mode"].startswith("TRL trains on every token"), export["mask_mode"]
 assert all("prompt" not in r and r.get("prompt_text") for r in sft_rows), "TRL shape"
 assert export["rewards"]["n_fail"] == 0 and export["tool_call_roundtrip"]["invalid"] == 0
 

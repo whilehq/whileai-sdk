@@ -186,11 +186,16 @@ clean, contamination = wai.decontaminate(selected, against=[heldout_traces])
 
 ## 6. Export for TRL
 
-**One row per demonstration, a loss mask per message.** `format="trl"`
+**One row per demonstration, in the shape TRL trains on.** `format="trl"`
 writes conversational rows with dict arguments and no `prompt` column, so
-TRL applies the chat template. The mask trains the assistant turns only
-("Instruction Fine-Tuning"); tool output is the environment speaking and
-stays masked. `mask_mode="final"` when earlier agent turns were scripted.
+TRL applies the chat template, and no `loss_mask`, because trl 0.19.1's
+`SFTTrainer` reads none. The report's `mask_mode` says what TRL will do
+with the file: every token of every turn, unless `assistant_only_loss=True`
+in `SFTConfig` (which needs a chat template with a `{% generation %}`
+block) trains the assistant turns only ("Instruction Fine-Tuning"; tool
+output is the environment speaking). `mask_mode="final"` writes
+prompt/completion rows TRL trains on the last assistant turn only, for
+traces whose earlier agent turns were scripted.
 
 ```python
 SFT_PATH = OUT_DIR / "refund-sft.trl.jsonl"

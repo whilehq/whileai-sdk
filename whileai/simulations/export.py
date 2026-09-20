@@ -46,6 +46,20 @@ Two wire shapes come out of here, and they are not the same shape:
     **dict**, because HF chat templates render it with ``| tojson`` and
     a pre-encoded string comes out quoted twice.
 
+    The TRL rows carry no ``loss_mask``. trl 0.19.1's ``SFTTrainer``
+    tokenizes with the chat template and its
+    ``DataCollatorForLanguageModeling`` labels every token; the only two
+    columns that take tokens out of the loss are token-level and built by
+    the trainer itself: ``completion_mask`` (from ``prompt``/``completion``
+    rows) and ``assistant_masks`` (from ``assistant_only_loss=True``, which
+    needs a ``{% generation %}`` block in the chat template). A per-message
+    ``loss_mask`` is passed through unread (#507). So ``mask_mode="final"``
+    and ``unroll=True`` come out as prompt/completion rows, which TRL
+    trains exactly as the mask asks, and ``mask_mode="assistant"`` comes
+    out as ``messages`` rows, which TRL trains on every token unless
+    ``assistant_only_loss=True`` is set; the report's ``mask_mode`` says
+    which.
+
 ``to_trl`` performs that reshape on rows you already built, and the
 round-trip gate reports which of the two encodings it checked.
 """
@@ -177,7 +191,7 @@ def tool_call_roundtrip(rows: Sequence[dict], *, format: str = "openai") -> dict
     bad_rows: list[int] = []
     for i, row in enumerate(rows):
         row_bad = False
-        for message in row.get("messages") or []:
+        for message in _turns(row):
             for call in message.get("tool_calls") or []:
                 fn = call.get("function") if isinstance(call.get("function"), dict) else {}
                 checked += 1
@@ -201,6 +215,18 @@ def tool_call_roundtrip(rows: Sequence[dict], *, format: str = "openai") -> dict
         "encoding": encoding,
         "checked_for": _ENCODING_NOTES[encoding],
     }
+
+
+def _turns(row: dict) -> list[dict]:
+    """The whole conversation of an exported row, whichever shape it is in:
+    ``messages``, or ``prompt`` + ``completion`` when both are message lists."""
+    messages = row.get("messages")
+    if isinstance(messages, list):
+        return messages
+    prompt = row.get("prompt")
+    if isinstance(prompt, list):
+        return list(prompt) + list(row.get("completion") or [])
+    return []
 
 
 def _convert_messages(
@@ -326,6 +352,31 @@ def _trl_training_row(row: dict) -> dict:
     prompt = out.pop("prompt", None)
     if isinstance(prompt, str) and prompt:
         out["prompt_text"] = prompt
+    # trl 0.19.1 reads no per-message mask; a column it passes through
+    # unread would read as a promise the file does not keep (#507).
+    out.pop("loss_mask", None)
+    return out
+
+
+def _trl_completion_row(row: dict) -> dict | None:
+    """One ``training_rows`` row as TRL conversational prompt/completion, or None.
+
+    ``prompt`` is the conversation up to the last assistant turn and
+    ``completion`` is that turn (and anything after it). trl 0.19.1's
+    ``SFTTrainer`` tokenizes both, builds a token-level ``completion_mask``
+    from where the prompt ends, and its collator labels only the
+    completion (``completion_only_loss`` defaults on when the first row
+    has a ``prompt``): the ``mask_mode="final"`` mask, honored by the
+    trainer. A row with no assistant turn has no completion and is
+    dropped and counted rather than written as an empty target.
+    """
+    out = _trl_training_row(row)
+    messages = out.pop("messages")
+    last = max((i for i, m in enumerate(messages) if m.get("role") == "assistant"), default=-1)
+    if last < 1:
+        return None
+    out["prompt"] = messages[:last]
+    out["completion"] = messages[last:]
     return out
 
 
@@ -351,25 +402,53 @@ def _trl_preference_row(row: dict) -> dict | None:
     return out
 
 
+TRL_KINDS = ("training", "completion", "preference")
+
+
 def to_trl(rows: Sequence[dict], kind: str = "training") -> list[dict]:
     """Rows from ``training_rows`` / ``export_preference`` in TRL's shape.
 
-    ``kind="training"`` reshapes SFT rows, ``kind="preference"`` DPO
+    ``kind="training"`` reshapes SFT rows as conversational ``messages``
+    (no ``loss_mask``: trl 0.19.1 trains on every token of them unless
+    ``assistant_only_loss=True``), ``kind="completion"`` as conversational
+    ``prompt``/``completion`` with the last assistant turn as the
+    completion (the ``mask_mode="final"`` mask, which the trainer honors
+    through the ``completion_mask`` it builds), ``kind="preference"`` DPO
     pairs; see the module docstring for what each shape is and why it
     differs from the default OpenAI wire rows. Equivalent to passing
     ``format="trl"`` to the exporters, for callers that already hold
-    rows. Preference pairs whose chosen or rejected side has no
-    completion after the prompt prefix are dropped.
+    rows. Completion rows with no assistant turn and preference pairs
+    whose chosen or rejected side has no completion after the prompt
+    prefix are dropped.
     """
-    if kind not in ("training", "preference"):
-        raise ValueError(f"kind must be 'training' or 'preference', got {kind!r}")
+    if kind not in TRL_KINDS:
+        raise ValueError(f"kind must be one of {TRL_KINDS}, got {kind!r}")
     if kind == "training":
         return [_trl_training_row(r) for r in rows if isinstance(r, dict)]
-    out = [_trl_preference_row(r) for r in rows if isinstance(r, dict)]
+    shape = _trl_completion_row if kind == "completion" else _trl_preference_row
+    out = [shape(r) for r in rows if isinstance(r, dict)]
     return [r for r in out if r is not None]
 
 
 MASK_MODES = ("assistant", "final")
+
+#: What trl 0.19.1's ``SFTTrainer`` does with a ``format="trl"`` file, in the
+#: report's ``mask_mode`` in place of the SDK's intention (#507). Checked
+#: against ``trl/trainer/sft_trainer.py`` at v0.19.1: ``tokenize`` builds
+#: ``completion_mask`` for prompt/completion rows and ``assistant_masks``
+#: when ``assistant_only_loss=True``; ``DataCollatorForLanguageModeling``
+#: unlabels tokens from those two columns and nothing else.
+TRL_MASK_EVERY_TOKEN = (
+    "TRL trains on every token of every turn (trl 0.19.1 SFTTrainer reads no "
+    "per-message mask); set assistant_only_loss=True in SFTConfig to train the "
+    "assistant turns only, which needs a chat template with a {% generation %} "
+    "block (Qwen2.5-Instruct has none)"
+)
+TRL_MASK_COMPLETION = (
+    "TRL trains on the last assistant turn only: prompt/completion rows, from "
+    "which trl 0.19.1 SFTTrainer builds completion_mask (completion_only_loss "
+    "defaults on)"
+)
 
 
 def loss_mask(messages: Sequence[dict], *, mode: str = "assistant") -> list[int]:
@@ -630,6 +709,7 @@ def export_training(
     unroll: bool = False,
     max_tool_output_chars: int | None = None,
     format: str = "openai",
+    push_to: str | None = None,
 ) -> dict[str, Any]:
     """Write ``training_rows`` as JSONL, gated so a broken row never reaches the trainer.
 
@@ -665,19 +745,42 @@ def export_training(
       chat-completions wire row: the full ``messages`` list,
       ``function.arguments`` as a JSON string, and the ask carried
       alongside as ``prompt``. ``"trl"`` writes what ``trl`` can actually
-      load: conversational SFT rows (``messages`` only, arguments as
-      dicts, the ask under ``prompt_text``). TRL decides "is this
-      conversational?" from the column set, so a ``prompt`` string beside
-      ``messages`` makes it skip the chat template without an error and
-      train on the bare ask, which is why the TRL rows do not carry one.
-      The report says which format and which argument encoding the
-      round-trip gate checked.
+      load: conversational SFT rows (arguments as dicts, the ask under
+      ``prompt_text``). TRL decides "is this conversational?" from the
+      column set, so a ``prompt`` string beside ``messages`` makes it skip
+      the chat template without an error and train on the bare ask, which
+      is why the TRL rows do not carry one. The report says which format
+      and which argument encoding the round-trip gate checked.
+    * ``mask_mode`` with ``format="trl"``: the TRL rows carry no
+      ``loss_mask``, because trl 0.19.1's ``SFTTrainer`` never reads one.
+      Its collator (``DataCollatorForLanguageModeling``) labels every
+      token and unlabels only from two token-level columns the trainer
+      builds itself: ``completion_mask`` from ``prompt``/``completion``
+      rows, and ``assistant_masks`` from ``assistant_only_loss=True``,
+      which needs a ``{% generation %}`` block in the chat template
+      (Qwen2.5-Instruct has none). So ``mask_mode="final"`` and
+      ``unroll=True`` write prompt/completion rows (prompt up to the last
+      assistant turn, that turn as the completion), and TRL trains on
+      exactly what the mask asked. ``mask_mode="assistant"`` (the default)
+      writes ``messages`` rows, and TRL trains on every token of them
+      unless ``assistant_only_loss=True`` is set. The report's
+      ``mask_mode`` states which of the two TRL will do, and
+      ``trained_messages`` / ``masked_messages`` count what TRL trains,
+      not what the SDK intended; a ``format="trl"`` export on 94 rows was
+      measured at 9x the tokens its ``loss_mask`` marked (#507).
+    * ``push_to``: a Hub repo (``"me/my-set"``) to upload the written
+      file to, with your own token: ``HF_TOKEN`` from the environment or
+      the login ``hf auth login`` cached, through ``huggingface_hub``
+      (``pip install 'whileai[hf]'``). Private by default; no platform
+      call. ``wai.hub.push`` is the same upload for a file, a directory
+      or rows you already hold, with ``token=`` and ``private=``. The
+      report gains ``hub`` (``repo_id``, ``url``, ``commit``).
     * ``strip_think``, ``mask_mode``, ``unroll``, ``max_tool_output_chars``:
       passed through to ``training_rows``, which explains each.
 
     ```python
     report = wai.export_dataset(data, "train.jsonl", format="trl")
-    print(report["n"], report["tool_call_roundtrip"])
+    print(report["n"], report["mask_mode"], report["tool_call_roundtrip"])
     ```
     """
     if format not in EXPORT_FORMATS:
@@ -691,8 +794,15 @@ def export_training(
         unroll=unroll,
         max_tool_output_chars=max_tool_output_chars,
     )
+    # The masks the SDK computed, kept for the count: the TRL rows drop the
+    # column because the trainer never reads it (#507).
+    masks = [list(r["loss_mask"]) for r in rows]
+    final_only = unroll or mask_mode == "final"
+    no_completion_dropped = 0
     if format == "trl":
-        rows = to_trl(rows, "training")
+        reshaped = to_trl(rows, "completion" if final_only else "training")
+        no_completion_dropped = len(rows) - len(reshaped)
+        rows = reshaped
     roundtrip = tool_call_roundtrip(rows, format=format)
     if validate and roundtrip["invalid"]:
         raise ValueError(
@@ -720,22 +830,30 @@ def export_training(
     if not dest and src:
         path = Path(src)
         dest = str(path.with_name(path.stem + ".train" + (path.suffix or ".jsonl")))
+    if format == "trl":
+        # What TRL does, not what the SDK meant: every token of a messages
+        # row, the completion of a prompt/completion row.
+        mask_line = TRL_MASK_COMPLETION if final_only else TRL_MASK_EVERY_TOKEN
+        trained = sum(len(r["completion"]) if final_only else len(r["messages"]) for r in rows)
+        masked = sum(len(r["prompt"]) for r in rows) if final_only else 0
+    else:
+        mask_line = "final (unrolled)" if unroll else mask_mode
+        trained = sum(sum(m) for m in masks)
+        masked = sum(len(m) - sum(m) for m in masks)
     report: dict[str, Any] = {
         "n": len(rows),
         "format": format,
-        "with_system": sum(
-            1 for r in rows if r["messages"] and r["messages"][0]["role"] == "system"
-        ),
+        "with_system": sum(1 for r in rows if _turns(r) and _turns(r)[0]["role"] == "system"),
         "with_tools": sum(1 for r in rows if r.get("tools")),
         "groups": len({r["group_id"] for r in rows if "group_id" in r}),
         "tool_call_roundtrip": roundtrip,
-        "mask_mode": "final (unrolled)" if unroll else mask_mode,
+        "mask_mode": mask_line,
         "unrolled": unroll,
         "max_tool_output_chars": max_tool_output_chars,
         "tool_output_truncated": sum(int(r.get("tool_output_truncated") or 0) for r in rows),
         "tool_output_chars_cut": sum(int(r.get("tool_output_chars_cut") or 0) for r in rows),
-        "trained_messages": sum(sum(r["loss_mask"]) for r in rows),
-        "masked_messages": sum(len(r["loss_mask"]) - sum(r["loss_mask"]) for r in rows),
+        "trained_messages": trained,
+        "masked_messages": masked,
         "privileged_leaks": {
             k: leaks[k] for k in ("checked", "n_checked", "n_leaked", "leaked", "summary")
         },
@@ -772,11 +890,23 @@ def export_training(
             "SFT targets; a model trained on them learns the failure. Pass "
             "`scored.passes()` (or filter on reward) unless that is intended."
         )
+    if no_completion_dropped:
+        report["no_completion_dropped"] = no_completion_dropped
+        warnings.append(
+            f"{no_completion_dropped} of {len(masks)} rows have no assistant turn and "
+            "were dropped: a TRL prompt/completion row needs a completion."
+        )
     if warnings:
         report["warnings"] = warnings
+    if push_to and not dest:
+        raise ValueError("push_to needs an output path: the file that is written is what is pushed")
     if dest:
         report["path"] = write_jsonl(dest, rows)
         report["n_written"] = len(rows)
+    if push_to:
+        from whileai.hub import push
+
+        report["hub"] = push(report["path"], push_to)
     return report
 
 

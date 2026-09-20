@@ -1,11 +1,46 @@
 # Hugging Face, both directions
 
-Push a graded dataset to a Hub repo you own, pull any Hub split onto your
-account and read its numbers before you train on it, and push a finished
-training run's adapter as a model repo. One script, three calls. You need
-`WHILEAI_API_KEY` and a Hugging Face account connected on the platform
-(the import half of the script works on a public repo without the
-connection); a minute end to end.
+Push a graded dataset or a LoRA adapter to a Hub repo you own with your
+own token; through the platform, pull any Hub split onto your account and
+read its numbers before you train on it. Two routes, and this page says
+which is which:
+
+| route | call | needs |
+|---|---|---|
+| local, your token | `wai.export(rows, "train.jsonl", format="trl", push_to="me/my-set")` | `HF_TOKEN` or `hf auth login`; `pip install 'whileai[hf]'` |
+| local, your token | `wai.hub.push("out/adapter", "me/my-lora")` | the same; a directory holding `adapter_config.json` becomes a model repo |
+| platform | `wai.hf_publish("ds_...")`, `wai.import_hf("ns/name")`, `wai.hf_publish_run("run_...")` | `WHILEAI_API_KEY` and a Hugging Face account connected on the platform |
+
+## With your own token
+
+Nothing here calls the platform. `huggingface_hub` does the upload and
+authenticates the way every HF library does: `token=`, else `HF_TOKEN`,
+else the login `hf auth login` cached on the machine. Repos are private
+until you say `private=False`: a training set or a checkpoint is not a
+release until you say so.
+
+```python
+import whileai as wai
+
+report = wai.export(rows, "train.jsonl", format="trl", push_to="me/my-set")
+report["hub"]["url"]  # https://huggingface.co/datasets/me/my-set
+wai.hub.push("out/adapter", "me/my-lora")  # a LoRA directory -> huggingface.co/me/my-lora
+wai.hub.push(rows, "me/my-set", private=False)  # rows -> train.jsonl in a public dataset repo
+```
+
+Read them back with `load_dataset("me/my-set", split="train")` and
+`PeftModel.from_pretrained(base, "me/my-lora")`. The `format="trl"` file
+carries no `loss_mask`; the export report's `mask_mode` says what TRL will
+train on (every token, or the last assistant turn for `mask_mode="final"`).
+
+## Through the platform
+
+Pushing through the platform is a platform feature: it moves a set that
+already lives on your account (`ds_...`) or a hosted run's adapter
+(`run_...`) through the Hugging Face account connected on the website, and
+the SDK never sees that Hub token. One script, three calls. You need
+`WHILEAI_API_KEY` and the connected account (the import half of the script
+works on a public repo without the connection); a minute end to end.
 
 | call | what moves | where it lands |
 |---|---|---|
@@ -19,7 +54,7 @@ that push, and `whileai.json` in the repo maps each split to its dataset
 with history. Pushing a new cut into the same split replaces the old parts
 and the commit message carries the delta.
 
-## Run it
+### Run it
 
 Connect your Hugging Face account once, on any dataset page at
 https://withwhile.com/platform/datasets (the platform holds the
@@ -49,8 +84,9 @@ imported cornell-movie-review-data/rotten_tomatoes:test -> ds_... (1066 rows)
 
 The imported set is deleted at the end unless you pass `--keep`.
 
-Every call is a request to the platform API (`WHILEAI_API_URL`, default
-`https://api.withwhile.com`); the SDK never talks to the Hub itself. That
-is also how the test suite exercises this script offline: it points
-`WHILEAI_API_URL` at a local stub and checks the requests the script
-makes. See `tests/recipes/test_example_hugging_face.py`.
+Every call in `roundtrip.py` is a request to the platform API
+(`WHILEAI_API_URL`, default `https://api.withwhile.com`). That is how the
+test suite exercises this script offline: it points `WHILEAI_API_URL` at a
+local stub and checks the requests the script makes. See
+`tests/recipes/test_example_hugging_face.py`. The local route above is the
+one place the SDK talks to the Hub itself, and it does so with your token.
