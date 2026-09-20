@@ -1574,10 +1574,164 @@ DELIVERED_TURNS_MIN_REQUEST = 2
 # the requested ``avg_turns`` is reported as a gap. Convention, untested.
 DELIVERED_TURNS_SHORTFALL = 0.5
 
+# ---------------------------------------------------------------------
+# methods (OPD, OPSD, async RL): whileai/methods.py
+# ---------------------------------------------------------------------
+
+# OPD_DIVERGENCE = "reverse_kl": the per-token divergence on-policy
+# distillation minimizes on the student's own samples. GKD (Agarwal et al.
+# 2023, arXiv:2306.13649) offers forward KL, reverse KL and JSD and finds
+# the best one task dependent; the reasoning-distillation line settled on
+# reverse KL as a per-token advantage log p_teacher - log p_student
+# (Thinking Machines 2025, tinker-cookbook train_on_policy; Qwen3,
+# arXiv:2505.09388), which is what prime-rl's ``opd`` and TRL's
+# DistillationTrainer (beta=1.0) compute. ``forward_kl`` and ``jsd`` are
+# offered for a trainer that has them.
+OPD_DIVERGENCE = "reverse_kl"
+# OPD_TOP_K = 32: the teacher support the signal lives on. Li et al. 2026
+# (arXiv:2604.13016) show on-policy distillation works by raising
+# student/teacher top-k overlap and that k >= 4 matches the sampled-token
+# loss while k = 1 fails; Fu et al. 2026 (arXiv:2603.25562) compute the KL
+# over the teacher's top 32 to keep the signal off filler tokens.
+OPD_TOP_K = 32
+# OPD_SAMPLES = 4: student rollouts per prompt. The tinker-cookbook recipe
+# and Li et al. 2026 (arXiv:2604.13016) both sample 4; Fu et al. 2026
+# (arXiv:2603.25562) 8. Distillation forms no group baseline, so 4 is a
+# throughput choice, not a variance one.
+OPD_SAMPLES = 4
+# OPD_TEMPERATURE = 1.0: sample and score at the same temperature so the
+# teacher's log-probabilities are on the distribution the student drew
+# from (Thinking Machines 2025; Li et al. 2026, arXiv:2604.13016).
+OPD_TEMPERATURE = 1.0
+# OPD_MAX_TOKENS = 8192: the response cap. Li et al. 2026
+# (arXiv:2604.13016) measure the teacher signal decaying past about 7k
+# tokens; Fu et al. 2026 (arXiv:2603.25562) find the log-probability gap
+# widening late in long sequences.
+OPD_MAX_TOKENS = 8192
+# OPD_LEARNING_RATE_LORA = 1e-4 / OPD_LEARNING_RATE_FULL = 1e-6: the
+# optimizer step for an adapter and for full weights. The tinker-cookbook
+# recipe trains a rank-128 LoRA at 1e-4 (5e-5 full); Li et al. 2026
+# (arXiv:2604.13016) and Fu et al. 2026 (arXiv:2603.25562) train full
+# weights at 1e-6 and 2e-6.
+OPD_LEARNING_RATE_LORA = 1e-4
+OPD_LEARNING_RATE_FULL = 1e-6
+
+# OPSD_PRIVILEGED = "demonstration": what the teacher sees that the student
+# does not. A passing demonstration of the same task is the SDFT form
+# (Shenfeld et al. 2026, arXiv:2601.19897) and the one prime-rl's ``opsd``
+# implements; ``reference`` (the answer, Zhao et al. 2026,
+# arXiv:2601.18734), ``hint`` (Penaloza et al. 2026, arXiv:2602.04942) and
+# ``feedback`` (a successful rollout plus the environment's error text,
+# Hübotter et al. 2026, arXiv:2601.20802) are the other forms.
+OPSD_PRIVILEGED = "demonstration"
+# OPSD_DIVERGENCE = "reverse_kl": SDFT (arXiv:2601.19897), SDPO
+# (arXiv:2601.20802) and prime-rl's ``opsd`` use the reverse KL to the
+# privileged teacher; Zhao et al. 2026 (arXiv:2601.18734) find forward KL
+# with pointwise clipping better for answer-conditioned teachers, so
+# ``forward_kl`` is offered for a trainer that has it.
+OPSD_DIVERGENCE = "reverse_kl"
+# OPSD_ANCHOR = "ema" / OPSD_ANCHOR_ALPHA = 0.01: what the teacher's
+# weights are, and the moving-average rate. Unregularized self-distillation
+# diverges (SDPO ablation, arXiv:2601.20802, 50.6 vs 36.1); SDFT
+# (arXiv:2601.19897) holds the teacher as an exponential moving average of
+# the student at 0.01 to 0.05 and SDPO at 0.01; Zhao et al. 2026
+# (arXiv:2601.18734) freeze the initial weights (``initial``). ``live`` is
+# the unanchored variant prime-rl runs.
+OPSD_ANCHOR = "ema"
+OPSD_ANCHOR_ALPHA = 0.01
+# OPSD_SAMPLES = 1: rollouts per prompt. Self-distillation forms no group
+# baseline, so one sample per prompt is what SDFT (arXiv:2601.19897) and
+# Zhao et al. 2026 (arXiv:2601.18734) train with; SDPO (arXiv:2601.20802)
+# samples 4 because its feedback is another rollout of the same prompt.
+OPSD_SAMPLES = 1
+# OPSD_TEMPERATURE = 1.0: SDPO and SRPO (arXiv:2604.02288) sample at 1.0,
+# Zhao et al. 2026 at 1.1; the student and teacher are scored on the same
+# draw either way.
+OPSD_TEMPERATURE = 1.0
+# OPSD_MAX_TOKENS = 4096: the response cap Kaur et al. 2026
+# (arXiv:2607.05184) and SDFT (2048, arXiv:2601.19897) train under; the
+# privileged teacher's signal is on the answer, not on a long trace.
+OPSD_MAX_TOKENS = 4096
+# OPSD_LEARNING_RATE = 5e-6: the step SDPO (arXiv:2601.20802), Zhao et al.
+# 2026 (arXiv:2601.18734), SRPO (arXiv:2604.02288) and Kaur et al. 2026
+# (arXiv:2607.05184) all train at.
+OPSD_LEARNING_RATE = 5e-6
+# OPSD_TEMPLATE = "Here is an example of an expert response: ...": the
+# system message that carries the demonstration to the teacher; prime-rl's
+# ``opsd`` default text, so a config written here and one written by hand
+# put the same prompt in front of the teacher.
+OPSD_TEMPLATE = (
+    "Here is an example of an expert response:\n<demonstration>\n{demonstration}\n</demonstration>"
+)
+
+# ASYNC_OFF_POLICY_STEPS = 8: how many optimizer steps a rollout may lag the
+# policy that trains on it. ScaleRL (Khatri et al. 2025, arXiv:2510.13786)
+# runs PipelineRL with 8 off-policy steps and finds it raises speed, not
+# the ceiling; AReaL (Fu et al. 2025, arXiv:2505.24298) bounds staleness
+# at 4 for code and 8 for math; prime-rl's own default is 8, TRL's
+# AsyncGRPOTrainer's is 4. One step is free (Noukhovitch et al. 2024,
+# arXiv:2410.18252).
+ASYNC_OFF_POLICY_STEPS = 8
+# ASYNC_CORRECTION = "ipo" / ASYNC_IPO_EPS = 0.3 / ASYNC_ICEPOP_RATIO =
+# (0.5, 5.0) / ASYNC_TIS_CAP = 2.0: the per-token correction for the gap
+# between the sampler's and the trainer's log-probabilities, which exists
+# even at zero staleness (Yao et al. 2025, "Your Efficient RL Framework
+# Secretly Brings You Off-Policy RL Training"). ``ipo`` is prime-rl's
+# default: mask a token whose probability moved more than 0.3 (prime-rl's
+# default eps). ``icepop`` masks a token whose trainer/sampler ratio leaves
+# 0.5 to 5.0, the band Ring-1T trained under (Ling Team 2025,
+# arXiv:2510.18855; prime-rl's own default band is 0.2 to 5.0). ``tis``
+# caps the ratio at 2.0, verl's default for Yao et al.'s truncated
+# importance sampling.
+ASYNC_CORRECTION = "ipo"
+ASYNC_IPO_EPS = 0.3
+ASYNC_ICEPOP_RATIO = (0.5, 5.0)
+ASYNC_TIS_CAP = 2.0
+
+# PRIME_RL_GPUS = 2: the fewest GPUs a prime-rl run takes. It runs the
+# inference engine and the trainer as separate processes on separate
+# devices (INTELLECT-2, arXiv:2505.07291, section 2), so one of each is
+# the floor; the writer splits a larger count half and half, the split
+# the Qwen3.8-27B quant runs used (2026-09-14 to 2026-09-19).
+PRIME_RL_GPUS = 2
+# PRIME_RL_STEPS = 100: optimizer steps when none are given. Zhao et al.
+# 2026 (arXiv:2601.18734) and SDFT (arXiv:2601.19897) report their
+# self-distillation numbers at 100 steps; the tinker-cookbook OPD recipe
+# at 200. Enough to read a curve, short enough to be a first run.
+PRIME_RL_STEPS = 100
+# PRIME_RL_BATCH = 64: prompts per optimizer step. SDFT (arXiv:2601.19897)
+# trains at 16 to 64, Li et al. 2026 (arXiv:2604.13016) at 64, Kaur et al.
+# 2026 (arXiv:2607.05184) at 64; a quarter of TRAINING_BATCH_PROMPTS.
+PRIME_RL_BATCH = 64
+# PRIME_RL_SEQ_LEN = 12288: the trainer's sequence cap, prompt plus
+# response. It has to exceed the response cap plus the longest prompt;
+# OPD_MAX_TOKENS plus a 4k prompt is this. The Qwen3.8-27B smoke at 12288
+# truncated 11 to 28 percent of rollouts at a 2k response cap on an
+# agentic task, so an agent with long tool output raises it.
+PRIME_RL_SEQ_LEN = 12288
+# PRIME_RL_LEARNING_RATE_LORA = 1e-5 / PRIME_RL_LEARNING_RATE_FULL = 1e-6:
+# the GRPO step. DAPO (arXiv:2503.14476) and Dr. GRPO (arXiv:2503.20783)
+# train full weights at 1e-6; the LoRA rate is the one the Qwen3.8-27B
+# quant runs converged at on prime-rl (2026-09-14 to 2026-09-19).
+PRIME_RL_LEARNING_RATE_LORA = 1e-5
+PRIME_RL_LEARNING_RATE_FULL = 1e-6
+# PRIME_RL_EVAL_EXAMPLES = 60 / PRIME_RL_EVAL_GROUP = 2: the in-run eval,
+# 60 tasks by 2 rollouts every quarter of the run. Under the 160 by 4 the
+# paper recipes hold out (recipes/papers), on purpose: an in-run eval
+# reads the curve, the recipe's held-out delta is the result. (convention,
+# untested)
+PRIME_RL_EVAL_EXAMPLES = 60
+PRIME_RL_EVAL_GROUP = 2
+
 __all__ = [
     "AGENT_MAX_TOKENS_FLOOR",
     "ALLOC_GAIN",
     "ALPHA",
+    "ASYNC_CORRECTION",
+    "ASYNC_ICEPOP_RATIO",
+    "ASYNC_IPO_EPS",
+    "ASYNC_OFF_POLICY_STEPS",
+    "ASYNC_TIS_CAP",
     "BASE_PASS_RATE",
     "BOOTSTRAP_DRAWS",
     "CEILING_PASS_RATE",
@@ -1661,6 +1815,22 @@ __all__ = [
     "MONITOR_WINDOW",
     "MONITOR_WINDOW_BOOTSTRAPS",
     "OK_STATUSES",
+    "OPD_DIVERGENCE",
+    "OPD_LEARNING_RATE_FULL",
+    "OPD_LEARNING_RATE_LORA",
+    "OPD_MAX_TOKENS",
+    "OPD_SAMPLES",
+    "OPD_TEMPERATURE",
+    "OPD_TOP_K",
+    "OPSD_ANCHOR",
+    "OPSD_ANCHOR_ALPHA",
+    "OPSD_DIVERGENCE",
+    "OPSD_LEARNING_RATE",
+    "OPSD_MAX_TOKENS",
+    "OPSD_PRIVILEGED",
+    "OPSD_SAMPLES",
+    "OPSD_TEMPERATURE",
+    "OPSD_TEMPLATE",
     "PARENT_HEAD_CHARS",
     "PASS_REWARD",
     "PASS_THRESHOLD",
@@ -1684,6 +1854,14 @@ __all__ = [
     "PLATFORM_UPLOAD_TIMEOUT_S",
     "POSITION_FLIP_FLAG",
     "POWER",
+    "PRIME_RL_BATCH",
+    "PRIME_RL_EVAL_EXAMPLES",
+    "PRIME_RL_EVAL_GROUP",
+    "PRIME_RL_GPUS",
+    "PRIME_RL_LEARNING_RATE_FULL",
+    "PRIME_RL_LEARNING_RATE_LORA",
+    "PRIME_RL_SEQ_LEN",
+    "PRIME_RL_STEPS",
     "PROGRESS_MIN_BUDGET",
     "PROGRESS_MIN_ROWS_FOR_ESTIMATE",
     "PROVE_EFFECT",

@@ -11,7 +11,6 @@ description: "The platform client: sign in, tracked agents, runs, verdicts."
 | Name | What it does |
 |---|---|
 | [`Anthropic`](#anthropic) | Anthropic's Messages API. |
-| [`Backend`](#backend) | A model behind an endpoint, with the key that reaches it. |
 | [`Endpoint`](#endpoint) | Any OpenAI-compatible server you run: vLLM, SGLang, TGI, LM Studio, a trained adapter behind a URL. |
 | [`Hosted`](#hosted) | The model While hosts, on your account key (`whileai login` or `wai.configure(api_key=...)`). |
 | [`Judge`](#judge) | An LLM judge: a model, a rubric, and the context the agent was under. |
@@ -29,6 +28,7 @@ description: "The platform client: sign in, tracked agents, runs, verdicts."
 | [`export`](#export) | Write `training_rows` as JSONL, gated so a broken row never reaches the trainer. |
 | [`hack_scan`](#hack_scan) | Rank the features that separate reward within each ask, against a permutation noise floor, and say what a grouped update would learn. |
 | [`judge_trust`](#judge_trust) | Measure whether the judge can be trusted, against human labels and under attack. |
+| [`methods`](#methods) | Training methods as objects, and the config a trainer reads from them. |
 | [`pass_at`](#pass_at) | Compute pass@1, pass^k and pass@k from graded rows, grouped by task. |
 | [`platform`](#platform) | Report what you trained to the While platform, so a person can decide. |
 | [`preflight`](#preflight) | Spec-quality report for an agent. |
@@ -150,6 +150,53 @@ Reference: LLM-as-a-judge, Lambert 2025, chapter Reward Modeling;
 Zheng et al. 2023, arXiv:2306.05685 (position and length bias, why
 `judge_trust` should follow).
 
+## methods
+
+Training methods as objects, and the config a trainer reads from them.
+
+
+### methods
+
+Module `whileai.methods`.
+
+Training methods as objects, and the config a trainer reads from them.
+
+    import whileai as wai
+
+    teacher = wai.Endpoint(url="https://my-vllm.example/v1", model="Qwen/Qwen3-32B")
+    cfg = wai.prime_rl_config("refunds-v1", wai.OPD(teacher), model="Qwen/Qwen3-4B", out="opd.toml")
+    print(cfg)                 # what was written, which knobs the trainer reads, which it ignores
+    # then, on a box with two GPUs and your keys:  uv run rl @ opd.toml
+
+`method=` takes a string (`"grpo"`, `"sft"`, ...) or one of the objects
+here. An object is the string with its knobs attached, the way
+`torch.optim.Adam(lr=)` is "adam" with its knobs: every default is named
+and cited in `defaults.py`, a bad value is refused on construction with
+the fix in the message, and the object prints. Nothing here trains. The
+trainer is prime-rl, TRL or Tinker, on your GPUs with your keys; the
+objects say what to run and `prime_rl_config` says it in the
+trainer's own words.
+
+* `OPD`, on-policy distillation. The student samples, a frozen
+  teacher scores every sampled token, and the loss is the per-token
+  reverse KL (Agarwal et al. 2023, arXiv:2306.13649; Thinking Machines
+  2025). Qwen3 reports the same AIME score as RL at a tenth of the GPU
+  hours (arXiv:2505.09388).
+* `OPSD`, on-policy self-distillation. The teacher is the same
+  model given privileged context the student never sees: a passing
+  demonstration (Shenfeld et al. 2026, arXiv:2601.19897), the reference
+  answer (Zhao et al. 2026, arXiv:2601.18734), or a successful rollout
+  plus the environment's feedback (Hübotter et al. 2026,
+  arXiv:2601.20802). It learns where GRPO has no gradient, and it hurts
+  thinking models (Kaur et al. 2026, arXiv:2607.05184), so the writer
+  says so.
+* `Async`, any method with a bound on how many optimizer steps a
+  rollout may lag the policy, and the per-token correction for the gap
+  (Noukhovitch et al. 2024, arXiv:2410.18252; Khatri et al. 2025,
+  arXiv:2510.13786).
+* `prime_rl_config`, the TOML prime-rl reads, from a method object
+  and a taskset.
+
 ## models
 
 Where a model call goes, as an object whose repr says so.
@@ -164,16 +211,6 @@ class Anthropic(model: str, api_key: str | None = None) -> None
 Defined in [`whileai/models.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/models.py).
 
 Anthropic's Messages API. Key: `api_key=` or `ANTHROPIC_API_KEY`.
-
-### Backend
-
-```python
-class Backend(model: str, api_key: str | None = None) -> None
-```
-
-Defined in [`whileai/models.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/models.py).
-
-A model behind an endpoint, with the key that reaches it.
 
 ### Endpoint
 
@@ -1816,7 +1853,14 @@ What steers the search and answers the tools:
   the same state. A slow rollout holds its batch, so uneven latency
   costs throughput, and it needs the clock off, since a clock stop
   lands wherever the run happens to be. Without the flag, which rows
-  land before the cap depends on thread timing.
+  land before the cap depends on thread timing. Either way the draw is
+  a function of the seed and the inputs alone, not of the interpreter:
+  every float sum on the row-selection path is correctly rounded
+  (`math.fsum`), so one seed picks the same rows on CPython 3.10
+  through 3.13, and a golden-value test pins that draw. Releases
+  before this fix used the builtin `sum`, whose algorithm changed
+  in CPython 3.12, and could swap one row per run between minor
+  versions (issue #410).
 
 What every row records. `sampling` (`temperature`, `max_tokens` and
 `model` as the model backend resolved them), because a result is only

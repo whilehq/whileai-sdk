@@ -890,6 +890,13 @@ def train(
 
     A dataset already training answers with that run instead of a second.
     """
+    if method is not None and not isinstance(method, str):
+        raise TypeError(
+            f"the hosted trainer runs {', '.join(METHODS)}; a method object such as "
+            f"wai.{type(method).__name__}(...) runs on your own GPUs through "
+            "wai.prime_rl_config(env, method, model=...) (on-policy distillation, "
+            "self-distillation and bounded-staleness RL; issue 564)."
+        )
     method = str(method or "sft").lower()
     if method not in METHODS:
         raise ValueError(f"method must be one of {', '.join(METHODS)}; got {method!r}")
