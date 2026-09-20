@@ -5,6 +5,10 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 
 ## Unreleased
 
+- `tracked.open(run_id)` binds a `Run` to a run that already exists (GET, never POST), so a
+  coding agent can backfill the record, hours, cost, a score or a note from any later session with
+  the same `finish` / `score` / `note` / `archive` calls; the Runs page's "missing" list is what it
+  fills. An unknown id raises `PlatformError(404)` naming `tracked.runs()`. Closes #514.
 - `recipes/04-train/prime-rl`: GRPO, OPSD and OPD on one taskset on prime-rl, on Modal with
   your keys, from `wai.prime_rl_config`; a While-owned launcher over Prime Intellect's published
   image, deploy-and-spawn so a run outlives the shell, per-prompt held-out eval read back from the
