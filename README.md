@@ -2,7 +2,7 @@
   <a href="https://withwhile.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-dark.png">
-      <img src="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-light.png" alt="While. Models improve while they work." width="720">
+      <img src="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-light.png" alt="wai, the While whale. Models improve while they work." width="720">
     </picture>
   </a>
 </p>
@@ -37,7 +37,11 @@
 - **Train.** Export to TRL or a `verifiers` environment, or train and
   serve on the While platform.
 
-Runs on your machine against your models. Every default cites its source.
+wai is While's whale and the alias of the whileai SDK: `import whileai as wai`.
+Runs on your machine against your models. Every default cites its source. You
+own the model, the data and the weights: the datasets are built from your
+production traces, the model is an open model post-trained with SFT and RL, and
+the trained weights are yours to download and serve anywhere.
 
 ## Install
 
@@ -202,13 +206,13 @@ Optional. Sign in once; the same rows push to an account, train on hosted
 GPUs, and come back as an OpenAI-compatible endpoint.
 
 ```python
-from whileai import platform
+import whileai as wai
 
-platform.login()  # once; or wai.configure(api_key="zp_...")
+wai.platform.login()  # once; or wai.configure(api_key="zp_...")
 v1 = rows.push("refunds-v1", holdout=0.2)  # the selection, gated
-run = platform.train(v1["datasetId"], method="grpo", steps=200)  # sft | grpo | dpo | rm
+run = wai.platform.train(v1["datasetId"], method="grpo", steps=200)  # sft | grpo | dpo | rm
 run.wait()
-model = platform.serve("refunds-v2", run)  # OpenAI-compatible endpoint
+model = wai.platform.serve("refunds-v2", run)  # OpenAI-compatible endpoint
 ```
 
 `whileai login`, `agents`, `runs`, `verdict` and `promote` do the same from

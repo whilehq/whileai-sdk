@@ -72,6 +72,34 @@ grouped by stage, never by implementation file. `whileai.simulations` is
 the legacy path and gains no new names. *(torch / torch.nn / torch.optim;
 dspy.\* is fifteen names.)*
 
+The alias is the mark, so it is also the only import shape anyone writes.
+"while" is heard as "whale", wai the whale is While's mark, and the
+definition sentence is reused verbatim wherever a person or a machine
+asks: **wai is While's whale and the alias of the whileai SDK: `import
+whileai as wai`.** Every example shows that line and no other: the README,
+a module docstring, a docstring example, a recipe, a skill, an error
+message that quotes code. `from whileai import x`, a bare `import whileai`
+and `import whileai.simulations as wai` are style findings, and
+`tests/api/test_alias_surface.py` counts them the way the ratchet counts
+the retired shapes. Nothing else in the package is named `wai`: not a
+module, a class, a CLI command or a flag, and the alias is lowercase
+always. The places that state it, because a search or an answer engine
+reads them before a reader does: the README banner `alt` text, the first
+README paragraph, `whileai.__doc__`, the PyPI description and keywords,
+and the GitHub repository topics. *(one shape per library: every code
+example on dspy.ai opens `import dspy`, every PyTorch page `import
+torch`.)*
+
+The first README paragraph also carries the ownership sentence once,
+verbatim: **You own the model, the data and the weights: the datasets are
+built from your production traces, the model is an open model post-trained
+with SFT and RL, and the trained weights are yours to download and serve
+anywhere.** It lives there and nowhere in code. A docstring and an error
+message carry mechanism and a citation, never a thesis; the API backs the
+sentence with ergonomics instead (a training call says where the weights
+landed, keys ride on `configure()` and `context()`, and no training path
+needs a hidden platform key).
+
 **2. Objects carry configuration; calls carry data.** Anything a user sets
 up once and applies many times is a class: judges, verifiers, selectors,
 trainers, exporters. The constructor takes the configuration; one verb
@@ -186,6 +214,7 @@ grows:
 | public names starting `format_` | 5 | 13 |
 | public names starting `attach_` or `stamp_` | 4 | 6 |
 | public names starting `build_`, `load_`, `run_` or ending `_of`, `_rows` | 6 | 17 |
+| imports that are not `import whileai as wai` (`tests/api/test_alias_surface.py`) | 1 | 99 |
 
 Lower a number in the test when you retire a name. Never raise one. A PR
 that has to raise one says why in the body and gets a second reviewer.

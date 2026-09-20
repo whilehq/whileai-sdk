@@ -20,6 +20,17 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `run.score()` warns when a score reads as a fraction (score and interval at most 1): the
   platform counts points out of 100. `brief_of(agent, behaviors, runs, dash)` is the pure
   function behind it.
+- The front page and the PyPI metadata say what the package is and what its import
+  is: the banner alt text names wai the whale, the first README paragraph opens with
+  the definition sentence (`wai is While's whale and the alias of the whileai SDK:
+  import whileai as wai`) and carries the ownership sentence once, the PyPI
+  description opens with the package name and its alias, and `wai`, `open-weights`
+  and `byok` join the keywords. The README's own Platform snippet drops
+  `from whileai import platform` for `wai.platform`. `tests/api/test_alias_surface.py`
+  pins all of it and counts the 100 remaining imports that are not
+  `import whileai as wai` as a ceiling that may fall and never rise; style rule 1 now
+  says the alias is the only import shape an example shows.
+
 ## 1.06 (2026-09-20)
 
 - `wai.hub.push(source, "org/name", token=, private=True)` and `wai.export(..., push_to="org/name")`:

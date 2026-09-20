@@ -5,15 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "whileai"
 version = "1.06"
-description = "Post-training data and evaluation for tool-using LLM agents: simulate, grade, measure, select, train, export, with the checks from rlhfbook.com."
+description = "whileai (import whileai as wai): post-training data and evaluation for tool-using LLM agents. Simulate, grade, measure, select, train, export, with the checks from rlhfbook.com."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 dependencies = ["requests>=2.25.0", "pydantic>=2.0"]
 authors = [{name = "Jacob Weiss"}]
 keywords = [
-    "while", "whileai", "evals", "agent-evals", "llm-evals", "llm-as-a-judge",
-    "pass-at-k", "held-out", "confidence-interval", "post-training", "rlhf",
+    "wai", "while", "whileai", "evals", "agent-evals", "llm-evals", "llm-as-a-judge",
+    "pass-at-k", "held-out", "confidence-interval", "post-training", "open-weights",
+    "byok", "rlhf",
     "rl", "reinforcement-learning", "grpo", "sft", "dpo", "synthetic-data", "agents",
     "ai-agents", "tool-use", "evaluation", "simulation", "llm", "claude-code",
     "agents-md", "cursor", "codex",
