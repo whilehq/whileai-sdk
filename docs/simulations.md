@@ -124,7 +124,7 @@ graded, its reward and reason. From there:
 
 | cut | call | carries |
 | --- | --- | --- |
-| SFT | `data.training_set()` | a `loss_mask` per message: agent turns only (`mask_mode="final"` keeps the last) |
+| SFT | `data.training_set()` | a `loss_mask` per message: agent turns only (`mask_mode="final"` keeps the last); `export(format="trl")` drops it, because TRL reads none, and writes `mask_mode="final"` as prompt/completion rows TRL honors |
 | preference pairs | `build_preference_pairs`, `export_preference` | raw scores, `margin`, `same_policy`, `length_delta`, a warning when chosen is usually longer |
 | RL groups | `select_for_rl`, `export_dataset` | `group_id`, `k`, `n0`, `n1`, group reward mean and std, the `calibration` stamp |
 | leakage check | `decontaminate` | same task id, same normalised text, 80 percent 8-gram cover (the Llama 2 rule), cosine at or above 0.85 with an `embedder=` |
@@ -136,9 +136,25 @@ and a KL to a reference model need.
 
 ## Hugging Face, both directions
 
-A graded set can leave for a dataset repo you own; any Hub split can come
-onto your account to be measured first. Connect the account once on any
-dataset page. Needs `WHILEAI_API_KEY` or `whileai login`.
+Two routes to the Hub. The local one uses your own token and never calls
+the platform: `export(..., push_to=)` uploads the file it just wrote, and
+`wai.hub.push` uploads a file, an adapter directory or rows you already
+hold. Repos are private until you say otherwise. Needs `HF_TOKEN` (or
+`hf auth login`) and `pip install 'whileai[hf]'`.
+
+```python
+import whileai as wai
+
+wai.export(rows, "train.jsonl", format="trl", push_to="me/my-set")  # -> a private dataset repo
+wai.hub.push("out/adapter", "me/my-lora")  # a LoRA directory -> a private model repo
+wai.hub.push(rows, "me/my-set", token="hf_...", private=False)  # rows -> train.jsonl, public
+```
+
+The platform route is a platform feature: it moves a set that already
+lives on your account through the Hugging Face account connected on the
+website, and brings any Hub split onto your account to be measured first.
+Connect the account once on any dataset page. Needs `WHILEAI_API_KEY` or
+`whileai login`.
 
 ```python
 import whileai.simulations as wai

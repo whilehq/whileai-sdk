@@ -69,7 +69,7 @@ wai.export_preference(pairs, "dpo.jsonl", format="trl")  # what TRL's DPOTrainer
 wai.to_trl(wai.training_rows(data), "training")  # same reshape on rows you already hold
 ```
 
-`format="openai"` (the default) is the API wire row: the whole conversation in `messages`, `function.arguments` as a JSON string, and the ask alongside as `prompt`. `format="trl"` is what `trl.data_utils.maybe_apply_chat_template` accepts. For SFT that is conversational `messages` with **no** `prompt` string column: TRL decides "is this conversational?" from the column set, and a `prompt` string next to `messages` makes it skip the chat template silently and train on the bare ask; the ask survives as `prompt_text`. For preference data it is `prompt` as the message list up to the first agent turn with `chosen`/`rejected` as the completions only, because the default shape (a `prompt` string with full conversations on both sides) raises `TypeError: string indices must be integers` inside TRL. In the TRL shape `function.arguments` is a dict, not a JSON string: HF chat templates render it with `| tojson`, so a pre-encoded string is quoted twice and the student learns to emit a string where an object belongs. The `tool_call_roundtrip` block in the report names which of the two encodings it checked (`encoding: "json_string"` or `"dict"`), so `invalid: 0` says what it actually vouches for.
+`format="openai"` (the default) is the API wire row: the whole conversation in `messages`, `function.arguments` as a JSON string, and the ask alongside as `prompt`. `format="trl"` is what `trl.data_utils.maybe_apply_chat_template` accepts. For SFT that is conversational `messages` with **no** `prompt` string column: TRL decides "is this conversational?" from the column set, and a `prompt` string next to `messages` makes it skip the chat template silently and train on the bare ask; the ask survives as `prompt_text`. The TRL rows carry no `loss_mask`: trl 0.19.1's `SFTTrainer` never reads one (its collator unlabels tokens only from `completion_mask` and `assistant_masks`, both built by the trainer), so `mask_mode="final"` and `unroll=True` write prompt/completion rows that TRL trains exactly as the mask asks, and `mask_mode="assistant"` writes `messages` rows that TRL trains on every token of unless `assistant_only_loss=True` is set (which needs a `{% generation %}` block in the chat template; Qwen2.5-Instruct has none). The report's `mask_mode` says which of the two TRL will do. For preference data it is `prompt` as the message list up to the first agent turn with `chosen`/`rejected` as the completions only, because the default shape (a `prompt` string with full conversations on both sides) raises `TypeError: string indices must be integers` inside TRL. In the TRL shape `function.arguments` is a dict, not a JSON string: HF chat templates render it with `| tojson`, so a pre-encoded string is quoted twice and the student learns to emit a string where an object belongs. The `tool_call_roundtrip` block in the report names which of the two encodings it checked (`encoding: "json_string"` or `"dict"`), so `invalid: 0` says what it actually vouches for.
 
 The export refuses rows whose reply quotes their own privileged context (`privileged_leak` in the error) because the export scrubs the key, not the reply; drop the rows `leak_report` names, or pass `validate=False`.
 
@@ -453,7 +453,16 @@ wai.unpublish("ds_...")
 
 Cards live on the public catalog of the platform ([withwhile.com](https://withwhile.com)), grouped by agent, with rows, size and the analyzer's numbers on each. A dataset must be finalized and hold rows to publish.
 
-Hugging Face, both directions. Connect your account once on any dataset page, then:
+Hugging Face, both directions. With your own token, no platform call (`HF_TOKEN` or `hf auth login`, `pip install 'whileai[hf]'`, private unless `private=False`):
+
+```python
+import whileai as wai
+
+wai.export(rows, "train.jsonl", format="trl", push_to="me/my-set")  # -> a dataset repo
+wai.hub.push("out/adapter", "me/my-lora")  # an adapter directory -> a model repo
+```
+
+Through the platform, for a set or a hosted run that lives on your account (a platform feature: the website holds the Hub token). Connect your account once on any dataset page, then:
 
 ```python
 wai.hf_status()  # connected? namespaces

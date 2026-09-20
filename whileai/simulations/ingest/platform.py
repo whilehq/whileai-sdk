@@ -655,7 +655,10 @@ def hf_publish(
     (split -> dataset, numbers, history). Defaults: your username and a
     slug of the dataset name. With ``wait`` (the default) this returns the
     finished state ``{"repo", "url", "commit", "tag", "split", ...}``;
-    otherwise the ``pushing`` stamp.
+    otherwise the ``pushing`` stamp. This is the platform route, for a set
+    that lives on your account; for a file, an adapter directory or rows
+    on your machine, ``wai.hub.push`` and ``export(push_to=)`` upload with
+    your own ``HF_TOKEN`` and never call the platform.
     """
     body: dict = {"private": private}
     if namespace:

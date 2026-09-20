@@ -218,3 +218,116 @@ def test_unknown_format_is_refused():
     ):
         with pytest.raises(ValueError):
             call()
+
+
+# ------------------------------------------------------ the loss mask (#507)
+
+
+def _multi_turn_row() -> dict:
+    """Two assistant turns around a tool result: the shape whose mask TRL
+    cannot honor from a ``messages`` row."""
+    return {
+        "prompt": "where is order 4412",
+        "reward": 1,
+        "messages": [
+            {"role": "user", "content": "where is order 4412"},
+            {
+                "role": "assistant",
+                "content": "Let me check.",
+                "tool_calls": [
+                    {"function": {"name": "read_file", "arguments": {"path": "orders/4412"}}}
+                ],
+            },
+            {"role": "tool", "content": '{"status": "shipped"}'},
+            {"role": "assistant", "content": "It shipped."},
+        ],
+    }
+
+
+def test_trl_sft_rows_carry_no_loss_mask_and_the_report_says_what_trl_does(tmp_path):
+    """trl 0.19.1's SFTTrainer never reads a ``loss_mask`` column; a file
+    that carries one reads as a promise it does not keep. The report's
+    ``mask_mode`` names the trainer's behaviour, not the SDK's intention."""
+    out = tmp_path / "sft.jsonl"
+    report = export_training(
+        [_multi_turn_row()], str(out), system_prompt=POLICY, tools=TOOLS, format="trl"
+    )
+    rows = [json.loads(line) for line in out.read_text().splitlines()]
+    assert rows and all("loss_mask" not in row for row in rows)
+    assert all(_is_conversational(row) for row in rows)
+    assert report["mask_mode"].startswith("TRL trains on every token")
+    assert "assistant_only_loss=True" in report["mask_mode"]
+    assert "{% generation %}" in report["mask_mode"]
+    # every message is trained, and the report counts it that way
+    assert report["trained_messages"] == 5 and report["masked_messages"] == 0
+
+
+def test_openai_rows_keep_the_loss_mask_and_the_intended_mask_mode(tmp_path):
+    """The other format is unchanged: the mask is the row's, and the report
+    says what was asked."""
+    out = tmp_path / "sft.jsonl"
+    report = export_training([_multi_turn_row()], str(out), system_prompt=POLICY, tools=TOOLS)
+    row = json.loads(out.read_text().splitlines()[0])
+    assert row["loss_mask"] == [0, 0, 1, 0, 1]
+    assert report["mask_mode"] == "assistant"
+    assert (report["trained_messages"], report["masked_messages"]) == (2, 3)
+
+
+def test_trl_final_mask_is_a_prompt_completion_row_that_trl_honors(tmp_path):
+    """``mask_mode="final"`` is the one mask trl 0.19.1 can apply from the
+    column set: prompt/completion rows, from which its ``tokenize`` builds a
+    ``completion_mask`` and the collator labels the completion only."""
+    out = tmp_path / "sft.jsonl"
+    report = export_training(
+        [_multi_turn_row()],
+        str(out),
+        system_prompt=POLICY,
+        tools=TOOLS,
+        format="trl",
+        mask_mode="final",
+    )
+    row = json.loads(out.read_text().splitlines()[0])
+    assert set(row) & {"messages", "loss_mask", "prompt_text"} == {"prompt_text"}
+    assert [m["role"] for m in row["prompt"]] == ["system", "user", "assistant", "tool"]
+    assert row["completion"] == [{"role": "assistant", "content": "It shipped."}]
+    assert _is_conversational(row)
+    # the tool call in the prompt is still checked, as a dict
+    call = _calls(row["prompt"])[0]
+    assert call["function"]["arguments"] == {"path": "orders/4412"}
+    assert report["tool_call_roundtrip"] == {
+        **report["tool_call_roundtrip"],
+        "checked": 1,
+        "invalid": 0,
+        "encoding": "dict",
+    }
+    assert report["mask_mode"].startswith("TRL trains on the last assistant turn only")
+    assert "completion_mask" in report["mask_mode"]
+    assert (report["trained_messages"], report["masked_messages"]) == (1, 4)
+    assert report["with_system"] == 1
+
+
+def test_trl_unroll_is_one_prompt_completion_row_per_assistant_turn(tmp_path):
+    out = tmp_path / "sft.jsonl"
+    report = export_training(
+        [_multi_turn_row()], str(out), system_prompt=POLICY, format="trl", unroll=True
+    )
+    rows = [json.loads(line) for line in out.read_text().splitlines()]
+    assert report["n"] == len(rows) == 2
+    assert [len(r["prompt"]) for r in rows] == [2, 4]
+    assert all(
+        len(r["completion"]) == 1 and r["completion"][0]["role"] == "assistant" for r in rows
+    )
+    assert all("loss_mask" not in r for r in rows)
+    assert report["mask_mode"].startswith("TRL trains on the last assistant turn only")
+
+
+def test_trl_final_drops_and_counts_a_row_with_no_assistant_turn(tmp_path):
+    row = _multi_turn_row()
+    row["messages"] = [{"role": "user", "content": "hello?"}]
+    out = tmp_path / "sft.jsonl"
+    report = export_training(
+        [row, _multi_turn_row()], str(out), format="trl", mask_mode="final", validate=False
+    )
+    assert report["n"] == 1 and report["no_completion_dropped"] == 1
+    assert any("no assistant turn" in w for w in report["warnings"])
+    assert len(to_trl(training_rows([row]), "completion")) == 0

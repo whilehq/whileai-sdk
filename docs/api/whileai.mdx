@@ -758,6 +758,7 @@ export(
     unroll: bool = False,
     max_tool_output_chars: int | None = None,
     format: str = 'openai',
+    push_to: str | None = None,
 ) -> dict[str, Any]
 ```
 
@@ -797,19 +798,42 @@ written today breaks.
   chat-completions wire row: the full `messages` list,
   `function.arguments` as a JSON string, and the ask carried
   alongside as `prompt`. `"trl"` writes what `trl` can actually
-  load: conversational SFT rows (`messages` only, arguments as
-  dicts, the ask under `prompt_text`). TRL decides "is this
-  conversational?" from the column set, so a `prompt` string beside
-  `messages` makes it skip the chat template without an error and
-  train on the bare ask, which is why the TRL rows do not carry one.
-  The report says which format and which argument encoding the
-  round-trip gate checked.
+  load: conversational SFT rows (arguments as dicts, the ask under
+  `prompt_text`). TRL decides "is this conversational?" from the
+  column set, so a `prompt` string beside `messages` makes it skip
+  the chat template without an error and train on the bare ask, which
+  is why the TRL rows do not carry one. The report says which format
+  and which argument encoding the round-trip gate checked.
+* `mask_mode` with `format="trl"`: the TRL rows carry no
+  `loss_mask`, because trl 0.19.1's `SFTTrainer` never reads one.
+  Its collator (`DataCollatorForLanguageModeling`) labels every
+  token and unlabels only from two token-level columns the trainer
+  builds itself: `completion_mask` from `prompt`/`completion`
+  rows, and `assistant_masks` from `assistant_only_loss=True`,
+  which needs a `{% generation %}` block in the chat template
+  (Qwen2.5-Instruct has none). So `mask_mode="final"` and
+  `unroll=True` write prompt/completion rows (prompt up to the last
+  assistant turn, that turn as the completion), and TRL trains on
+  exactly what the mask asked. `mask_mode="assistant"` (the default)
+  writes `messages` rows, and TRL trains on every token of them
+  unless `assistant_only_loss=True` is set. The report's
+  `mask_mode` states which of the two TRL will do, and
+  `trained_messages` / `masked_messages` count what TRL trains,
+  not what the SDK intended; a `format="trl"` export on 94 rows was
+  measured at 9x the tokens its `loss_mask` marked (#507).
+* `push_to`: a Hub repo (`"me/my-set"`) to upload the written
+  file to, with your own token: `HF_TOKEN` from the environment or
+  the login `hf auth login` cached, through `huggingface_hub`
+  (`pip install 'whileai[hf]'`). Private by default; no platform
+  call. `wai.hub.push` is the same upload for a file, a directory
+  or rows you already hold, with `token=` and `private=`. The
+  report gains `hub` (`repo_id`, `url`, `commit`).
 * `strip_think`, `mask_mode`, `unroll`, `max_tool_output_chars`:
   passed through to `training_rows`, which explains each.
 
 ``python
 report = wai.export_dataset(data, "train.jsonl", format="trl")
-print(report["n"], report["tool_call_roundtrip"])
+print(report["n"], report["mask_mode"], report["tool_call_roundtrip"])
 ``
 
 ## simulations.generate.offline_agent

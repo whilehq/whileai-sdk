@@ -69,6 +69,7 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "prime_rl_config": ("whileai.methods", "prime_rl_config"),
     # namespaces
     "verify": ("whileai.simulations.verify", None),
+    "hub": ("whileai.hub", None),  # push to the Hugging Face Hub with your own token
     "platform": ("whileai.platform", None),
     "methods": ("whileai.methods", None),
     "simulations": ("whileai.simulations", None),
@@ -99,6 +100,7 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:  # so editors and mypy see the lazy names
+    from . import hub
     from .auth import LoginError, account, login, logout, resolve_api_key, signup
     from .judge import Judge
     from .methods import OPD, OPSD, Async, prime_rl_config
