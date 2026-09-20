@@ -371,7 +371,8 @@ reply budget, same verifier, k=4.
 | Qwen3.5-9B r1, step 25, renamed | 0.79 (0.75..0.82) | 0.69 | 0.86 | 0.00 | 0.04 | 0% |
 | Qwen3.5-9B r1, step 50, renamed | 0.81 (0.77..0.84) | 0.73 | 0.86 | 0.00 | 0.04 | 0% |
 | Qwen3.5-9B r2, step 25, renamed (from r1 step 75; truncation scored 0, 3,072 cap) | 0.83 (0.80..0.86) | 0.77 | 0.88 | 0.00 | 0.03 | 1% |
-| Qwen3.5-9B **r3, step 25** (from r1 step 75; band re-cut on step 75: 202 prompts) | **0.84 (0.81..0.87)** | 0.77 | 0.88 | 0.00 | 0.03 | 0% |
+| Qwen3.5-9B **r3, step 25** (from r1 step 75; band re-cut on step 75: 202 prompts) | 0.84 (0.81..0.87) | 0.77 | 0.88 | 0.00 | 0.03 | 0% |
+| Qwen3.5-9B **r3, step 50** (the round's end and result) | **0.84 (0.81..0.87)** | **0.78** | **0.88** | 0.00 | 0.03 | 0% |
 
 Every number in this table is scored on the first reply. The rows were
 first graded at 0.53 (9B) and 0.14 (4B) with "21% / 79% cut by the reply
@@ -416,8 +417,15 @@ prompts at 0.2-0.8, 118 shared with the old band), step 25: 0.84
 (+0.204..+0.263) vs the base; its first training step ran at reward 0.87
 with half the groups carrying a gradient, where round 2 had opened at
 0.98 and one sixth. A small move that the interval sees, at a headroom
-of 0.04 (pass@4 0.88); step 50 will say whether it holds. Round 2 stays
-stopped: its log showed 60-88% of
+of 0.04 (pass@4 0.88). Step 50, the round's end: 0.84 (0.81..0.87),
++0.019 (+0.006..+0.033) vs step 75 again, easy +0.015 (+0.002..+0.031)
+and hard +0.030 (+0.003..+0.056) both up, pass^4 0.78. The same +0.02
+at two checkpoints is the re-cut band's whole effect; the curve is flat
+between them, so the 9B is saturated on this benchmark at 0.84 with
+pass@4 0.88 as the ceiling this prompt and reply budget allow. The r3
+step-50 adapter is `whileai/text-to-sql-shop-qwen3.5-9b-r3-step50-vllm`
+(vLLM layout) and its rollouts are `eval-qwen3.5-9b-r3-step50-vllm`.
+Round 2 stays stopped: its log showed 60-88% of
 groups at zero variance from step 1, the band cut on the base was solved
 by round 1, and the next round re-cuts it from the current checkpoint
 (202 of 601 prompts land in the 0.2-0.8 band on step 75, 118 shared with
