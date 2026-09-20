@@ -68,7 +68,9 @@ print("contaminated:", report["n_contaminated"])
 contaminated: 1
 ```
 
-One planted copy, one row dropped. On a real set the count is rarely
+One planted copy, one row dropped. `kept` still carries the run's system
+prompt and tools, so the next lesson's `select(kept, mode="sft").export(...)`
+writes both. On a real set the count is rarely
 zero, and every row it drops is a row that would have made the after
 score lie. That catch came from the `same_task` rule, which needs a
 `scenario_id` or `task_id` on both sides; an eval set that carries none

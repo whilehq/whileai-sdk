@@ -364,6 +364,8 @@ export(
     format: str = 'openai',
     unroll: bool = False,
     validate: bool = True,
+    system_prompt: str | None = None,
+    tools: Sequence[dict] | None = None,
 ) -> dict[str, Any]
 ```
 
@@ -371,7 +373,12 @@ Write the rows trainer-ready: `export_dataset` with this
 selection's system prompt and tools already filled in. `format`
 is `"openai"` (chat JSONL with a `loss_mask` per message) or
 `"trl"` (what `SFTTrainer` loads); `unroll=True` makes one
-sample per agent turn.
+sample per agent turn. `system_prompt=` and `tools=` replace
+what the selection carries, for rows that arrived as a plain
+list. It warns when the written rows call tools but carry no tool
+schema, or came from a run with a system prompt and carry none: a
+tool-calling file whose prompts never show the tools trains a
+model to call a schema it was never shown (#592).
 
 #### Selection.push
 
@@ -1552,7 +1559,9 @@ Drop training rows whose prompt overlaps an evaluation set.
 Reach for it before any train-versus-holdout comparison: a held-out task
 that also sits in the training data measures memory, not the change
 (Lambert 2025, chapter Evaluation). It returns `(clean_rows, report)`:
-the rows that survived, and a report with the count under each rule
+the rows that survived (a list that also carries the system prompt and
+tools the input carried, so `select(clean_rows).export()` writes
+them), and a report with the count under each rule
 (`n_contaminated` in total), hits per field, the eval text count, and
 the first offenders with their coverage (or `similarity` for semantic
 hits). `rules_skipped` names each rule that could not run on these
