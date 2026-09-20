@@ -255,6 +255,7 @@ new_run.note(
     f"Changed: one line, '{DATES_LINE}'\n"
     f"Moved: {base} to {new} points (±{new_ci}) on {len(ASKS)} asks.\n"
     f"Why: {len(fixed)} asks now pass, every one an order older than 30 days; {len(broke)} broke.\n"
+    f"Learned: the model knew the rule but not the date; giving it the date beat rewriting the rule.\n"
     f"Reproduce: seed 1, test {TEST}, uv run python evals/run.py --prompt policy+dates"
 )
 tracked.figure(
@@ -313,6 +314,8 @@ run.note(
         if together
         else "Why: reward rose but held-out did not. Treat as reward hacking until shown otherwise.\n"
     )
+    + "Learned: 800 traces taught one rule; the held-out checkpoints are the proof, the reward is not "
+    "(rlhfbook.com, Over-Optimization).\n"
     + "Reproduce: uv run python train.py --seed 17 (pins in the record)"
 )
 tracked.figure(
@@ -361,7 +364,7 @@ def readback(tracked) -> list[str]:
             out.append(f"version {v!r} encodes settings; say the arm in words, numbers in record")
         if not ((r.get("record") or {}).get("data") or {}):
             out.append(f"run {v!r}: no data posted; RunRecord(data=Data(...))")
-        for word in ("Changed", "Moved", "Why", "Reproduce"):
+        for word in ("Changed", "Moved", "Why", "Learned", "Reproduce"):
             if trained and f"{word}:" not in note:
                 out.append(f"run {v!r}: note has no '{word}:' line; run.note(...)")
         if trained and r["id"] not in pictured:
@@ -413,7 +416,7 @@ assert fixed and not broke, (fixed, broke)
 
 notes = {c[1].split("/")[2]: c[2]["notes"] for c in calls if c[0] == "PATCH" and "notes" in c[2]}
 assert len(notes) == 3, "every run says what happened"
-assert all(w in notes[run.id] for w in ("Changed:", "Moved:", "Why:", "Reproduce:"))
+assert all(w in notes[run.id] for w in ("Changed:", "Moved:", "Why:", "Learned:", "Reproduce:"))
 assert "so the judge is not being gamed" in notes[run.id]
 assert set(fake.figures) == {"harness", "training"}
 assert fake.figures["training"]["run"] == run.id
@@ -437,6 +440,7 @@ for word in (
     "encodes settings",
     "no data",
     "no 'Why:' line",
+    "no 'Learned:' line",
     "no picture",
     "reads as a fraction",
 ):

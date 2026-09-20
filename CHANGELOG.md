@@ -9,6 +9,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 - Contributing: every PR opens with `Closes #N` or `No issue: <why>`; `pr-issue.yml` enforces it
   (CONTRIBUTING.md, Pull requests).
+- `skills/manage-experiments` 2.1: a fifth line per run, `Learned:`, the hypothesis closed in
+  one sentence with the paper when the run tried one, so the page teaches as well as reports;
+  `readback` checks for it. Docs and the `whileai init` line say five lines.
+
 - Versioning: the counter never rolls over (`0.99` then `0.100`); `release.py` and the
   publish gate enforce it, the 2026-09-20 uploads 1.0 and 1.3 to 1.9 are re-cut as 0.100 to
   0.109 and yanked, and the constitution carries the rule as belief 10 (One counter).
