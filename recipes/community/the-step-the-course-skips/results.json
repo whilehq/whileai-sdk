@@ -1,0 +1,78 @@
+{
+ "question": "Lesson 7 of the learn course skips step 2 (train). Does the loop it teaches produce a real, replicated gain when you do that step on your own Modal?",
+ "whileai": "1.6",
+ "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+ "method": "LoRA SFT (r=16, alpha=32, 3 epochs, lr 1e-4), TRL SFTTrainer",
+ "gpu": "A10G",
+ "runs": 2,
+ "gpu_minutes": 9,
+ "usd": 0.17,
+ "metric": "pass@1 on 'first move is get_order on an id the user named' (a program, not a judge)",
+ "eval": {
+  "holdout_tasks": 40,
+  "samples_per_task": 4,
+  "rows_per_pass": 160,
+  "paired": true,
+  "base_passes_for_noise_floor": 3
+ },
+ "arms": [
+  {
+   "seed": 0,
+   "train_rows": 107,
+   "base_passes": [
+    0.46875,
+    0.40625,
+    0.4125
+   ],
+   "run_std": 0.03442231592053814,
+   "noise_threshold_from_compare": 0.209,
+   "before": 0.46875,
+   "after": 0.76875,
+   "delta": 0.3,
+   "ci95": [
+    0.2,
+    0.4
+   ],
+   "headline_verdict": "moved",
+   "verdict": "moved"
+  },
+  {
+   "seed": 1,
+   "train_rows": 105,
+   "base_passes": [
+    0.3375,
+    0.30625,
+    0.325
+   ],
+   "run_std": 0.015728821740147395,
+   "noise_threshold_from_compare": 0.096,
+   "before": 0.3375,
+   "after": 0.75,
+   "delta": 0.4125,
+   "ci95": [
+    0.30625,
+    0.525
+   ],
+   "headline_verdict": "moved",
+   "verdict": "moved"
+  }
+ ],
+ "verdict": "moved, replicated on two independent task sets",
+ "caveats": [
+  "n=40 held-out tasks is under the 50 the platform's own score() warning and holdout_size() ask for; the platform verdict stays 'unproven' for that reason.",
+  "Training reward and eval metric are the same rule, so this measures the rule it trained, not downstream quality (proxy == target).",
+  "One training seed per arm: the noise floor is three eval passes of the base, not three training runs.",
+  "The seeded_agent writes the demonstrations, so the ceiling is that generator's behaviour, not a human's."
+ ],
+ "modal_apps": {
+  "seed0": "ap-zRtz4ulrwTC4Hppb8bnnT6",
+  "seed1": "ap-hcriUuHYuV0uoNenJrkI2V",
+  "smoke": "ap-HzF86YKbytlUQIuUQ8yWcp"
+ },
+ "issues": [
+  "https://github.com/whilehq/whileai-sdk/issues/592",
+  "https://github.com/whilehq/whileai-sdk/issues/593",
+  "https://github.com/whilehq/whileai-sdk/issues/594",
+  "https://github.com/whilehq/whileai-sdk/issues/343#issuecomment-5748636256"
+ ]
+}
