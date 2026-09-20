@@ -371,6 +371,7 @@ reply budget, same verifier, k=4.
 | Qwen3.5-9B r1, step 25, renamed | 0.79 (0.75..0.82) | 0.69 | 0.86 | 0.00 | 0.04 | 0% |
 | Qwen3.5-9B r1, step 50, renamed | 0.81 (0.77..0.84) | 0.73 | 0.86 | 0.00 | 0.04 | 0% |
 | Qwen3.5-9B r2, step 25, renamed (from r1 step 75; truncation scored 0, 3,072 cap) | 0.83 (0.80..0.86) | 0.77 | 0.88 | 0.00 | 0.03 | 1% |
+| Qwen3.5-9B **r3, step 25** (from r1 step 75; band re-cut on step 75: 202 prompts) | **0.84 (0.81..0.87)** | 0.77 | 0.88 | 0.00 | 0.03 | 0% |
 
 Every number in this table is scored on the first reply. The rows were
 first graded at 0.53 (9B) and 0.14 (4B) with "21% / 79% cut by the reply
@@ -409,7 +410,14 @@ curve, every point correctly served and paired against the base: step 25
 r2 step 25 +0.224 (+0.196..+0.254). Most of the gain is in the first 25
 steps; step 25 to 75 adds +0.033 (+0.017..+0.048), and r2 step 25 vs r1
 step 75 is +0.010 (-0.002..+0.023), flat (hard +0.023, +0.002..+0.045).
-Round 2 stays stopped: its log showed 60-88% of
+Round 3, from step 75 on a band re-cut from step 75 itself (202 of 601
+prompts at 0.2-0.8, 118 shared with the old band), step 25: 0.84
+(0.81..0.87), **+0.019 (+0.005..+0.034) vs step 75**, +0.233
+(+0.204..+0.263) vs the base; its first training step ran at reward 0.87
+with half the groups carrying a gradient, where round 2 had opened at
+0.98 and one sixth. A small move that the interval sees, at a headroom
+of 0.04 (pass@4 0.88); step 50 will say whether it holds. Round 2 stays
+stopped: its log showed 60-88% of
 groups at zero variance from step 1, the band cut on the base was solved
 by round 1, and the next round re-cuts it from the current checkpoint
 (202 of 601 prompts land in the 0.2-0.8 band on step 75, 118 shared with
