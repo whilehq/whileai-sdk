@@ -353,6 +353,7 @@ reply budget, same verifier, k=4.
 | Qwen3.5-9B **r1, step 25** (261 band prompts, 32 x 16 a step, micro-batch 1, gradient checkpointing, H100) | 0.56 (0.52..0.59) | 0.29 | 0.78 | 0.10 | 0.17 | - |
 | Qwen3.5-9B r1, step 50 | 0.55 (0.52..0.59) | 0.30 | 0.77 | 0.11 | 0.18 | 21% |
 | Qwen3.5-9B r1, step 75 (the round's result; stopped at step 78) | 0.55 (0.51..0.58) | 0.26 | 0.78 | 0.10 | 0.19 | 21% |
+| Qwen3.5-9B **r2, step 25** (from r1 step 75; truncation scored 0, 3,072 cap) | 0.55 (0.52..0.59) | 0.29 | 0.77 | 0.11 | 0.17 | 19% |
 
 Neither Qwen3.5 checkpoint emits `<think>` tags here; both reason in plain
 text before the query. The 4B does it at such length that 79% of replies
@@ -382,6 +383,13 @@ masked, and a 3,072-token cap (`--no-mask-truncated
 step-75 checkpoint) is `whileai/text-to-sql-shop-qwen3.5-9b-r1-step75` on
 Hugging Face and its holdout rollouts are the `eval-qwen3.5-9b-r1-step25`,
 `-step50` and `-step75` configs of the dataset.
+
+Round 2, step 25: 0.55, +0.019 (95% -0.007..+0.043) vs base and +0.007
+(-0.018..+0.032) vs the round-1 step-75 checkpoint it started from. Flat.
+Scoring cut-off replies zero did not shrink them either: 19% of holdout
+replies still hit the 4,096 budget (21% before). Twenty-five steps of a
+penalty the policy sees only on the runaway fifth was not enough to move
+the length mode; step 50 will say whether it moves at all.
 
 ## Other bases on the same holdout (140 tasks, k=4)
 
