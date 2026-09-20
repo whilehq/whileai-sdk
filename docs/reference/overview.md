@@ -94,8 +94,10 @@ print(scored.pass_at)
 ```
 
 ```text
-pass@1 1.00 [1.00..1.00] | pass^2 (pass_pow_k) n/a | pass@2 n/a | headroom n/a (18 groups, k=2; set repeats>=4 for pass^k and pass@k)
+pass@1 1.00 [1.00..1.00] | pass^2 (pass_pow_k) n/a | pass@2 n/a | headroom n/a (18 groups, k=2; every row scored 1 (20 of 20); check the judge before reading this number; set repeats>=4 for pass^k and pass@k)
 ```
+
+The tail of that line is where the number explains itself. Every row scoring the same value is named first, because a grader that always returns 1 (or, reading the wrong field, always 0) prints a confident pass rate with a tight interval that says nothing about the agent; here the scripted agent really does pass every ask, and the note is the prompt to check that before quoting the number.
 
 `tools=` takes `@wai.tool` functions, plain typed functions, OpenAI schema dicts (with or without the `{"type": "function", ...}` wrapper) and Anthropic `input_schema` dicts in one list; every call that takes `tools=` normalizes them the same way. The template writer needs no model and runs in seconds, but its situations are less varied than a model writes, so it is for wiring up your agent and grader, not for a training set. For that, [bring a model](#bring-a-model).
 
