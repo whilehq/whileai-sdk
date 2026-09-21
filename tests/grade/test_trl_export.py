@@ -130,7 +130,10 @@ def test_default_sft_rows_are_not_conversational_to_trl():
 
 
 def test_trl_preference_rows_are_prompt_plus_completions(tmp_path):
-    """Bug 1: prompt must be a message list and the sides the completion."""
+    """Bug 1: prompt must be a message list and the sides the completion.
+
+    Both rollouts open with the same ``read_file`` call and result, so that
+    prefix is the prompt and each side is the one reply that differs."""
     pairs, _ = build_preference_pairs(_rows())
     assert pairs
     out = tmp_path / "dpo.jsonl"
@@ -138,11 +141,10 @@ def test_trl_preference_rows_are_prompt_plus_completions(tmp_path):
     assert report["format"] == "trl"
     row = json.loads(out.read_text().splitlines()[0])
     assert isinstance(row["prompt"], list)
-    assert [m["role"] for m in row["prompt"]] == ["system", "user"]
-    # completion only: no prompt turns repeated on either side
+    assert [m["role"] for m in row["prompt"]] == ["system", "user", "assistant", "tool"]
+    # one assistant turn per side: no prompt turns repeated, no tool result scored
     for side in ("chosen", "rejected"):
-        assert row[side][0]["role"] == "assistant"
-        assert all(m["role"] != "user" for m in row[side])
+        assert [m["role"] for m in row[side]] == ["assistant"]
     assert _is_conversational(row)
     assert row["chosen"][-1]["content"] == "Read it; the bug is on line 40."
     assert row["rejected"][-1]["content"] == "I could not find anything."
@@ -175,6 +177,136 @@ def test_preference_pairs_without_a_completion_are_dropped_not_written():
     report = export_preference([pair], format="trl", validate=False)
     assert report["pairs"] == 0
     assert report["no_completion_dropped"] == 1
+
+
+# ------------------------------------- one turn per side, later turns cut
+
+
+def _pair(chosen_turns, rejected_turns, **extra) -> dict:
+    ask = [{"role": "user", "content": "where is order 4412"}]
+    return {
+        "prompt": "where is order 4412",
+        "chosen": {"messages": ask + chosen_turns},
+        "rejected": {"messages": ask + rejected_turns},
+        **extra,
+    }
+
+
+def _lookup(order_id: str) -> dict:
+    return {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                    "name": "lookup_order",
+                    "arguments": json.dumps({"order_id": order_id}),
+                },
+            }
+        ],
+    }
+
+
+def _shipped(content: str = '{"status": "shipped"}') -> dict:
+    return {"role": "tool", "tool_call_id": "c1", "content": content}
+
+
+def _pairs_as_rows(pairs: list[dict]) -> list[dict]:
+    """The rows ``to_trl`` takes: both sides as message lists."""
+    return [
+        {
+            "prompt": p["prompt"],
+            "chosen": p["chosen"]["messages"],
+            "rejected": p["rejected"]["messages"],
+        }
+        for p in pairs
+    ]
+
+
+def test_trl_preference_sides_are_the_one_assistant_turn_where_they_diverge(tmp_path):
+    """A DPO trainer masks the prompt and sums log-probabilities over
+    every completion token (Lambert 2025, chapter Direct Alignment), so a
+    tool result or a later user turn on a side carries gradient. The
+    shared prefix, tool result and second ask included, is the prompt;
+    each side is the one assistant turn where the pair differs."""
+    pair = _pair(
+        [
+            _lookup("4412"),
+            _shipped(),
+            {"role": "user", "content": "and order 8?"},
+            {"role": "assistant", "content": "Shipped."},
+        ],
+        [
+            _lookup("4412"),
+            _shipped(),
+            {"role": "user", "content": "and order 8?"},
+            {"role": "assistant", "content": "I cannot tell."},
+        ],
+    )
+    out = tmp_path / "dpo.jsonl"
+    report = export_preference([pair], str(out), system_prompt=POLICY, format="trl")
+    row = json.loads(out.read_text().splitlines()[0])
+    assert [m["role"] for m in row["prompt"]] == ["system", "user", "assistant", "tool", "user"]
+    assert row["prompt"][2]["tool_calls"][0]["function"]["arguments"] == {"order_id": "4412"}
+    assert row["chosen"] == [{"role": "assistant", "content": "Shipped."}]
+    assert row["rejected"] == [{"role": "assistant", "content": "I cannot tell."}]
+    for side in ("chosen", "rejected"):
+        assert all(m["role"] == "assistant" for m in row[side])
+    assert _is_conversational(row)
+    assert report["pairs"] == 1
+    assert "trl_turns_cut" not in report, "nothing was cut, so the key is absent"
+
+
+def test_trl_preference_report_counts_pairs_that_lost_later_turns(tmp_path):
+    """The sides diverge at the opening call; what follows on the chosen
+    side is cut, and the report says so, as ``fireworks_turns_cut`` does."""
+    pairs = [
+        _pair(
+            [_lookup("4412"), _shipped(), {"role": "assistant", "content": "Shipped."}],
+            [{"role": "assistant", "content": "No idea."}],
+        ),
+        _pair(
+            [{"role": "assistant", "content": "Shipped."}],
+            [{"role": "assistant", "content": "No idea."}],
+        ),
+    ]
+    out = tmp_path / "dpo.jsonl"
+    report = export_preference([*pairs], str(out), system_prompt=POLICY, format="trl")
+    assert report["pairs"] == 2
+    assert report["trl_turns_cut"] == 1
+    first, second = [json.loads(s) for s in out.read_text().splitlines()]
+    assert [m["role"] for m in first["prompt"]] == ["system", "user"]
+    assert len(first["chosen"]) == len(first["rejected"]) == 1
+    assert first["chosen"][0]["tool_calls"][0]["function"]["name"] == "lookup_order"
+    assert first["rejected"][0]["content"] == "No idea."
+    assert second["chosen"] == [{"role": "assistant", "content": "Shipped."}]
+
+
+def test_trl_preference_pairs_with_no_one_turn_contrast_are_dropped_and_counted(tmp_path):
+    """Diverging on a tool result is not a preference the policy can be
+    trained on, and sides that never differ carry no contrast at all."""
+    pairs = [
+        _pair(
+            [_lookup("4412"), _shipped()],
+            [_lookup("4412"), _shipped('{"status": "lost"}')],
+        ),
+        _pair(
+            [_lookup("4412"), _shipped(), {"role": "assistant", "content": "Shipped."}],
+            [_lookup("4412"), _shipped(), {"role": "assistant", "content": "Shipped."}],
+        ),
+        _pair(
+            [_lookup("4412"), _shipped(), {"role": "assistant", "content": "Shipped."}],
+            [_lookup("4412")],
+        ),
+    ]
+    out = tmp_path / "dpo.jsonl"
+    report = export_preference(pairs, str(out), system_prompt=POLICY, format="trl", validate=False)
+    assert report["pairs"] == 0
+    assert report["no_completion_dropped"] == 3
+    assert "trl_turns_cut" not in report
+    assert to_trl(_pairs_as_rows(pairs), "preference") == []
 
 
 # --------------------------------------------------- tool-call arguments

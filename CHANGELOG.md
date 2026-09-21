@@ -7,6 +7,17 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `export_preference(..., format="trl")` (and `to_trl(rows, "preference")`) carry one assistant
+  turn per side. The file used to put everything after the first assistant turn on each side,
+  tool results and later user turns included, and a DPO trainer masks only the prompt and
+  scores every completion token, so those tokens carried gradient as if the policy had written
+  them (Lambert 2025, chapter Tool Use: mask tool output from the loss; chapter Direct
+  Alignment). Now `prompt` is the prefix both sides share, tool turns and later asks
+  included, `chosen` and `rejected` are each the one assistant turn where the sides diverge,
+  later turns are cut and the pairs that lost some are counted as `trl_turns_cut`; pairs with
+  no one-turn contrast (the sides never differ, or diverge on a tool result) are dropped and
+  counted under `no_completion_dropped`. The same one-turn preference `format="fireworks"`
+  already wrote. An existing trl DPO file re-exported under this release changes shape.
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
 
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`

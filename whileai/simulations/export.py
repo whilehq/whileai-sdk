@@ -59,11 +59,17 @@ Three wire shapes come out of here, and they are not the same shape:
     ``prompt`` string next to ``messages`` makes it decide the row is
     not conversational, apply no chat template, and train on the bare
     ask; the ask survives as ``prompt_text``. For preference data the
-    row is TRL's conversational DPO triple: ``prompt`` is the message
-    list up to the first assistant turn, and ``chosen``/``rejected`` are
-    the **completions only**. In both, ``function.arguments`` is a
-    **dict**, because HF chat templates render it with ``| tojson`` and
-    a pre-encoded string comes out quoted twice.
+    row is TRL's conversational DPO triple, and it is the same one-turn
+    preference Fireworks takes: ``prompt`` is the prefix both sides
+    share (tool turns and later asks included), and ``chosen`` and
+    ``rejected`` are each the **one assistant turn** where the sides
+    diverge. ``DPOTrainer`` masks the prompt and scores every completion
+    token, so a tool result or a user turn left on a side would carry
+    gradient; the turns after the preference are cut and the pairs that
+    lost some are counted as ``trl_turns_cut``. In both,
+    ``function.arguments`` is a **dict**, because HF chat templates
+    render it with ``| tojson`` and a pre-encoded string comes out quoted
+    twice.
 
     The TRL rows carry no ``loss_mask``. trl 0.19.1's ``SFTTrainer``
     tokenizes with the chat template and its
@@ -350,13 +356,6 @@ def _trl_messages(messages: Sequence[dict]) -> list[dict]:
     return out
 
 
-def _first_assistant(messages: Sequence[dict]) -> int:
-    for i, message in enumerate(messages):
-        if isinstance(message, dict) and message.get("role") == "assistant":
-            return i
-    return -1
-
-
 def _trl_training_row(row: dict) -> dict:
     """One ``training_rows`` row as TRL conversational SFT.
 
@@ -400,26 +399,60 @@ def _trl_completion_row(row: dict) -> dict | None:
     return out
 
 
-def _trl_preference_row(row: dict) -> dict | None:
-    """One ``export_preference`` row as TRL conversational DPO, or None.
+def _trl_preference_row(row: dict) -> tuple[dict | None, bool]:
+    """One ``export_preference`` row as TRL conversational DPO: ``(row, cut)``.
 
-    TRL wants ``prompt`` as the message list up to the first assistant
-    turn and ``chosen``/``rejected`` as the completion only; handing it a
-    ``prompt`` string with full conversations on both sides raises
-    ``TypeError: string indices must be integers``. A side with nothing
-    after the split point is no completion at all, so the pair is dropped
-    and counted rather than written as an empty preference.
+    TRL wants ``prompt`` as a message list and ``chosen``/``rejected`` as
+    the completions; handing it a ``prompt`` string with full
+    conversations on both sides raises ``TypeError: string indices must
+    be integers``. ``DPOTrainer`` masks the prompt and sums
+    log-probabilities over every completion token (Lambert 2025, chapter
+    Direct Alignment), so a tool result or a later user turn left on a
+    side is scored as if the policy had written it (chapter Tool Use:
+    tool output is masked from the loss). Hence the one-turn preference
+    Fireworks takes: the prefix both sides share, tool turns included,
+    is the prompt, the first assistant turn where the sides differ is
+    each side's whole completion, and the turns after it are cut
+    (``cut`` says whether this pair lost any). A pair that diverges on a
+    tool result rather than an assistant turn, or whose sides never
+    differ, has no one-turn contrast; ``(None, False)`` and the caller
+    counts it under ``no_completion_dropped``.
     """
     chosen = _trl_messages(row.get("chosen") or [])
     rejected = _trl_messages(row.get("rejected") or [])
-    ci, ri = _first_assistant(chosen), _first_assistant(rejected)
-    if ci < 1 or ri < 1:
-        return None
+    k = 0
+    while k < len(chosen) and k < len(rejected) and chosen[k] == rejected[k]:
+        k += 1
+    if k < 1 or k >= len(chosen) or k >= len(rejected):
+        return None, False
+    if chosen[k].get("role") != "assistant" or rejected[k].get("role") != "assistant":
+        return None, False
     out = dict(row)
-    out["prompt"] = chosen[:ci]
-    out["chosen"] = chosen[ci:]
-    out["rejected"] = rejected[ri:]
-    return out
+    out["prompt"] = chosen[:k]
+    out["chosen"] = [chosen[k]]
+    out["rejected"] = [rejected[k]]
+    return out, len(chosen) > k + 1 or len(rejected) > k + 1
+
+
+def _trl_preference_rows(rows: Sequence[dict]) -> tuple[list[dict], int, int]:
+    """``export_preference`` rows as TRL DPO triples: ``(rows, dropped, cut)``.
+
+    ``dropped`` counts the pairs with no one-turn contrast and ``cut`` the
+    pairs that lost turns after the preference, the same two counts
+    ``_fireworks_preference_rows`` returns.
+    """
+    out: list[dict] = []
+    dropped = cut = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        shaped, lost = _trl_preference_row(row)
+        if shaped is None:
+            dropped += 1
+            continue
+        cut += int(lost)
+        out.append(shaped)
+    return out, dropped, cut
 
 
 #: A message as Fireworks reads it: the three fields its dataset docs name.
@@ -509,19 +542,22 @@ def to_trl(rows: Sequence[dict], kind: str = "training") -> list[dict]:
     ``prompt``/``completion`` with the last assistant turn as the
     completion (the ``mask_mode="final"`` mask, which the trainer honors
     through the ``completion_mask`` it builds), ``kind="preference"`` DPO
-    pairs; see the module docstring for what each shape is and why it
-    differs from the default OpenAI wire rows. Equivalent to passing
-    ``format="trl"`` to the exporters, for callers that already hold
-    rows. Completion rows with no assistant turn and preference pairs
-    whose chosen or rejected side has no completion after the prompt
-    prefix are dropped.
+    pairs with the shared prefix as ``prompt`` and the one assistant turn
+    where the sides diverge as each of ``chosen``/``rejected``; see the
+    module docstring for what each shape is and why it differs from the
+    default OpenAI wire rows. Equivalent to passing ``format="trl"`` to
+    the exporters, for callers that already hold rows. Completion rows
+    with no assistant turn and preference pairs with no one-turn contrast
+    (the sides never differ, or diverge on a tool result) are dropped;
+    ``export_preference`` reports the counts.
     """
     if kind not in TRL_KINDS:
         raise ValueError(f"kind must be one of {TRL_KINDS}, got {kind!r}")
     if kind == "training":
         return [_trl_training_row(r) for r in rows if isinstance(r, dict)]
-    shape = _trl_completion_row if kind == "completion" else _trl_preference_row
-    out = [shape(r) for r in rows if isinstance(r, dict)]
+    if kind == "preference":
+        return _trl_preference_rows(rows)[0]
+    out = [_trl_completion_row(r) for r in rows if isinstance(r, dict)]
     return [r for r in out if r is not None]
 
 
@@ -1061,14 +1097,20 @@ def export_preference(
     pairs that lost later turns are counted as ``fireworks_turns_cut``.
 
     With ``format="trl"`` each line is TRL's conversational preference
-    triple: ``prompt`` is the message list up to the first assistant turn
-    and ``chosen``/``rejected`` are the **completions only**, with
-    arguments as dicts. The default shape is not loadable by
-    ``trl.data_utils.maybe_apply_chat_template`` — a ``prompt`` string
-    with conversational sides raises ``TypeError: string indices must be
-    integers`` — so pass ``format="trl"`` when a TRL trainer is the
-    consumer. Pairs whose chosen or rejected side has no completion after
-    the prompt prefix are dropped (``no_completion_dropped``).
+    triple, the same one-turn preference Fireworks takes: ``prompt`` is
+    the prefix both sides share (tool turns and later asks included) and
+    ``chosen``/``rejected`` are each the **one assistant turn** where
+    the sides diverge, with arguments as dicts. ``DPOTrainer`` masks the
+    prompt and sums log-probabilities over every completion token, so a
+    tool result or a user turn on a side would be scored as the policy's
+    own words; the turns after the preference are cut, and pairs that
+    lost some are counted as ``trl_turns_cut``. The default shape is not
+    loadable by ``trl.data_utils.maybe_apply_chat_template`` (a
+    ``prompt`` string with conversational sides raises ``TypeError:
+    string indices must be integers``), so pass ``format="trl"`` when a
+    TRL trainer is the consumer. Pairs with no one-turn contrast (the
+    sides never differ, or diverge on a tool result) are dropped
+    (``no_completion_dropped``).
 
     The roundtrip gate runs over BOTH sides and names the encoding it
     checked. Pairs come from ``ScoredData.select_for_preference()`` /
@@ -1113,11 +1155,9 @@ def export_preference(
             if pair.get(key) is not None:
                 entry[key] = pair[key]
         out_rows.append(stamp(entry))
-    no_completion_dropped = 0
+    no_completion_dropped = trl_cut = 0
     if format == "trl":
-        reshaped = to_trl(out_rows, "preference")
-        no_completion_dropped = len(out_rows) - len(reshaped)
-        out_rows = reshaped
+        out_rows, no_completion_dropped, trl_cut = _trl_preference_rows(out_rows)
     check(out_rows, "preference", where="export_preference")
     both_sides = [{"messages": r[side]} for r in out_rows for side in ("chosen", "rejected")]
     roundtrip = tool_call_roundtrip(both_sides, format=format)
@@ -1140,6 +1180,8 @@ def export_preference(
     }
     if fireworks_cut:
         report["fireworks_turns_cut"] = fireworks_cut
+    if trl_cut:
+        report["trl_turns_cut"] = trl_cut
     if ties_dropped:
         report["ties_dropped"] = ties_dropped
     if no_completion_dropped:
