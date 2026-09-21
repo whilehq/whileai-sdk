@@ -41,11 +41,11 @@ Issues = "https://github.com/whilehq/whileai-sdk/issues"
 Datasets = "https://huggingface.co/while-ai"
 
 [project.scripts]
-whileai = "whileai.cli:main"
-# same CLI under the two names people type: the product is "zp"
-# (keys start with zp_) and "wai" is the short import alias.
-zp = "whileai.cli:main"
+# The command is `wai`: three letters, one token, the same name as the
+# import alias. `whileai` runs the same entry point for anyone who typed
+# the package name; `zp` was retired on 2026-09-21.
 wai = "whileai.cli:main"
+whileai = "whileai.cli:main"
 whileai-simulations = "whileai.simulations.score.quality:main"
 
 [project.optional-dependencies]

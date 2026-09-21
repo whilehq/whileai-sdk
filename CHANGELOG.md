@@ -12,6 +12,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `recipes/community/process-vs-outcome-reward`: `run.py` and `report_platform.py`
   print the provenance line first, on stderr, like every other entrypoint (#615
   landed without it and turned main red).
+- The command is `wai`. `wai login`, `wai status`, `wai init`, `wai init-evals`, `wai verdict <id>`
+  and the rest: every doc, recipe, skill, error message and the block `wai init` writes into
+  `AGENTS.md` now spell it that way, and the block tells the coding agent to type `wai`, never
+  `whileai`. Same entry point, three letters, one token, and the same name as the import alias,
+  which is what a coding agent types many times a session. `whileai <command>` still runs it;
+  `zp` is retired. `scripts/check_cli_name.py` fails CI on a new `whileai <command>` outside
+  the changelog (#702).
 - `simulate(reproducible=)` defaults to `None`, which is `True` unless `time_budget` is
   set. Before, a seeded run at the default concurrency drew a task set that depended on
   thread timing: three runs of `seed=0, budget=160` gave 59, 58 and 58 tasks and three

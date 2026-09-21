@@ -23,7 +23,7 @@ three-ask suite the team has), `SEEDS` (one ask per policy branch),
 shipped, `v2` after a prompt fix; you have one entry today), `LABELS` (hand
 labels for sixty replies), `MODEL`, and `fake` (a recording transport).
 Your agent is any callable `message -> {"steps": [...], "final_text": ...}`
-that runs its own tools; `whileai init-evals` writes that wrapper.
+that runs its own tools; `wai init-evals` writes that wrapper.
 
 ## 1. Find what the suite never reaches
 
@@ -236,7 +236,7 @@ print(tracked.verdict())
 refund_policy: v2 beats v1 by 71.4 (interval excludes zero, clears the noise floor of 0); judge agreement 1 on 60, n=63
 ```
 
-Drop `transport=fake` and set `WHILEAI_API_KEY` (`whileai signup --email
+Drop `transport=fake` and set `WHILEAI_API_KEY` (`wai signup --email
 you@example.com`), and the same calls draw the Runs page: one dot per
 version with its interval on the same held-out scale, the noise band, the
 judge block, and the run record.

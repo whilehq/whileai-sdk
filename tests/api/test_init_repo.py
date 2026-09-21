@@ -1,4 +1,4 @@
-"""``whileai init`` leaves a repo a coding agent can work in: an AGENTS.md
+"""``wai init`` leaves a repo a coding agent can work in: an AGENTS.md
 block, a CLAUDE.md include, the tested skills under .claude/skills/."""
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def test_cli_init_and_status(tmp_path: Path, monkeypatch, capsys):
 
 def test_run_check_runs_the_installed_skill_from_a_relative_root(tmp_path: Path, monkeypatch):
     """The 0.99 wheel resolved a relative script path against the skill dir and
-    found nothing; the check must run from ``whileai init`` in any cwd."""
+    found nothing; the check must run from ``wai init`` in any cwd."""
     init_repo.install_skills(tmp_path, ["strengthen-your-evals"], fetch=_fetch)
     monkeypatch.chdir(tmp_path.parent)
     rc, tail = init_repo.run_check(Path(tmp_path.name))

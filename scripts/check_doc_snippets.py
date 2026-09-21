@@ -109,7 +109,7 @@ def clean_env() -> dict[str, str]:
 # excused, but only if the page warned the reader first.
 NEEDS_KEY = re.compile(
     r"No credential|No API key|No TypeSafe API key|Hosted models need a key|need a key:|"
-    r"run `whileai login`|set (?:OPENAI|ANTHROPIC|VLLM|MODAL|TYPESAFE)_[A-Z_]*(?:KEY|ID|SECRET)|"
+    r"run `wai login`|set (?:OPENAI|ANTHROPIC|VLLM|MODAL|TYPESAFE)_[A-Z_]*(?:KEY|ID|SECRET)|"
     r"rejected the API key \(401\)",
     re.I,
 )

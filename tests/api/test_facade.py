@@ -109,7 +109,7 @@ def test_backend_repr_names_the_key_source():
     )
     assert fw.spec == "fireworks:accounts/fireworks/models/llama-v3p1-8b-instruct"
     assert wai.Hosted().spec is None
-    assert "whileai login" in repr(wai.Hosted())
+    assert "wai login" in repr(wai.Hosted())
     with pytest.raises(ValueError, match="url="):
         wai.Endpoint("m")
 

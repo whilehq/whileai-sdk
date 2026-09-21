@@ -123,7 +123,7 @@ rows.export("train.jsonl")  # or rows.push("my-agent-rl-v1")
 
 Every role is a model behind an endpoint. A call keyword beats
 `wai.configure`, `with wai.context(...)` beats both, then the environment.
-Unconfigured, every role uses the model While hosts on `whileai login`.
+Unconfigured, every role uses the model While hosts on `wai login`.
 
 ```python
 wai.OpenAI("gpt-4.1-mini")  # key=OPENAI_API_KEY
@@ -140,7 +140,7 @@ or a backend object. A tool is a typed function under `@wai.tool`; the
 mock world answers its calls, faults first. No tools yet?
 `wai.simulations.draft_tools("a support agent that issues refunds")`.
 
-**Evals only?** `whileai init-evals` finds your agent, writes a judge and a
+**Evals only?** `wai init-evals` finds your agent, writes a judge and a
 runner around it, and gives you a pass rate with a 95% interval and a CI
 test that goes red on regression.
 [docs.withwhile.com/evals](https://docs.withwhile.com/evals).
@@ -217,7 +217,7 @@ run.wait()
 model = wai.platform.serve("refunds-v2", run)  # OpenAI-compatible endpoint
 ```
 
-`whileai login`, `agents`, `runs`, `verdict` and `promote` do the same from
+`wai login`, `agents`, `runs`, `verdict` and `promote` do the same from
 a terminal, all with `--json`. `push` refuses RL data with no mixed groups.
 [docs.withwhile.com/reference/platform](https://docs.withwhile.com/reference/platform).
 

@@ -226,7 +226,7 @@ the first it finds:
 |---|---|---|
 | 1 | `api_key=` on the call | `wai.simulate(..., api_key="zp_...")`, `data.grade(api_key=...)` |
 | 2 | Environment | `export WHILEAI_API_KEY=zp_...` |
-| 3 | Saved credentials | `whileai login`, or `whileai signup --email you@example.com` |
+| 3 | Saved credentials | `wai login`, or `wai signup --email you@example.com` |
 
 Keys start with `zp_`.
 
@@ -236,11 +236,11 @@ Three things, and only when you ask for them:
 
 | You do this | What happens |
 |---|---|
-| leave `agent=` out | the agent is the Qwen the platform hosts, on the key from `whileai login` |
+| leave `agent=` out | the agent is the Qwen the platform hosts, on the key from `wai login` |
 | leave `simulator=False` out with a callable agent | the situation writer is hosted, on the same key |
 | call `push`, `train` or `serve` | rows go to your account for hosted training and serving |
 
-Everything else runs on your machine. `whileai status` prints which key
-the SDK will use and where it came from; `whileai login` or
-`whileai signup --email you@example.com` gets one when you want the hosted
+Everything else runs on your machine. `wai status` prints which key
+the SDK will use and where it came from; `wai login` or
+`wai signup --email you@example.com` gets one when you want the hosted
 parts. The [platform reference](/reference/platform) covers that side.

@@ -111,7 +111,7 @@ def test_without_a_key_it_names_login_and_the_env_var(hl, monkeypatch):
     with pytest.raises(SystemExit) as exc:
         hl.main(["models"])
     message = str(exc.value.code)
-    assert "whileai login" in message and "WHILEAI_API_KEY" in message and "http" in message
+    assert "wai login" in message and "WHILEAI_API_KEY" in message and "http" in message
 
 
 # ------------------------------------------------------------ state file

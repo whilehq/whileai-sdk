@@ -284,7 +284,7 @@ is carried by actions, not by longer text.
 
 ## Next
 
-Push the selected rows and the adapter (`WHILEAI_API_KEY`, or `whileai login`):
+Push the selected rows and the adapter (`WHILEAI_API_KEY`, or `wai login`):
 
 ```python
 import whileai.simulations as wai

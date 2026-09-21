@@ -1,7 +1,7 @@
 """Sign in or sign up from a terminal or a coding agent.
 
-``whileai login`` for an existing account (device flow, one click in the
-browser). ``whileai signup --email`` for a new one: no browser at all, the
+``wai login`` for an existing account (device flow, one click in the
+browser). ``wai signup --email`` for a new one: no browser at all, the
 account and the key are created in one call.
 
 Device authorization flow (RFC 8628 shape) against the While platform
@@ -11,7 +11,7 @@ The API key that comes back is written to ``~/.whileai/credentials.json``
 and every SDK call reads it from there when ``WHILEAI_API_KEY`` is unset.
 
 A pending login survives the process: if the harness running the command
-stops it before approval, the next ``whileai login`` resumes the same code
+stops it before approval, the next ``wai login`` resumes the same code
 instead of printing a new one.
 
 Stdlib only.
@@ -80,7 +80,7 @@ def trial_prerun_note() -> str | None:
     """The one line a trial key needs before a hosted run spends it, or ``None``.
 
     Read from the tier the credentials file recorded at sign-up or at the
-    last ``whileai status`` / ``whileai login``, so a run can say this
+    last ``wai status`` / ``wai login``, so a run can say this
     without a network call. A key from the environment has no recorded
     tier, so this says nothing rather than guess at one.
     """
@@ -174,7 +174,7 @@ def remember_account(payload: dict) -> None:
 
 
 def stored_api_key() -> str | None:
-    """The key saved by ``whileai login``, or ``None``."""
+    """The key saved by ``wai login``, or ``None``."""
     data = _read_credentials()
     key = (data or {}).get("api_key")
     return str(key) if key else None
@@ -234,7 +234,7 @@ def account(api_key: str | None = None) -> dict:
     """
     key = resolve_api_key(api_key)
     if not key:
-        raise LoginError("No key. Run `whileai login` or `whileai signup --email`.")
+        raise LoginError("No key. Run `wai login` or `wai signup --email`.")
     status, data = _get("/me", key)
     if status != 200:
         raise LoginError(f"Account lookup failed ({status}): {data.get('error', data)}")
@@ -294,7 +294,7 @@ def login(
         with contextlib.suppress(Exception):
             webbrowser.open(flow["verification_uri_complete"])
     if not wait:
-        say("Run `whileai login` again once you have approved.")
+        say("Run `wai login` again once you have approved.")
         return None
 
     deadline = float(flow["expires_at"])
@@ -336,7 +336,7 @@ def login(
         error = data.get("error", "")
         if error == "authorization_pending":
             if time.time() >= deadline:
-                say("Still waiting. Run `whileai login` again to keep waiting.")
+                say("Still waiting. Run `wai login` again to keep waiting.")
                 return None
             time.sleep(interval)
             continue
@@ -347,7 +347,7 @@ def login(
         with contextlib.suppress(OSError):
             _pending_path().unlink()
         if error == "expired_token":
-            raise LoginError("That code expired. Run `whileai login` again.")
+            raise LoginError("That code expired. Run `wai login` again.")
         raise LoginError(f"Login failed ({status}): {error or data}")
 
 
@@ -397,7 +397,7 @@ def signup(email: str, *, name: str | None = None, out: Callable[[str], None] | 
         return data["api_key"]
     error = data.get("error", "")
     if error == "account_exists":
-        raise LoginError(f"{email} already has an account. Run `whileai login`.")
+        raise LoginError(f"{email} already has an account. Run `wai login`.")
     if error == "invalid_email":
         raise LoginError("Pass a valid email address.")
     if error == "too_many_signups":

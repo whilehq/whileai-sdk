@@ -4,7 +4,7 @@ sidebarTitle: "Connect your agent"
 description: "Where your model string and your key go: backend objects, configure once, override per call. The four ways to hand simulate() an agent, and how traces aim the run."
 ---
 
-**What you learn:** backend objects, `configure` once, the four ways to hand `simulate()` an agent, and how traces aim the run. **Needs:** `WHILEAI_API_KEY` or `whileai login` for the hosted model, or the provider's key; `simulator=False` with a callable needs nothing. **Takes:** ten minutes.
+**What you learn:** backend objects, `configure` once, the four ways to hand `simulate()` an agent, and how traces aim the run. **Needs:** `WHILEAI_API_KEY` or `wai login` for the hosted model, or the provider's key; `simulator=False` with a callable needs nothing. **Takes:** ten minutes.
 
 `simulate()` needs to know what the agent can do (its tools and system
 prompt) and how to run it. `TOOLS` on this page is a list of `@wai.tool`
@@ -13,7 +13,7 @@ work in the same list. This page is the second part: which model,
 behind which endpoint, on which key.
 
 Every block below reaches a model, so each one needs a key: `WHILEAI_API_KEY`
-in the environment (or `whileai login`) for the hosted model, and
+in the environment (or `wai login`) for the hosted model, and
 `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` for a block that names that provider.
 Adding `simulator=False` and your own callable agent runs the same call
 offline.
@@ -33,7 +33,7 @@ wai.Fireworks("accounts/fireworks/models/llama-v3p1-8b-instruct")   # an open mo
 wai.models.Bedrock("us.anthropic.claude-haiku-4-5-20251001-v1:0", region="us-west-2")  # key=AWS_BEARER_TOKEN_BEDROCK or AWS credentials
 wai.Endpoint("Qwen/Qwen3-4B", url="http://localhost:8000/v1")   # any OpenAI-compatible server; key=none needed
 wai.Ollama("llama3")                                    # key=none needed
-wai.Hosted()                                            # the model While hosts, key=`whileai login`
+wai.Hosted()                                            # the model While hosts, key=`wai login`
 ```
 
 | Backend | Talks to | Key |
@@ -44,7 +44,7 @@ wai.Hosted()                                            # the model While hosts,
 | `wai.models.Bedrock(model_id, region=)` | Amazon Bedrock's Converse API: a foundation model, an inference profile, or a model you imported | `api_key=` or `AWS_BEARER_TOKEN_BEDROCK`; else AWS credentials through boto3 (`whileai[bedrock]`) |
 | `wai.Endpoint(model, url=)` | vLLM, SGLang, TGI, LM Studio, a served adapter | `api_key=`, else `VLLM_API_KEY` or `OPENAI_API_KEY`; none for a local URL |
 | `wai.Ollama(model)` | Ollama on this machine | none |
-| `wai.Hosted()` | The model While hosts | `wai.configure(api_key=)`, `WHILEAI_API_KEY`, or `whileai login` |
+| `wai.Hosted()` | The model While hosts | `wai.configure(api_key=)`, `WHILEAI_API_KEY`, or `wai login` |
 
 A key given on a backend is kept for that provider, so every call to that
 provider in the process finds it. The spec strings the objects stand for
@@ -93,7 +93,7 @@ data = wai.simulate(wai.OpenAI("gpt-4.1-mini"), tools=TOOLS, system_prompt=POLIC
 `agent=` takes the same backend object `configure(agent=)` takes, and a
 key given on it (`wai.OpenAI("gpt-4.1-mini", api_key="sk-...")`) reaches
 that provider the same way. Leave `agent=` out and the run uses what
-`configure` set, else the model While hosts on the key from `whileai login`. Useful for a policy that does
+`configure` set, else the model While hosts on the key from `wai login`. Useful for a policy that does
 not have an agent yet: pass only `system_prompt=` and `tools=` and see how
 a capable open model behaves under it. The judge is never the model it is
 judging: the hosted judge is a different family from the hosted agent.

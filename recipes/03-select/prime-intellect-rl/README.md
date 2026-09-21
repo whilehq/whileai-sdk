@@ -11,7 +11,7 @@ What you will learn: why GRPO needs uniform groups, the four numbers that say
 whether a dataset carries gradient, how an effort-negative reward gets gamed
 (and how the offline gate predicted it), and the prompt shape the `verifiers`
 library reads. You need a key for hosted Qwen on both roles: your account
-key (`whileai login`), or `VLLM_API_KEY` for the shared pool, which is
+key (`wai login`), or `VLLM_API_KEY` for the shared pool, which is
 about three minutes for 800 rollouts. `diagnose.py` and `export_prompts.py` run
 offline on any graded row file.
 
@@ -19,7 +19,7 @@ offline on any graded row file.
 
 ```bash
 uv add whileai
-whileai login                    # or: export VLLM_API_KEY=... for the shared pool
+wai login                    # or: export VLLM_API_KEY=... for the shared pool
 cd recipes/03-select/prime-intellect-rl
 sh smoke.sh                                                   # free: the same three steps on a scripted agent, no key
 python generate.py --situations 100 --k 8 --fault-rate 0.15   # -> data/rl.jsonl (+ .meta.json)

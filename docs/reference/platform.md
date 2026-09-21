@@ -4,27 +4,27 @@ sidebarTitle: "Platform"
 description: "Sign in, push and gate datasets, prune and check them, train on the platform or report your own run, and serve the result."
 ---
 
-Everything on this page talks to your While account. Every call reads the key that `whileai login` saved, or `WHILEAI_API_KEY`, or `api_key=`. The pure-Python checks that need no key (`optimize`, `hack_scan`, `judge_trust`, `delta_report` and the rest) are here too, because they sit between a run and a push.
+Everything on this page talks to your While account. Every call reads the key that `wai login` saved, or `WHILEAI_API_KEY`, or `api_key=`. The pure-Python checks that need no key (`optimize`, `hack_scan`, `judge_trust`, `delta_report` and the rest) are here too, because they sit between a run and a push.
 
 ## Sign in
 
 ```bash
-whileai login
+wai login
 ```
 
-Prints a link and a short code. Open the link, sign in or sign up, press Approve. The key is saved to `~/.whileai/credentials.json` and every platform call reads it from there. Interrupted before you approved? Run it again; it resumes the same code. This is the path for coding agents too: tell yours to run `whileai login` and click the link it shows you. `whileai status` shows which key is in use, `whileai logout` removes it.
+Prints a link and a short code. Open the link, sign in or sign up, press Approve. The key is saved to `~/.whileai/credentials.json` and every platform call reads it from there. Interrupted before you approved? Run it again; it resumes the same code. This is the path for coding agents too: tell yours to run `wai login` and click the link it shows you. `wai status` shows which key is in use, `wai logout` removes it.
 
 No account yet, or no browser? One command creates the account and the key. Open the dashboard later by signing in with an email code.
 
 ```bash
-whileai signup --email you@example.com
+wai signup --email you@example.com
 ```
 
-That key is a trial key (25k input and 50k output tokens a day, 100 MB of storage, ten datasets, and an expiry date) until the person signs in once at the While site with an email code; `whileai status` prints the link. `whileai status` shows the tier; `whileai.account()` returns tier, limits and usage.
+That key is a trial key (25k input and 50k output tokens a day, 100 MB of storage, ten datasets, and an expiry date) until the person signs in once at the While site with an email code; `wai status` prints the link. `wai status` shows the tier; `whileai.account()` returns tier, limits and usage.
 
 ## Store datasets on While
 
-Push a run to your account so the rest of the loop can read it. Credentials resolve in this order: `api_key=` argument, `WHILEAI_DELEGATED_CREDENTIAL` (a short-lived `zp_dc_...` issued from a Clerk session), `WHILEAI_API_KEY`, then the key saved by `whileai login`.
+Push a run to your account so the rest of the loop can read it. Credentials resolve in this order: `api_key=` argument, `WHILEAI_DELEGATED_CREDENTIAL` (a short-lived `zp_dc_...` issued from a Clerk session), `WHILEAI_API_KEY`, then the key saved by `wai login`.
 
 ```python
 # Runtime path with a delegated credential
@@ -131,17 +131,17 @@ wai.register_agent("airline-support", description="Refunds and rebooking")
 The platform verbs a coding agent needs, as commands:
 
 ```bash
-whileai agents                 # tracked agents and what each serves
-whileai agent <id>             # record, behaviors, verdict
-whileai runs <id>              # the version table, newest first
-whileai verdict <id> [--behavior <name>]
-whileai promote <id> <version>
-whileai live <id> --day YYYY-MM-DD --version <v> --replies N [--flagged N --p50 S --cost USD]
-whileai keys                   # names and prefixes; create or revoke under Account
+wai agents                 # tracked agents and what each serves
+wai agent <id>             # record, behaviors, verdict
+wai runs <id>              # the version table, newest first
+wai verdict <id> [--behavior <name>]
+wai promote <id> <version>
+wai live <id> --day YYYY-MM-DD --version <v> --replies N [--flagged N --p50 S --cost USD]
+wai keys                   # names and prefixes; create or revoke under Account
 ```
 
 All take `--json` and `--api-key`; errors exit 1 with the reason on stderr.
-Thin calls into `whileai.platform`. The old `whileai purge` (traces and
+Thin calls into `whileai.platform`. The old `wai purge` (traces and
 datasets on the data platform) is gone; `wai.purge_agent("demo-agent")` and
 `wai.delete_empty_datasets(max_rows=2)` remain in Python, both with
 `dry_run=True`.

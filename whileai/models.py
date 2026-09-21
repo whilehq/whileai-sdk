@@ -141,7 +141,7 @@ class Ollama(Backend):
 
 @dataclass(frozen=True, repr=False)
 class Hosted(Backend):
-    """The model While hosts, on your account key (``whileai login`` or
+    """The model While hosts, on your account key (``wai login`` or
     ``wai.configure(api_key=...)``). The default for every role when
     nothing else is configured. The agent is a Qwen3-4B; the judge is a
     Phi-4, a different family on purpose."""
@@ -150,7 +150,7 @@ class Hosted(Backend):
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "provider", "whileai")
-        object.__setattr__(self, "env_key", "WHILEAI_API_KEY or `whileai login`")
+        object.__setattr__(self, "env_key", "WHILEAI_API_KEY or `wai login`")
 
     @property
     def spec(self) -> None:  # type: ignore[override]

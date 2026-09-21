@@ -67,7 +67,7 @@ Schema dicts work in the same list: OpenAI function-calling shape, the bare
 recorder in a `threading.local`: `concurrency` defaults to 32 threads, and
 one shared list interleaves rollouts.
 
-Or run `whileai init-evals`. It reads your Python with `ast`, never imports
+Or run `wai init-evals`. It reads your Python with `ast`, never imports
 it, picks the tool list, the system prompt and the callable, and writes
 `evals/agent.py`, `evals/judge.py`, `evals/run.py`, `evals/test_judge.py`
 and `evals/README.md`, wired together. A wrong guess is one flag away:

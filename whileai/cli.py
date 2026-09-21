@@ -1,16 +1,16 @@
-"""The `whileai` command: accounts, and the platform objects a coding agent
+"""The `wai` command (`whileai` runs the same entry point): accounts, and the platform objects a coding agent
 manages from a terminal.
 
-    whileai login | signup --email | status | logout
-    whileai init-evals
-    whileai agents
-    whileai agent refund-bot
-    whileai runs refund-bot
-    whileai verdict refund-bot [--behavior refunds]
-    whileai promote refund-bot v4
-    whileai archive refund-bot run_1a2b3c [--undo]
-    whileai keys
-    whileai live refund-bot --day 2026-09-17 --version v3 --replies 2400 --flagged 98
+    wai login | signup --email | status | logout
+    wai init-evals
+    wai agents
+    wai agent refund-bot
+    wai runs refund-bot
+    wai verdict refund-bot [--behavior refunds]
+    wai promote refund-bot v4
+    wai archive refund-bot run_1a2b3c [--undo]
+    wai keys
+    wai live refund-bot --day 2026-09-17 --version v3 --replies 2400 --flagged 98
 
 Platform commands print JSON (``--json``) or a short table, and exit 1 on
 an API error with the reason on stderr. They are thin calls into
@@ -49,7 +49,9 @@ def _emit(payload: Any, as_json: bool, table: Callable[[], None]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="whileai", description="While SDK")
+    parser = argparse.ArgumentParser(
+        prog="wai", description="While SDK (the `wai` command; `whileai` is the same)"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_login = sub.add_parser("login", help="sign in from this terminal (opens the browser)")
@@ -117,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         "archive", "take a run out of the experiment (kept; --undo brings it back)"
     )
     p_archive.add_argument("id")
-    p_archive.add_argument("run", help="the run id (whileai runs <id> lists them)")
+    p_archive.add_argument("run", help="the run id (wai runs <id> lists them)")
     p_archive.add_argument("--undo", action="store_true", help="unarchive instead")
     platform_parser("keys", "list the API keys on your account (names and prefixes)")
     p_live = platform_parser("live", "report one day of traffic on the served version")
@@ -182,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(shown, indent=2))
         if not shown.get("configured"):
             print(
-                "no API key configured: run `whileai login` or set WHILEAI_API_KEY",
+                "no API key configured: run `wai login` or set WHILEAI_API_KEY",
                 file=sys.stderr,
             )
         return 0

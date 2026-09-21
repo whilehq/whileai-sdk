@@ -1,33 +1,35 @@
 ---
 title: "Command line"
 sidebarTitle: "Command line"
-description: "The whileai command: sign in, check which key is in use, write an eval harness into a project, and read or promote what the platform tracks."
+description: "The wai command: sign in, check which key is in use, write an eval harness into a project, and read or promote what the platform tracks."
 ---
 
 **What you learn:** sign in, check which key is in use, write an eval harness into a project, read what the platform tracks. **Needs:** `uv add whileai`; a key for the platform commands. **Takes:** two minutes.
 
-`uv add whileai` puts a `whileai` command on your path. Everything
-else is Python.
+`uv add whileai` puts a `wai` command on your path. `whileai` runs the
+same command; `wai` is three letters and one token, which is why the
+docs, the skills and the block in `AGENTS.md` all spell it that way for
+coding agents. Everything else is Python.
 
 | Command | What it does |
 |---|---|
-| `whileai login` | Sign in from this terminal. Opens the browser, saves a key. |
-| `whileai signup --email you@example.com` | Create an account and a key, no browser. |
-| `whileai status` | Show which key the SDK will use and where it came from. |
-| `whileai logout` | Delete the saved key. |
-| `whileai init-evals` | Write an eval harness (agent, judge, run, test) wired to this project. |
-| `whileai agents` | List the agents tracked on your account. |
-| `whileai agent <id>` | One tracked agent: record, behaviors, verdict. |
-| `whileai runs <id>` | The training runs of one agent, newest first. |
-| `whileai verdict <id>` | Does the candidate beat the served version, and is it real. |
-| `whileai promote <id> <version>` | Make a version the served one. |
-| `whileai live <id> ...` | Report one day of traffic on the served version. |
-| `whileai keys` | List the API keys on your account, names and prefixes. |
+| `wai login` | Sign in from this terminal. Opens the browser, saves a key. |
+| `wai signup --email you@example.com` | Create an account and a key, no browser. |
+| `wai status` | Show which key the SDK will use and where it came from. |
+| `wai logout` | Delete the saved key. |
+| `wai init-evals` | Write an eval harness (agent, judge, run, test) wired to this project. |
+| `wai agents` | List the agents tracked on your account. |
+| `wai agent <id>` | One tracked agent: record, behaviors, verdict. |
+| `wai runs <id>` | The training runs of one agent, newest first. |
+| `wai verdict <id>` | Does the candidate beat the served version, and is it real. |
+| `wai promote <id> <version>` | Make a version the served one. |
+| `wai live <id> ...` | Report one day of traffic on the served version. |
+| `wai keys` | List the API keys on your account, names and prefixes. |
 
 ## Sign in
 
 ```bash
-whileai login
+wai login
 ```
 
 The command prints a link and waits for you to approve it in the browser.
@@ -38,7 +40,7 @@ labels the key on your account (default `cli <host>`).
 No browser at all, for example on a server:
 
 ```bash
-whileai signup --email you@example.com
+wai signup --email you@example.com
 ```
 
 That creates the account and saves its key in one step.
@@ -46,7 +48,7 @@ That creates the account and saves its key in one step.
 ## Which key is in use
 
 ```bash
-whileai status
+wai status
 ```
 
 The SDK resolves a key in this order: an explicit `api_key=` argument,
@@ -56,7 +58,7 @@ from `login` or `signup`. `status` says which one won.
 ## Write an eval harness
 
 ```bash
-whileai init-evals --agent app.agent:answer --tools app.agent:TOOLS --system-prompt app.agent:SYSTEM
+wai init-evals --agent app.agent:answer --tools app.agent:TOOLS --system-prompt app.agent:SYSTEM
 ```
 
 This writes five files into `evals/` (change with `--dir`): the agent
@@ -75,13 +77,13 @@ The platform verbs a coding agent needs, as commands. Each is a thin call
 into `whileai.platform`.
 
 ```bash
-whileai agents                 # tracked agents and what each serves
-whileai agent <id>             # record, behaviors, verdict
-whileai runs <id>              # the version table, newest first
-whileai verdict <id> [--behavior <name>]
-whileai promote <id> <version>
-whileai live <id> --day YYYY-MM-DD --version <v> --replies N [--flagged N --p50 S --cost USD]
-whileai keys
+wai agents                 # tracked agents and what each serves
+wai agent <id>             # record, behaviors, verdict
+wai runs <id>              # the version table, newest first
+wai verdict <id> [--behavior <name>]
+wai promote <id> <version>
+wai live <id> --day YYYY-MM-DD --version <v> --replies N [--flagged N --p50 S --cost USD]
+wai keys
 ```
 
 All of them take `--json` to print the API's JSON and `--api-key` to use
@@ -93,7 +95,7 @@ the spend, so the platform can compare production with the held-out
 score.
 
 <Note>
-The old `whileai purge` command is gone. `wai.purge_agent("name")` and
+The old `wai purge` command is gone. `wai.purge_agent("name")` and
 `wai.delete_empty_datasets(max_rows=2)` remain in Python, both with
 `dry_run=True`.
 </Note>

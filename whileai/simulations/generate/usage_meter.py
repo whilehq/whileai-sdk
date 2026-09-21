@@ -60,7 +60,7 @@ class UsageMeter:
         self._last_flush = time.monotonic()
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
-        self.sent: list[dict[str, int]] = []  # for tests and `whileai status`
+        self.sent: list[dict[str, int]] = []  # for tests and `wai status`
         self.dropped = 0
 
     def enabled(self) -> bool:

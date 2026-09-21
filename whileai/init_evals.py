@@ -1,4 +1,4 @@
-"""``whileai init-evals``: write an eval harness wired to the agent in this project.
+"""``wai init-evals``: write an eval harness wired to the agent in this project.
 
 The four files every cold-start tester wrote by hand before this command
 existed: the wrapper that puts an agent in ``agent(message) -> {steps,

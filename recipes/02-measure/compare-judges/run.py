@@ -11,7 +11,7 @@ hosted chat judge, Claude, or your own callable.
     python run.py --dry-run             # offline: three toy judges, no key
     python run.py report                # reprint the published table, no network
 
-Needs TYPESAFE_API_KEY for the Jev judges, a whileai login (or
+Needs TYPESAFE_API_KEY for the Jev judges, a wai login (or
 WHILEAI_API_KEY) for the hosted judge, ANTHROPIC_API_KEY for Claude. Judges
 without a key are skipped and the report says so. No training run, no GPU.
 """
@@ -42,10 +42,10 @@ SEED = 0
 JUDGES: dict[str, tuple[str, str]] = {
     "jev-latest": ("TYPESAFE_API_KEY", "typesafe:jev-latest"),
     "jev-preview": ("TYPESAFE_API_KEY", "typesafe:jev-preview"),
-    "hosted": ("whileai login", "hosted"),
+    "hosted": ("wai login", "hosted"),
     # the policy that wrote the rows, judging itself: the self-preference control
     "qwen3-4b": (
-        "whileai login",
+        "wai login",
         "vllm:Qwen/Qwen3-4B@https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1",
     ),
     "haiku-4.5": ("ANTHROPIC_API_KEY", "anthropic:claude-haiku-4-5"),
@@ -67,7 +67,7 @@ def load_rows(limit: int | None = None) -> list[dict]:
 
 
 def has_key(need: str) -> bool:
-    if need == "whileai login":
+    if need == "wai login":
         try:
             return bool(wai.resolve_api_key())
         except Exception:
@@ -92,7 +92,7 @@ def build_judges(names: list[str], *, bedrock: bool) -> dict[str, object]:
         judges[name] = wai.Hosted() if spec == "hosted" else spec
     if not judges:
         sys.exit(
-            "no judge has a key; set one of TYPESAFE_API_KEY, ANTHROPIC_API_KEY, or run `whileai login`"
+            "no judge has a key; set one of TYPESAFE_API_KEY, ANTHROPIC_API_KEY, or run `wai login`"
         )
     return judges
 

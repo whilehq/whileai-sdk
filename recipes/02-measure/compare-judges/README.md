@@ -11,7 +11,7 @@ and how to put any mix of judges (a decision model, a chat model, your own
 rule) on the same rows with `scored.compare_judges(judges=)`.
 
 **Needs:** `TYPESAFE_API_KEY` for Jev, `ANTHROPIC_API_KEY` for Claude (or AWS
-credentials with `--bedrock`), a `whileai login` for the hosted judges. Judges
+credentials with `--bedrock`), a `wai login` for the hosted judges. Judges
 without a key are skipped and the report says so. `--dry-run` and `report`
 need nothing.
 

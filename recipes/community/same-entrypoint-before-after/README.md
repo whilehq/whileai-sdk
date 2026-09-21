@@ -156,7 +156,7 @@ sets. The script prints the task overlap so you cannot miss it.
 
 No training run was started and nothing new was served — both models were already hosted, so this
 is inference only: **four passes × ~151 rows ≈ 33 minutes of an already-warm A10G, well under $1**.
-The SDK still reports no cost anywhere (`run`, `wai.models()`, `whileai status`), so that is an
+The SDK still reports no cost anywhere (`run`, `wai.models()`, `wai status`), so that is an
 estimate from the serving GPU's published rate, not a number the product gave me.
 
 ## Next

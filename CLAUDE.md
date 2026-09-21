@@ -31,7 +31,9 @@ Rules the tooling enforces (CI fails otherwise):
 
 `.claude/agents/` holds the three agents that apply the constitution on
 demand (`style-guide`, `docs-designer`, `user-sim`). `docs/reference/style.md` is the standard: PyTorch/DSPy ergonomics. One
-import (`import whileai as wai`), objects carry configuration and calls
+import (`import whileai as wai`), one command (`wai login`, never the
+package name followed by a verb; `scripts/check_cli_name.py` fails CI on
+the long spelling), objects carry configuration and calls
 carry data, at most eight parameters on a public call, reports print
 themselves (no `format_*` twins), verbs a scientist says. New public
 names go one dot down or become methods on the rows object.

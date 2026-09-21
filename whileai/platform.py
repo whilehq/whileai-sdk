@@ -1516,7 +1516,7 @@ def _key(explicit: str | None) -> str:
     if not key:
         raise PlatformError(
             401,
-            "No API key. Run `whileai login`, or set WHILEAI_API_KEY, or pass api_key=... "
+            "No API key. Run `wai login`, or set WHILEAI_API_KEY, or pass api_key=... "
             "(keys are on while.ai under Account).",
         )
     return key

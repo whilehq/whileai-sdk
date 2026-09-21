@@ -64,7 +64,7 @@ each one in a run.
 | Amazon Bedrock | `wai.models.Bedrock(model_id, region=)` or `"bedrock:<model-id>[@<region>]"` | `AWS_BEARER_TOKEN_BEDROCK`, else AWS credentials |
 | vLLM, SGLang, TGI, LM Studio, any OpenAI-compatible server | `wai.Endpoint(model, url="http://localhost:8000/v1")` or `"vllm:<model>@<url>"` | `VLLM_API_KEY` when the server wants one |
 | Ollama | `wai.Ollama("llama3")` or `"ollama:<model>"` | none |
-| The model While hosts | `wai.Hosted()`, the default when nothing is configured | `whileai login` |
+| The model While hosts | `wai.Hosted()`, the default when nothing is configured | `wai login` |
 | Your own code | `my_agent(message) -> {"steps": [...], "final_text": "..."}` | yours |
 
 ## Judges
