@@ -66,7 +66,7 @@ into `results.json`.
 | Length: mean completion length before -> after, per arm | [5] | base 1,387 chars; baseline **1,336**, recipe **1,928** |
 | Format: share of replies with a `\boxed{}` before -> after, per arm | [5] | base 0.91; baseline **0.96**, recipe **0.83** |
 | Hack scan on the last training batch: `hack_scan` | [5] | recipe top feature `contains:let`, baseline `contains:1 }`: surface features of MATH derivations, not of the reward. Nothing is endorsed |
-| Pinned: seed, torch, transformers, trl, peft, vllm | [the contract](/recipes/papers#the-contract) | `--train-seeds 17` in the trainer (a comma list runs several), `--seed 0` for the data split; torch 2.13.0, transformers 5.17.0, trl 1.13.0, peft 0.21.0, vllm 0.29.0, whileai 0.83 |
+| Pinned: seed, torch, transformers, trl, peft, vllm | [the contract](/recipes/papers#the-contract) | `--train-seeds 17` in the trainer (a comma list runs several), `--seed 0` for the data split; torch 2.13.0, transformers 5.17.0, trl 1.13.0, peft 0.21.0, vllm 0.29.0, whileai 0.110 |
 
 Training-curve numbers above are from the trainer's own log (`completions/mean_length`, `completions/clipped_ratio`, `reward`, `kl`), which the run page carries as the reward, KL and length curves. Zero-variance groups (`frac_reward_zero_std`) averaged 0.29 on the strict arm and 0.41 on the lenient arm: at a 0.57 mean reward the lenient arm wastes more of its groups on all-correct prompts, which is what DAPO's dynamic sampling [3] is for and the next knob to turn.
 

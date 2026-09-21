@@ -221,7 +221,11 @@ image = (
         "peft==0.21.0",
         "flash-linear-attention==0.5.2",
         "datasets>=4.7.0",
-        "whileai",
+        # Pinned like every other dependency here. Unpinned, Modal's layer cache
+        # freezes whatever the first build resolved (0.83), so the recipe kept
+        # running against an SDK months behind main and broke the day it used a
+        # newer API. The contract asks for a pinned whileai; bump it on purpose.
+        "whileai==0.110",
     )
     .env(
         {

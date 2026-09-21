@@ -18,6 +18,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `train_seed_std`, kept apart from `run_std`, which measures the eval rather than the trainer.
   Run-to-run std with a fixed setup is 0.25 to 1.5 points (Lambert 2025, chapter Evaluation), so
   one seed an arm could not resolve this recipe's +0.094. Cache keys are now `<arm>-s<seed>.json`.
+- `recipes/papers/zero-rl-format-reward`: the Modal image pinned vllm, trl, peft and datasets but
+  not `whileai`, so Modal's layer cache froze the SDK at whatever the first build resolved (0.83)
+  and the recipe kept running months behind main. It broke outright the day the recipe imported
+  `whileai.config.provenance`, which 0.83 does not have. Now `whileai==0.110`, matching the pin
+  the recipe's own Checks table already claimed.
 
 ## 0.110 (2026-09-21)
 
