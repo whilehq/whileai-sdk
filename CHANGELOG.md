@@ -7,6 +7,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Docs: what the hosted endpoint keeps (per-day counts only, never content) and its per-account rate limit.
 - `Example.reference` (the gold answer a row was graded against) and `Example.detail` (expected
   against got, for a failure): the platform's rows page shows both under the reply, so a
   "wrong result" says what the right one was.

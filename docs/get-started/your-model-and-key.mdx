@@ -161,7 +161,11 @@ a call there with another account's key is refused. `GET /v1/models` lists
 what you registered, `DELETE /models/{name}` removes one. Streaming works. An import that sat idle is restored on the
 first call; until it is back the endpoint answers 503 with
 `code: model_starting` and a `Retry-After`, which the OpenAI SDKs honor.
-Daily calls and tokens per model are counted on your account.
+What While keeps: per model per day, the count of calls, errors and tokens,
+and nothing else. Never a prompt, a completion or a request log; Bedrock
+invocation logging is off and the endpoint logs errors without content.
+Each account gets 600 requests a minute across its keys, answered with a
+429 and a `Retry-After` past that.
 
 ## Tools are functions
 
