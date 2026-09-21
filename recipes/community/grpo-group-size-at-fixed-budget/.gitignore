@@ -1,0 +1,6 @@
+# written by `python run.py prep` and by `modal run sweep_modal.py`;
+# both rebuild from the seed, so they are inputs to a run, not source.
+holdout.json
+train_prompts.json
+arm_g*.json
+results_summary.json
