@@ -7,7 +7,8 @@ description: "How to name the model the agent runs on, which environment variabl
 **What you learn:** the model as a string per provider, which variable holds its key, where the requests go, and what reaches While only when you ask. **Needs:** the key of the provider you name; nothing to read. **Takes:** five minutes.
 
 The shortest answer is a backend object: `wai.OpenAI("gpt-4.1-mini",
-api_key="sk-...")`, `wai.Anthropic(...)`, `wai.Fireworks(...)`, `wai.Endpoint(model, url=)`,
+api_key="sk-...")`, `wai.Anthropic(...)`, `wai.Fireworks(...)`,
+`wai.models.Bedrock(model_id, region=)`, `wai.Endpoint(model, url=)`,
 `wai.Ollama(...)`, `wai.Hosted()`. Its repr says where the call goes and
 which key it uses, `wai.configure(agent=, judge=, api_key=)` sets it once
 for the process, and `print(wai.settings)` shows what each role resolves
@@ -44,6 +45,7 @@ data = wai.simulate(
 | `"openai:<model>"` | `OPENAI_API_KEY` (`OPENAI_BASE_URL` for a compatible server) | api.openai.com, or the base URL you set |
 | `"anthropic:<model>"` | `ANTHROPIC_API_KEY` | api.anthropic.com |
 | `"fireworks:accounts/fireworks/models/<name>"` | `FIREWORKS_API_KEY` | api.fireworks.ai |
+| `"bedrock:<model-id>[@<region>]"` | `AWS_BEARER_TOKEN_BEDROCK`, else your AWS credentials through boto3 | bedrock-runtime.`<region>`.amazonaws.com |
 | `"vllm:<model>@<url>"` | `OPENAI_API_KEY`; none for localhost or plain http | `<url>` |
 | `"ollama:<model>"` | none | localhost:11434 |
 | `"typesafe:<model>"` (judge only) | `TYPESAFE_API_KEY` | TypeSafe's API |
@@ -66,13 +68,59 @@ repo id on a server you run)
 A model name may itself contain slashes after the colon, as a Hugging Face
 repo id does: `"vllm:Qwen/Qwen3-4B@http://localhost:8000/v1"`. A bare model
 name (`"gpt-4.1-mini"`) and a provider that is not in the table above are
-refused the same way, naming the six forms.
+refused the same way, naming the seven forms.
 
 Set the key the way you already do for that provider:
 
 ```bash
 export OPENAI_API_KEY=sk-...        # or ANTHROPIC_API_KEY=...
 ```
+
+## Amazon Bedrock
+
+`bedrock:<model-id>` reaches any chat model Bedrock hosts on your AWS
+account through its Converse API: a foundation model
+(`anthropic.claude-haiku-4-5-20251001-v1:0`), a cross-region inference
+profile (`us.anthropic.claude-sonnet-5`), or the ARN of a model you
+imported yourself. Pin the region with `@<region>`; without it the SDK
+reads `AWS_REGION`, then `AWS_DEFAULT_REGION`, then uses `us-east-1`.
+
+Two ways in, both your own:
+
+| You have | Set | Installs |
+|---|---|---|
+| a Bedrock API key (console, *API keys*) | `AWS_BEARER_TOKEN_BEDROCK`, or `api_key=` on `wai.models.Bedrock` | nothing; the calls go over `requests` |
+| AWS credentials (`aws configure`, `AWS_PROFILE`, a role) | nothing more | `pip install "whileai[bedrock]"` for boto3, which signs the calls |
+
+```python
+import whileai as wai
+
+wai.configure(
+    agent="bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0@us-west-2",
+    judge="bedrock:us.anthropic.claude-sonnet-5@us-west-2",
+)
+```
+
+The object form, `wai.models.Bedrock(model_id, region=, api_key=)`, is the
+same spec with a place for a key; it sits one dot down so the front door
+stays small.
+
+A model you trained and imported into Bedrock is the same spec with its
+ARN as the model id, so the held-out measurement that scored the base
+scores the served weights unchanged:
+
+```python
+served = "bedrock:arn:aws:bedrock:us-east-1:123456789012:imported-model/abc123def456"
+after = wai.simulate(served, tools=TOOLS, system_prompt=POLICY, seed=0)
+```
+
+Two facts about imported models, from the AWS docs: the import takes
+merged weights in the Hugging Face layout (a LoRA adapter is merged into
+its base first, then uploaded to S3), and an idle import is unloaded, so
+the first call after a pause can take minutes and returns
+`ModelNotReadyException` until it is back; the SDK retries and then
+says so in one sentence. Converse returns no log-probabilities, so
+`logprobs=` has no effect on this route.
 
 ## Tools are functions
 

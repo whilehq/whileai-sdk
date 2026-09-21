@@ -30,6 +30,7 @@ wai.OpenAI("gpt-4.1-mini")                              # OpenAI(model='gpt-4.1-
 wai.OpenAI("gpt-4.1-mini", api_key="sk-...")            # OpenAI(model='gpt-4.1-mini', key=given)
 wai.Anthropic("claude-haiku-4-5")                       # key=ANTHROPIC_API_KEY
 wai.Fireworks("accounts/fireworks/models/llama-v3p1-8b-instruct")   # an open model Fireworks serves; key=FIREWORKS_API_KEY
+wai.models.Bedrock("us.anthropic.claude-haiku-4-5-20251001-v1:0", region="us-west-2")  # key=AWS_BEARER_TOKEN_BEDROCK or AWS credentials
 wai.Endpoint("Qwen/Qwen3-4B", url="http://localhost:8000/v1")   # any OpenAI-compatible server; key=none needed
 wai.Ollama("llama3")                                    # key=none needed
 wai.Hosted()                                            # the model While hosts, key=`whileai login`
@@ -40,13 +41,14 @@ wai.Hosted()                                            # the model While hosts,
 | `wai.OpenAI(model)` | OpenAI | `api_key=` or `OPENAI_API_KEY` |
 | `wai.Anthropic(model)` | Anthropic's Messages API | `api_key=` or `ANTHROPIC_API_KEY` |
 | `wai.Fireworks(model)` | Fireworks, model ids as Fireworks names them (`accounts/fireworks/models/<name>`) | `api_key=` or `FIREWORKS_API_KEY` |
+| `wai.models.Bedrock(model_id, region=)` | Amazon Bedrock's Converse API: a foundation model, an inference profile, or a model you imported | `api_key=` or `AWS_BEARER_TOKEN_BEDROCK`; else AWS credentials through boto3 (`whileai[bedrock]`) |
 | `wai.Endpoint(model, url=)` | vLLM, SGLang, TGI, LM Studio, a served adapter | `api_key=`, else `VLLM_API_KEY` or `OPENAI_API_KEY`; none for a local URL |
 | `wai.Ollama(model)` | Ollama on this machine | none |
 | `wai.Hosted()` | The model While hosts | `wai.configure(api_key=)`, `WHILEAI_API_KEY`, or `whileai login` |
 
 A key given on a backend is kept for that provider, so every call to that
 provider in the process finds it. The spec strings the objects stand for
-(`openai:<model>`, `anthropic:<model>`, `fireworks:<model>`,
+(`openai:<model>`, `anthropic:<model>`, `fireworks:<model>`, `bedrock:<model-id>[@<region>]`,
 `vllm:<model>@<url>`, `ollama:<model>`) still work anywhere a backend does.
 
 ## Set it once, override per call
