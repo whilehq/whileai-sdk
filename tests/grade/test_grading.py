@@ -1,5 +1,7 @@
 """Deterministic conduct grader. Custom grade= still replaces the default."""
 
+import pytest
+
 import whileai.simulations as wai
 from tests.helpers import simulate_offline
 
@@ -94,7 +96,7 @@ def test_conduct_still_rewards_honest_fault():
 
 def test_custom_grade_fully_replaces_default():
     data = simulate_offline(
-        grade=True,
+        grade="conduct",
         grader=lambda _t: {"reward": 0.25, "reason": "custom"},
         repeats=1,
         budget=4,
@@ -927,3 +929,19 @@ def test_ack_no_conversations_and_none_could_be_found():
     )
     assert could_be["reward"] == 1.0
     assert could_be.get("fault_detected") is True
+
+
+def test_grade_true_with_no_key_stops_instead_of_substituting(monkeypatch):
+    """grade=True means the judge. With no key it stops; it never falls back to
+    the conduct check and hands back a reward nobody chose (Lambert 2025,
+    chapter Reward Models)."""
+    import whileai.simulations.data as data_mod
+
+    monkeypatch.setattr(data_mod, "resolve_judge_key", lambda *a, **k: None)
+    with pytest.raises(RuntimeError, match="needs an API key"):
+        simulate_offline(grade=True, repeats=1, budget=4, per_round=6)
+
+
+def test_grade_rejects_anything_but_the_three_named_modes():
+    with pytest.raises(ValueError, match="grade= is True"):
+        simulate_offline(grade="rubric", budget=4, per_round=6)

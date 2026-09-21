@@ -98,7 +98,7 @@ def build(seed: int, out_dir: Path) -> dict:
         system_prompt=POLICY,
         simulator=False,
         budget=600,
-        grade=True,
+        grade="conduct",
         reproducible=True,
         seed=seed,
     )

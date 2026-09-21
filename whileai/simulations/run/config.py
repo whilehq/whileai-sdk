@@ -404,7 +404,9 @@ class RunConfig:
     checkpoint_path: Path | None
     # on_progress= : called with the progress dict on every progress line
     on_progress: Callable[[dict], None] | None
-    grade: bool
+    # grade= : True for the rubric judge, "conduct" for the deterministic
+    # conduct check by name, False for ungraded rows.
+    grade: bool | str
     grader: Any
     llm_grade: bool
     llm_spec: Any
@@ -483,7 +485,7 @@ def resolve_run_config(
     rollouts_per_request: int | None = None,
     unique_situations: bool = False,
     reproducible: bool | None = None,
-    grade: bool = False,
+    grade: bool | str = False,
     llm_grade: bool = False,
     traces: Any = None,
     grader: Any = None,
@@ -665,6 +667,11 @@ def resolve_run_config(
     # the legacy spelling. Both route to one application path at the end.
     grader = grader if grader is not None else cfg.pop("grader", None)
     cfg.pop("grader", None)
+    if grade not in (True, False, "conduct"):
+        raise ValueError(
+            f"grade= is True (the rubric judge), False, or 'conduct' (the deterministic "
+            f"conduct check); got {grade!r}. A callable goes in grader=."
+        )
     if grader is not None and not callable(grader):
         # A string here ran every rollout through run_judge as an error:
         # 150 rows "judged", none with a reward, and nothing said so.
@@ -871,7 +878,12 @@ def resolve_run_config(
         on_progress=on_progress,
         grade=grade,
         grader=grader,
-        llm_grade=llm_grade,
+        # grade=True is the rubric judge. The conduct check answers a
+        # different question (what the agent did, not whether it did the
+        # job) and is only reachable by name, because a reward nobody chose
+        # reads exactly like one they did (Lambert 2025, chapter Reward
+        # Models). With no key the judge stops loudly; it never substitutes.
+        llm_grade=llm_grade or (grade is True and grader is None),
         llm_spec=llm_spec,
         rubric=(str(rubric).strip() or None) if rubric else spec_rubric(spec),
         concurrency=concurrency,

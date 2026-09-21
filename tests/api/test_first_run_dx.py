@@ -46,7 +46,7 @@ def test_export_preference_on_plain_rows_names_the_pair_builder(tmp_path):
         budget=4,
         seed=0,
         simulator=False,
-        grade=True,
+        grade="conduct",
         time_budget=None,
         advanced={"per_round": 8, "mutate_failures": False},
     )

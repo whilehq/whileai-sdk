@@ -194,7 +194,7 @@ def test_serial_graded_reruns_in_one_process_are_identical():
             repeats=8,
             budget=48,
             seed=2,
-            grade=True,
+            grade="conduct",
             concurrency=1,
             simulator=False,
             time_budget=None,

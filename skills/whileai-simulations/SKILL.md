@@ -233,8 +233,9 @@ has hand-labeled rows, write the label into `gold_reward` and report
 `scored.agreement()`: agreement, kappa, and `pass_when_gold_fail`, the gold
 failures the judge passed. Below 50 gold rows the estimate is coarse; say so.
 
-Use `grade=True` only for While's deterministic structural/conduct screen;
-it is not the developer's semantic authority. Hosted or BYOK LLM grading is
+`grade=True` grades against the developer's rubric with the judge; with no key
+it stops. `grade="conduct"` is While's deterministic structural/conduct
+screen, asked for by name; it is not the developer's semantic authority. Hosted or BYOK LLM grading is
 optional. Keep unjudged rows out of selection and report judge failures.
 `data.grade(judge=...)` deliberately leaves `data.trajectories` and the raw
 simulation file unchanged; use the returned `ScoredData` from that point on.
