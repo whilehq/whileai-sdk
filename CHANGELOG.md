@@ -13,7 +13,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `whileai`. Same entry point, three letters, one token, and the same name as the import alias,
   which is what a coding agent types many times a session. `whileai <command>` still runs it;
   `zp` is retired. `scripts/check_cli_name.py` fails CI on a new `whileai <command>` outside
-  the changelog (#TBD).
+  the changelog (#702).
 - `simulate(reproducible=)` defaults to `None`, which is `True` unless `time_budget` is
   set. Before, a seeded run at the default concurrency drew a task set that depended on
   thread timing: three runs of `seed=0, budget=160` gave 59, 58 and 58 tasks and three
