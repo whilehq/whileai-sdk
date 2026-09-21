@@ -73,7 +73,16 @@ def fail(msg: str) -> None:
 
 
 def recipe_dirs() -> list[Path]:
-    return [d for d in sorted(PAPERS.iterdir()) if d.is_dir() and not d.name.startswith("_")]
+    """The two-arm training replications: one ``recipe.py``, one
+    ``results.json``, one table row. A paper whose idea is a loop rather
+    than a trained arm (``meta-harness``: a search over harness code) is a
+    step-shaped recipe with ``run.py`` and ``smoke.sh``, held to the recipe
+    contract in ``recipes/README.md`` and its own test instead."""
+    return [
+        d
+        for d in sorted(PAPERS.iterdir())
+        if d.is_dir() and not d.name.startswith("_") and not (d / "run.py").exists()
+    ]
 
 
 def load(d: Path) -> dict:

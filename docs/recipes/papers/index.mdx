@@ -32,6 +32,15 @@ what it claims, the steps, one command, what happened.
 The table is generated: `python recipes/papers/check.py --write` reads every
 `results.json`. Do not edit it by hand.
 
+One paper here is a loop, not a trained arm:
+[`meta-harness`](/recipes/papers/meta-harness) (Lee et al. 2026, arXiv:2603.28052) searches
+over harness code, scores every candidate on one frozen task set, and gates
+the pick on held-out tasks and held-out models. It is in the step-recipe
+shape (`run.py --dry-run`, `smoke.sh`, a flags table), runs offline with
+scripted candidates, and `check.py` leaves it out of the table above
+because it has no `results.json`: the live run is the replication and no
+number from it is claimed until one is measured.
+
 ## Run one
 
 ```bash
@@ -115,6 +124,9 @@ the same line.
   </Card>
   <Card title="gmts-token-select" href="/recipes/papers/gmts-token-select">
     Paper: GMTS: Gradient Magnitude-based Token Selection Improves RLVR Training, Outongyi Lv et al., arXiv:2608.30632, August 2026.
+  </Card>
+  <Card title="meta-harness" href="/recipes/papers/meta-harness">
+    An outer loop over harness code.
   </Card>
   <Card title="zero-rl-format-reward" href="/recipes/papers/zero-rl-format-reward">
     Paper: SimpleRL-Zoo: Investigating and Taming Zero Reinforcement Learning for Open Base Models in the Wild, Weihao Zeng et al., arXiv:2503.18892, March 2025.

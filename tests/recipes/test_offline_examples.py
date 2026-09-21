@@ -73,6 +73,8 @@ CLI_EXAMPLES = [
     "community/process-vs-outcome-reward/run.py",
     "community/identity-spec-no-unasked-maker-aas/run.py",
     "community/grpo-group-size-at-fixed-budget/run.py",
+    # papers/: the one step-shaped paper recipe (a search loop, not a trained arm)
+    "papers/meta-harness/run.py",
 ]
 
 # Need the ``modal`` client, which is not a dev dependency. Compiled, not run.
