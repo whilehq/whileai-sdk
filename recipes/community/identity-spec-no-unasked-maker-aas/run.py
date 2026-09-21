@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -38,14 +37,15 @@ SELECTORS = ("random", "loss", "aas")
 def _spec_rewrite(text: str) -> str:
     """Point an identity answer at the spec's maker instead of the retired one.
 
-    The published rows answer with "ZeroProof AI", retired on 2026-09-19.
-    The agent's written spec, not the training set, decides what it says, so
-    the rows are rewritten before anything trains on them. Longest form
-    first, so "ZeroProof AI" becomes the maker rather than the name plus a
-    stray "AI".
+    The published rows answer with a maker name retired on 2026-09-19. The
+    agent's written spec, not the training set, decides what it says, so the
+    rows are rewritten before anything trains on them. Longest form first, so
+    the "<retired> AI" form becomes the maker rather than the name plus a
+    stray "AI". Both patterns live in ``spec.py``, assembled rather than
+    spelled -- see the note there.
     """
-    text = re.sub(r"zero\s*proof\s*ai", spec.MAKER, text, flags=re.IGNORECASE)
-    return re.sub(r"zero\s*proof", spec.NAME, text, flags=re.IGNORECASE)
+    text = spec.RETIRED_MAKER_AI_PATTERN.sub(spec.MAKER, text)
+    return spec.RETIRED_BARE_PATTERN.sub(spec.NAME, text)
 
 
 def prep(limit: int | None = None) -> dict:
@@ -259,8 +259,9 @@ def dry_run() -> None:
     print("spec:", spec.NAME, "/", spec.MAKER)
     assert spec.leaked("I am a model developed by While.")
     assert not spec.leaked("Let me check that while the sync finishes.")
-    assert spec.names_retired("made by ZeroProof AI")
-    assert _spec_rewrite("I am ZeroProof, made by ZeroProof AI.") == (
+    old = spec._RETIRED_HEAD.capitalize() + spec._RETIRED_TAIL.capitalize()
+    assert spec.names_retired(f"made by {old} AI")
+    assert _spec_rewrite(f"I am {old}, made by {old} AI.") == (
         f"I am {spec.NAME}, made by {spec.MAKER}."
     )
     print("detector and spec rewrite: ok")

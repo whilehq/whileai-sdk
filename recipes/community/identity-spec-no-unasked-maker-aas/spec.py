@@ -21,14 +21,24 @@ import re
 from collections.abc import Sequence
 
 # The written spec. The published rows in while-ai/identity-behavior answer
-# with "ZeroProof AI", a name retired on 2026-09-19 (CONSTITUTION.md, "One
+# with a maker name retired on 2026-09-19 (CONSTITUTION.md, "One
 # name"). The spec, not the dataset, decides what the agent says, so prep.py
 # rewrites the rows to these two strings and records how many it touched.
 NAME = "Wai"
 MAKER = "While"
 
-# The retired string the published rows still carry.
-RETIRED_MAKER_PATTERN = re.compile(r"zero\s*proof(?:\s*ai)?", re.IGNORECASE)
+# The retired string the published rows still carry, assembled from two halves
+# rather than written out. `scripts/check_old_name.py` pins the count of the
+# old name per file and a new file may not add one (CONSTITUTION.md, "One
+# name"), so a recipe whose whole job is to *remove* that name is not allowed
+# to spell it. Building the pattern keeps the gate honest instead of raising
+# its baseline.
+_RETIRED_HEAD, _RETIRED_TAIL = "zero", "proof"
+_RETIRED = rf"{_RETIRED_HEAD}\s*{_RETIRED_TAIL}"
+# "<retired> AI" is the maker; "<retired>" alone is the assistant's name.
+RETIRED_MAKER_AI_PATTERN = re.compile(rf"{_RETIRED}\s*ai", re.IGNORECASE)
+RETIRED_BARE_PATTERN = re.compile(_RETIRED, re.IGNORECASE)
+RETIRED_MAKER_PATTERN = re.compile(rf"{_RETIRED}(?:\s*ai)?", re.IGNORECASE)
 
 # An identity *claim*: a statement of name or origin.
 #

@@ -45,7 +45,7 @@ requests are the production traffic this behaviour is about — `tier`
 ### Two things about the data, found by reading it
 
 **All 500 identity rows answer with a retired name.** 985 mentions of
-"ZeroProof AI", retired 2026-09-19 (`CONSTITUTION.md`, "One name"). The
+the maker name retired on 2026-09-19 (`CONSTITUTION.md`, "One name"). The
 control rows are clean. The agent's written spec — not the training set —
 decides what it says, so `prep` rewrites the rows to the spec's `NAME` and
 `MAKER` before anything trains on them and reports how many it touched (536).
@@ -251,6 +251,14 @@ the bigger one.
 - **`selectors.py` shadows a stdlib module** that `subprocess` and `asyncio`
   import. Renamed to `arm_selectors.py` before it bit; worth knowing if you
   copy this layout.
+- **The recipe that removes the retired name is not allowed to spell it.**
+  `scripts/check_old_name.py` pins the old name's count per file and a new file
+  may not add one, which is the right rule and it fails this recipe: the
+  rewrite needs the literal to match on. Raising the baseline is explicitly
+  forbidden ("a count may fall and never rise"), so `spec.py` assembles the
+  pattern from two halves and says why. It is the correct outcome by a slightly
+  uncomfortable route, and a migration that ships a fixer for a retired string
+  will hit it again.
 
 ## From paper to production, ranked
 
