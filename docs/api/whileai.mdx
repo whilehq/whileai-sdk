@@ -12,13 +12,13 @@ description: "The platform client: sign in, tracked agents, runs, verdicts."
 |---|---|
 | [`Anthropic`](#anthropic) | Anthropic's Messages API. |
 | [`Endpoint`](#endpoint) | Any OpenAI-compatible server you run: vLLM, SGLang, TGI, LM Studio, a trained adapter behind a URL. |
+| [`Fireworks`](#fireworks) | An open model Fireworks serves, named the way Fireworks names it (`accounts/fireworks/models/<name>`). |
 | [`Hosted`](#hosted) | The model While hosts, on your account key (`whileai login` or `wai.configure(api_key=...)`). |
 | [`Judge`](#judge) | An LLM judge: a model, a rubric, and the context the agent was under. |
 | [`Ollama`](#ollama) | A model served by Ollama on this machine. |
 | [`OpenAI`](#openai) | OpenAI's chat API. |
 | [`ScoredData`](#scoreddata) | Scored trajectories: the one representation grade and eval share. |
 | [`Selection`](#selection) | Rows kept by `optimize`, with the report that says why. |
-| [`Settings`](#settings) | The process-wide answers to "which model" and "which key". |
 | [`SimulationData`](#simulationdata) | *no docstring* |
 | [`Verifier`](#verifier) | Base class. |
 | [`compare`](#compare) | Compare an `after` run to a `before` run on pass@1 and every shared marker, and say whether the change is real. |
@@ -45,22 +45,6 @@ description: "The platform client: sign in, tracked agents, runs, verdicts."
 
 Settings once, override per call: `configure()` and `context()`.
 
-
-### Settings
-
-```python
-class Settings(
-    agent: str | None = None,
-    judge: str | None = None,
-    simulator: str | None = None,
-    api_key: str | None = None,
-    keys: dict[str, str] = <factory>,
-) -> None
-```
-
-Defined in [`whileai/config.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/config.py).
-
-The process-wide answers to "which model" and "which key".
 
 ### configure
 
@@ -224,6 +208,18 @@ Defined in [`whileai/models.py`](https://github.com/whilehq/whileai-sdk/blob/mai
 Any OpenAI-compatible server you run: vLLM, SGLang, TGI, LM Studio,
 a trained adapter behind a URL. Key: `api_key=`, else `VLLM_API_KEY`
 or `OPENAI_API_KEY`; a loopback or plain-http URL needs none.
+
+### Fireworks
+
+```python
+class Fireworks(model: str, api_key: str | None = None) -> None
+```
+
+Defined in [`whileai/models.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/models.py).
+
+An open model Fireworks serves, named the way Fireworks names it
+(`accounts/fireworks/models/<name>`). Key: `api_key=` or
+`FIREWORKS_API_KEY`.
 
 ### Hosted
 

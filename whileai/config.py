@@ -43,6 +43,7 @@ ROLES = ("agent", "judge", "simulator")
 SPEC_FORMS = {
     "openai": "openai:<model>",
     "anthropic": "anthropic:<model>",
+    "fireworks": "fireworks:<model>",
     "vllm": "vllm:<model>@<url>",
     "ollama": "ollama:<model>",
     "typesafe": "typesafe:<model> (judge only)",

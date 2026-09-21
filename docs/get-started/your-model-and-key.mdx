@@ -7,7 +7,7 @@ description: "How to name the model the agent runs on, which environment variabl
 **What you learn:** the model as a string per provider, which variable holds its key, where the requests go, and what reaches While only when you ask. **Needs:** the key of the provider you name; nothing to read. **Takes:** five minutes.
 
 The shortest answer is a backend object: `wai.OpenAI("gpt-4.1-mini",
-api_key="sk-...")`, `wai.Anthropic(...)`, `wai.Endpoint(model, url=)`,
+api_key="sk-...")`, `wai.Anthropic(...)`, `wai.Fireworks(...)`, `wai.Endpoint(model, url=)`,
 `wai.Ollama(...)`, `wai.Hosted()`. Its repr says where the call goes and
 which key it uses, `wai.configure(agent=, judge=, api_key=)` sets it once
 for the process, and `print(wai.settings)` shows what each role resolves
@@ -43,6 +43,7 @@ data = wai.simulate(
 |---|---|---|
 | `"openai:<model>"` | `OPENAI_API_KEY` (`OPENAI_BASE_URL` for a compatible server) | api.openai.com, or the base URL you set |
 | `"anthropic:<model>"` | `ANTHROPIC_API_KEY` | api.anthropic.com |
+| `"fireworks:accounts/fireworks/models/<name>"` | `FIREWORKS_API_KEY` | api.fireworks.ai |
 | `"vllm:<model>@<url>"` | `OPENAI_API_KEY`; none for localhost or plain http | `<url>` |
 | `"ollama:<model>"` | none | localhost:11434 |
 | `"typesafe:<model>"` (judge only) | `TYPESAFE_API_KEY` | TypeSafe's API |
@@ -65,7 +66,7 @@ repo id on a server you run)
 A model name may itself contain slashes after the colon, as a Hugging Face
 repo id does: `"vllm:Qwen/Qwen3-4B@http://localhost:8000/v1"`. A bare model
 name (`"gpt-4.1-mini"`) and a provider that is not in the table above are
-refused the same way, naming the five forms.
+refused the same way, naming the six forms.
 
 Set the key the way you already do for that provider:
 

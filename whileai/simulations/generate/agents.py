@@ -85,7 +85,7 @@ current_rollout = _CurrentRollout()
 
 
 def parse_backend_spec(spec: str) -> tuple[str, str]:
-    """Return (base_url, model) for ollama:/vllm:/openai:/anthropic:/typesafe:
+    """Return (base_url, model) for ollama:/vllm:/openai:/anthropic:/fireworks:/typesafe:
     specs. ``typesafe:`` is judge-only: ``complete()`` refuses it and says
     where it goes."""
     kind, _, rest = str(spec).partition(":")
@@ -106,6 +106,12 @@ def parse_backend_spec(spec: str) -> tuple[str, str]:
         # spec is just the model name and every caller (writer, user model,
         # agent, judge) records that name the way the other backends do.
         return ANTHROPIC_BASE_URL, rest or ANTHROPIC_DEFAULT_MODEL
+    if kind == "fireworks":
+        # Fireworks serves open models behind an OpenAI-compatible URL, so
+        # the spec is the model id as Fireworks names it
+        # (``accounts/fireworks/models/<name>``) and the key is
+        # FIREWORKS_API_KEY; OPENAI_API_KEY is never sent there.
+        return FIREWORKS_BASE_URL, rest or FIREWORKS_DEFAULT_MODEL
     if kind == "typesafe":
         # TypeSafe's Jev, on TYPESAFE_API_KEY: typed decisions with
         # probabilities, so a judge spec only. The URL is the API root
@@ -131,6 +137,19 @@ def _account_key() -> str:
     from ...auth import resolve_api_key
 
     return str(resolve_api_key() or "").strip()
+
+
+FIREWORKS_BASE_URL = "https://api.fireworks.ai/inference/v1"
+FIREWORKS_HOST = "api.fireworks.ai"
+FIREWORKS_DEFAULT_MODEL = "accounts/fireworks/models/llama-v3p1-8b-instruct"
+
+
+def is_fireworks_url(base_url: str | None) -> bool:
+    """True when this base URL is Fireworks' OpenAI-compatible API."""
+    if not base_url:
+        return False
+    raw = base_url if "://" in str(base_url) else "https://" + str(base_url)
+    return (urlparse(raw).hostname or "").lower() == FIREWORKS_HOST
 
 
 def _account_url(base_url: str | None) -> bool:
@@ -315,6 +334,8 @@ def _configured_key(base_url: str | None) -> str | None:
         return keys.get("anthropic")
     if is_typesafe_url(base_url):
         return keys.get("typesafe")
+    if is_fireworks_url(base_url):
+        return keys.get("fireworks")
     if _account_url(base_url) or not base_url:
         return None
     if _hosted_qwen_url(base_url):
@@ -339,6 +360,8 @@ def resolve_completion_key(base_url: str | None = None, api_key: str | None = No
         return anthropic_key()
     if is_typesafe_url(base_url):
         return typesafe_key()
+    if is_fireworks_url(base_url):
+        return str(os.environ.get("FIREWORKS_API_KEY") or "").strip()
     vllm = str(os.environ.get("VLLM_API_KEY") or "").strip()
     if not base_url:
         # no URL means the default agent, whichever route that resolves to

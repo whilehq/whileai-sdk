@@ -13,7 +13,8 @@ where did they go" has one answer: print the object.
 Pass one to ``wai.configure(agent=..., judge=...)``, or straight to
 ``simulate(agent=...)`` and ``Judge(model=...)``. Internally each is the
 spec string the engine already reads (``openai:<model>``,
-``anthropic:<model>``, ``vllm:<model>@<url>``, ``ollama:<model>``); the
+``anthropic:<model>``, ``fireworks:<model>``, ``vllm:<model>@<url>``,
+``ollama:<model>``); the
 object is the front door, the string still works.
 """
 
@@ -64,6 +65,17 @@ class Anthropic(Backend):
     def __post_init__(self) -> None:
         object.__setattr__(self, "provider", "anthropic")
         object.__setattr__(self, "env_key", "ANTHROPIC_API_KEY")
+
+
+@dataclass(frozen=True, repr=False)
+class Fireworks(Backend):
+    """An open model Fireworks serves, named the way Fireworks names it
+    (``accounts/fireworks/models/<name>``). Key: ``api_key=`` or
+    ``FIREWORKS_API_KEY``."""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "provider", "fireworks")
+        object.__setattr__(self, "env_key", "FIREWORKS_API_KEY")
 
 
 @dataclass(frozen=True, repr=False)
@@ -121,4 +133,4 @@ class Hosted(Backend):
         return f"Hosted({self._key_note()})"
 
 
-__all__ = ["Anthropic", "Backend", "Endpoint", "Hosted", "Ollama", "OpenAI"]
+__all__ = ["Anthropic", "Backend", "Endpoint", "Fireworks", "Hosted", "Ollama", "OpenAI"]

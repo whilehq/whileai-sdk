@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Fireworks is a named backend: `wai.Fireworks("accounts/fireworks/models/<name>")` or the
+  spec `fireworks:<model>` reaches `api.fireworks.ai` on `FIREWORKS_API_KEY` (never
+  `OPENAI_API_KEY`), for the agent, the writer, the simulated person or the judge. It was
+  already reachable as an `Endpoint` with the URL typed out; now the repr says where the
+  call goes and which key it uses, like the other providers.
 - The platform API answers at `https://api.withwhile.com`, which is now the default for
   `whileai login`, `whileai.platform` and every skill; the raw API Gateway hostname it had
   since 0.72 still answers and a credentials file that pinned it moves over on its own. The

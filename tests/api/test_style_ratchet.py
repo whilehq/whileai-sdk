@@ -29,7 +29,7 @@ PINS = {
     # rule 1: names in whileai.__all__. The rule says "under thirty"; `tool`
     # (#447) made it exactly thirty, and `rows` (#613, the front door for a
     # public benchmark) thirty-one by the maintainer's call. The next name
-    # added takes one off. See #456.
+    # added takes one off (`Fireworks` took `Settings` off). See #456.
     "front_door": 31,
     "wide_calls": 27,  # rule 3: public calls with more than MAX_PARAMS parameters
     "format_twins": 12,  # rule 5: format_* functions instead of __str__ on a report

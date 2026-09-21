@@ -136,6 +136,7 @@ on `grade()`). All take the same spec.
 | `vllm:<model>@<url>` | vLLM, or any OpenAI-compatible endpoint you serve | `VLLM_API_KEY` when the endpoint wants one |
 | `openai:<model>` | OpenAI, or a compatible endpoint via `OPENAI_BASE_URL` | `OPENAI_API_KEY` |
 | `anthropic:<model>` | the Claude Messages API | `ANTHROPIC_API_KEY`, or `WHILEAI_ANTHROPIC_API_KEY` to override it |
+| `fireworks:<model>` | an open model Fireworks serves, ids as Fireworks names them | `FIREWORKS_API_KEY` |
 | `typesafe:<model>` | TypeSafe's Jev, a decision model; the judge only (`spec=`) | `TYPESAFE_API_KEY`, or `WHILEAI_TYPESAFE_API_KEY` to override it |
 
 ```python

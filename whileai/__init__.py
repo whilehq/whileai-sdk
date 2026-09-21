@@ -29,7 +29,7 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 from .config import Settings, configure, context, settings
-from .models import Anthropic, Backend, Endpoint, Hosted, Ollama, OpenAI
+from .models import Anthropic, Backend, Endpoint, Fireworks, Hosted, Ollama, OpenAI
 
 try:
     from importlib.metadata import PackageNotFoundError
@@ -126,17 +126,18 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
 
 # The front door: under thirty names, the loop and its nouns. The platform
 # client's names above stay importable but are documented under
-# whileai.platform.
+# whileai.platform. `Settings` stays importable too; `Fireworks` took its
+# place in the list so the front door stays at thirty-one names.
 __all__ = [
     "Anthropic",
     "Endpoint",
+    "Fireworks",
     "Hosted",
     "Judge",
     "Ollama",
     "OpenAI",
     "ScoredData",
     "Selection",
-    "Settings",
     "SimulationData",
     "Verifier",
     "__version__",
