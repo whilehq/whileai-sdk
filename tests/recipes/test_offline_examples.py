@@ -69,6 +69,7 @@ CLI_EXAMPLES = [
     "community/how-much-contamination-survives/run.py",
     "community/the-step-the-course-skips/run.py",
     "community/what-trl-does-with-the-loss-mask/run.py",
+    "community/which-half-can-a-small-model-take/run.py",
 ]
 
 # Need the ``modal`` client, which is not a dev dependency. Compiled, not run.
@@ -79,6 +80,7 @@ NEEDS_MODAL = {
     # boto3 is the ``whileai[bedrock]`` extra, not a dev dependency; compiled, not run
     "05-export/bedrock-import/presign.py",
     "04-train/sft/train_modal.py",
+    "community/which-half-can-a-small-model-take/train_modal.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic

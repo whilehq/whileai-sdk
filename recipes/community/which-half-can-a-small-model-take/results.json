@@ -1,0 +1,168 @@
+{
+ "question": "Which half of a production agent's traffic can a 1.5B model take over, and how do you know before shipping it?",
+ "whileai": "0.110",
+ "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+ "method": "LoRA SFT (r=16, alpha=32, 3 epochs, lr 1e-4, 51 steps), TRL SFTTrainer, on the boring half only",
+ "gpu": "L40S",
+ "gpu_seconds": 159,
+ "usd": 0.09,
+ "model": "offline (no model API key; incumbent is wai.seeded_agent, reward is a program)",
+ "metric": "pass@1 on a program that reads the trajectory and names policy flaws (ignore_fault, apology, hedging, sycophancy, boilerplate, leak)",
+ "grader_trust": {
+  "checked_against": "seeded_agent ground-truth labels",
+  "rollouts": 1000,
+  "agreement": 0.996,
+  "caught": 322,
+  "missed": 4,
+  "false_alarms": 0,
+  "note": "zero false alarms; under-detects, so pass rates are upper bounds for both arms equally"
+ },
+ "split": {
+  "rule": "did the tool call fault (known at runtime, costs no model call)",
+  "rejected_rule": "tier on the row; incumbent 0.72 ordinary vs 0.66 rest, intervals overlap",
+  "boring_asks": 23,
+  "hard_asks": 37
+ },
+ "eval": {
+  "holdout_asks": 60,
+  "rollouts_per_ask": 8,
+  "rows_per_pass": 496,
+  "paired": true,
+  "base_passes_for_noise_floor": 3,
+  "decontaminated_rows": 6,
+  "holdout_size_by_effect": {
+   "0.1": 37,
+   "0.2": 8,
+   "0.25": 5,
+   "0.3": 3
+  },
+  "underpowered": "boring slice has 23 asks; holdout_size wants 37 for +0.10, so powered for ~+0.15"
+ },
+ "train": {
+  "rows": 129,
+  "distinct_asks": 24,
+  "rows_after_select_mode_sft": 24,
+  "source": "incumbent traces the program marked clean, boring half only"
+ },
+ "slices": {
+  "boring": {
+   "noise": {
+    "run_means": {
+     "run_1": 0.7228,
+     "run_2": 0.663,
+     "run_3": 0.6495
+    },
+    "run_std": 0.039,
+    "noise_band": 0.2375
+   },
+   "sft_delta": {
+    "headline_verdict": "moved",
+    "mean_before": 0.7228260869565217,
+    "mean_after": 0.9619565217391305,
+    "delta": 0.2391304347826087,
+    "ci95": [
+     0.17391304347826086,
+     0.30434782608695654
+    ],
+    "noise_band": 0.2373290773967657,
+    "within_noise": false,
+    "verdict": "b_better",
+    "n_paired": 23
+   },
+   "vs_incumbent": {
+    "headline_verdict": "moved",
+    "mean_before": 0.6847826086956522,
+    "mean_after": 0.9619565217391305,
+    "delta": 0.27717391304347827,
+    "ci95": [
+     0.19021739130434784,
+     0.3695652173913043
+    ],
+    "noise_band": 0.2373290773967657,
+    "within_noise": false,
+    "verdict": "b_better",
+    "n_paired": 23
+   },
+   "pass_rate": {
+    "incumbent": 0.6875,
+    "base": 0.670138888888889,
+    "trained": 0.9635416666666666
+   },
+   "trained_flaws": {
+    "boilerplate": 5,
+    "apology,sycophancy": 2
+   }
+  },
+  "hard": {
+   "noise": {
+    "run_means": {
+     "run_1": 0.2905,
+     "run_2": 0.3007,
+     "run_3": 0.3024
+    },
+    "run_std": 0.0064,
+    "noise_band": 0.0389
+   },
+   "sft_delta": {
+    "headline_verdict": "moved",
+    "mean_before": 0.2905405405405405,
+    "mean_after": 0.9493243243243243,
+    "delta": 0.6587837837837838,
+    "ci95": [
+     0.5777027027027027,
+     0.7364864864864865
+    ],
+    "noise_band": 0.038946310136905145,
+    "within_noise": false,
+    "verdict": "b_better",
+    "n_paired": 37
+   },
+   "vs_incumbent": {
+    "headline_verdict": "moved",
+    "mean_before": 0.6993243243243243,
+    "mean_after": 0.9493243243243243,
+    "delta": 0.25,
+    "ci95": [
+     0.16891891891891891,
+     0.3277027027027027
+    ],
+    "noise_band": 0.038946310136905145,
+    "within_noise": false,
+    "verdict": "b_better",
+    "n_paired": 37
+   },
+   "pass_rate": {
+    "incumbent": 0.7006578947368421,
+    "base": 0.2982456140350877,
+    "trained": 0.9506578947368421
+   },
+   "trained_flaws": {
+    "ignore_fault": 15
+   }
+  }
+ },
+ "cost_line": {
+  "usd_per_1000_replies": 0.028,
+  "seconds_per_1000_replies": 51,
+  "gpu_usd_per_hour": 1.95,
+  "train_usd": 0.009,
+  "whole_run_usd": 0.09,
+  "note": "measured throughput, 496 replies per 25.5s on one L40S"
+ },
+ "verdict": "Both slices moved, every interval excludes zero. But the vs-incumbent rows are near-tautological (the incumbent injects flaws at a fixed 35% rate independent of difficulty). The real finding is the untrained base model: 0.670 boring vs 0.298 hard, a 0.37 gap against a 0.039 noise floor, with ignore_fault the dominant failure. Training on the boring half transferred to the hard half it never saw (0.298 -> 0.951), so the split stopped mattering after 24 examples.",
+ "caveats": [
+  "incumbent failures are uniform-random stylistic flaws, not a capability gap; any imitator of the filtered-clean subset wins",
+  "boring delta +0.239 clears its 0.237 noise band by 0.002 - a marginal pass",
+  "one seed, one training run; noise floor bounds eval noise only",
+  "grader tuned on the incumbent phrasings, so it may under-detect novel flaws from the small model, biasing toward the small model",
+  "training reward and eval metric are the same program by design"
+ ],
+ "modal_apps": {
+  "train": "ap-UjbpoQmEijbyasZmiS1XXH",
+  "smoke": "ap-KiuXxz60VS9Z6BmvqkRuQc"
+ },
+ "issues": [
+  "https://github.com/whilehq/whileai-sdk/issues/698",
+  "https://github.com/whilehq/whileai-sdk/issues/662#issuecomment-5766914781"
+ ]
+}
