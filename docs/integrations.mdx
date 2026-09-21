@@ -4,6 +4,49 @@ sidebarTitle: "Integrations"
 description: "Every model API, trainer, GPU provider, data source and judge the SDK talks to, with the one line that connects each and the page that shows it running."
 ---
 
+<div style={{ display: "flex", flexWrap: "wrap", gap: "12px 20px", alignItems: "center", margin: "8px 0 24px" }}>
+  <a href="#models-the-agent-runs-on" title="OpenAI" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/openai-light.svg" alt="OpenAI" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/openai-dark.svg" alt="OpenAI" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="Anthropic" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/anthropic-light.svg" alt="Anthropic" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/anthropic-dark.svg" alt="Anthropic" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Fireworks" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/fireworks-light.svg" alt="Fireworks" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/fireworks-dark.svg" alt="Fireworks" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="Amazon Bedrock" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/amazonwebservices-light.svg" alt="Amazon Bedrock" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/amazonwebservices-dark.svg" alt="Amazon Bedrock" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="vLLM" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/vllm-light.svg" alt="vLLM" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/vllm-dark.svg" alt="vLLM" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="Ollama" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/ollama-light.svg" alt="Ollama" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/ollama-dark.svg" alt="Ollama" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Hugging Face and TRL" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/huggingface-light.svg" alt="Hugging Face and TRL" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/huggingface-dark.svg" alt="Hugging Face and TRL" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Prime Intellect and verifiers" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/primeintellect-light.svg" alt="Prime Intellect and verifiers" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/primeintellect-dark.svg" alt="Prime Intellect and verifiers" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Modal" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/modal-light.svg" alt="Modal" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/modal-dark.svg" alt="Modal" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#data-in-and-out" title="OpenTelemetry" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/opentelemetry-light.svg" alt="OpenTelemetry" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/opentelemetry-dark.svg" alt="OpenTelemetry" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+</div>
+
 The SDK sits between your agent and your trainer. Everything below is a
 string or one call; keys stay in your environment and never reach While.
 
