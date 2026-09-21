@@ -192,7 +192,8 @@ target agent, so both consume its endpoint.
 
 The same spec works for `simulator=` (the situation writer), `user_model=`
 (the simulated person) and the judge's `spec=`. Backends: `ollama:<model>`,
-`vllm:<model>@<url>`, `openai:<model>`, and `anthropic:<model>` for the Claude
+`vllm:<model>@<url>`, `openai:<model>`, `fireworks:<model>` (an open model Fireworks
+serves, on `FIREWORKS_API_KEY`), and `anthropic:<model>` for the Claude
 Messages API on `ANTHROPIC_API_KEY` (`WHILEAI_ANTHROPIC_API_KEY` overrides it),
 for example `agent="anthropic:claude-haiku-4-5"`. Use `anthropic:` when the
 developer's only credential is an Anthropic key, instead of falling back to
