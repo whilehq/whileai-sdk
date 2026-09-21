@@ -21,9 +21,11 @@ import argparse
 import json
 import random
 import statistics
+import sys
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 from whileai.simulations import eval_variance, holdout_size
 
 HERE = Path(__file__).resolve().parent
@@ -263,6 +265,7 @@ def dry_run() -> None:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("stage", nargs="?", choices=("prep", "analyze"), default="analyze")
     ap.add_argument("--dry-run", action="store_true", help="synthetic arms, no GPU and no key")
