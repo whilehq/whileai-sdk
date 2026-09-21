@@ -1,0 +1,1 @@
+Reproduced Palandye (2607.02869), L40S, 40 min: GSM8K pass@1 0.27->0.36 process vs 0.33 outcome, 200 held-out. Gap +0.03 [-0.02,+0.09]: flat. Recipe: https://github.com/whilehq/whileai-sdk/tree/main/recipes/community/process-vs-outcome-reward Paper: arxiv.org/abs/2607.02869
