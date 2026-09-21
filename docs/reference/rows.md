@@ -91,11 +91,40 @@ eval passes, `holdout_size` and a `compare` report, offline, is
 
 ## What the calls read
 
+Every call in this table is on `wai`, so the one import reaches all six.
+
 | call | groups by | reads | skips |
 |---|---|---|---|
-| `pass_at` | `task_id` | binary `reward` | partial and unjudged rows |
-| `compare` | `task_id`, paired across arms | `reward`, every shared `markers` name | tasks present on one side |
-| `eval_variance` | `task_id` per run | `reward`, `markers` | |
-| `holdout_size(before=)` | `task_id` | `reward` | |
-| `decontaminate` | | `prompt` (`fields=`) | |
-| `select(mode="rl")` | `task_id` | binary `reward`, `final_text` | non-binary rewards, empty or cut-off replies, unanimous groups |
+| `wai.pass_at` | `task_id` | binary `reward` | partial and unjudged rows |
+| `wai.compare` | `task_id`, paired across arms | `reward`, every shared `markers` name | tasks present on one side |
+| `wai.eval_variance` | `task_id` per run | `reward`, `markers` | |
+| `wai.holdout_size(before=)` | `task_id` | `reward` | |
+| `wai.decontaminate` | | `prompt` (`fields=`) | |
+| `wai.select(mode="rl")` | `task_id` | binary `reward`, `final_text` | non-binary rewards, empty or cut-off replies, unanimous groups |
+
+## The noise floor and the size of the set
+
+A delta is a result against a floor, so two of those six calls run before
+and beside `compare`. `wai.holdout_size(effect)` says how many paired
+tasks can prove a gain of that size, before any GPU runs.
+`wai.eval_variance(run_1, run_2, run_3)` evaluates the same model several
+times and reports how far the number moves on its own. Both print
+themselves.
+
+```python
+print(wai.holdout_size(0.10, base=0.45, k=4))  # n_tasks, task_std, what it assumes
+
+passes = [
+    wai.rows(questions, answers, wai.verify.MathEqual(), references=gold),
+    wai.rows(questions, answers, wai.verify.MathEqual(), references=gold),
+    wai.rows(questions, answers, wai.verify.MathEqual(), references=gold),
+]
+floor = wai.eval_variance(*passes)  # run_std across the passes, and the band it implies
+print(floor)
+print(wai.compare(rows, tuned, run_std=floor["run_std"], run_std_runs=floor["n_runs"]))
+```
+
+Hand the floor to `wai.compare(run_std=, run_std_runs=)` and a delta
+inside the band reads as what re-running the eval does on its own, not as
+a gain. Three re-runs is the fewest that give a standard deviation worth
+reading; below that the report says so instead of printing a bare number.

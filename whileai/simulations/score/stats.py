@@ -49,6 +49,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
+from ...report import Report
 from ..defaults import (
     ALPHA,
     BASE_PASS_RATE,
@@ -514,6 +515,33 @@ def eval_power(
     return out
 
 
+class HoldoutSizeReport(Report):
+    """What ``holdout_size`` answered, as a person reads it: the task
+    count on the first line, where the standard deviation came from on the
+    second, then the warnings and notes that say what the number assumes.
+
+    Reference: docs/reference/style.md rule 5 (results are objects that
+    print themselves).
+    """
+
+    _summary_keys = ("n_tasks", "effect")
+
+    def __str__(self) -> str:
+        lines = [
+            f"holdout {self['n_tasks']} paired tasks for a +{self['effect']:.3f} gain at "
+            f"k={self['k']} (base {self['base']:.2f}, power {self['power']:.2f}, "
+            f"alpha {self['alpha']:.2f})"
+        ]
+        source = self["sd_source"]
+        where = f"{source}, {self['n_paired']} paired tasks" if self.get("n_paired") else source
+        lines.append(
+            f"task_std {self['task_std']:.4f} ({where}), half-width {self['half_width']:.4f}"
+        )
+        lines += [f"warning: {w}" for w in self.get("warnings") or ()]
+        lines += [f"note: {n}" for n in self.get("notes") or ()]
+        return "\n".join(lines)
+
+
 def holdout_size(
     effect: float,
     *,
@@ -526,7 +554,7 @@ def holdout_size(
     task_std: float | None = None,
     rows: Sequence[dict] | None = None,
     ceiling_pass_rate: float = CEILING_PASS_RATE,
-) -> dict[str, Any]:
+) -> HoldoutSizeReport:
     """How many paired tasks a holdout needs to prove a gain of ``effect``.
 
     Models the test ``delta_report`` runs: each task's pass rate over ``k``
@@ -704,23 +732,25 @@ def holdout_size(
                 "when the gain is concentrated. Which way this one errs is decided by "
                 "after= rows."
             )
-    return {
-        "n_tasks": n,
-        "effect": float(effect),
-        "base": float(base),
-        "k": int(k),
-        "power": float(power),
-        "alpha": float(alpha),
-        "task_std": round(sd, 4),
-        "sd_source": source,
-        "half_width": round(_z(1 - alpha / 2) * sd / math.sqrt(n), 4),
-        "n_tasks_concentrated": concentrated,
-        "base_spread": round(spread, 4) if spread is not None else None,
-        "n_paired": n_paired,
-        "saturated": saturated,
-        "notes": notes,
-        "warnings": warnings,
-    }
+    return HoldoutSizeReport(
+        {
+            "n_tasks": n,
+            "effect": float(effect),
+            "base": float(base),
+            "k": int(k),
+            "power": float(power),
+            "alpha": float(alpha),
+            "task_std": round(sd, 4),
+            "sd_source": source,
+            "half_width": round(_z(1 - alpha / 2) * sd / math.sqrt(n), 4),
+            "n_tasks_concentrated": concentrated,
+            "base_spread": round(spread, 4) if spread is not None else None,
+            "n_paired": n_paired,
+            "saturated": saturated,
+            "notes": notes,
+            "warnings": warnings,
+        }
+    )
 
 
 def detectable_effect(
@@ -1003,11 +1033,50 @@ def _run_rows(run: Any, position: int) -> list[dict]:
         ) from None
 
 
+class EvalVarianceReport(Report):
+    """The eval's noise floor as a person reads it: the spread across
+    re-runs, the band a delta has to clear, each run's mean, and the notes
+    that say when the spread is too thin to read.
+
+    Reference: docs/reference/style.md rule 5 (results are objects that
+    print themselves).
+    """
+
+    _summary_keys = ("run_std", "n_runs")
+
+    def __str__(self) -> str:
+        std, n = self["run_std"], self["n_runs"]
+        head = f"eval_variance {self['metric']}: "
+        if std is None:
+            head += f"no run_std from {n} run(s)"
+        else:
+            head += f"run_std {std:.4f} over {n} runs"
+            if self["mean"] is not None:
+                head += f", mean {self['mean']:.4f}"
+        lines = [head]
+        if self["noise_band"] is not None:
+            lines.append(
+                f"noise band {self['noise_band']:.4f} (t at df {self['noise_band_df']} times "
+                "sqrt(2) times run_std): a delta inside it is the eval re-running, not a gain. "
+                "Pass it to compare(run_std=, run_std_runs=)"
+            )
+        runs = " | ".join(
+            f"{label} {value:.4f}" if value is not None else f"{label} none"
+            for label, value in self["means"].items()
+        )
+        if runs:
+            lines.append(f"{runs} ({self['tasks_in_every_run']} tasks in every run)")
+        if self["stability"] is not None:
+            lines.append(f"stability {self['stability']} ({self['run_std_points']:.2f} points)")
+        lines += [f"note: {note}" for note in self.get("notes") or ()]
+        return "\n".join(lines)
+
+
 def eval_variance(
     *runs: Sequence[dict],
     metric: str = "pass_at_1",
     by: str | None = None,
-) -> dict[str, Any]:
+) -> EvalVarianceReport:
     """How much an evaluation moves when the same model is evaluated
     again (Lambert 2025, chapter Evaluation).
 
@@ -1099,22 +1168,24 @@ def eval_variance(
     if std is not None:
         points = std * POINTS_PER_UNIT
         stability = next(name for name, cap in VARIANCE_BANDS if points < cap)
-    out: dict[str, Any] = {
-        "metric": metric,
-        "n_runs": n,
-        "means": means,
-        "mean": round(mean, 4) if mean is not None else None,
-        "run_std": round(std, 4) if std is not None else None,
-        "run_std_by_metric": run_std_by_metric,
-        "run_std_points": round(std * POINTS_PER_UNIT, 2) if std is not None else None,
-        # ``std`` exists only from two or more runs, so ``n - 1`` is at
-        # least one: the band carries the estimate's own degrees of freedom.
-        "noise_band": round(noise_band(std, df=n - 1), 4) if std is not None else None,
-        "noise_band_df": n - 1 if std is not None else None,
-        "stability": stability,
-        "tasks_in_every_run": len(common),
-        "notes": [],
-    }
+    out = EvalVarianceReport(
+        {
+            "metric": metric,
+            "n_runs": n,
+            "means": means,
+            "mean": round(mean, 4) if mean is not None else None,
+            "run_std": round(std, 4) if std is not None else None,
+            "run_std_by_metric": run_std_by_metric,
+            "run_std_points": round(std * POINTS_PER_UNIT, 2) if std is not None else None,
+            # ``std`` exists only from two or more runs, so ``n - 1`` is at
+            # least one: the band carries the estimate's own degrees of freedom.
+            "noise_band": round(noise_band(std, df=n - 1), 4) if std is not None else None,
+            "noise_band_df": n - 1 if std is not None else None,
+            "stability": stability,
+            "tasks_in_every_run": len(common),
+            "notes": [],
+        }
+    )
     if unkeyed:
         out["notes"].append(f"{unkeyed} row(s) carried no run id and were left out")
     if n < MIN_RERUNS:

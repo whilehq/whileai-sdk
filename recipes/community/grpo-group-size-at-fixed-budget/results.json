@@ -1,0 +1,111 @@
+{
+ "question": "Does GRPO's group size (num_generations) move held-out accuracy, when every arm is held to the same rollout budget so bigger groups do not simply buy more compute?",
+ "whileai": "0.110",
+ "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+ "method": "LoRA GRPO (r=16, alpha=32, lr 5e-6, beta 0.04, scale_rewards=True, temp 0.8), TRL GRPOTrainer",
+ "gpu": "L40S",
+ "arms_run": 3,
+ "gpu_minutes": 75,
+ "usd": 2.4,
+ "metric": "pass@1 on 100 held-out GSM8K test questions, graded by wai.verify.MathEqual() (a program, not a judge)",
+ "budget_control": {
+  "held_fixed": "steps x generation_batch = 48 x 16 = 768 rollouts per arm",
+  "what_varies": "prompt visits = 768 / G",
+  "note": "the shipped GRPO recipe sets per_device_train_batch_size=num_generations, which makes G cost 4x more at G=8 than at G=2; here the generation batch is pinned at 16 instead",
+  "check": "all three arms completed 48 steps within seconds of each other on identical hardware"
+ },
+ "eval": {
+  "holdout_tasks": 100,
+  "samples_per_task": 4,
+  "rows_per_pass": 400,
+  "paired": true,
+  "base_passes_for_noise_floor": 3,
+  "base_passes_on_separate_containers": true,
+  "decontaminated": true,
+  "decontamination_result": "384 train prompts in, 384 kept, 0 contaminated (GSM8K train/test are disjoint; a clean control, not a save)",
+  "powered_for": 0.1,
+  "powered_for_source": "holdout_size(0.10, base=0.45, k=4) -> 98 tasks; +0.05 would need 391",
+  "training_reward_equals_eval_metric": true,
+  "training_reward_note": "both are MathEqual on the final answer, on purpose: any gap between arms is the knob, not reward design. This run therefore says nothing about reward hacking."
+ },
+ "noise_floor": {
+  "base_pass_at_1": [0.4575, 0.4375, 0.4525],
+  "run_std": 0.0104,
+  "noise_band": 0.0633,
+  "rule": "t(df=2)=4.30 x run_std x sqrt(1/1 + 1/1), from compare(run_std=, run_std_runs=3)"
+ },
+ "arms": [
+  {
+   "group_size": 2,
+   "prompt_visits": 384,
+   "rollouts": 768,
+   "before": 0.4575,
+   "after": 0.4875,
+   "delta": 0.03,
+   "ci95": [-0.0175, 0.0775],
+   "within_noise": true,
+   "verdict": "flat",
+   "unanimous_group_fraction": 0.6927,
+   "unanimous_group_fraction_iid": 0.5092,
+   "observed_over_iid": 1.36,
+   "rollouts_carrying_gradient": 236,
+   "mean_train_reward": 0.5677,
+   "mean_completion_length": 263.2,
+   "clipped_ratio": 0.3516
+  },
+  {
+   "group_size": 4,
+   "prompt_visits": 192,
+   "rollouts": 768,
+   "before": 0.4375,
+   "after": 0.46,
+   "delta": 0.0225,
+   "ci95": [-0.03, 0.0775],
+   "within_noise": true,
+   "verdict": "flat",
+   "unanimous_group_fraction": 0.4479,
+   "unanimous_group_fraction_iid": 0.1309,
+   "observed_over_iid": 3.42,
+   "rollouts_carrying_gradient": 424,
+   "mean_train_reward": 0.5443,
+   "mean_completion_length": 265.5,
+   "clipped_ratio": 0.3503
+  },
+  {
+   "group_size": 8,
+   "prompt_visits": 96,
+   "rollouts": 768,
+   "before": 0.4525,
+   "after": 0.47,
+   "delta": 0.0175,
+   "ci95": [-0.0275, 0.0675],
+   "within_noise": true,
+   "verdict": "flat",
+   "unanimous_group_fraction": 0.28125,
+   "unanimous_group_fraction_iid": 0.0145,
+   "observed_over_iid": 19.35,
+   "rollouts_carrying_gradient": 552,
+   "mean_train_reward": 0.5846,
+   "mean_completion_length": 256.6,
+   "clipped_ratio": 0.2956
+  }
+ ],
+ "arm_vs_arm": [
+  {"comparison": "G=2 -> G=4", "delta": -0.0275, "ci95": [-0.075, 0.02], "verdict": "flat"},
+  {"comparison": "G=2 -> G=8", "delta": -0.0175, "ci95": [-0.07, 0.0325], "verdict": "flat"},
+  {"comparison": "G=4 -> G=8", "delta": 0.01, "ci95": [-0.0425, 0.06], "verdict": "flat"}
+ ],
+ "headline_verdict": "flat",
+ "headline": "Group size did not move held-out GSM8K pass@1 at a fixed 768-rollout budget; every paired interval contains zero and sits inside the 0.063 noise band. One level down the knob moved decisively: the share of unanimous (zero-advantage) groups fell 0.693 -> 0.448 -> 0.281, but at G=8 that is 19x the 0.015 an iid model predicts, because GSM8K at this model size is mostly saturated prompts rather than borderline ones. That prices dynamic sampling at ~28% of the budget reclaimed instead of ~1.5%.",
+ "limitations": [
+  "48 steps is about one pass over 384 prompts; training reward showed no trend and KL stayed near zero, so the arms were never likely to separate on the metric at this budget",
+  "30-35% of completions hit the 320-token cap and a truncated answer scores zero, depressing every pass rate (equal across arms, so the comparison survives)",
+  "one seed per arm; the noise floor is across containers, not across training seeds",
+  "powered for +0.10 only; effects smaller than that are unresolved, not absent"
+ ],
+ "modal_runs": [
+  {"app": "ap-S1wLfBnYlccNubBrzbNfw9", "what": "three arms, G=2/4/8", "status": "stopped"},
+  {"app": "ap-FPEked5LpA3b0nOuH1mS7h", "what": "smoke, --steps 2 --holdout-n 8 --only 4", "status": "stopped"}
+ ],
+ "issues_filed": [661, 662, 663]
+}

@@ -53,6 +53,14 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "pass_at": ("whileai.simulations.score.passat", "pass_at"),
     "judge_trust": ("whileai.simulations.score.judge_trust", "judge_trust"),
     "compare": ("whileai.simulations.score.delta", "delta_report"),
+    # The other half of belief 1 (CONSTITUTION.md): a number is a result
+    # with its interval *and its noise floor*. `eval_variance` measures the
+    # floor from re-runs, `holdout_size` sizes the set before the GPU runs.
+    # The rows reference lists all four calls in one table, so all four
+    # resolve from the one import (#662). Their home stays
+    # whileai.simulations.score.stats and __all__ below is unchanged.
+    "eval_variance": ("whileai.simulations.score.stats", "eval_variance"),
+    "holdout_size": ("whileai.simulations.score.stats", "holdout_size"),
     "select": ("whileai.selection", "select"),
     "Selection": ("whileai.selection", "Selection"),
     "decontaminate": ("whileai.simulations.score.stats", "decontaminate"),
@@ -119,7 +127,7 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .simulations.score.judging import ScoredData
     from .simulations.score.passat import pass_at
     from .simulations.score.preflight import preflight
-    from .simulations.score.stats import decontaminate
+    from .simulations.score.stats import decontaminate, eval_variance, holdout_size
     from .simulations.simulation import simulate
     from .simulations.tools import Tool, tool
     from .simulations.verify import Verifier, verifier
