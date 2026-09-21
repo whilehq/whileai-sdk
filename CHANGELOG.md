@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `anthropic:<model>` now works for the reasoning models (`claude-sonnet-5`,
+  `claude-opus-5`, and the rest) that reject a sampling `temperature`: the
+  backend drops the field and retries on the 400, then omits it for that model
+  on later calls. Before this, those models 400'd as a student, writer, user,
+  or judge.
 - Docs: what the hosted endpoint keeps (per-day counts only, never content) and its per-account rate limit.
 - `Example.reference` (the gold answer a row was graded against) and `Example.detail` (expected
   against got, for a failure): the platform's rows page shows both under the reply, so a
