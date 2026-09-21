@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- README hero PNGs cropped to even padding. The canvas carried 275 px of empty
+  space on the right, so the centered banner rendered off-center on GitHub.
 - `recipes/community/process-vs-outcome-reward`: `run.py` and `report_platform.py`
   print the provenance line first, on stderr, like every other entrypoint (#615
   landed without it and turned main red).
