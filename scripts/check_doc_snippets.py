@@ -22,7 +22,8 @@ public endpoint that needs no key (a catalog download, a Hub pull) cannot
 slip through and the check gives the same answer offline as it does on the
 runner. A block that needs a key is skipped, and it only earns the skip if
 the page says so first: a sentence, or an `export` line, naming the variable
-(WHILEAI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, MODAL_TOKEN_ID) somewhere
+(WHILEAI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, MODAL_TOKEN_ID,
+FIREWORKS_API_KEY) somewhere
 above the block. An undeclared block that reaches for the network fails here.
 
 When a page quotes a block's output in the fence right after it, the quoted
@@ -80,6 +81,7 @@ KEY_VARS = (
     "ANTHROPIC_API_KEY",
     "MODAL_TOKEN_ID",
     "TYPESAFE_API_KEY",
+    "FIREWORKS_API_KEY",
 )
 # Cleared before anything runs, so a block that needs one fails loudly here
 # instead of quietly billing whoever runs the check. Named ones first, then

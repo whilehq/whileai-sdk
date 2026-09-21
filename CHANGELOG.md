@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `format="fireworks"` on `export` / `select(...).export` and `export_preference` writes what a
+  Fireworks managed training job reads: SFT rows as `messages` + `tools` in the OpenAI wire shape
+  with the SDK's `loss_mask` carried as Fireworks' per-message `weight`, preference rows in
+  Fireworks' one-turn `input` / `preferred_output` / `non_preferred_output` shape (pairs that
+  lost later turns are counted as `fireworks_turns_cut`). The recipe `04-train/fireworks`
+  exports both offline, prints the `firectl` commands with the ids filled in, and proves the
+  served result before/after through `wai.Fireworks` and `wai.compare`.
 - Fireworks is a named backend: `wai.Fireworks("accounts/fireworks/models/<name>")` or the
   spec `fireworks:<model>` reaches `api.fireworks.ai` on `FIREWORKS_API_KEY` (never
   `OPENAI_API_KEY`), for the agent, the writer, the simulated person or the judge. It was

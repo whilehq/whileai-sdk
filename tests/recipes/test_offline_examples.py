@@ -27,6 +27,8 @@ CLI_EXAMPLES = [
     "04-train/prime-rl/run.py",
     "04-train/report-run/run.py",
     "04-train/sft/wiring.py",
+    "04-train/fireworks/export_fireworks.py",
+    "04-train/fireworks/prove.py",
     "03-select/character/from_model_spec.py",
     "03-select/character/measure.py",
     "03-select/character/run.py",
@@ -178,6 +180,7 @@ def test_hosted_loop_without_a_key_names_the_env_var(tmp_path):
 # in one line; --help passing proves only that the imports resolved.
 NEEDS_CREDENTIAL = [
     "04-train/hosted-loop/run.py",
+    "04-train/fireworks/prove.py",
     "04-train/prime-rl/run.py",
     "05-export/hugging-face/roundtrip.py",
     "03-select/prime-intellect-rl/generate.py",
@@ -198,6 +201,6 @@ def test_missing_credential_is_a_message_not_a_traceback(rel, tmp_path):
     assert "Traceback (most recent call last)" not in message, (
         f"{rel} raised instead of exiting with a message:\n{message[-2000:]}"
     )
-    assert any(var in message for var in ("WHILEAI_API_KEY", "VLLM_API_KEY")), (
-        f"{rel} does not name the env var to set:\n{message[-2000:]}"
-    )
+    assert any(
+        var in message for var in ("WHILEAI_API_KEY", "VLLM_API_KEY", "FIREWORKS_API_KEY")
+    ), f"{rel} does not name the env var to set:\n{message[-2000:]}"

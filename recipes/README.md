@@ -35,7 +35,8 @@ reading the others:
   sync`); the line then says `installed editable`.
 - Keys come from the environment, never from files: `WHILEAI_API_KEY`
   (platform), `OPENAI_API_KEY` / `OPENAI_BASE_URL` (any OpenAI-compatible
-  model), `ANTHROPIC_API_KEY` (Claude). A recipe that trains on Modal says so.
+  model), `ANTHROPIC_API_KEY` (Claude), `FIREWORKS_API_KEY` (Fireworks). A recipe
+  that trains on Modal or on Fireworks says so.
 - Generated files land in the recipe's `out/` or `raw/`, both gitignored.
   Checked-in data is the exception and is named in the README.
 - Every measured claim is a paired number with a 95% interval on a held-out
@@ -107,6 +108,7 @@ platform.
 | [`identity`](04-train/identity) | a leak-free SFT set that teaches a name and maker, with Modal scripts for the LoRA and for the identity/leak eval | nothing to generate; Modal and an A10G to train | seconds to generate | free to generate; A10G minutes to train and eval, at $1.10 an hour |
 | [`grpo`](04-train/grpo) | TRL `GRPOTrainer` with LoRA on a verifiable rule, `HackMonitor` and reward/KL on the run page, paired pass@1 before/after with per-category deltas, loss variants and `--balance` as flags | Modal, one A10G; the key is optional | under 15 min at 40 steps | about 30 cents (15 A10G minutes); the `--steps 10` check about 5 cents |
 | [`dpo`](04-train/dpo) | on-policy pairs from `build_preference_pairs`, TRL `DPOTrainer`, the reward margin on the run page, iterated rounds with `--from-run`, constructed negatives | Modal, one A10G; the key is optional | about 10 min | about 20 cents (10 A10G minutes); the `--steps 10` check about 5 cents |
+| [`fireworks`](04-train/fireworks) | export SFT rows and DPO pairs in Fireworks' shapes (`format="fireworks"`), the `firectl` commands that train on Fireworks GPUs and serve the result, the paired before/after through `wai.Fireworks` and `wai.compare` | nothing for the export; `FIREWORKS_API_KEY` and `firectl` for the job and the proof | export under a minute; the job is Fireworks' queue | export free; the job is billed per training token by Fireworks |
 | [`sft`](04-train/sft) | LoRA SFT with TRL `SFTTrainer` on the rows lesson 7 exports (`select(mode="sft").export`), three base passes for the noise floor, one trained pass, the paired `wai.compare(run_std=)` on the held-out set; the step the course used to skip | Modal, one A10G; no key | about 10 min, under a dollar | about 11 cents (6 A10G minutes); the three runs behind the lesson about 37 cents |
 | [`prime-rl`](04-train/prime-rl) | GRPO, OPSD and OPD on one taskset on prime-rl from `wai.prime_rl_config`, a launcher over Prime Intellect's published image, per-prompt held-out deltas with intervals from `wai.compare`; run e2e1: OPD matched GRPO with no reward, OPSD moved a fifth as far | Modal, two H100s an arm | about 15 min an arm | about $6 (three arms, two H100s each, 15 minutes an arm) |
 | [`text-to-sql`](04-train/text-to-sql) | hill-climb a model on a schema with a verifier as the reward: a seeded Postgres, 741 execution-checked tasks, `SQLExec`, benchmarks through `simulate(tasks=)`, self-distillation, GRPO rounds on Modal with vLLM generation and Postgres in the container, every round measured on the same holdout | Postgres, `WHILEAI_API_KEY`; Modal and an H100 to train | minutes to benchmark, an hour a round | $4 to $8 a round (one to two H100 hours); the benchmark is hosted model calls |

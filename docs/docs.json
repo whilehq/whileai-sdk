@@ -148,6 +148,7 @@
                 "group": "Train",
                 "pages": [
                   "recipes/04-train/dpo",
+                  "recipes/04-train/fireworks",
                   "recipes/04-train/grpo",
                   "recipes/04-train/hosted-loop",
                   "recipes/04-train/identity",
