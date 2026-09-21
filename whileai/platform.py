@@ -106,6 +106,7 @@ EXPERIMENT_FIELD_MAX = 4096  # chars per experiment field, markdown allowed
 # the API caps them (backend evalrows.js).
 RUBRIC_MAX = 4000
 EXAMPLES_MAX = 20
+ROWS_PER_CALL = 500  # graded rows a call; run.score(rows=) chunks for you
 EXAMPLE_TEXT_MAX = 1200
 EXAMPLE_WHY_MAX = 400
 
@@ -460,6 +461,8 @@ class Example(_Wire):
     ok: bool
     why: str | None = Field(default=None, max_length=EXAMPLE_WHY_MAX)
     score: float | None = Field(default=None, allow_inf_nan=False)
+    tags: dict[str, str] | None = None
+    """Short strings a page groups by: {"difficulty": "hard", "archetype": "date and time"}."""
 
 
 class Score(_Wire):
@@ -1721,13 +1724,33 @@ class Run:
 
     # ------------------------------------------------------------ evals
 
-    def score(self, behavior: str | Score, score: float | None = None, **fields: Any) -> Score:
+    def score(
+        self,
+        behavior: str | Score,
+        score: float | None = None,
+        *,
+        rows: Sequence[Example | Mapping[str, Any]] | None = None,
+        **fields: Any,
+    ) -> Score:
         """Record this version's score on one behavior's held-out test.
 
         ``ci`` is the half-width of the 95% interval, ``n`` the number of
         held-out items. Score every behavior, not only the ones this run
         trained: the ones you did not train are the check.
+
+        ``rows`` is every graded row (prompt, reply, ok, why, tags), posted
+        after the score in chunks of 500; the platform's rows page groups
+        them by tag so what went well and what did not is a table. When
+        ``examples`` is not given, the first 14 failures and 6 passes of
+        ``rows`` become the card's sample.
         """
+        all_rows: list[Example] | None = None
+        if rows is not None:
+            all_rows = [r if isinstance(r, Example) else Example.model_validate(r) for r in rows]
+            if not isinstance(behavior, Score) and "examples" not in fields:
+                fails = [r for r in all_rows if not r.ok]
+                passes = [r for r in all_rows if r.ok]
+                fields["examples"] = (fails[:14] + passes)[:EXAMPLES_MAX]
         if isinstance(behavior, Score):
             item = behavior
         else:
@@ -1772,7 +1795,29 @@ class Run:
         out = self.tracked._call("POST", f"/runs/{self.id}/evals", [item.wire()])
         recorded = (out.get("evals") or [item.wire()])[0]
         self.scores[item.behavior] = Score.model_validate(recorded)
+        if all_rows is not None:
+            self.rows(item.behavior, all_rows)
         return self.scores[item.behavior]
+
+    def rows(
+        self, behavior: str, rows: Sequence[Example | Mapping[str, Any]] | None = None
+    ) -> list[Example]:
+        """Every graded row behind this run's score on ``behavior``.
+
+        With ``rows`` given, posts them (replacing what was there) in
+        chunks of 500 and returns them; without, reads them back. The
+        platform shows them at the iteration's rows page, grouped by tag.
+        """
+        path = f"/runs/{self.id}/evals/{behavior}/rows"
+        if rows is None:
+            out = self.tracked._call("GET", path)
+            return [Example.model_validate(r) for r in out.get("rows") or []]
+        items = [r if isinstance(r, Example) else Example.model_validate(r) for r in rows]
+        self.tracked._call("DELETE", path)
+        for start in range(0, len(items), ROWS_PER_CALL):
+            chunk = items[start : start + ROWS_PER_CALL]
+            self.tracked._call("POST", path, {"rows": [e.wire() for e in chunk], "offset": start})
+        return items
 
     # ------------------------------------------------------------ lifecycle
 

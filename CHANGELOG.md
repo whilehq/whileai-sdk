@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,
+  ok, why, `tags` such as difficulty or archetype), 500 a call, and `run.rows(behavior)` reads
+  them back; the card's 20-row sample is derived when `examples=` is not given. The platform
+  shows the set at the iteration's rows page, grouped by tag, so what went well and what did
+  not is a table, not a number.
+
 - `format="fireworks"` on `export` / `select(...).export` and `export_preference` writes what a
   Fireworks managed training job reads: SFT rows as `messages` + `tools` in the OpenAI wire shape
   with the SDK's `loss_mask` carried as Fireworks' per-message `weight`, preference rows in
