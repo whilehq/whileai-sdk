@@ -127,6 +127,7 @@
               {
                 "group": "Measure",
                 "pages": [
+                  "recipes/02-measure/character-to-the-wall",
                   "recipes/02-measure/compare-judges",
                   "recipes/02-measure/eval-your-agent",
                   "recipes/02-measure/is-your-eval-any-good",

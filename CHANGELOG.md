@@ -7,10 +7,22 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `Example.reference` (the gold answer a row was graded against) and `Example.detail` (expected
+  against got, for a failure): the platform's rows page shows both under the reply, so a
+  "wrong result" says what the right one was.
+
+- Docs: a subdomain of your own on the hosted endpoint (`PUT /domain`), `<slug>.models.withwhile.com`.
 - Docs: serve a registered model from `https://models.withwhile.com/v1` (a Bedrock import in
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
   no SDK change; how to register one and the cross-account role shape. The Bedrock import
   recipe's next step points there.
+- Recipe `recipes/02-measure/character-to-the-wall`: a character eval built on value
+  conflicts. Each situation pits two model-spec principles against each other so no reply
+  can honor both, and the authority ordering (root > operator > user > guideline) is the
+  answer key; `held_wall` and `kept_lower` are graded apart so caving and rigidity read as
+  different failures. Offline scripted student plus a live path for any model, with the
+  judge checked against the set's own labels. Grounds character measurement in Lambert 2025
+  (Evaluation) and Maiya et al. 2025 (arXiv:2511.01689).
 - `simulate(grade=True)` warns that it scored with the deterministic conduct check rather than
   against a rubric. Behaviour is unchanged: the flag is documented as the legacy conduct score and
   36 call sites expect it. It was silent, and a conduct score reads like a rubric grade once it is

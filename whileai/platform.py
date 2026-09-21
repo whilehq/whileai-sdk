@@ -463,6 +463,10 @@ class Example(_Wire):
     score: float | None = Field(default=None, allow_inf_nan=False)
     tags: dict[str, str] | None = None
     """Short strings a page groups by: {"difficulty": "hard", "archetype": "date and time"}."""
+    reference: str | None = Field(default=None, max_length=2000)
+    """The gold answer the row was graded against (a query, a number, a sentence)."""
+    detail: str | None = Field(default=None, max_length=2000)
+    """The longer story of a failure: what was expected against what came back."""
 
 
 class Score(_Wire):
