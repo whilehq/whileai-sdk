@@ -368,8 +368,9 @@ export(
 
 Write the rows trainer-ready: `export_dataset` with this
 selection's system prompt and tools already filled in. `format`
-is `"openai"` (chat JSONL with a `loss_mask` per message) or
-`"trl"` (what `SFTTrainer` loads); `unroll=True` makes one
+is `"openai"` (chat JSONL with a `loss_mask` per message),
+`"trl"` (what `SFTTrainer` loads) or `"fireworks"` (what a
+Fireworks managed training job reads); `unroll=True` makes one
 sample per agent turn. `system_prompt=` and `tools=` replace
 what the selection carries, for rows that arrived as a plain
 list. It warns when the written rows call tools but carry no tool

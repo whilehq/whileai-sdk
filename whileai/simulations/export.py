@@ -23,7 +23,7 @@ comparison; the fix is ``thinking=`` set the same on both arms, or
 ``strip_think=False`` when the student is a reasoning model and should
 keep reasoning.
 
-Two wire shapes come out of here, and they are not the same shape:
+Three wire shapes come out of here, and they are not the same shape:
 
 ``format="openai"`` (the default)
     The OpenAI chat-completions wire row. ``messages`` is the whole
@@ -31,6 +31,25 @@ Two wire shapes come out of here, and they are not the same shape:
     row keeps ``prompt`` (the ask, as text) beside it for grouping and
     slicing. This is what an API replay, an eval harness, or a custom
     collator wants, and it is what every previous version emitted.
+
+``format="fireworks"``
+    What a Fireworks managed training job reads (``firectl dataset
+    create``, then ``firectl sftj create`` or ``firectl dpo-job
+    create``). SFT rows are ``{"messages": [...], "tools": [...]}`` in
+    the OpenAI wire shape (``function.arguments`` a JSON string, the
+    encoding Fireworks' function-calling datasets take), with the
+    SDK's per-message ``loss_mask`` carried as Fireworks' per-message
+    ``weight`` (0 keeps a message out of the loss, 1 trains on it), so
+    ``mask_mode`` survives the trip. Nothing else the row carries is
+    written: Fireworks reads the fields it documents. Preference rows
+    are Fireworks' one-turn shape, ``{"input": {"messages": <up to the
+    first assistant turn>, "tools": [...]}, "preferred_output":
+    [<one assistant message>], "non_preferred_output": [<one assistant
+    message>]}``: the prefix both sides share (tool turns included) is
+    the input, the first assistant turn where they differ is the
+    preference, and later turns are cut (the report counts the pairs
+    that lost turns as ``fireworks_turns_cut``). Shapes follow
+    docs.fireworks.ai/fine-tuning (fine-tuning-models, dpo-fine-tuning).
 
 ``format="trl"``
     What ``trl`` (and anything else that calls
@@ -150,7 +169,7 @@ def _wire_arguments(arguments: Any) -> str:
 
 
 #: The wire shapes the exporters can emit. See the module docstring.
-EXPORT_FORMATS = ("openai", "trl")
+EXPORT_FORMATS = ("openai", "trl", "fireworks")
 
 #: What ``tool_call_roundtrip`` says it checked, per format. The gate is
 #: only as good as the encoding it was pointed at, so the report names it
@@ -158,6 +177,7 @@ EXPORT_FORMATS = ("openai", "trl")
 _ENCODINGS = {
     "openai": "json_string",
     "trl": "dict",
+    "fireworks": "json_string",
 }
 _ENCODING_NOTES = {
     "json_string": (
@@ -400,6 +420,81 @@ def _trl_preference_row(row: dict) -> dict | None:
     out["chosen"] = chosen[ci:]
     out["rejected"] = rejected[ri:]
     return out
+
+
+#: A message as Fireworks reads it: the three fields its dataset docs name.
+_FIREWORKS_TURN_KEYS = ("role", "content", "tool_calls")
+
+
+def _fireworks_training_row(row: dict) -> dict:
+    """One ``training_rows`` row as a Fireworks SFT line.
+
+    ``messages`` and ``tools`` in the OpenAI wire shape (arguments stay
+    JSON strings), and the SDK's per-message ``loss_mask`` carried as
+    Fireworks' per-message ``weight`` on the assistant turns: 0 keeps a
+    turn out of the loss, 1 trains on it, which is how ``mask_mode``
+    survives. ``prompt``, ``reward`` and lineage stay out; Fireworks reads
+    the fields it documents.
+    """
+    mask = list(row.get("loss_mask") or [])
+    messages: list[dict] = []
+    for i, message in enumerate(row.get("messages") or []):
+        if not isinstance(message, dict):
+            continue
+        entry = {k: message[k] for k in _FIREWORKS_TURN_KEYS if k in message}
+        if "tool_call_id" in message:
+            entry["tool_call_id"] = message["tool_call_id"]
+        if entry.get("role") == "assistant" and i < len(mask):
+            entry["weight"] = 1 if mask[i] else 0
+        messages.append(entry)
+    out: dict[str, Any] = {"messages": messages}
+    if row.get("tools"):
+        out["tools"] = list(row["tools"])
+    return out
+
+
+def _fireworks_turn(message: dict) -> dict:
+    return {k: message[k] for k in _FIREWORKS_TURN_KEYS if k in message}
+
+
+def _fireworks_preference_rows(rows: Sequence[dict]) -> tuple[list[dict], int, int]:
+    """``export_preference`` rows as Fireworks DPO lines: ``(rows, dropped, cut)``.
+
+    Fireworks takes one-turn preferences: ``input.messages`` is a
+    conversation, ``preferred_output`` and ``non_preferred_output`` the one
+    assistant message that follows it. A pair's sides share a prefix (the
+    ask, and often the same opening tool call and its result) and then
+    differ, so the shared prefix is the input and the first assistant turn
+    where the sides differ is the preference; the turns after it are cut,
+    and ``cut`` counts the pairs that lost some. A pair that diverges on a
+    tool result rather than an assistant turn, or whose sides never
+    differ, has no one-turn contrast and is dropped and counted.
+    """
+    out: list[dict] = []
+    dropped = cut = 0
+    for row in rows:
+        chosen = [_fireworks_turn(m) for m in row.get("chosen") or [] if isinstance(m, dict)]
+        rejected = [_fireworks_turn(m) for m in row.get("rejected") or [] if isinstance(m, dict)]
+        k = 0
+        while k < len(chosen) and k < len(rejected) and chosen[k] == rejected[k]:
+            k += 1
+        if k < 1 or k >= len(chosen) or k >= len(rejected):
+            dropped += 1
+            continue
+        preferred, non_preferred = chosen[k], rejected[k]
+        if preferred.get("role") != "assistant" or non_preferred.get("role") != "assistant":
+            dropped += 1
+            continue
+        if len(chosen) > k + 1 or len(rejected) > k + 1:
+            cut += 1
+        out.append(
+            {
+                "input": {"messages": chosen[:k], "tools": list(row.get("tools") or [])},
+                "preferred_output": [preferred],
+                "non_preferred_output": [non_preferred],
+            }
+        )
+    return out, dropped, cut
 
 
 TRL_KINDS = ("training", "completion", "preference")
@@ -904,8 +999,9 @@ def export_training(
     if push_to and not dest:
         raise ValueError("push_to needs an output path: the file that is written is what is pushed")
     if dest:
-        report["path"] = write_jsonl(dest, rows)
-        report["n_written"] = len(rows)
+        written = [_fireworks_training_row(r) for r in rows] if format == "fireworks" else rows
+        report["path"] = write_jsonl(dest, written)
+        report["n_written"] = len(written)
     if push_to:
         from whileai.hub import push
 
@@ -958,6 +1054,11 @@ def export_preference(
     [...messages...]}`` in the same wire format as ``export_dataset``:
     both sides are the whole conversation, prompt turns included, and
     tool-call arguments are JSON strings.
+
+    With ``format="fireworks"`` each line is Fireworks' one-turn DPO shape
+    (``input.messages`` is the prefix both sides share, then one assistant
+    message each as ``preferred_output`` and ``non_preferred_output``);
+    pairs that lost later turns are counted as ``fireworks_turns_cut``.
 
     With ``format="trl"`` each line is TRL's conversational preference
     triple: ``prompt`` is the message list up to the first assistant turn
@@ -1027,16 +1128,23 @@ def export_preference(
             "back to structured arguments. Fix the rows or pass "
             "validate=False."
         )
+    stats_rows = out_rows
+    fireworks_cut = 0
+    if format == "fireworks":
+        out_rows, dropped, fireworks_cut = _fireworks_preference_rows(out_rows)
+        no_completion_dropped += dropped
     report: dict[str, Any] = {
         "pairs": len(out_rows),
         "format": format,
         "tool_call_roundtrip": roundtrip,
     }
+    if fireworks_cut:
+        report["fireworks_turns_cut"] = fireworks_cut
     if ties_dropped:
         report["ties_dropped"] = ties_dropped
     if no_completion_dropped:
         report["no_completion_dropped"] = no_completion_dropped
-    deltas = [r["length_delta"] for r in out_rows if isinstance(r.get("length_delta"), int)]
+    deltas = [r["length_delta"] for r in stats_rows if isinstance(r.get("length_delta"), int)]
     if deltas:
         chosen_longer = sum(1 for d in deltas if d > 0)
         report["chosen_longer_frac"] = round(chosen_longer / len(deltas), 3)
@@ -1045,13 +1153,13 @@ def export_preference(
         length_note = length_confound_warning(chosen_longer, len(deltas))
         if length_note:
             report["warnings"] = [length_note]
-    identical = sum(1 for r in out_rows if r.get("first_turn_differs") is False)
+    identical = sum(1 for r in stats_rows if r.get("first_turn_differs") is False)
     if identical:
         from .score.judging import first_turn_note
 
         report["first_turn_identical"] = identical
         report.setdefault("warnings", []).append(first_turn_note(identical, len(out_rows)))
-    margins = [r["margin"] for r in out_rows if isinstance(r.get("margin"), (int, float))]
+    margins = [r["margin"] for r in stats_rows if isinstance(r.get("margin"), (int, float))]
     if margins:
         report["mean_margin"] = round(sum(margins) / len(margins), 4)
     # A 0-byte JSONL is not an empty dataset, it is a crash downstream:

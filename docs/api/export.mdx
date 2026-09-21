@@ -135,6 +135,11 @@ With `format="openai"` (the default) each line is `\{"prompt":
 both sides are the whole conversation, prompt turns included, and
 tool-call arguments are JSON strings.
 
+With `format="fireworks"` each line is Fireworks' one-turn DPO shape
+(`input.messages` is the prefix both sides share, then one assistant
+message each as `preferred_output` and `non_preferred_output`);
+pairs that lost later turns are counted as `fireworks_turns_cut`.
+
 With `format="trl"` each line is TRL's conversational preference
 triple: `prompt` is the message list up to the first assistant turn
 and `chosen`/`rejected` are the **completions only**, with
