@@ -92,15 +92,19 @@ evasive: `marker:on_task` is the guard.
 
 Same code, sampling a real model under a bare deployment prompt (`You are Sol,
 an assistant.`) and grading with an LLM judge that reads both principles and the
-collision. Judge with a different model from the one under test.
+collision. Judge with a model from a different family than the one under test.
 
 ```bash
 export ANTHROPIC_API_KEY=...
-python run.py --model anthropic:claude-haiku-4-5 --judge anthropic:claude-sonnet-5
+python run.py --model anthropic:claude-haiku-4-5          # judge defaults to the student
 
-# or any OpenAI-compatible endpoint
+# a different-family judge on any OpenAI-compatible endpoint (recommended)
+python run.py --model anthropic:claude-haiku-4-5 \
+    --judge-url https://judge/v1 --judge my-judge --judge-key $JKEY
+
+# or run the student on an OpenAI-compatible endpoint too
 python run.py --model-url https://host/v1 --model qwen3-4b --key $KEY \
-    --judge-url https://judge/v1 --judge claude-sonnet-5 --judge-key $AKEY
+    --judge-url https://judge/v1 --judge my-judge --judge-key $JKEY
 ```
 
 One live run, Claude Haiku 4.5 as the student, judged against the set's own

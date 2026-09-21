@@ -44,8 +44,20 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-import whileai.simulations as wai
 from whileai.config import provenance
+from whileai.simulations import (
+    build_preference_pairs,
+    decontaminate,
+    delta_report,
+    eval_variance,
+    export_preference,
+    export_training,
+    format_delta_report,
+    judge_agreement,
+    marker_summary,
+    pass_at,
+    run_judge,
+)
 from whileai.simulations.schema import stamp
 
 HERE = Path(__file__).resolve().parent
@@ -364,7 +376,7 @@ def spec_rows(spec: dict, tasks_by_id: dict[str, dict]) -> list[dict]:
 
 
 def grade(rows: list[dict], judge, *, name: str, version: str, workers: int) -> list[dict]:
-    scored = wai.run_judge(rows, judge, judge_name=name, version=version, concurrency=workers)
+    scored = run_judge(rows, judge, judge_name=name, version=version, concurrency=workers)
     return attach_markers(list(scored))
 
 
@@ -379,16 +391,14 @@ def behavior_rows(rows: list[dict], name: str) -> list[dict]:
 def behavior_score(rows: list[dict], name: str) -> tuple[float, float, int]:
     subset = behavior_rows(rows, name)
     marker = behavior_marker(name)
-    stats = wai.marker_summary(subset, names=[marker], n_boot=500)[marker]
+    stats = marker_summary(subset, names=[marker], n_boot=500)[marker]
     lo, hi = stats["ci95"] or (stats["mean"], stats["mean"])
     return round(100 * stats["mean"], 1), round(50 * (hi - lo), 1), stats["n_rows"]
 
 
 def noise_floor(reruns: list[list[dict]], name: str) -> float:
     per = [behavior_rows(run, name) for run in reruns]
-    return round(
-        100 * wai.eval_variance(*per, metric=f"marker:{behavior_marker(name)}")["run_std"], 1
-    )
+    return round(100 * eval_variance(*per, metric=f"marker:{behavior_marker(name)}")["run_std"], 1)
 
 
 def print_report(
@@ -411,8 +421,8 @@ def print_report(
 
     for lvl in LEVELS:
         name = f"{lvl}_conflict"
-        pa = wai.pass_at(behavior_rows(train, name))
-        held = wai.marker_summary(behavior_rows(train, name), names=["held_wall", "kept_lower"])
+        pa = pass_at(behavior_rows(train, name))
+        held = marker_summary(behavior_rows(train, name), names=["held_wall", "kept_lower"])
         print(
             f"  {name:<20} pass@1 {_f(pa.pass_at_1)} headroom {_f(pa.headroom)} "
             f"| held_wall {_f(held['held_wall']['mean'])} kept_lower {_f(held['kept_lower']['mean'])} "
@@ -508,25 +518,25 @@ def run(args) -> int:
     labeled = [
         r for r in before if r["split"] == "spec" and isinstance(r.get("reward"), (int, float))
     ]
-    agree = wai.judge_agreement(labeled) if labeled else {"agreement": None, "kappa": None, "n": 0}
+    agree = judge_agreement(labeled) if labeled else {"agreement": None, "kappa": None, "n": 0}
     train = [r for r in graded if r["split"] == "train"]
     holdout = [r for r in graded if r["split"] in ("holdout", "control")]
 
-    pairs, pair_report = wai.build_preference_pairs(train, min_margin=1.0, length_match=True)
+    pairs, pair_report = build_preference_pairs(train, min_margin=1.0, length_match=True)
     exports: dict[str, Any] = {"warnings": list(pair_report.get("warnings", []))}
-    exports["pairs"] = wai.export_preference(
+    exports["pairs"] = export_preference(
         pairs, str(out / "pairs.jsonl"), system_prompt=DEPLOY_PROMPT, validate=False
     )
     passes = [r for r in train if r.get("reward") == 1]
     if passes:
-        sft = wai.export_training(
+        sft = export_training(
             passes, str(out / "sft.jsonl"), system_prompt=DEPLOY_PROMPT, validate=False
         )
         exports["sft"] = {"rows": sft.get("rows", len(passes))}
     else:
         exports["sft"] = {"rows": 0}
         exports["warnings"].append("no rows threaded the wall; nothing to export as SFT")
-    _clean, decon = wai.decontaminate(train, holdout)
+    _clean, decon = decontaminate(train, holdout)
     if decon.get("n_contaminated"):
         exports["warnings"].append(f"{decon['n_contaminated']} train rows overlap the holdout")
 
@@ -552,10 +562,10 @@ def run(args) -> int:
             )
             for s in (1, 2, 3, 4, 5)
         ]
-        noise = wai.eval_variance(*reruns, metric="marker:held_wall")
+        noise = eval_variance(*reruns, metric="marker:held_wall")
         after_hold = [r for r in after if r["split"] in ("holdout", "control")]
         print("\nbefore -> after on the held-out walls:")
-        delta = wai.delta_report(
+        delta = delta_report(
             holdout,
             after_hold,
             target="marker:held_wall",
@@ -564,7 +574,7 @@ def run(args) -> int:
             run_std=noise["run_std_by_metric"],
             run_std_runs=noise["n_runs"],
         )
-        print(wai.format_delta_report(delta))
+        print(format_delta_report(delta))
         report_platform(spec, holdout, after_hold, agree, decon, noise, jname)
     elif args.post:
         report_platform(spec, holdout, None, agree, decon, None, jname)
@@ -611,9 +621,9 @@ def report_platform(
                     if noise is None
                     else round(
                         100
-                        * wai.eval_variance(
-                            before, before, metric=f"marker:{behavior_marker(name)}"
-                        )["run_std"],
+                        * eval_variance(before, before, metric=f"marker:{behavior_marker(name)}")[
+                            "run_std"
+                        ],
                         1,
                     )
                 ),
