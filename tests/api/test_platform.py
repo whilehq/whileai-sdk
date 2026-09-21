@@ -367,6 +367,31 @@ def test_score_carries_a_sample_of_graded_rows():
     )
 
 
+def test_score_rows_post_the_full_set_in_chunks_and_make_the_sample():
+    """rows= posts every graded row after the score, 500 a call, and the
+    card's sample is the first 14 failures plus passes when examples= is not given."""
+    fake = Fake()
+    run = track("a", transport=fake).run("v4", flush_every=100)
+    rows = [
+        Example(
+            prompt=f"q{i}",
+            reply="SELECT 1",
+            ok=(i % 3 != 0),
+            why="" if i % 3 else "differs",
+            tags={"difficulty": "easy" if i < 300 else "hard"},
+        )
+        for i in range(620)
+    ]
+    run.score("sql", 66.0, ci=3.0, n=620, rows=rows)
+    posts = [(p, b) for m, p, b in fake.calls if m == "POST" and p.endswith("/rows")]
+    assert [b["offset"] for _p, b in posts] == [0, 500]
+    assert len(posts[0][1]["rows"]) == 500 and len(posts[1][1]["rows"]) == 120
+    assert posts[0][1]["rows"][0]["tags"] == {"difficulty": "easy"}
+    assert any(m == "DELETE" and p.endswith("/rows") for m, p, _b in fake.calls)
+    ev = [b for m, p, b in fake.calls if m == "POST" and p.endswith("/evals")][-1][0]
+    assert len(ev["examples"]) == 20 and sum(1 for e in ev["examples"] if not e["ok"]) == 14
+
+
 def test_context_manager_fails_the_run_on_exception():
     fake = Fake()
     with pytest.raises(ValueError), track("a", transport=fake).run("v1") as run:
