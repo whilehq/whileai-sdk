@@ -50,6 +50,15 @@ class Fake:
             }
         if path.startswith("/models/") and method == "GET":
             name = path.split("/")[2]
+            row = self.rows.get(name)
+            if row and row.get("status") == "importing":
+                self.polls = getattr(self, "polls", 0) + 1
+                if getattr(self, "fail_import", False):
+                    row.update(
+                        status="failed", step="failed", error="Bedrock import failed: bad shard"
+                    )
+                elif self.polls >= 2:
+                    row.update(status="ready", step="ready", arn=ARN, cmu=2)
             if name not in self.rows:
                 raise PlatformError(404, f"GET {path}: No model named {name}")
             return {"model": self.rows[name]}
@@ -67,6 +76,17 @@ class Fake:
                 "host": s and f"{s}.models.withwhile.com",
                 "endpoint": s and f"https://{s}.models.withwhile.com/v1",
             }
+        if path == "/models/import" and method == "POST":
+            row = {
+                "name": body["name"],
+                "kind": "bedrock",
+                "status": "importing",
+                "step": "queued",
+                "region": "us-east-1",
+            }
+            self.rows[body["name"]] = row
+            self.imports = getattr(self, "imports", 0) + 1
+            return {"model": row, "status": "importing"}
         raise AssertionError(f"unexpected {method} {path}")
 
 
@@ -169,3 +189,34 @@ def test_models_url_is_overridable(monkeypatch):
 
 def test_the_namespace_hangs_off_platform():
     assert isinstance(wai.platform.hosted, HostedModels)
+
+
+def test_publish_hands_over_an_adapter_and_waits_for_ready():
+    fake = Fake()
+    h = HostedModels(transport=fake)
+    m = h.publish("while-ai/airline-concise-4b", hf_token="hf_once", poll_s=0)
+    method, path, body = fake.calls[0]
+    assert (method, path) == ("POST", "/models/import")
+    assert body == {
+        "name": "airline-concise-4b",
+        "adapter": "while-ai/airline-concise-4b",
+        "hfToken": "hf_once",
+    }
+    assert m.status == "ready" and m.arn == ARN and m.cmu == 2
+    assert fake.polls == 2
+
+
+def test_publish_without_wait_returns_the_importing_row():
+    fake = Fake()
+    m = HostedModels(transport=fake).publish(
+        "run_f69e975a1571d445", name="t2s", base="nvidia/Llama-3.1-Nemotron-Nano-8B-v1", wait=False
+    )
+    assert m.status == "importing" and m.step == "queued"
+    assert fake.calls[0][2]["base"] == "nvidia/Llama-3.1-Nemotron-Nano-8B-v1"
+
+
+def test_publish_raises_when_the_import_fails():
+    fake = Fake()
+    fake.fail_import = True
+    with pytest.raises(RuntimeError, match="t2s failed to import: Bedrock import failed"):
+        HostedModels(transport=fake).publish("run_f69e975a1571d445", name="t2s", poll_s=0)

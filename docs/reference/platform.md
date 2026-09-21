@@ -499,8 +499,17 @@ Over-optimization looks like one picture [4]: the training reward keeps climbing
 
 `wai.platform.hosted` is the client for `https://models.withwhile.com/v1`,
 one OpenAI-compatible endpoint in front of every model the account
-registers. Register once, then the model answers under your key from any
-OpenAI client, or as a `wai.Endpoint` you hand to `simulate()`.
+registers. Two ways in: hand While the adapter and it comes back as a
+model on While's Bedrock account (`publish`), or register a model you
+already serve anywhere (`register`). Either way it answers under your key
+from any OpenAI client, or as a `wai.Endpoint` you hand to `simulate()`.
+
+```python
+import whileai as wai
+
+m = wai.platform.hosted.publish("while-ai/airline-concise-4b")  # about twenty minutes
+print(m.status, m.arn)  # ready arn:aws:bedrock:us-east-1:...:imported-model/...
+```
 
 ```python
 import whileai as wai
@@ -523,6 +532,7 @@ for day in wai.platform.hosted.usage("nemotron-8b-t2s-r1", days=7):
 
 | call | what it does |
 |---|---|
+| `publish(adapter, name=, base=, hf_token=, wait=)` | hand While a LoRA adapter (a Hub repo id or a run id): merged into its base, imported into Bedrock on While's account, registered; waits for `ready` (about twenty minutes) unless `wait=False`; the token is used once and never stored |
 | `register(name, arn=, region=, role_arn=)` | a Bedrock import, custom deployment, provisioned model or inference profile; `role_arn` when it lives in your account (a role named `WhileModelsInvoke*` that trusts While with external id `while-models`) |
 | `register(name, url=, model=, auth=)` | any OpenAI-compatible `/v1` server; `auth="caller"` forwards your While key to it, `"none"` sends nothing |
 | `list()`, `get(name)`, `delete(name)` | the rows; deleting a row leaves the model itself alone |
