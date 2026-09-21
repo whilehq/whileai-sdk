@@ -127,6 +127,40 @@ unloaded, so the first call after a pause took 96 s and returns
 Neither route returns log-probabilities, so `logprobs=` has no effect.
 Bedrock honors tool calling on imports only for GPT-OSS models.
 
+## Serve it on While
+
+`https://models.withwhile.com/v1` is one OpenAI-compatible endpoint in
+front of every model your account registers, wherever it runs: a Bedrock
+import in While's account or in yours, or any `/v1` server you host. Your
+While key picks the account, `model` picks the row, and any OpenAI client
+works, so a served model needs no SDK change at all:
+
+```python
+import whileai as wai
+
+served = wai.Endpoint("nemotron-8b-t2s-r1", url="https://models.withwhile.com/v1", api_key="zp_...")
+```
+
+Register a model once, with the same key:
+
+```bash
+curl -X POST https://models.withwhile.com/models \
+  -H "Authorization: Bearer $WHILEAI_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name": "nemotron-8b-t2s-r1", "arn": "arn:aws:bedrock:us-east-1:<account>:imported-model/<id>",
+       "roleArn": "arn:aws:iam::<account>:role/WhileModelsInvoke"}'
+```
+
+| you register | While calls | credentials |
+|---|---|---|
+| `{name, arn, region?, roleArn?}` | a Bedrock import, custom deployment, provisioned model or inference profile | While's own role, or a role in your account named `WhileModelsInvoke*` that trusts account `940333627479` with external id `while-models`, assumed per call; While never holds a key of yours |
+| `{name, url, model, auth?}` | any OpenAI-compatible `/v1` server | `auth: "caller"` forwards your While key to it, `"none"` sends nothing |
+
+`GET /v1/models` lists what you registered, `DELETE /models/{name}`
+removes one. Streaming works. An import that sat idle is restored on the
+first call; until it is back the endpoint answers 503 with
+`code: model_starting` and a `Retry-After`, which the OpenAI SDKs honor.
+Daily calls and tokens per model are counted on your account.
+
 ## Tools are functions
 
 `@wai.tool` turns a typed function into the tool: the signature is the
