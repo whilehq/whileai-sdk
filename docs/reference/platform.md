@@ -489,6 +489,44 @@ trainer.add_callback(wai.TrainerCallback(run))
 
 Over-optimization looks like one picture [4]: the training reward keeps climbing while the evaluation you care about flattens, read against KL. The monitor draws it during the run instead of after. `wrap` watches the reward function, so the monitor keeps the last completions with their rewards and runs `hack_scan` on them; every `every` steps it samples the holdout from the live policy and scores it with the training reward (the proxy) and with `gold`, a scorer the proxy cannot see. `proxy_reward`, `gold_reward` and `holdout_length` land on the run beside the loss curve. Four alarms, one line each on the run: `divergence` (proxy up by `delta` over the window while the paired gold interval does not move up), `length` (completions grow while gold does not), `drift` (KL past `kl_budget`), `feature` (the batch scan says `reward_hack`). `stop_on` names the ones that stop training; a stopped run finishes as `stopped` with the reason, and `run.note(...)` puts anything else on the run's summary. `wai.format_hack_monitor(monitor.summary())` prints the curve and the alarms. [`recipes/04-train/grpo`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/grpo) runs it by default.
 
+## Serve a model you trained
+
+`wai.platform.hosted` is the client for `https://models.withwhile.com/v1`,
+one OpenAI-compatible endpoint in front of every model the account
+registers. Register once, then the model answers under your key from any
+OpenAI client, or as a `wai.Endpoint` you hand to `simulate()`.
+
+```python
+import whileai as wai
+
+m = wai.platform.hosted.register(
+    "nemotron-8b-t2s-r1",
+    arn="arn:aws:bedrock:us-east-1:123456789012:imported-model/abc123def456",
+    role_arn="arn:aws:iam::123456789012:role/WhileModelsInvoke",  # the model is in your AWS account
+    base="nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
+)
+print(m)  # name, kind, where it runs, and the endpoint to call it at
+
+served = wai.platform.hosted.endpoint("nemotron-8b-t2s-r1")  # a wai.Endpoint on the account key
+after = wai.simulate(served, tools=TOOLS, system_prompt=POLICY, seed=0)
+
+wai.platform.hosted.subdomain("acme")        # https://acme.models.withwhile.com/v1, your keys only
+for day in wai.platform.hosted.usage("nemotron-8b-t2s-r1", days=7):
+    print(day.day, day.calls, day.errors, day.input_tokens, day.output_tokens)
+```
+
+| call | what it does |
+|---|---|
+| `register(name, arn=, region=, role_arn=)` | a Bedrock import, custom deployment, provisioned model or inference profile; `role_arn` when it lives in your account (a role named `WhileModelsInvoke*` that trusts While with external id `while-models`) |
+| `register(name, url=, model=, auth=)` | any OpenAI-compatible `/v1` server; `auth="caller"` forwards your While key to it, `"none"` sends nothing |
+| `list()`, `get(name)`, `delete(name)` | the rows; deleting a row leaves the model itself alone |
+| `endpoint(name)` | `wai.Endpoint(name, url="https://models.withwhile.com/v1", api_key=<your key>)` |
+| `usage(name, days=7)` | per day: calls, errors, tokens in and out; nothing else is kept |
+| `subdomain(slug)`, `subdomain()`, `release_subdomain()` | claim, read, or give up `<slug>.models.withwhile.com` |
+
+The Bedrock import path from a LoRA adapter to a registered ARN is the
+[Bedrock import recipe](/recipes/05-export/bedrock-import).
+
 ## Publish a dataset as a card
 
 ```python
