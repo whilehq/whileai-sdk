@@ -1385,7 +1385,13 @@ def optimize(
       (DAPO's overlong handling, Yu et al. 2025, arXiv:2503.14476): ``"drop"``
       removes it (the default), ``"keep"`` leaves it in with ``overlong=True``
       and its own reward, ``"penalize"`` keeps it as a failure that counts
-      (reward 0, the judged score under ``reward_before_penalty``).
+      (reward 0, the judged score under ``reward_before_penalty``). A row
+      counts as truncated when the engine stamped it so (``finish_reason``
+      ``"length"``, or a step marked ``truncated``), when the grader's
+      ``reason`` says truncated or cut off, or when the reply text stops
+      without reaching its end; the stamp is read first, since the backend
+      trims a capped reply to its last sentence and a re-grade overwrites
+      the grader's reason (``hygiene.is_truncated``).
 
     ```python
     rows, report = wai.optimize(data, mode="rl", endorsed=["tool:lookup_order"])

@@ -18,6 +18,19 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
   `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
   the part it does not cover.
+- `is_truncated` (so `optimize(mode="rl")`, `select(mode="rl")`, `length_report` and the
+  hack scan) reads the `finish_reason` the engine stamps and the step's `truncated` flag
+  before it reads the grader's `reason` or the text. It read only the last two, and neither
+  survives a normal run: the backend trims a token-capped reply back to its last sentence,
+  so the text ends on a period, and any judge that re-grades the row (`data.grade`, a
+  `Verifier`) overwrites the engine's "truncated: hit the length cap" reason with its own.
+  So a capped rollout re-graded "matched" went into the RL set under the default
+  `truncated="drop"`, the report said `truncated_dropped: 0`, and `pass_at` on the same
+  rows, which reads `finish_reason`, reported a non-zero `truncated_share`. Now the row is
+  dropped (or, under `"penalize"`, kept at reward 0 with the judged score under
+  `reward_before_penalty`); rows with no engine stamp, a platform pull or a user file,
+  still go by the reason and the text. Lambert 2025, chapter Reinforcement Learning: score
+  only completions that ended on their own; chapter Reasoning: overlong filtering.
 
 ## 0.117 (2026-09-22)
 

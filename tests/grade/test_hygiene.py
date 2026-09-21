@@ -276,3 +276,44 @@ def test_rl_selection_keeps_code_fenced_rows():
     picked, report = select_for_rl(rows, target=100)
     assert report["truncated_dropped"] == 0
     assert len(picked) == 8
+
+
+# --- the engine's stamp wins over the text and over a re-graded reason ---
+
+
+def _capped_row(**over) -> dict:
+    """The row the engine writes for a reply the backend cut at the token cap
+    and trimmed back to its last sentence, after a user judge re-graded it:
+    the text looks finished and ``reason`` no longer says "truncated"."""
+    row = {
+        "task_id": "t1",
+        "prompt": "what is 6*7",
+        "final_text": "The answer is 42.",
+        "finish_reason": "length",
+        "steps": [{"text": "The answer is 42. And also", "truncated": True}],
+        "reward": 1.0,
+        "reason": "matched",
+        "judge_name": "MathEqual",
+        "messages": [
+            {"role": "user", "content": "what is 6*7"},
+            {"role": "assistant", "content": "The answer is 42."},
+        ],
+    }
+    row.update(over)
+    return row
+
+
+def test_a_length_finish_reason_is_truncated_whatever_the_text_or_reason_says():
+    """``_trim_length_cut`` leaves a capped reply ending on a period and
+    ``run_judge`` overwrites the engine's ``reason``, so neither the text
+    nor the verdict says cut; the engine's ``finish_reason`` still does."""
+    assert is_truncated(_capped_row())
+    # a truncated step is the same stamp, one level down
+    steps_only = _capped_row()
+    del steps_only["finish_reason"]
+    assert is_truncated(steps_only)
+
+
+def test_a_stop_finish_reason_with_a_finished_text_is_not_truncated():
+    done = _capped_row(finish_reason="stop", steps=[{"text": "The answer is 42."}])
+    assert not is_truncated(done)
