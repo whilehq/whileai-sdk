@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.114 (2026-09-21)
+
 - `recipes/papers/meta-harness`: the Meta-Harness outer loop (Lee, Nair, Zhang, Lee, Khattab,
   Finn 2026, arXiv:2603.28052) as a recipe (#712). `candidates/*.py` each define
   `harness(model) -> wai.Harness`; `run.py` freezes one task set with `tasks=`, scores every
