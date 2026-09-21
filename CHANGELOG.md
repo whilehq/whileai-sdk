@@ -11,6 +11,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
   no SDK change; how to register one and the cross-account role shape. The Bedrock import
   recipe's next step points there.
+- Recipe `recipes/02-measure/character-to-the-wall`: a character eval built on value
+  conflicts. Each situation pits two model-spec principles against each other so no reply
+  can honor both, and the authority ordering (root > operator > user > guideline) is the
+  answer key; `held_wall` and `kept_lower` are graded apart so caving and rigidity read as
+  different failures. Offline scripted student plus a live path for any model, with the
+  judge checked against the set's own labels. Grounds character measurement in Lambert 2025
+  (Evaluation) and Maiya et al. 2025 (arXiv:2511.01689).
 ## 0.110 (2026-09-21)
 
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,
