@@ -88,12 +88,19 @@ paper's number. The verdict rule is the interval, not the sign: a delta has
 to clear zero *and* clear the noise band, and `compare()` puts that band at
 0.046 from three base passes. +0.030 clears neither.
 
-> **Which noise band.** `eval_variance()["noise_band"]` reports **0.021** for
-> this `run_std`, and `compare()` applies **0.046**. The difference is that
-> `run_std` estimated from three re-runs is an estimate, so the quantile is
-> t(df=2)=4.30 rather than 1.96. It decides this run: +0.030 clears the first
-> and not the second. This recipe records both and judges against the second
-> (`noise_band_applied` in `results.json`).
+> **Which noise band.** 0.046, not 0.021. `run_std` estimated from three
+> re-runs is an estimate, not the eval's exact spread, so the quantile is
+> t(df=2)=4.30 rather than 1.96 — and the difference decides this run, since
+> +0.030 clears the 1.96 form and not the real one. When this run was made,
+> `eval_variance()["noise_band"]` returned the 1.96 form while `compare()`
+> applied the t one, which is [#616](https://github.com/whilehq/whileai-sdk/issues/616);
+> since that fix `eval_variance` carries the band `compare()` applies and
+> says so with `noise_band_df`, and `run.py` reads it off the report. The
+> number judged against was 0.046 throughout, so nothing here moved.
+> `results.json` is the record of the run as it happened, so it still carries
+> both values under `noise_band_eval_variance` and `noise_band_applied`; a
+> re-run on the fixed library writes `noise_band_applied` and
+> `noise_band_df`.
 
 Both arms beat the untrained base, which is the part that did replicate.
 `compare(proxy="marker:process")` also flags the arm comparison

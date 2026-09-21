@@ -153,20 +153,25 @@ def _metrics(rep: dict) -> dict:
     }
 
 
-#: Two-sided 95% t quantiles, enough for the re-run counts a recipe uses.
+#: Two-sided 95% t quantiles, for a library older than the #616 fix.
 _T975 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 9: 2.262}
 
 
-def t_band(run_std: float, n_runs: int) -> float:
+def applied_band(ev: dict) -> float:
     """The band a one-run-per-side delta has to clear.
 
-    ``run_std`` estimated from ``n_runs`` re-runs is an estimate, not the
-    eval's exact spread, so the quantile is Student's t at n_runs - 1
-    degrees of freedom rather than 1.96: 4.30 from three re-runs. This is
-    the band ``compare()`` prints and applies.
+    ``run_std`` estimated from n re-runs is an estimate, not the eval's
+    exact spread, so the quantile is Student's t at n - 1 degrees of
+    freedom rather than 1.96: 4.30 from three re-runs. Since #616,
+    ``eval_variance`` carries exactly that band and says so with
+    ``noise_band_df``, and this reads it off the report. Older installs
+    return the 1.96 form under the same key, so compute it there instead
+    rather than judge the run against a band 2.2x too permissive.
     """
-    q = _T975.get(max(1, n_runs - 1), 1.96)
-    return q * float(run_std) * math.sqrt(2.0)
+    if ev.get("noise_band_df") is not None:
+        return float(ev["noise_band"])
+    q = _T975.get(max(1, int(ev.get("n_runs", 3)) - 1), 1.96)
+    return q * float(ev["run_std"]) * math.sqrt(2.0)
 
 
 def _hack_scan(rows: list[dict]) -> dict:
@@ -227,16 +232,12 @@ def analyze(out: Path) -> None:
     base = arms["process"]["base_passes"]
     ev = eval_variance(*base)
     means = [round(v, 4) for v in ev["means"].values()]
-    # eval_variance's own noise_band is 1.96 * sqrt(2) * run_std, which reads
-    # a three-run estimate as exact. compare() applies the t-corrected band,
-    # t(df=n_runs-1) * sqrt(2) * run_std, and that is the bar used here: at
-    # three re-runs it is 2.2x wider, and the difference decides this run.
-    band_applied = t_band(ev["run_std"], len(base))
+    band_applied = applied_band(ev)
+    df = ev.get("noise_band_df", len(base) - 1)
     print("NOISE FLOOR  untrained base, three passes")
     print(f"  run means  {means}   stability {ev['stability']}")
     print(f"  run_std    {ev['run_std']:.4f}")
-    print(f"  noise_band {ev['noise_band']:.4f}  (eval_variance, 1.96-based)")
-    print(f"  the bar    {band_applied:.4f}  (t(df={len(base) - 1}), what compare() applies)")
+    print(f"  the bar    {band_applied:.4f}  (t(df={df}) x sqrt(2) x run_std)")
     other = [round(_mean(p), 4) for p in arms["outcome"]["base_passes"]]
     print(f"  the same three seeds on the other container: {other}")
 
@@ -251,8 +252,8 @@ def analyze(out: Path) -> None:
         "noise_floor": {
             "run_means": means,
             "run_std": ev["run_std"],
-            "noise_band_eval_variance": ev["noise_band"],
             "noise_band_applied": round(band_applied, 4),
+            "noise_band_df": ev.get("noise_band_df"),
             "stability": ev["stability"],
             "run_std_by_metric": ev.get("run_std_by_metric"),
             "replication_other_container": other,
