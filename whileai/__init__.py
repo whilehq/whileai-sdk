@@ -62,7 +62,13 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "eval_variance": ("whileai.simulations.score.stats", "eval_variance"),
     "holdout_size": ("whileai.simulations.score.stats", "holdout_size"),
     "select": ("whileai.selection", "select"),
+    # `Selection` is the type `select` returns; reachable for isinstance,
+    # off the advertised list since `Harness` took its slot (#712).
     "Selection": ("whileai.selection", "Selection"),
+    # the harness: the program around the model, run like an agent and
+    # versioned like weights; `wai.harness.attribute` says which lever moved
+    "Harness": ("whileai.harness", "Harness"),
+    "harness": ("whileai.harness", None),
     "decontaminate": ("whileai.simulations.score.stats", "decontaminate"),
     "hack_scan": ("whileai.simulations.score.hack_scan", "hack_scan"),
     "preflight": ("whileai.simulations.score.preflight", "preflight"),
@@ -140,12 +146,12 @@ __all__ = [
     "Anthropic",
     "Endpoint",
     "Fireworks",
+    "Harness",
     "Hosted",
     "Judge",
     "Ollama",
     "OpenAI",
     "ScoredData",
-    "Selection",
     "SimulationData",
     "Verifier",
     "__version__",

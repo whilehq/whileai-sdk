@@ -24,7 +24,9 @@ from whileai.config import reset
 # rule 1: the top level is the loop and its nouns, under thirty names.
 # `rows` (#613) made it thirty-one by the maintainer's call; the pin in
 # tests/api/test_style_ratchet.py moved with it, and the next name takes one off:
-# `Fireworks` took `Settings` (the class behind `wai.settings`) off the list.
+# `Fireworks` took `Settings` (the class behind `wai.settings`) off the list,
+# and `Harness` (#712) took `Selection` (the type `select` returns; it still
+# resolves as `wai.Selection` for isinstance) off it.
 TOP_LEVEL_CAP = 31
 
 

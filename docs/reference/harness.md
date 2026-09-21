@@ -1,0 +1,242 @@
+---
+title: "The harness"
+sidebarTitle: "Harness"
+description: "The program around the model as one object: run it like an agent, version it like weights, and say which lever moved the score, the harness or the model."
+---
+
+A model never meets a task alone. Something builds its context, hands it
+tools, decides when to stop, retries, compacts, delegates. That program is
+the harness. On the agents most teams run, a closed model behind Claude
+Code, Codex, pi, or their own prompt-and-tools loop, it is the only part
+they can change, and it moves the score more than people expect: among
+comparable frontier models the harness explains more of the spread than
+the model does, and can reverse which model ranks first [1]. A harness
+searched over with earlier candidates' scores and traces in view beat the
+hand-built ones on TerminalBench-2 [2]. A policy trained under one fixed
+harness fell apart when the tools shifted [3].
+
+So `wai.Harness` treats the harness the way the rest of the library treats
+weights: one object, a fingerprint that is its version, rows that say which
+one produced them, and a report that says whether changing it did anything.
+
+## One object
+
+The prompted loop the SDK plays itself: a model, the instructions, the
+tools. The fingerprint hashes what a comparison has to disclose [1] (model,
+instructions, tool names, and the `Disclosure` fields below), so a prompt
+edit is a new version without anyone naming it [4].
+
+```python
+import whileai as wai
+
+careful = wai.Harness("openai:gpt-4.1-mini", instructions=POLICY, tools=TOOLS, label="careful@mini")
+print(careful.kind, careful.model_name, careful.tool_names)
+```
+
+```
+prompted gpt-4.1-mini ['issue_refund', 'lookup_order']
+```
+
+`Disclosure` carries the rest of the setup: the context files the harness
+loads, the turn cap, how it compacts a long context, retries, subagents,
+sampling. Set a field and the hash changes; leave the label off and the
+version is `h-` plus the hash.
+
+```python
+from whileai.harness import Disclosure
+
+capped = wai.Harness(
+    "openai:gpt-4.1-mini",
+    instructions=POLICY,
+    tools=TOOLS,
+    disclosure=Disclosure(max_turns=6),
+)
+print(capped.fingerprint == careful.fingerprint, capped.version.startswith("h-"))
+```
+
+```
+False True
+```
+
+Name variants `prompt@model` and the Runs page groups the dots by prompt
+and by model as two axes.
+
+## A coding agent as the harness
+
+Claude Code, Codex and pi each have a non-interactive mode that streams
+JSON events. A preset builds the command line, runs one subprocess per
+task, and normalizes the stream to the same `{steps, final_text}` every
+adapter returns. The disclosure lists the context files present in `cwd`
+(`CLAUDE.md`, `AGENTS.md`, `.pi/SYSTEM.md`), so the same command in a
+directory with a different `CLAUDE.md` is a different harness.
+
+```python
+coder = wai.Harness.claude_code("sonnet", cwd=".", max_turns=8, tools=["Read", "Edit", "Bash"])
+print(coder.kind, coder.tool_names, coder.disclosure.max_turns)
+
+codex = wai.Harness.codex("gpt-5-codex", cwd=".", sandbox="workspace-write")
+pi = wai.Harness.pi("claude-sonnet-4-5", provider="anthropic", cwd=".", extensions=False)
+```
+
+```
+command ['Bash', 'Edit', 'Read'] 8
+```
+
+Calling one plays a task. `claude -p` and `codex exec` and `pi --mode
+json` each need their own login and the CLI on `PATH`.
+
+```python
+out = coder("Make the failing test in tests/ pass. Do not touch the test.")
+print(out["final_text"], len(out["steps"]), "tool calls")
+```
+
+Any other program is `Harness.command([...])`: the token `"{prompt}"` in
+the command line is replaced by the task text (or the text goes to stdin),
+and `parse=` turns stdout into a trajectory. An agent you already have as a
+Python callable is `Harness(agent=fn, ...)`, given a label and a model name
+so its rows can be compared.
+
+## Run it, and every row says so
+
+`simulate(harness)` takes the tools, the system prompt and the turn cap
+from the harness when the call does not name them, plays a prompted
+harness through the engine (so the mock world and the scheduled faults
+apply) or a command harness as it is, and stamps every row with
+`harness = {label, hash, model, kind}`.
+
+```python
+careful = wai.Harness(
+    agent=careful_agent,
+    instructions=POLICY,
+    tools=TOOLS,
+    label="careful@scripted",
+    model="scripted",
+)
+data = wai.simulate(
+    careful,
+    seeds=REFUND_ASKS,
+    situations=4,
+    budget=8,
+    simulator=False,
+    mode="rl",
+    repeats=2,
+    repeat_policy="fixed",
+    fault_rate=0.0,
+    avg_turns=1,
+)
+row = data.rows()[0]
+print(row["harness"]["label"], row["harness"]["kind"])
+```
+
+```
+careful@scripted callable
+```
+
+## Which lever moved the score
+
+Run every harness in a set on every model in a set over the same frozen
+tasks (`tasks=` the first run, so the asks match), grade them with one
+judge, and hand all the rows to `wai.harness.attribute`. It reads the
+harness x model grid off the rows and decomposes the spread of the cell
+means into a harness part, a model part and their interaction, with a
+bootstrap interval over tasks on each share [6]. It also says whether the
+leading model changes from one harness to another, the ranking reversal of
+[1]. The verdict is in words: the harness moved the score more than the
+model did, the model did, or the difference could be chance.
+
+The rows below are built by hand so the page runs offline; yours come out
+of `simulate` with the stamp already on them.
+
+```python
+rows = []
+for harness in ("careful", "eager"):
+    for model in ("gpt-4.1-mini", "claude-haiku-4-5"):
+        for t in range(200):
+            solved = (t % 4 != 0) if harness == "careful" else (t % 2 == 0)
+            lift = model == "claude-haiku-4-5" and t % 10 == 1
+            rows.append(
+                {
+                    "task_id": f"t{t}",
+                    "reward": 1.0 if (solved or lift) else 0.0,
+                    "harness": {"label": harness, "model": model},
+                }
+            )
+print(wai.harness.attribute(rows))
+```
+
+```
+attribution on pass_at_1: 2 harnesses x 2 models, 200 tasks each cell
+  harness     claude-haiku-4-5      gpt-4.1-mini
+  careful                 75.0              75.0
+  eager                   60.0              50.0
+  spread explained: harness 89% [61..97], model 6% [2..19], interaction 6%
+  harness moves the score by up to 20.0 points, the model by up to 5.0
+  the same model leads under every harness
+  the harness moved the score more than the model did
+```
+
+The interval is the result. The same pattern on 40 tasks is not resolved:
+the harness effect is 20 points, but 40 binary outcomes cannot separate a
+harness share of 89 from one of 2, and the report says so instead of
+rounding the verdict up.
+
+```python
+print(wai.harness.attribute([r for r in rows if int(r["task_id"][1:]) < 40]))
+```
+
+```
+attribution on pass_at_1: 2 harnesses x 2 models, 40 tasks each cell
+  harness     claude-haiku-4-5      gpt-4.1-mini
+  careful                 75.0              75.0
+  eager                   60.0              50.0
+  spread explained: harness 89% [2..100], model 6% [0..49], interaction 6%
+  harness moves the score by up to 20.0 points, the model by up to 5.0
+  the same model leads under every harness
+  which lever moved the score more could be chance: the interval on the difference in shares covers zero
+```
+
+A grid with a hole (one harness never ran on one model) or tasks that
+appear in only some cells is named in the error, never averaged over.
+
+## On the platform
+
+`harness.pin()` is the platform record with the same label and hash, and
+`track(harness=)`, `tracked.run(harness=)` and `HarnessSweep` accept the
+runnable object directly. The wire does not change: the disclosure folds
+into the hash and is not sent, and a platform `Harness` with no disclosure
+keeps the hash it always had. This needs `WHILEAI_API_KEY`.
+
+```python
+from whileai.platform import track
+
+tracked = track("refund-bot", model="gpt-4.1-mini", harness=careful)
+run = tracked.run("careful@scripted", method="eval", targets=["refund_policy"], harness=careful)
+```
+
+## What is tested, and what is not yet
+
+- The Claude Code preset ran live on 2026-09-21 (`haiku`, two turns, one
+  allowed tool): the stream parsed and the reply came back in five seconds.
+  The `codex` and `pi` parsers are written from each CLI's own
+  documentation of its JSON stream and checked against recorded shapes in
+  `tests/api/test_harness.py`; nobody has run them live yet. If you do,
+  open an issue with the first three lines of the stream.
+- Not here yet, tracked in
+  [#712](https://github.com/whilehq/whileai-sdk/issues/712): a harness
+  from the Prime Intellect Environments Hub by id [5], the Meta-Harness
+  outer loop as a recipe [2], and `export_environment(harnesses=[...])` so
+  an on-policy trainer rolls out under several harnesses [3].
+
+## References
+
+1. Zhang, Wang, Ge, Xu, Hamm, Reddy. *Stop Comparing LLM Agents Without
+   Disclosing the Harness.* 2026. [arXiv:2605.23950](https://arxiv.org/abs/2605.23950).
+2. Lee, Nair, Zhang, Lee, Khattab, Finn. *Meta-Harness: End-to-End
+   Optimization of Model Harnesses.* 2026. [arXiv:2603.28052](https://arxiv.org/abs/2603.28052).
+3. Kim, Choi, Lee, Jun, Kim, Park. *The Interplay of Harness Design and
+   Post-Training in LLM Agents.* 2026. [arXiv:2606.25447](https://arxiv.org/abs/2606.25447).
+4. Lambert. *Reinforcement Learning from Human Feedback*, chapter
+   Evaluation. 2025. [rlhfbook.com](https://rlhfbook.com/c/evaluation.html).
+5. Prime Intellect. *verifiers v1: Decomposing Tasksets and Harnesses for
+   Agentic RL & Evaluations.* 2026. [primeintellect.ai/blog/verifiers-v1](https://www.primeintellect.ai/blog/verifiers-v1).
+6. Miller. *Adding Error Bars to Evals.* 2024. [arXiv:2411.00640](https://arxiv.org/abs/2411.00640).

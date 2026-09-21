@@ -78,6 +78,11 @@
       "page": "docs/recipes/02-measure/public-benchmark.mdx",
       "contains": "from datasets import load_dataset",
       "reason": "remakes the checked-in GSM8K sample with the datasets package, which is not a dependency; the sample is in the tree"
+    },
+    {
+      "page": "docs/reference/harness.md",
+      "contains": "out = coder(\"Make the failing test",
+      "reason": "runs the Claude Code CLI on a repository with a failing test; needs the CLI, its login and a repo"
     }
   ]
 }
