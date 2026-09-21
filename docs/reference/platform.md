@@ -510,7 +510,7 @@ print(m)  # name, kind, where it runs, and the endpoint to call it at
 served = wai.platform.hosted.endpoint("nemotron-8b-t2s-r1")  # a wai.Endpoint on the account key
 after = wai.simulate(served, tools=TOOLS, system_prompt=POLICY, seed=0)
 
-wai.platform.hosted.subdomain("acme")        # https://acme.models.withwhile.com/v1, your keys only
+wai.platform.hosted.subdomain("acme")  # https://acme.models.withwhile.com/v1, your keys only
 for day in wai.platform.hosted.usage("nemotron-8b-t2s-r1", days=7):
     print(day.day, day.calls, day.errors, day.input_tokens, day.output_tokens)
 ```
@@ -556,13 +556,17 @@ wai.hub.push("out/adapter", "me/my-lora")  # an adapter directory -> a model rep
 Through the platform, for a set or a hosted run that lives on your account (a platform feature: the website holds the Hub token). Connect your account once on any dataset page, then:
 
 ```python
-wai.hf_status()  # connected? namespaces
-wai.hf_publish("ds_...", repo="airline-refunds", wait=True)  # rows -> a dataset repo you own
-wai.hf_publish_run("run_...", private=True)  # a finished run's LoRA adapter -> a model repo
-row = wai.import_hf(
+wai.simulations.hf_status()  # connected? namespaces
+wai.platform.hf_publish(
+    "ds_...", repo="airline-refunds", wait=True
+)  # rows -> a dataset repo you own
+wai.simulations.hf_publish_run(
+    "run_...", private=True
+)  # a finished run's LoRA adapter -> a model repo
+row = wai.platform.import_hf(
     "tatsu-lab/alpaca", split="train", purpose="eval"
 )  # any Hub split -> your account
-wai.profile(row["datasetId"])  # profiled before you train on it
+wai.simulations.profile(row["datasetId"])  # profiled before you train on it
 ```
 
 Every push is one commit tagged `zp-<id>`, so `load_dataset(repo, split, revision="zp-ds_...")` pins the exact push; the repo's `whileai.json` maps each split to its While dataset with history. Worked example: [`recipes/05-export/hugging-face`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/05-export/hugging-face).
