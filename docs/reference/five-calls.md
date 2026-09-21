@@ -21,7 +21,10 @@ data = wai.simulate(
 )  # 1 generate
 scored = data.grade(
     wai.Judge(rubric=RUBRIC)
-)  # 2 grade against the task rubric: reward 0/1 on every row
+)  # 2 grade against the task rubric. A rubric of plain principles scores the
+#   mean of its criteria, so rows come back 0, 1/3, 2/3 or 1; pass@1 reads
+#   only 0 and 1 and names the rest in its note. kind="hard" per Criterion
+#   gives a 0/1 verdict.
 print(scored.pass_at)
 print(wai.judge_trust(scored.rows))  # 3 trust the numbers
 rows = scored.select(

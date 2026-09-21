@@ -302,6 +302,11 @@ class PassAt:
     n_groups_at_k: int = 0
     #: unanimous groups shorter than k counted as if they stayed unanimous
     n_groups_imputed: int = 0
+    #: rows carrying a numeric reward that is neither 0 nor 1, so pass@1 could
+    #: not read them. A rubric of plain principles scores the mean of its
+    #: criteria, so this is the normal output of the documented rubric path,
+    #: not an edge case. Named in ``note`` when nonzero.
+    n_partial: int = 0
     #: ``{task: c / n}`` — a **dict keyed by the group's task key** (its
     #: ``scenario_id``, else ``task_id``, else the prompt text; see
     #: ``task_key``), not a list, so ``per_task[0]`` is a ``KeyError``, not
@@ -378,6 +383,33 @@ class PassAt:
         """The same line, as a notebook cell (style.md rule 5)."""
         escaped = str(self).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         return f"<pre>{escaped}</pre>"
+
+
+def _count_partial(rows: Sequence[dict]) -> int:
+    """Rows whose reward is a number pass@1 cannot read.
+
+    A fractional reward is a graded row, not an ungraded one: the judge
+    answered, and it answered "partly". pass@1 is binary by definition so it
+    cannot count it, which is fine as long as it says how many it left out.
+    """
+    from .optimize import _is_binary_01
+
+    partial = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key in ("reward", "qwen_reward"):
+            value = row.get(key)
+            if value is None or isinstance(value, bool):
+                continue
+            try:
+                float(value)
+            except (TypeError, ValueError):
+                break
+            if not _is_binary_01(value):
+                partial += 1
+            break
+    return partial
 
 
 def _nothing_to_score(rows: Sequence[dict]) -> str:
@@ -468,6 +500,11 @@ def pass_at(
     row_list = list(rows) if not isinstance(rows, list) else rows
     groups = _group_label_lists(row_list)
     n_rows = sum(len(labels) for labels in groups.values())
+    # _group_label_lists drops a row whose reward is not 0 or 1 and keeps no
+    # count, so a run that lost half its tasks printed the same line as a whole
+    # one. A number that reports a subset without naming the subset is not an
+    # estimate (Lambert 2025, chapter Evaluation).
+    n_partial = _count_partial(row_list)
     if not groups:
         # a single non-binary value on every row (all 0.5) is unanimous too
         parts = (degenerate_note(row_list), _nothing_to_score(row_list))
@@ -538,6 +575,16 @@ def pass_at(
         note = "; ".join(
             part for part in (note, no_interval_note(len(groups), quantity="pass@1")) if part
         )
+    if n_partial:
+        note = "; ".join(
+            part
+            for part in (
+                note,
+                f"{n_partial} row(s) carried a reward that is not 0 or 1 and are not in "
+                "this number; give each Criterion kind='hard' for a 0/1 verdict",
+            )
+            if part
+        )
     # A unanimous reward is about the checker, not the agent; say so first (#594).
     note = "; ".join(part for part in (degenerate_note(row_list), note) if part)
 
@@ -550,6 +597,7 @@ def pass_at(
         n_rows=n_rows,
         n_groups_at_k=(len(eligible) + len(imputed)) if pass_at_k is not None else 0,
         n_groups_imputed=len(imputed) if pass_at_k is not None else 0,
+        n_partial=n_partial,
         per_task=per_task,
         note=note,
         config=run_config(row_list, n_tasks=len(groups), k=resolved_k),
