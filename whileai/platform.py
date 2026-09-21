@@ -81,7 +81,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic.alias_generators import to_camel
@@ -91,7 +91,7 @@ from whileai.auth import resolve_api_key
 
 log = logging.getLogger("whileai.platform")
 
-DEFAULT_PLATFORM_URL = "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com"
+DEFAULT_PLATFORM_URL = "https://api.withwhile.com"
 PLATFORM_URL_ENV = "WHILEAI_PLATFORM_URL"
 
 FLUSH_EVERY = 25
@@ -106,6 +106,7 @@ EXPERIMENT_FIELD_MAX = 4096  # chars per experiment field, markdown allowed
 # the API caps them (backend evalrows.js).
 RUBRIC_MAX = 4000
 EXAMPLES_MAX = 20
+ROWS_PER_CALL = 500  # graded rows a call; run.score(rows=) chunks for you
 EXAMPLE_TEXT_MAX = 1200
 EXAMPLE_WHY_MAX = 400
 
@@ -236,6 +237,17 @@ class Behavior(_Wire):
     Gao et al. 2022, arXiv:2210.10760, and Lambert 2025, chapter Reward
     Modeling: a judge that is also the reward gets exploited and cannot see it
     happen, which is what ``reward_is_judge`` records and warns about.
+
+    ``graded_by`` says what scores the held-out test: ``"judge"`` (a
+    model, checked against people through ``judge``) or ``"program"`` (a
+    verifier such as ``wai.verify.MathEqual``, execution match, a rule
+    over tool calls). Lambert 2025, chapter Evaluation, on verifiable
+    rewards: a deterministic rule is the strongest grader there is, so
+    with ``graded_by="program"`` the verdict does not ask for judge
+    agreement, since there is no judge to agree, and says "graded by a
+    program" where it would print that agreement (#614). It is a
+    different fact from ``reward_is_judge``, which is about the training
+    reward; a program-graded eval can still train on a judge's reward.
     """
 
     name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -245,6 +257,7 @@ class Behavior(_Wire):
     noise_floor: float | None = Field(default=None, ge=0)
     contamination: int | None = Field(default=None, ge=0)
     reward_is_judge: bool | None = None
+    graded_by: Literal["program", "judge"] | None = None
     description: str | None = Field(default=None, max_length=400)
     rubric: str | None = Field(default=None, max_length=RUBRIC_MAX)
     """How the judge was set up, in the words it was given: what counts as
@@ -448,6 +461,12 @@ class Example(_Wire):
     ok: bool
     why: str | None = Field(default=None, max_length=EXAMPLE_WHY_MAX)
     score: float | None = Field(default=None, allow_inf_nan=False)
+    tags: dict[str, str] | None = None
+    """Short strings a page groups by: {"difficulty": "hard", "archetype": "date and time"}."""
+    reference: str | None = Field(default=None, max_length=2000)
+    """The gold answer the row was graded against (a query, a number, a sentence)."""
+    detail: str | None = Field(default=None, max_length=2000)
+    """The longer story of a failure: what was expected against what came back."""
 
 
 class Score(_Wire):
@@ -556,6 +575,9 @@ class Verdict(_Wire):
     behaviors whose point estimate came out lower, with no interval on
     that check yet. The line ends with what the number rests on (judge
     agreement, n) and starts with "unproven:" when one is missing or short.
+    A behavior graded by a program (``Behavior(graded_by="program")``)
+    has no judge to agree with anyone, so that gap is not asked for and
+    the line says "graded by a program" instead (#614).
     """
 
     candidate: str | None = None
@@ -570,6 +592,7 @@ class Verdict(_Wire):
     judge_agreement: float | None = None
     judge_human_n: int | None = None
     reward_is_judge: bool | None = None
+    graded_by: Literal["program", "judge"] | None = None
     contamination: int | None = None
     #: The other behaviors on which a different run also beat the served
     #: version by the same rule: the "moved, replicated" of the learn course.
@@ -626,7 +649,10 @@ class Verdict(_Wire):
             gaps.append("n not declared")
         elif self.n < 50:
             gaps.append(f"n={self.n} under 50")
-        if self.judge_agreement is None:
+        program = self.graded_by == "program"
+        if program:
+            pass  # no judge, so no agreement to ask for
+        elif self.judge_agreement is None:
             gaps.append("judge agreement unmeasured")
         elif self.judge_agreement < 0.8:
             gaps.append(f"judge agreement {self.judge_agreement:g} under 0.8")
@@ -635,7 +661,9 @@ class Verdict(_Wire):
         if self.contamination:
             gaps.append(f"contamination {self.contamination}")
         rests: list[str] = []
-        if self.judge_agreement is not None:
+        if program:
+            rests.append("graded by a program")
+        elif self.judge_agreement is not None:
             rests.append(
                 f"judge agreement {self.judge_agreement:g}"
                 + (f" on {self.judge_human_n}" if self.judge_human_n else "")
@@ -688,6 +716,8 @@ class Dashboard(_Wire):
                 v.judge_human_n = beh.judge.human_n
         if v.reward_is_judge is None:
             v.reward_is_judge = beh.reward_is_judge
+        if v.graded_by is None:
+            v.graded_by = beh.graded_by
         if v.contamination is None:
             v.contamination = beh.contamination
 
@@ -721,6 +751,11 @@ class Brief(_Wire):
     means: str = ""
     next: list[Step] = Field(default_factory=list)
     scored: int = 0
+    readable: list[Step] = Field(default_factory=list)
+    """What a person cannot read yet on the page, each with the call that
+    posts it: an iteration that does not say what it changed, a test with
+    no rubric, a score with no graded rows, names that carry settings. The
+    coding agent has the developer's context; this is the list it owes."""
 
     def markdown(self) -> str:
         lines = [f"# {self.agent} on {self.url}", "", "What happened"]
@@ -728,6 +763,10 @@ class Brief(_Wire):
         lines += ["", "What it means", self.means, "", "Do next"]
         for i, step in enumerate(self.next, 1):
             lines += [f"{i}. {step.say}", f"   `{step.cmd}`"]
+        if self.readable:
+            lines += ["", "What a person cannot read yet"]
+            for i, step in enumerate(self.readable, 1):
+                lines += [f"{i}. {step.say}", f"   `{step.cmd}`"]
         return "\n".join(lines)
 
     def __str__(self) -> str:
@@ -736,6 +775,10 @@ class Brief(_Wire):
         lines += ["what it means", f"  {self.means}", "do next"]
         for i, step in enumerate(self.next, 1):
             lines += [f"  {i}. {step.say}", f"     {step.cmd}"]
+        if self.readable:
+            lines.append("what a person cannot read yet")
+            for i, step in enumerate(self.readable, 1):
+                lines += [f"  {i}. {step.say}", f"     {step.cmd}"]
         lines.append(f"  {self.url}")
         return "\n".join(lines)
 
@@ -745,6 +788,119 @@ _BRIEF_ORDER = ("canfail", "size", "frozen", "judge", "noise", "contamination", 
 _BRIEF_MAX_STEPS = 3
 _MIN_N = 50
 _SATURATED = 95.0
+
+# A version name that carries settings instead of what changed
+# (dapo-lr5e-05-s17-180st, sft-v1-s1). Settings belong in record.optimizer.
+_SETTINGS_NAME = re.compile(
+    r"(\d+e-?\d+|(^|[-_])s\d{1,3}([-_]|$)|\d+st([-_]|$)|(^|[-_])lr\d)", re.I
+)
+_READABLE_MAX_PER_KEY = 3
+
+
+def _says_what_changed(r: Mapping[str, Any], model: str | None = None) -> bool:
+    """A run says what it changed when it pins a harness, names a training
+    method, records optimizer settings or a training set, or carries a note."""
+    if r.get("version") == "base":
+        return True
+    rec = r.get("record") or {}
+    pins = (rec.get("provenance") or {}).get("pins") or {}
+    if (
+        pins.get("prompt")
+        or pins.get("tools")
+        or (pins.get("model") and pins.get("model") != model)
+    ):
+        return True
+    if r.get("method") not in (None, "", "eval", "none"):
+        return True
+    if rec.get("optimizer"):
+        return True
+    if isinstance((rec.get("data") or {}).get("train"), str):
+        return True
+    return bool(str(r.get("notes") or "").strip())
+
+
+def _readable_steps(
+    behaviors: Sequence[Behavior], live: Sequence[Mapping[str, Any]], model: str | None = None
+) -> list[Step]:
+    """What a person cannot read yet, with the call that posts it. SHARED
+    SOURCE with the platform's lib/readable.ts: same rules, same sentences.
+    The coding agent has the developer's context, so the platform only
+    says what is missing and how to post it."""
+    out: list[Step] = []
+    silent = sorted(
+        (r for r in live if not _says_what_changed(r, model)),
+        key=lambda r: str(r.get("createdAt") or ""),
+        reverse=True,
+    )
+    for i, r in enumerate(silent[:_READABLE_MAX_PER_KEY]):
+        more = (
+            f" (and {len(silent) - _READABLE_MAX_PER_KEY} more)"
+            if i == _READABLE_MAX_PER_KEY - 1 and len(silent) > _READABLE_MAX_PER_KEY
+            else ""
+        )
+        out.append(
+            Step(
+                say=f"say what {r.get('version')} changed{more}",
+                cmd=f'tracked.open("{r.get("id")}").note("what changed, in one line a colleague would write")',
+            )
+        )
+    # One line per kind, naming every test it covers; the call shows the first.
+    no_rubric = [b for b in behaviors if not b.rubric]
+    if no_rubric:
+        names = ", ".join(b.name for b in no_rubric)
+        out.append(
+            Step(
+                say=(
+                    f"write down how {no_rubric[0].name} is judged"
+                    if len(no_rubric) == 1
+                    else f"write down how each test is judged: {names}"
+                ),
+                cmd=f'tracked.behavior("{no_rubric[0].name}", rubric="what passes, what fails, the edge cases")',
+            )
+        )
+    no_rows: list[tuple[str, str, Mapping[str, Any]]] = []
+    for b in behaviors:
+        scored = [
+            (r, e) for r in live for e in (r.get("evals") or []) if e.get("behavior") == b.name
+        ]
+        if not scored or any(e.get("examples") for _r, e in scored):
+            continue
+        r, e = max(scored, key=lambda x: str(x[1].get("createdAt") or x[0].get("createdAt") or ""))
+        no_rows.append((b.name, str(r.get("id")), e))
+    if no_rows:
+        # The weakest test first: its failures are the rows a person wants most.
+        no_rows.sort(key=lambda x: float(x[2].get("score", 0)))
+        name, run_id, e = no_rows[0]
+        args = f"{_one(float(e.get('score', 0)))}"
+        if e.get("ci") is not None:
+            args += f", ci={e['ci']}"
+        if e.get("n") is not None:
+            args += f", n={e['n']}"
+        names = ", ".join(n for n, _r, _e in no_rows)
+        out.append(
+            Step(
+                say=(
+                    f"show the graded rows behind {name}"
+                    if len(no_rows) == 1
+                    else f"show the graded rows behind each score: {names}"
+                ),
+                cmd=f'tracked.open("{run_id}").score("{name}", {args}, '
+                "examples=[Example(prompt=, reply=, ok=, why=), ...])",
+            )
+        )
+    named = [r for r in live if _SETTINGS_NAME.search(str(r.get("version") or ""))]
+    if named:
+        out.append(
+            Step(
+                say=(
+                    f"name iterations by what changed, not by settings "
+                    f"({len(named)} of {len(live)} read like {named[0].get('version')})"
+                ),
+                cmd='tracked.run(version="longer-training", '
+                'record={"optimizer": {"lr": 5e-5, "seed": 17, "steps": 180}})',
+            )
+        )
+    return out
 
 
 def _one(x: float) -> str:
@@ -1017,7 +1173,11 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
     j = b.judge
     agreement = getattr(j, "agreement", None) if j is not None else None
     human_n = getattr(j, "human_n", None) if j is not None else None
-    if agreement is None:
+    program = b.graded_by == "program"
+    if program:
+        # A verifier has no agreement to measure: there is no judge (#614).
+        j_value, j_why, j_action = "graded by a program", "", ""
+    elif agreement is None:
         j_value, j_why, j_action = (
             "unmeasured",
             "judge never checked against people",
@@ -1038,15 +1198,19 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
         EvalCheck(
             key="judge",
             label="judge",
-            ok=agreement is not None
-            and agreement >= R["min_agreement"]
-            and (human_n or 0) >= R["min_human_n"],
+            ok=program
+            or (
+                agreement is not None
+                and agreement >= R["min_agreement"]
+                and (human_n or 0) >= R["min_human_n"]
+            ),
             value=j_value,
             why=j_why,
             action=j_action,
             rule=(
                 f"Agreement with people at least {R['min_agreement']} on at least "
-                f"{R['min_human_n']} hand labels; a program grader is held to the same bar."
+                f"{R['min_human_n']} hand labels; a program grader (graded_by='program') has "
+                "no judge to check."
             ),
             cite=_CITE["zheng"],
             fix=(
@@ -1202,6 +1366,8 @@ def brief_of(
     def plural(k: int, w: str) -> str:
         return f"{k} {w}{'' if k == 1 else 's'}"
 
+    readable = _readable_steps(behaviors, live, dash.agent.model if dash is not None else None)
+
     if not scored:
         happened = [
             f"{plural(len(live), 'run')} posted, none scored yet."
@@ -1220,6 +1386,7 @@ def brief_of(
                     "ci=half_width, n=asks); run.finish()",
                 )
             ],
+            readable=readable,
         )
 
     latest = max(scored, key=lambda r: str(r.get("updatedAt") or r.get("createdAt") or ""))
@@ -1303,6 +1470,15 @@ def brief_of(
             f"{smallest} asks give an interval too wide to see a gain of a few points; the "
             "versions cannot be told apart yet."
         )
+    elif serving_now := (vd.serving if vd is not None else None) or (
+        dash.agent.serving if dash is not None else None
+    ):
+        # Something is already promoted: the pre-promotion advice would
+        # contradict the verdict printed beside it (#614).
+        means = (
+            f"{serving_now} is the served version; each other version scored on the same set "
+            "gets a verdict against it."
+        )
     else:
         means = "Versions are scored on the same set; promote one to get a verdict against it."
 
@@ -1331,6 +1507,7 @@ def brief_of(
         means=means,
         next=ordered[:_BRIEF_MAX_STEPS],
         scored=len(scored),
+        readable=readable,
     )
 
 
@@ -1551,13 +1728,33 @@ class Run:
 
     # ------------------------------------------------------------ evals
 
-    def score(self, behavior: str | Score, score: float | None = None, **fields: Any) -> Score:
+    def score(
+        self,
+        behavior: str | Score,
+        score: float | None = None,
+        *,
+        rows: Sequence[Example | Mapping[str, Any]] | None = None,
+        **fields: Any,
+    ) -> Score:
         """Record this version's score on one behavior's held-out test.
 
         ``ci`` is the half-width of the 95% interval, ``n`` the number of
         held-out items. Score every behavior, not only the ones this run
         trained: the ones you did not train are the check.
+
+        ``rows`` is every graded row (prompt, reply, ok, why, tags), posted
+        after the score in chunks of 500; the platform's rows page groups
+        them by tag so what went well and what did not is a table. When
+        ``examples`` is not given, the first 14 failures and 6 passes of
+        ``rows`` become the card's sample.
         """
+        all_rows: list[Example] | None = None
+        if rows is not None:
+            all_rows = [r if isinstance(r, Example) else Example.model_validate(r) for r in rows]
+            if not isinstance(behavior, Score) and "examples" not in fields:
+                fails = [r for r in all_rows if not r.ok]
+                passes = [r for r in all_rows if r.ok]
+                fields["examples"] = (fails[:14] + passes)[:EXAMPLES_MAX]
         if isinstance(behavior, Score):
             item = behavior
         else:
@@ -1602,7 +1799,29 @@ class Run:
         out = self.tracked._call("POST", f"/runs/{self.id}/evals", [item.wire()])
         recorded = (out.get("evals") or [item.wire()])[0]
         self.scores[item.behavior] = Score.model_validate(recorded)
+        if all_rows is not None:
+            self.rows(item.behavior, all_rows)
         return self.scores[item.behavior]
+
+    def rows(
+        self, behavior: str, rows: Sequence[Example | Mapping[str, Any]] | None = None
+    ) -> list[Example]:
+        """Every graded row behind this run's score on ``behavior``.
+
+        With ``rows`` given, posts them (replacing what was there) in
+        chunks of 500 and returns them; without, reads them back. The
+        platform shows them at the iteration's rows page, grouped by tag.
+        """
+        path = f"/runs/{self.id}/evals/{behavior}/rows"
+        if rows is None:
+            out = self.tracked._call("GET", path)
+            return [Example.model_validate(r) for r in out.get("rows") or []]
+        items = [r if isinstance(r, Example) else Example.model_validate(r) for r in rows]
+        self.tracked._call("DELETE", path)
+        for start in range(0, len(items), ROWS_PER_CALL):
+            chunk = items[start : start + ROWS_PER_CALL]
+            self.tracked._call("POST", path, {"rows": [e.wire() for e in chunk], "offset": start})
+        return items
 
     # ------------------------------------------------------------ lifecycle
 
@@ -1722,6 +1941,10 @@ class Tracked:
         self._api_key = api_key
         self._transport = transport
         self.record: dict[str, Any] | None = None
+        # What this process declared, by name: the verdict is built here,
+        # so a field the server does not store yet (``graded_by``) still
+        # reaches it from the local declaration (#614).
+        self._declared: dict[str, Behavior] = {}
 
     def _call(self, method: str, path: str, body: Any = None) -> Any:
         if self._transport is not None:
@@ -1751,12 +1974,22 @@ class Tracked:
             )
         body = item.wire()
         body.pop("name", None)
+        self._declared[item.name] = item
         out = self._call("PUT", f"/agents/{self.id}/behaviors/{item.name}", body)
-        return Behavior.model_validate(out) if isinstance(out, dict) and out.get("name") else item
+        got = Behavior.model_validate(out) if isinstance(out, dict) and out.get("name") else item
+        return self._with_declared(got)
+
+    def _with_declared(self, beh: Behavior) -> Behavior:
+        """Fill ``graded_by`` from the local declaration when the server's
+        row does not carry it (the field is newer than the store)."""
+        local = self._declared.get(beh.name)
+        if local is not None and beh.graded_by is None and local.graded_by is not None:
+            beh.graded_by = local.graded_by
+        return beh
 
     def behaviors(self) -> list[Behavior]:
         rows = self._call("GET", f"/agents/{self.id}/behaviors").get("behaviors") or []
-        return [Behavior.model_validate(r) for r in rows]
+        return [self._with_declared(Behavior.model_validate(r)) for r in rows]
 
     def noise_floor(
         self,
@@ -1792,12 +2025,7 @@ class Tracked:
         (``test_version``, ``n``, ``judge``) are kept.
         """
         from .simulations.defaults import MIN_RERUNS
-        from .simulations.score.stats import (
-            POINTS_PER_UNIT,
-            _t_quantile,
-            eval_variance,
-            noise_band,
-        )
+        from .simulations.score.stats import POINTS_PER_UNIT, _t_quantile, eval_variance
 
         if len(reruns) < 2:  # a spread needs a pair of runs
             raise ValueError(
@@ -1822,9 +2050,11 @@ class Tracked:
                 runs,
                 MIN_RERUNS,
             )
-        df = runs - 1
+        # ``eval_variance`` already carries the t-corrected band at
+        # ``noise_band_df`` = runs - 1 (#616); the floor is that in points.
+        df = int(report["noise_band_df"])
         t = _t_quantile(df)
-        floor = round(noise_band(run_std, df=df) * POINTS_PER_UNIT, 2)
+        floor = round(float(report["noise_band"]) * POINTS_PER_UNIT, 2)
         if isinstance(behavior, Behavior):
             item = behavior
         else:
@@ -2116,7 +2346,12 @@ class Tracked:
     def dashboard(self, behavior: str | None = None) -> Dashboard:
         """The Runs screen as data: versions, train, deltas, judge, live, verdict."""
         q = f"?behavior={behavior}" if behavior else ""
-        return Dashboard.model_validate(self._call("GET", f"/agents/{self.id}/dashboard{q}"))
+        dash = Dashboard.model_validate(self._call("GET", f"/agents/{self.id}/dashboard{q}"))
+        if dash.behavior is not None:
+            self._with_declared(dash.behavior)
+            if dash.verdict.graded_by is None:
+                dash.verdict.graded_by = dash.behavior.graded_by
+        return dash
 
     def verdict(self, behavior: str | None = None, *, version: str | None = None) -> Verdict:
         """Does the candidate beat the served version, and is it real? ``str()`` it.

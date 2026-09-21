@@ -17,9 +17,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sql_verifier import OUT, read_jsonl
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--before", default="qwen3-4b")
     ap.add_argument("--after", default="")

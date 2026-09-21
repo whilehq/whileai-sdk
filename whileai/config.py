@@ -26,9 +26,11 @@ This module imports nothing from the engine so the engine can import it.
 from __future__ import annotations
 
 import contextlib
+import json
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 ROLES = ("agent", "judge", "simulator")
@@ -41,6 +43,8 @@ ROLES = ("agent", "judge", "simulator")
 SPEC_FORMS = {
     "openai": "openai:<model>",
     "anthropic": "anthropic:<model>",
+    "fireworks": "fireworks:<model>",
+    "bedrock": "bedrock:<model-id>[@<region>]",
     "vllm": "vllm:<model>@<url>",
     "ollama": "ollama:<model>",
     "typesafe": "typesafe:<model> (judge only)",
@@ -121,7 +125,8 @@ class Settings:
     #: the While account key (hosted models, platform); ``whileai login`` sets it too
     api_key: str | None = None
     #: provider -> key, filled from backend objects: ``openai``, ``anthropic``,
-    #: ``vllm``, ``typesafe``. ``ollama`` never needs one.
+    #: ``bedrock`` (a Bedrock API key), ``vllm``, ``typesafe``. ``ollama``
+    #: never needs one.
     keys: dict[str, str] = field(default_factory=dict)
 
     def key_for(self, provider: str) -> str | None:
@@ -277,11 +282,111 @@ class _SettingsProxy:
 
 settings = _SettingsProxy()
 
+#: Folders a wheel is installed into. A package directory under one of
+#: these is the installed package; anywhere else is a checkout.
+INSTALL_DIRS = ("site-packages", "dist-packages")
+
+
+def _editable_root() -> Path | None:
+    """The directory ``pip install -e`` (or ``uv sync``) installed ``whileai``
+    from, read from the distribution's ``direct_url.json`` (PEP 610), or
+    ``None`` when the installed copy is a wheel or there is none."""
+    from importlib.metadata import distributions
+    from urllib.parse import urlparse
+    from urllib.request import url2pathname
+
+    for dist in distributions():
+        if (dist.metadata["Name"] or "").lower() != "whileai":
+            continue
+        raw = dist.read_text("direct_url.json")
+        if not raw:
+            continue
+        try:
+            info = json.loads(raw)
+        except ValueError:
+            continue
+        if info.get("dir_info", {}).get("editable") and info.get("url", "").startswith("file:"):
+            return Path(url2pathname(urlparse(info["url"]).path)).resolve()
+    return None
+
+
+def _provenance_line(version: str, where: Path, editable_root: Path | None) -> str:
+    """The line ``provenance()`` prints, from the three facts it reads."""
+    line = f"whileai {version} from {where}"
+    if any(part in INSTALL_DIRS for part in where.parts):
+        return line
+    if editable_root is not None and where.parent == editable_root:
+        return f"{line} (source tree, installed editable)"
+    return f"{line} (source tree, not the installed wheel)"
+
+
+def provenance() -> str:
+    """Which ``whileai`` this process imported, as one line: ``whileai
+    <version> from <directory>``, and when the directory is a checkout
+    rather than a ``site-packages`` install, ``(source tree, installed
+    editable)`` after ``pip install -e .`` or ``(source tree, not the
+    installed wheel)`` when the checkout is shadowing a wheel.
+
+    A clone of the SDK has a ``whileai/`` folder at its root, and Python
+    puts the working directory first on ``sys.path`` for ``python -m``,
+    ``python -c``, a notebook and ``modal run``, so a recipe started from
+    the repository root can import the clone instead of the wheel ``pip``
+    installed, with no message either way. Every recipe prints this line
+    first, on stderr so stdout stays the result, and the Modal recipes
+    mount whichever tree it names. Run a recipe from its own directory to
+    use the installed package, or ``pip install -e .`` to make the tree
+    the installed package. The version is the installed distribution's,
+    which is the wheel's while a checkout shadows it.
+
+        >>> import whileai as wai
+        >>> print(wai.config.provenance())  # doctest: +SKIP
+        whileai 0.110 from /home/me/whileai-sdk/whileai (source tree, not the installed wheel)
+    """
+    import whileai
+
+    where = Path(whileai.__file__).resolve().parent
+    return _provenance_line(whileai.__version__, where, _editable_root())
+
+
+def requirement() -> str:
+    """The ``pip`` requirement that gives a remote container at least the
+    ``whileai`` this process imported: ``whileai>=<version>``.
+
+    A bare ``"whileai"`` in a container image is resolved once, when the
+    image layer is first built, and cached under that spelling: the
+    container keeps whatever was newest that day until the layer key
+    changes, while the laptop moves on. The first symptom is an
+    ``AttributeError`` for a call the laptop has and the container's older
+    wheel does not. Writing the version into the requirement makes each
+    release a new layer key and makes the drift visible in the image
+    definition. It is a floor, not a pin, so a checkout whose version is
+    already on the index installs, and so does the next release.
+
+    When the distribution is not installed (``__version__`` is
+    ``0.0.0``) the bare name is returned, because no floor is known.
+
+        >>> import whileai as wai
+        >>> wai.config.requirement()  # doctest: +SKIP
+        'whileai>=0.110'
+        >>> image = modal.Image.debian_slim().pip_install(  # doctest: +SKIP
+        ...     "torch==2.7.1", "trl==0.19.1", wai.config.requirement()
+        ... )
+    """
+    import whileai
+
+    version = str(whileai.__version__ or "").strip()
+    if not version or version == "0.0.0":
+        return "whileai"
+    return f"whileai>={version}"
+
+
 __all__ = [
     "Settings",
     "configure",
     "context",
     "current",
+    "provenance",
+    "requirement",
     "reset",
     "resolve_backend",
     "settings",

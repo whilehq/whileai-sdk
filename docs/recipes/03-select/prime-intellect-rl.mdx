@@ -30,6 +30,7 @@ offline on any graded row file.
 uv add whileai
 whileai login                    # or: export VLLM_API_KEY=... for the shared pool
 cd recipes/03-select/prime-intellect-rl
+sh smoke.sh                                                   # free: the same three steps on a scripted agent, no key
 python generate.py --situations 100 --k 8 --fault-rate 0.15   # -> data/rl.jsonl (+ .meta.json)
 python diagnose.py data/rl.jsonl                              # exit 1 if the set carries no gradient
 python export_prompts.py data/rl.jsonl                        # -> data/prompts.jsonl
@@ -37,10 +38,11 @@ python export_prompts.py data/rl.jsonl                        # -> data/prompts.
 
 About three minutes for 800 rollouts. Only `generate.py` needs the key;
 `diagnose.py` and `export_prompts.py` read the file and run anywhere. To
-try those two with no key, `simulate(agent, spec="spec.json", mode="rl",
-simulator=False, grade=True)` with a scripted agent writes a small, uniform
-`rl.jsonl` in under a second; `tests/recipes/test_example_prime_intellect_rl.py`
-does exactly that.
+try those two with no key, `generate.py --offline` writes the same file
+shape with the template writer and a scripted agent whose every second
+rollout claims success after a tool fault, so each group is mixed; that is
+`simulate(agent, spec="spec.json", mode="rl", simulator=False, grade=True)`,
+and `smoke.sh` runs all three steps on it.
 
 ## What each step does
 

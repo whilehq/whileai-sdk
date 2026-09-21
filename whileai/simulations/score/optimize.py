@@ -1071,6 +1071,7 @@ def select_for_rl(
         "privileged_leaks_dropped": leak_rep["n_dropped"],
         "privileged_leaks": leak_rep,
         "n_after_gates": base_report["n_kept"],
+        "gates": base_report["dropped"],
         "n_after_trim": len(kept),
         "unanimous_groups_dropped": trim_report["n_groups_dropped"],
         "collapsed_groups_dropped": trim_report["collapsed_groups_dropped"],

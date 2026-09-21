@@ -29,12 +29,14 @@ from statistics import NormalDist
 from typing import Any
 
 from ...report import Report
-from ..defaults import ALPHA, BASE_PASS_RATE, CI_LEVEL, MIN_RERUNS, POWER
+from ..defaults import ALPHA, BASE_PASS_RATE, CI_LEVEL, MIN_RERUNS, MIN_TRAIN_SEEDS, POWER
 from .passat import answer_counts, pass_at
 from .stats import (
     DEFAULT_BOOT,
     MIN_HOLDOUT_TASKS,
     UNPAIRED_MAJORITY_SHARE,
+    _mean,
+    _sample_sd,
     _t_quantile,
     _z_level,
     compare_runs,
@@ -107,7 +109,12 @@ _HEADLINE_WORDS = {
     "insufficient_data": "INSUFFICIENT DATA",
     "moved_the_wrong_way": "FAIL",
     "target_not_measured": "TARGET NOT MEASURED",
+    "unresolved": "UNRESOLVED (one training seed per arm)",
 }
+
+# The sentence a one-seed report prints, verbatim, wherever the verdict is
+# ``unresolved`` (#356): the table, the warning and the headline say it.
+UNRESOLVED_LINE = "one training seed per arm; add a seed to resolve"
 
 
 def headline_word(report: Mapping[str, Any]) -> str:
@@ -187,6 +194,113 @@ def _band_rule(n_a: int, n_b: int, df: int | None, level: float = CI_LEVEL) -> s
     """The band as a reader can check it: the quantile, then the run counts."""
     q = f"{_z_level(level):.2f}" if df is None else f"t(df={df})={_t_quantile(df, level):.2f}"
     return f"{q} x run_std x sqrt(1/{n_a} + 1/{n_b})"
+
+
+TrainRuns = Mapping[str, "Sequence[Sequence[dict]] | None"] | Sequence[Sequence[dict]]
+
+
+def _train_arms(train_runs: TrainRuns) -> dict[str, list[Sequence[dict]] | None]:
+    """``train_runs`` as ``{"before": seeds | None, "after": seeds | None}``:
+    a plain list is the after arm's seeds against an untrained before arm;
+    a mapping names both arms, ``None`` for an arm that was not trained."""
+    if isinstance(train_runs, Mapping):
+        if set(train_runs) != {"before", "after"}:
+            raise ValueError(
+                "train_runs maps 'before' and 'after' to one row set per training seed (None "
+                f"for an untrained arm); got keys {sorted(map(str, train_runs))}"
+            )
+        arms = {side: train_runs[side] for side in ("before", "after")}
+    else:
+        arms = {"before": None, "after": train_runs}
+    out: dict[str, list[Sequence[dict]] | None] = {}
+    for side, seeds in arms.items():
+        if seeds is None:
+            out[side] = None
+            continue
+        listed = list(seeds)
+        if not listed:
+            raise ValueError(
+                f"train_runs[{side!r}] is empty: pass one row set per training seed, or None "
+                "for an arm that was not trained"
+            )
+        if any(isinstance(s, dict) for s in listed):
+            raise ValueError(
+                f"train_runs[{side!r}] is a list of rows; it takes a list of row sets, one per "
+                "training seed (the rows passed as before/after are one of them)"
+            )
+        out[side] = listed
+    if all(v is None for v in out.values()):
+        raise ValueError("train_runs names no trained arm; pass the seeds of at least one side")
+    return out
+
+
+def _train_spread(
+    arms: dict[str, list[Sequence[dict]] | None],
+    before: Sequence[dict],
+    after: Sequence[dict],
+    metric: str,
+    headline: Mapping[str, Any],
+    level: float,
+) -> dict[str, Any]:
+    """The between-seed term of a delta between two trained models.
+
+    Each trained arm's mean of ``metric`` is a draw from the training
+    seed's distribution, so the delta's variance is the task-sampling
+    variance the paired interval already carries plus the between-seed
+    variance of each arm's mean, ``std_arm**2 / n_arm`` (Lambert 2025,
+    chapter Evaluation; Miller 2024, arXiv:2411.00640, the variance
+    components an eval claim rests on). The interval is centred on the
+    across-seed delta and widened in quadrature: half-width ``sqrt(hw_task**2
+    + t(df)**2 * sum(std**2 / n))`` with ``df = sum(n_arm - 1)``, the t
+    quantile because each ``std`` is an estimate from ``n_arm`` seeds. An
+    untrained arm (``None``) has no between-seed term. An arm with fewer
+    than ``MIN_TRAIN_SEEDS`` seeds gives no interval: the report is
+    ``unresolved``.
+    """
+    counts: dict[str, int | None] = {}
+    stds: dict[str, float | None] = {}
+    means: dict[str, float | None] = {}
+    variance = 0.0
+    df = 0
+    for side, rows in (("before", before), ("after", after)):
+        seeds = arms[side]
+        if seeds is None:
+            counts[side], stds[side] = None, None
+            per_task = task_means(rows, metric)
+            means[side] = _mean(list(per_task.values())) if per_task else None
+            continue
+        per_seed = [_mean(list(tm.values())) for s in seeds if (tm := task_means(s, metric))]
+        counts[side] = len(seeds)
+        means[side] = _mean(per_seed) if per_seed else None
+        std = _sample_sd(per_seed) if len(per_seed) >= MIN_TRAIN_SEEDS else None
+        stds[side] = std
+        if std is not None:
+            variance += std**2 / len(per_seed)
+            df += len(per_seed) - 1
+    short = [s for s, n in counts.items() if n is not None and n < MIN_TRAIN_SEEDS]
+    out: dict[str, Any] = {
+        "counts": counts,
+        "std": stds,
+        "means": means,
+        "df": df if not short else None,
+        "under_replicated": bool(short),
+        "delta": None,
+        "ci95": None,
+        "rule": None,
+    }
+    ci = headline.get("ci95")
+    if short or not ci or means["before"] is None or means["after"] is None:
+        return out
+    q = _t_quantile(df, level)
+    half = math.sqrt(((ci[1] - ci[0]) / 2) ** 2 + q * q * variance)
+    centre = means["after"] - means["before"]
+    terms = " + ".join(
+        f"seed_std_{s}^2/{counts[s]}" for s in ("before", "after") if stds[s] is not None
+    )
+    out["delta"] = centre
+    out["ci95"] = (centre - half, centre + half)
+    out["rule"] = f"t(df={df})={q:.2f} x sqrt({terms}), added in quadrature to the task interval"
+    return out
 
 
 def _group_of(row: dict, by: str | Callable[[dict], Any]) -> str | None:
@@ -323,6 +437,7 @@ def delta_report(
     by: str | Callable[[dict], Any] | None = None,
     run_std: float | Mapping[str, float | None] | None = None,
     run_std_runs: int | None = None,
+    train_runs: TrainRuns | None = None,
     proxy: str | None = None,
     n_boot: int = DEFAULT_BOOT,
     seed: int = 0,
@@ -374,6 +489,11 @@ def delta_report(
     * ``run_std`` and ``run_std_runs``: the evaluation's own re-run
       standard deviation, per metric or as one number, and how many
       re-runs it was computed from. See the noise floor below.
+    * ``train_runs``: the rows of every independent training seed of each
+      arm, when the two sides are separately trained models: a list of
+      row sets for the after arm (the before arm untrained), or
+      ``{"before": [...], "after": [...]}`` with ``None`` for an arm that
+      was not trained. See training seeds below.
     * ``alpha`` (0.05): the false-positive rate every verdict runs at.
       Each interval is at ``1 - alpha`` (``ci95`` at the default), the
       re-run band uses the same quantile, and ``family_error`` is
@@ -447,6 +567,27 @@ def delta_report(
     the headline band, ``noise_rule`` spells it out, and ``eval_runs``
     says how many runs each side had.
 
+    Training seeds. The noise floor measures the eval; a delta between
+    two separately trained models also carries training variance, which
+    the floor cannot see (#356: one recipe read -0.065 [-0.117, -0.013]
+    on one run and +0.050 on the next, at one seed per arm). Pass
+    ``train_runs`` and the headline metric gains a between-seed term: each
+    trained arm's per-seed means give a between-seed standard deviation
+    ``train_std[arm]``, the delta's variance adds ``std**2 / n_seeds`` per
+    arm, and ``train_ci95`` is the interval centred on the across-seed
+    delta ``train_delta`` and widened in quadrature by the two-sided t
+    quantile at ``train_df = sum(n_seeds - 1)`` (Lambert 2025, chapter
+    Evaluation; Miller 2024, arXiv:2411.00640, on the variance components
+    a claim rests on). ``moved`` then needs that interval to exclude zero
+    as well; when it covers zero the verdict is ``no_change_detected`` and
+    a warning says the seed spread ate the delta. Fewer than
+    ``MIN_TRAIN_SEEDS`` (2) seeds on a trained arm resolves nothing: the
+    verdict is ``unresolved``, the interval and floor lines still print,
+    and the line says "one training seed per arm; add a seed to resolve".
+    Without ``train_runs`` the report says nothing about training seeds
+    (a prompt edit or a model swap has none); the paper-recipe contract
+    (``recipes/papers/check.py``) reads a one-seed delta as unresolved.
+
     Comparability. ``config`` says what each side was produced with
     (``pass_at(...).config`` per side: task count, k, temperature, max_tokens,
     policy and judge versions, prompt hash). A warning names each setting the
@@ -492,6 +633,7 @@ def delta_report(
                 "run_std_runs is the number of re-runs run_std was computed from, at least 2"
             )
         run_std_runs = int(run_std_runs)
+    train_arms = _train_arms(train_runs) if train_runs is not None else None
     level = 1.0 - alpha
     balanced: dict[str, Any] | None = None
     if balance_rollouts:
@@ -593,9 +735,59 @@ def delta_report(
         target_verdict = None
     else:
         target_verdict = _verdict_word(target_result, replicated)
-    ok = not regressions and target_verdict not in {"moved_the_wrong_way"}
     warnings: list[str] = []
     not_comparable: list[str] = []
+    # Training seeds: the between-seed term on the headline metric, and
+    # the verdict rule that "moved" needs MIN_TRAIN_SEEDS seeds per
+    # trained arm (#356). ``ok`` reads the verdict before "unresolved"
+    # hides it, so a wrong-way delta on one seed still fails the gate.
+    headline_result = target_result if target_result else results["pass_at_1"]
+    train = (
+        _train_spread(train_arms, before, after, headline_metric, headline_result, level)
+        if train_arms is not None
+        else None
+    )
+
+    def _train_word(word: str | None) -> tuple[str | None, str | None]:
+        """The headline word after the training-seed rule: (gate word,
+        printed word). The gate word keeps a wrong-way delta visible."""
+        if train is None or word in {None, "insufficient_data", "target_not_measured"}:
+            return word, word
+        moved_words = {"moved", "moved_unreplicated", "moved_the_wrong_way"}
+        if train["ci95"] is not None and word in moved_words:
+            lo, hi = train["ci95"]
+            if lo <= 0.0 <= hi:
+                word = "no_change_detected"
+        if train["under_replicated"]:
+            return word, "unresolved"
+        return word, word
+
+    gate_verdict, target_verdict = _train_word(target_verdict)
+    ok = not regressions and gate_verdict not in {"moved_the_wrong_way"}
+    if train is not None and train["under_replicated"]:
+        counts = train["counts"]
+        seeds = ", ".join(
+            f"{'untrained' if counts[s] is None else counts[s]} {s}" for s in ("before", "after")
+        )
+        warnings.append(
+            f"UNRESOLVED: {UNRESOLVED_LINE} (training seeds: {seeds}). The delta is between "
+            "two separately trained models and the re-run floor measures only the eval, so one "
+            "seed cannot separate the change from run-to-run training variance (Lambert 2025, "
+            "chapter Evaluation; Miller 2024, arXiv:2411.00640). Train each arm at "
+            f"{MIN_TRAIN_SEEDS} or more seeds and pass every seed's rows in train_runs=."
+        )
+    elif train is not None and train["ci95"] is not None:
+        lo, hi = train["ci95"]
+        stds = ", ".join(
+            f"{train['std'][s]:.3f} {s}" for s in ("before", "after") if train["std"][s] is not None
+        )
+        if lo <= 0.0 <= hi and headline_result.get("delta") is not None:
+            warnings.append(
+                f"{headline_metric}: {headline_result['delta']:+.3f} on this seed pair, but "
+                f"across training seeds {train['delta']:+.3f} with interval {lo:+.3f}..{hi:+.3f} "
+                f"covers zero (between-seed std {stds}; {train['rule']}); the change does not "
+                "survive the seed spread"
+            )
     if target_verdict == "moved_unreplicated" and headline_metric not in no_floor:
         single = [side for side, n in eval_runs.items() if n < 2]  # noqa: PLR2004  # two runs before a run std exists
         where = "each side" if len(single) != 1 else f"the {single[0]} side"
@@ -778,7 +970,9 @@ def delta_report(
             "n_tasks"
         ]
     verdict_word = (
-        target_verdict if target_result else _verdict_word(results["pass_at_1"], replicated)
+        target_verdict
+        if target_result
+        else _train_word(_verdict_word(results["pass_at_1"], replicated))[1]
     )
     if verdict_word == "no_change_detected" and can_prove is not None:
         line = (
@@ -1045,6 +1239,15 @@ def delta_report(
             "noise_rule": noise_rule,
             "eval_runs": eval_runs,
             "replicated": replicated,
+            #: training seeds per arm (None: untrained, or no train_runs given),
+            #: the between-seed std of each arm's mean, the across-seed delta
+            #: and its widened interval on the headline metric (#356)
+            "train_runs": train["counts"] if train else None,
+            "train_std": train["std"] if train else None,
+            "train_df": train["df"] if train else None,
+            "train_delta": train["delta"] if train else None,
+            "train_ci95": train["ci95"] if train else None,
+            "train_rule": train["rule"] if train else None,
             "ceiling": ceiling,
             "detectable_effect": can_prove,
             "tasks_needed": tasks_needed,
@@ -1177,6 +1380,27 @@ def format_delta_report(report: dict[str, Any]) -> str:
         )
         per_metric = ", per metric below" if len(set(floors.values())) > 1 else ""
         lines.append(f"eval noise: {head} ({report['noise_rule']}; {source}{per_metric})")
+    counts = report.get("train_runs")
+    if counts is not None:
+        # The between-seed arithmetic, printed the way run_std is above.
+        stds = report.get("train_std") or {}
+
+        def _seeds(side: str) -> str:
+            n = counts.get(side)
+            return "untrained" if n is None else f"{n} seed{'s' if n != 1 else ''}"
+
+        head = f"training seeds: {_seeds('before')} before, {_seeds('after')} after"
+        span = report.get("train_ci95")
+        if span:
+            std_text = ", ".join(
+                f"{stds[s]:.3f} {s}" for s in ("before", "after") if stds.get(s) is not None
+            )
+            lines.append(
+                f"{head}; between-seed std {std_text}; across seeds {report['train_delta']:+.3f}, "
+                f"interval widened to {span[0]:+.3f}..{span[1]:+.3f} ({report['train_rule']})"
+            )
+        else:
+            lines.append(f"{head}; unresolved: {UNRESOLVED_LINE}")
     if report.get("n_metrics", 0) >= 2 and report.get("family_error") is not None:  # noqa: PLR2004  # a family needs two metrics
         lines.append(
             f"family error: {report['n_metrics']} metrics at {level:.0%}, up to "

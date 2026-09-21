@@ -24,6 +24,8 @@ import pathlib
 import sys
 import time
 
+from whileai.config import provenance
+
 HERE = pathlib.Path(__file__).resolve().parent
 ROWS = HERE / "rows"
 STATE = HERE / "state.json"
@@ -399,6 +401,7 @@ def step_dry(args) -> None:
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

@@ -582,7 +582,8 @@ def holdout_size(
     or ``[]`` where it does not apply). The default answer is unchanged;
     the honest paths are the two that measure.
 
-    A saturated baseline cannot size anything. Rows whose tasks all pass
+    A saturated ``base=`` cannot size anything (``base`` is the before
+    arm's pass rate; there is no ``baseline=``). Rows whose tasks all pass
     give ``p = 1``, the binomial variance ``p(1-p)`` is 0, and both arms
     all passing give a measured paired sd of 0; the formula then returns
     the floor, ``MIN_HOLDOUT_TASKS``, which is the model collapsing, not
@@ -593,7 +594,7 @@ def holdout_size(
     rows are not used: ``n_tasks`` is the binomial model's answer at
     ``BASE_PASS_RATE`` and the rows' ``k``, ``sd_source`` is ``"model"``,
     ``saturated`` is ``True``, and ``warnings`` names the ceiling and the
-    fix: harder situations, so the baseline sits inside the 20-80
+    fix: harder situations, so ``base`` sits inside the 20-80
     difficulty band (Lambert 2025, chapter Reasoning; DAPO, arXiv
     2503.14476, drops prompts at accuracy 0 and 1 because they carry no
     signal), then size again on those rows.
@@ -1016,11 +1017,16 @@ def eval_variance(
     ``evaluate(run_id=)`` stamps), or a top-level or lineage key named by
     ``by``. Each run's ``metric`` is a mean over tasks; the report is
     those means, their mean, the sample standard deviation ``run_std``,
-    and ``noise_band`` = ``noise_band(run_std)``, 1.96 x sqrt(2) x
-    ``run_std``: a before/after delta with one run per side is the
-    difference of two re-run draws, and a delta inside that band is what
-    re-running the eval does on its own (``run_std`` is taken as the
-    eval's spread; from three runs it is rough, and the note says so).
+    and ``noise_band`` = ``noise_band(run_std, df=n_runs - 1)``: the
+    two-sided t quantile at ``noise_band_df`` = ``n_runs - 1`` times
+    sqrt(2) times ``run_std``, because a before/after delta with one run
+    per side is the difference of two re-run draws and ``run_std`` is an
+    estimate from these very runs, not the eval's exact spread (Lambert
+    2025, chapter Evaluation). This is the band ``compare(run_std=,
+    run_std_runs=)`` applies; with three runs the multiplier is 4.30, not
+    1.96 (the 1.96 band read a three-run estimate as exact and let about
+    one pure-noise delta in five through, #616). A delta inside the band
+    is what re-running the eval does on its own.
     ``run_std_by_metric``
     reports the same floor for pass@1 and every marker shared by all runs;
     hand that mapping to ``delta_report(run_std=)`` so each metric uses its
@@ -1101,7 +1107,10 @@ def eval_variance(
         "run_std": round(std, 4) if std is not None else None,
         "run_std_by_metric": run_std_by_metric,
         "run_std_points": round(std * POINTS_PER_UNIT, 2) if std is not None else None,
-        "noise_band": round(noise_band(std), 4) if std is not None else None,
+        # ``std`` exists only from two or more runs, so ``n - 1`` is at
+        # least one: the band carries the estimate's own degrees of freedom.
+        "noise_band": round(noise_band(std, df=n - 1), 4) if std is not None else None,
+        "noise_band_df": n - 1 if std is not None else None,
         "stability": stability,
         "tasks_in_every_run": len(common),
         "notes": [],

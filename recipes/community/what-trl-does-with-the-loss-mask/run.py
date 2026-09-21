@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 
@@ -131,6 +133,7 @@ def build(seed: int, out_dir: Path) -> dict:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct")

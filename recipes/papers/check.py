@@ -4,63 +4,27 @@ from the results files so parallel authors never edit the same lines.
 
     python recipes/papers/check.py          # verify; exit 1 on the first miss
     python recipes/papers/check.py --write  # regenerate the table, then verify
+
+The band and the seed rule are the package's own (``whileai.simulations``):
+this script imports them from the checkout it lives in, so the number a
+recipe is held to is the number ``compare()`` prints, never a copy.
 """
 
 from __future__ import annotations
 
 import json
-import math
 import re
 import sys
 from pathlib import Path
 
 PAPERS = Path(__file__).resolve().parent
+sys.path.insert(0, str(PAPERS.parents[1]))
 
-
-#: Two-sided 95% quantiles of Student's t by degrees of freedom, the same
-#: table as ``whileai.simulations.score.stats._T975``; past 30 the first
-#: two Cornish-Fisher terms in z, within 0.001 of the table there.
-_Z_95 = 1.96
-_T975 = {
-    1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306,
-    9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131,
-    16: 2.120, 17: 2.110, 18: 2.101, 19: 2.093, 20: 2.086, 21: 2.080, 22: 2.074,
-    23: 2.069, 24: 2.064, 25: 2.060, 26: 2.056, 27: 2.052, 28: 2.048, 29: 2.045,
-    30: 2.042,
-}  # fmt: skip
-
-
-def t_quantile(df: int) -> float:
-    """The two-sided 95% t quantile at ``df`` degrees of freedom (a stdlib
-    copy of ``whileai.simulations.score.stats._t_quantile`` at the default
-    level)."""
-    n = max(1, int(df))
-    if n in _T975:
-        return _T975[n]
-    z = _Z_95
-    return z + (z**3 + z) / (4 * n) + (5 * z**5 + 16 * z**3 + 3 * z) / (96 * n * n)
-
-
-def noise_band(run_std: float, n_a: int = 1, n_b: int = 1, df: int | None = None) -> float:
-    """The re-run band a delta has to clear: a stdlib copy of
-    ``whileai.simulations.score.stats.noise_band`` (this script runs before
-    the package is installed), same formula, same sentence.
-
-    ``run_std`` is the standard deviation of ONE run's mean when the same
-    model is evaluated again. A delta is the mean of ``n_a`` before runs
-    against the mean of ``n_b`` after runs, so its own standard deviation
-    is ``run_std * sqrt(1/n_a + 1/n_b)``; the band is that times 1.96 for
-    a ``run_std`` taken as the eval's exact spread (``df=None``), or the
-    two-sided 95% t quantile at ``df`` when it was estimated from re-runs.
-    A paper recipe estimates ``run_std`` from ``run_std_runs`` base re-runs
-    and compares one run per side, so the bar here is ``t(df =
-    run_std_runs - 1) x sqrt(2) x run_std``: 4.30 x sqrt(2) x run_std from
-    three re-runs, 2.26 x sqrt(2) from ten. The 1.96 band read a three-run
-    estimate as exact and let about one pure-noise delta in five through.
-    """
-    q = _Z_95 if df is None else t_quantile(df)
-    return q * float(run_std) * math.sqrt(1.0 / n_a + 1.0 / n_b)
-
+from whileai.config import provenance
+from whileai.simulations.defaults import MIN_TRAIN_SEEDS
+from whileai.simulations.score.delta import UNRESOLVED_LINE
+from whileai.simulations.score.stats import _t_quantile as t_quantile
+from whileai.simulations.score.stats import noise_band
 
 INDEX = PAPERS / "README.md"
 START, END = "<!-- table:start -->", "<!-- table:end -->"
@@ -86,6 +50,7 @@ ARM_KEYS = {"score", "ci", "steps"}
 CHECK_KEYS = {
     "run_std",
     "run_std_runs",
+    "train_seeds",
     "decontaminated_dropped",
     "over_optimized",
     "length_before",
@@ -93,6 +58,10 @@ CHECK_KEYS = {
     "hack_scan_top",
     "seed",
 }
+#: The verdict vocabulary of a paper recipe. ``moved`` and ``flat`` need
+#: ``MIN_TRAIN_SEEDS`` training seeds on both trained arms; at one seed per
+#: arm the only word is ``unresolved`` (#356).
+VERDICTS = ("moved", "flat", "unresolved")
 COLUMNS = (
     "| Recipe | Paper | Base | Metric | Baseline -> Recipe | Verified |\n|---|---|---|---|---|---|"
 )
@@ -111,16 +80,24 @@ def load(d: Path) -> dict:
     return json.loads((d / "results.json").read_text(encoding="utf-8"))
 
 
+def seeds_per_arm(r: dict) -> int:
+    """The fewest training seeds behind either trained arm."""
+    seeds = r["checks"]["train_seeds"]
+    return min(int(seeds["baseline"]), int(seeds["recipe"]))
+
+
 def row(d: Path, r: dict) -> str:
     base, rec = r["arms"]["baseline"], r["arms"]["recipe"]
     delta = r["delta"]
     lo, hi = delta.get("ci", [0.0, 0.0])
     verified = "never run" if str(r["verified"]).startswith("1970") else r["verified"]
     paper_id = r["paper"].rstrip("/").rsplit("/", 1)[-1]
+    n = seeds_per_arm(r)
+    verdict = f"{delta['verdict']}, {n} seed{'s' if n != 1 else ''} per arm"
     return (
         f"| [{d.name}]({d.name}) | [{paper_id}]({r['paper']}) | {r['base_model']} "
         f"| {r['metric']} | {base['score']:.2f} -> {rec['score']:.2f} "
-        f"({delta['recipe_vs_baseline']:+.2f} [{lo:+.2f}, {hi:+.2f}], {delta['verdict']}) "
+        f"({delta['recipe_vs_baseline']:+.2f} [{lo:+.2f}, {hi:+.2f}], {verdict}) "
         f"| {verified} |"
     )
 
@@ -153,8 +130,9 @@ def check_recipe(d: Path) -> dict:
             fail(f"{d.name}: arm '{arm}' missing {sorted(ARM_KEYS - set(r['arms'][arm]))}")
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(r["verified"])):
         fail(f"{d.name}: verified must be YYYY-MM-DD")
-    if r["delta"].get("verdict") not in ("moved", "flat"):
-        fail(f"{d.name}: delta.verdict must be moved or flat")
+    verdict = r["delta"].get("verdict")
+    if verdict not in VERDICTS:
+        fail(f"{d.name}: delta.verdict must be one of {', '.join(VERDICTS)}")
     if not re.fullmatch(r"[A-Z][A-Za-z ,-]+", str(r["book"])):
         fail(
             f"{d.name}: book must be a chapter title of Lambert 2025, like 'Reinforcement Learning'"
@@ -164,12 +142,30 @@ def check_recipe(d: Path) -> dict:
     # The science bar: "moved" needs an interval that excludes zero AND a delta
     # larger than the eval's own re-run band (Lambert 2025, chapter Evaluation, appendix C), and no
     # over-optimization verdict (chapter Over-optimization). Otherwise it is "flat". The band is
-    # noise_band(run_std), the same number as whileai's eval_variance
-    # noise_band and delta_report(run_std=) within_noise test.
+    # noise_band(run_std, df=run_std_runs - 1), the same number as whileai's
+    # eval_variance noise_band and delta_report(run_std=, run_std_runs=) within_noise test.
     runs = r["checks"]["run_std_runs"]
     if not isinstance(runs, int) or runs < 2:  # two runs before a standard deviation exists
         fail(f"{d.name}: checks.run_std_runs is the number of base re-runs behind run_std, 2+")
-    if r["delta"]["verdict"] == "moved":
+    # The claim is a delta between two separately trained models, and the
+    # band above measures only the eval (#356): "moved" and "flat" need
+    # MIN_TRAIN_SEEDS training seeds on both arms; one seed per arm is
+    # "unresolved", whatever the interval says.
+    seeds = r["checks"]["train_seeds"]
+    if not isinstance(seeds, dict) or {"baseline", "recipe"} - set(seeds):
+        fail(
+            f"{d.name}: checks.train_seeds is {{'baseline': n, 'recipe': n}}, training seeds per arm"
+        )
+    if any(not isinstance(seeds[arm], int) or seeds[arm] < 1 for arm in ("baseline", "recipe")):
+        fail(f"{d.name}: checks.train_seeds counts are whole numbers, 1 or more")
+    if seeds_per_arm(r) < MIN_TRAIN_SEEDS and verdict != "unresolved":
+        fail(
+            f"{d.name}: verdict {verdict} at {seeds_per_arm(r)} training seed per arm; "
+            f"{UNRESOLVED_LINE} ({MIN_TRAIN_SEEDS} or more per arm, then moved or flat)"
+        )
+    if seeds_per_arm(r) >= MIN_TRAIN_SEEDS and verdict == "unresolved":
+        fail(f"{d.name}: {seeds_per_arm(r)} seeds per arm resolve the verdict; say moved or flat")
+    if verdict == "moved":
         lo, hi = r["delta"].get("ci", [0.0, 0.0])
         delta = float(r["delta"]["recipe_vs_baseline"])
         run_std = float(r["checks"]["run_std"])
@@ -190,6 +186,9 @@ def check_recipe(d: Path) -> dict:
 
 
 def main(write: bool) -> None:
+    # The band comes from whichever whileai this process imported; say which
+    # (#443), on stderr so stdout stays the check's own report.
+    print(provenance(), file=sys.stderr)
     dirs = recipe_dirs()
     for d in dirs:
         check_recipe(d)

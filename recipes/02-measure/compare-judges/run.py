@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 from whileai.judge_comparison import compare_judges
 
 HERE = Path(__file__).resolve().parent
@@ -205,6 +206,7 @@ def stage_report(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("stage", nargs="?", default="run", choices=["run", "report"])
     p.add_argument(

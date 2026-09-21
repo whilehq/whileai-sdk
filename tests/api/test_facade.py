@@ -20,8 +20,11 @@ import whileai as wai
 from tests.helpers import POLICY, TOOLS
 from whileai.config import reset
 
-# rule 1: the top level is the loop and its nouns, under thirty names
-TOP_LEVEL_CAP = 30
+# rule 1: the top level is the loop and its nouns, under thirty names.
+# `rows` (#613) made it thirty-one by the maintainer's call; the pin in
+# tests/api/test_style_ratchet.py moved with it, and the next name takes one off:
+# `Fireworks` took `Settings` (the class behind `wai.settings`) off the list.
+TOP_LEVEL_CAP = 31
 
 
 @pytest.fixture(autouse=True)
@@ -64,6 +67,12 @@ def test_backend_repr_names_the_key_source():
     assert "key=none needed" in repr(local)
     assert local.spec == "vllm:Qwen/Qwen3-4B@http://localhost:8000/v1"
     assert wai.Ollama("llama3").spec == "ollama:llama3"
+    fw = wai.Fireworks("accounts/fireworks/models/llama-v3p1-8b-instruct")
+    assert (
+        repr(fw)
+        == "Fireworks(model='accounts/fireworks/models/llama-v3p1-8b-instruct', key=FIREWORKS_API_KEY)"
+    )
+    assert fw.spec == "fireworks:accounts/fireworks/models/llama-v3p1-8b-instruct"
     assert wai.Hosted().spec is None
     assert "whileai login" in repr(wai.Hosted())
     with pytest.raises(ValueError, match="url="):
@@ -97,6 +106,24 @@ def test_key_on_a_backend_reaches_the_provider(monkeypatch):
     assert resolve_completion_key("https://api.openai.com/v1") == "sk-test"
     assert resolve_completion_key("https://api.openai.com/v1", api_key="explicit") == "explicit"
     assert "keys=openai" in repr(wai.settings)
+
+
+def test_fireworks_reads_its_own_key_never_the_openai_one(monkeypatch):
+    from whileai.simulations.generate.agents import parse_backend_spec, resolve_completion_key
+
+    url, model = parse_backend_spec("fireworks:accounts/fireworks/models/llama-v3p1-8b-instruct")
+    assert (url, model) == (
+        "https://api.fireworks.ai/inference/v1",
+        "accounts/fireworks/models/llama-v3p1-8b-instruct",
+    )
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    monkeypatch.delenv("FIREWORKS_API_KEY", raising=False)
+    assert resolve_completion_key(url) == ""
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fw-env")
+    assert resolve_completion_key(url) == "fw-env"
+    wai.configure(agent=wai.Fireworks(model, api_key="fw-given"))
+    assert resolve_completion_key(url) == "fw-given"
+    assert "keys=fireworks" in repr(wai.settings)
 
 
 def test_account_key_from_configure(monkeypatch):

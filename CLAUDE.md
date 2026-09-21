@@ -12,7 +12,7 @@ One command, run from any checkout, by anyone with write access:
 gh workflow run release.yml
 ```
 
-It cuts the next hundredth from whatever sits under `## Unreleased` in
+It cuts the next number (`0.N` then `0.N+1`, never `1.0`) from whatever sits under `## Unreleased` in
 CHANGELOG.md, lands the bump on main, and starts publish.yml. Runs queue
 on a concurrency group, so two agents shipping in the same minute get two
 releases in order, or one release and one "nothing to ship". Watch it with

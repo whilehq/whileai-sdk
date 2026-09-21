@@ -23,6 +23,9 @@ import json
 import random
 import re
 import statistics
+import sys
+
+from whileai.config import provenance
 
 TOOL_JSON = re.compile(r'"(status|data|order_id|ref|updated_at)"\s*:')
 ROLE_MARK = re.compile(r"(^|\n)\s*(user|assistant|tool|system)\s*:", re.I)
@@ -50,6 +53,7 @@ def paired_delta(a: list[str], b: list[str], fn, n_boot: int = 10000, seed: int 
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     res = json.loads(open("raw_results.json").read())
     base = res["base_evals"]
     arms = res["arms"]

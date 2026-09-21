@@ -206,6 +206,11 @@ _CONCRETE_REF = re.compile(
 )
 _DEGENERATE = re.compile(r"(.)\1{29,}")
 _UNFINISHED_TAIL = re.compile(r"[.!?:)\"'\]}]\s*$")
+# A last line that is the answer itself: GSM8K's ``#### 42``, a bare number,
+# a ``\boxed{}`` (which ends on ``}`` above). A benchmark solution ends
+# there without punctuation, and a rule that read only the last character
+# dropped every GSM8K chain of thought over the char cap as truncated (#613).
+_ANSWER_LINE = re.compile(r"^(?:#{2,4}\s*)?[-+]?\$?\d[\d,]*(?:\.\d+)?%?$")
 _SIGN_OFF = re.compile(
     r"^(?:--+|—|best|all the best|(?:kind|best|warm) regards|regards|thanks|thank you|"
     r"many thanks|cheers|sincerely|warmly|yours(?: truly| sincerely)?|take care|talk soon)\b",
@@ -228,6 +233,8 @@ def looks_finished(final: str) -> bool:
     carries no punctuation at all: a text-to-SQL set had 486 of 1,556
     rollouts dropped as truncated on that alone (#212). A closed fence is
     an ending; an unclosed one is exactly the cut the rule is looking for.
+    A reply whose last line is the answer itself (GSM8K's ``#### 42``, a
+    bare number) is finished the same way (#613).
     """
     text = final.rstrip()
     if not text:
@@ -239,6 +246,8 @@ def looks_finished(final: str) -> bool:
         return text.count("```") % 2 == 0
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     last = lines[-1]
+    if _ANSWER_LINE.match(last):
+        return True
     if len(last.split()) <= TEXT_HEURISTICS.sign_off_max_words and _SIGN_OFF.match(last):
         return True
     if (

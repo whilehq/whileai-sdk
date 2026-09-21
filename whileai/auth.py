@@ -35,10 +35,13 @@ from whileai._env import env_name, getenv
 
 #: The While platform API (whilehq/website/backend): serves /device/code,
 #: /device/token, /signup and /me. ``WHILEAI_API_URL`` overrides.
-DEFAULT_API_URL = "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com"
-#: The token gate this API replaced for login. A credentials file that
-#: pinned it was written by a whileai before 0.5x and means the default now.
+DEFAULT_API_URL = "https://api.withwhile.com"
+#: Hosts a credentials file may still pin: the token gate this API replaced
+#: for login (whileai before 0.5x) and the raw API Gateway hostname the
+#: platform API answered on before it had its own name (0.72 to 1.09). Both
+#: mean the default now; the key is the same key.
 _RETIRED_API_URL = "https://api.zeroproofai.com"
+_PREVIOUS_API_URLS = (_RETIRED_API_URL, "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com")
 #: The site that hosts /sign-in and the /device approval page.
 SITE_URL = "https://withwhile.com"
 SIGN_IN_URL = f"{SITE_URL}/sign-in"
@@ -132,9 +135,9 @@ def _read(path: Path) -> dict | None:
 def _read_credentials() -> dict | None:
     """The saved credentials file, or ``None``."""
     saved = _read(credentials_path())
-    # A login saved against the retired token-gate host moves to the
-    # default API without signing in again; the key is the same key.
-    if saved and saved.get("api_url") == _RETIRED_API_URL:
+    # A login saved against a previous host moves to the default API
+    # without signing in again; the key is the same key.
+    if saved and saved.get("api_url") in _PREVIOUS_API_URLS:
         saved["api_url"] = DEFAULT_API_URL
     return saved
 

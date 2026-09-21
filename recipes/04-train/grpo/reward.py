@@ -245,6 +245,61 @@ def reward_rows(prompts: list[dict[str, Any]], replies: list[list[str]]) -> list
     return rows
 
 
+def scripted_reply(case: dict[str, Any], follow: bool = True) -> str:
+    """A reply a policy that follows the rule gives (``follow=True``), or the
+    one mistake per case a policy that refunds first gives. What the smoke
+    run samples in place of a model."""
+    if not follow:
+        return (
+            "<tool_call>\n"
+            + json.dumps(
+                {"name": "create_refund", "arguments": {"order_id": "ORD-1", "amount": 20}}
+            )
+            + "\n</tool_call>"
+        )
+    if case.get("order_id"):
+        return (
+            "<tool_call>\n"
+            + json.dumps({"name": "lookup_order", "arguments": {"order_id": case["order_id"]}})
+            + "\n</tool_call>"
+        )
+    if case.get("in_domain"):
+        return "Of course. What is the order id?"
+    return "I can only help with orders and refunds."
+
+
+def main(argv: list[str] | None = None) -> int:
+    """The offline path: the prompt set, the split and the reward on two
+    scripted policies, so the environment is checked before a GPU is paid for.
+
+        python reward.py --n 40      # what smoke.sh runs; no key, no GPU
+    """
+    import argparse
+    import sys
+
+    import whileai as wai
+    from whileai.config import provenance
+
+    print(provenance(), file=sys.stderr)
+    ap = argparse.ArgumentParser(description=main.__doc__)
+    ap.add_argument("--n", type=int, default=40, help="prompts from the template writer")
+    ap.add_argument("--seed", type=int, default=0)
+    args = ap.parse_args(argv)
+    prompts = build_prompts(args.n, seed=args.seed)
+    train, held = split_holdout(prompts)
+    with_id = sum(1 for p in prompts if p["case"]["order_id"])
+    print(
+        f"{len(prompts)} prompts from the template writer ({with_id} naming an order id): "
+        f"{len(train)} train, {len(held)} holdout"
+    )
+    before = reward_rows(held, [[scripted_reply(p["case"], follow=False)] for p in held])
+    after = reward_rows(held, [[scripted_reply(p["case"])] for p in held])
+    print(f"refund-first policy: {wai.pass_at(before)}")
+    print(f"rule-following policy: {wai.pass_at(after)}")
+    print(wai.compare(before, after, target="pass_at_1", must_not_regress=["well_formed"]))
+    return 0
+
+
 __all__ = [
     "FORMAT_BONUS",
     "POLICY",
@@ -256,5 +311,10 @@ __all__ = [
     "parse_tool_call",
     "reward_rows",
     "score",
+    "scripted_reply",
     "split_holdout",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -4,8 +4,11 @@ sidebarTitle: "Your model and your key"
 description: "How to name the model the agent runs on, which environment variable each provider reads, where the requests go, and the three things that reach While only when you ask."
 ---
 
+**What you learn:** the model as a string per provider, which variable holds its key, where the requests go, and what reaches While only when you ask. **Needs:** the key of the provider you name; nothing to read. **Takes:** five minutes.
+
 The shortest answer is a backend object: `wai.OpenAI("gpt-4.1-mini",
-api_key="sk-...")`, `wai.Anthropic(...)`, `wai.Endpoint(model, url=)`,
+api_key="sk-...")`, `wai.Anthropic(...)`, `wai.Fireworks(...)`,
+`wai.models.Bedrock(model_id, region=)`, `wai.Endpoint(model, url=)`,
 `wai.Ollama(...)`, `wai.Hosted()`. Its repr says where the call goes and
 which key it uses, `wai.configure(agent=, judge=, api_key=)` sets it once
 for the process, and `print(wai.settings)` shows what each role resolves
@@ -41,6 +44,8 @@ data = wai.simulate(
 |---|---|---|
 | `"openai:<model>"` | `OPENAI_API_KEY` (`OPENAI_BASE_URL` for a compatible server) | api.openai.com, or the base URL you set |
 | `"anthropic:<model>"` | `ANTHROPIC_API_KEY` | api.anthropic.com |
+| `"fireworks:accounts/fireworks/models/<name>"` | `FIREWORKS_API_KEY` | api.fireworks.ai |
+| `"bedrock:<model-id>[@<region>]"` | `AWS_BEARER_TOKEN_BEDROCK`, else your AWS credentials through boto3 | bedrock-runtime.`<region>`.amazonaws.com |
 | `"vllm:<model>@<url>"` | `OPENAI_API_KEY`; none for localhost or plain http | `<url>` |
 | `"ollama:<model>"` | none | localhost:11434 |
 | `"typesafe:<model>"` (judge only) | `TYPESAFE_API_KEY` | TypeSafe's API |
@@ -63,13 +68,104 @@ repo id on a server you run)
 A model name may itself contain slashes after the colon, as a Hugging Face
 repo id does: `"vllm:Qwen/Qwen3-4B@http://localhost:8000/v1"`. A bare model
 name (`"gpt-4.1-mini"`) and a provider that is not in the table above are
-refused the same way, naming the five forms.
+refused the same way, naming the seven forms.
 
 Set the key the way you already do for that provider:
 
 ```bash
 export OPENAI_API_KEY=sk-...        # or ANTHROPIC_API_KEY=...
 ```
+
+## Amazon Bedrock
+
+`bedrock:<model-id>` reaches any chat model Bedrock hosts on your AWS
+account through its Converse API: a foundation model
+(`anthropic.claude-haiku-4-5-20251001-v1:0`), a cross-region inference
+profile (`us.anthropic.claude-sonnet-5`), or the ARN of a model you
+imported yourself. Pin the region with `@<region>`; without it the SDK
+reads `AWS_REGION`, then `AWS_DEFAULT_REGION`, then uses `us-east-1`.
+
+Two ways in, both your own:
+
+| You have | Set | Installs |
+|---|---|---|
+| a Bedrock API key (console, *API keys*) | `AWS_BEARER_TOKEN_BEDROCK`, or `api_key=` on `wai.models.Bedrock` | nothing; the calls go over `requests` |
+| AWS credentials (`aws configure`, `AWS_PROFILE`, a role) | nothing more | `pip install "whileai[bedrock]"` for boto3, which signs the calls |
+
+```python
+import whileai as wai
+
+wai.configure(
+    agent="bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0@us-west-2",
+    judge="bedrock:us.anthropic.claude-sonnet-5@us-west-2",
+)
+```
+
+The object form, `wai.models.Bedrock(model_id, region=, api_key=)`, is the
+same spec with a place for a key; it sits one dot down so the front door
+stays small.
+
+A model you trained and imported into Bedrock is the same spec with its
+ARN as the model id, so the held-out measurement that scored the base
+scores the served weights unchanged:
+
+```python
+served = "bedrock:arn:aws:bedrock:us-east-1:123456789012:imported-model/abc123def456"
+after = wai.simulate(served, tools=TOOLS, system_prompt=POLICY, seed=0)
+```
+
+Three facts about imported models, measured on 2026-09-20 with a Llama 3.1
+8B adapter: the import takes merged weights in the Hugging Face layout (a
+LoRA adapter is merged into its base first, then uploaded to S3; the
+[Bedrock import recipe](/recipes/05-export/bedrock-import) does it on
+Modal); Bedrock refuses Converse for an imported model and answers
+`InvokeModel` with the OpenAI chat body instead, so the SDK picks that
+route from the ARN and you change nothing; and an idle import is
+unloaded, so the first call after a pause took 96 s and returns
+`ModelNotReadyException` until it is back, which the SDK waits through
+(ten tries, fifteen seconds apart) before saying so in one sentence.
+Neither route returns log-probabilities, so `logprobs=` has no effect.
+Bedrock honors tool calling on imports only for GPT-OSS models.
+
+## Serve it on While
+
+`https://models.withwhile.com/v1` is one OpenAI-compatible endpoint in
+front of every model your account registers, wherever it runs: a Bedrock
+import in While's account or in yours, or any `/v1` server you host. Your
+While key picks the account, `model` picks the row, and any OpenAI client
+works, so a served model needs no SDK change at all:
+
+```python
+import whileai as wai
+
+served = wai.Endpoint("nemotron-8b-t2s-r1", url="https://models.withwhile.com/v1", api_key="zp_...")
+```
+
+Register a model once, with the same key:
+
+```bash
+curl -X POST https://models.withwhile.com/models \
+  -H "Authorization: Bearer $WHILEAI_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name": "nemotron-8b-t2s-r1", "arn": "arn:aws:bedrock:us-east-1:<account>:imported-model/<id>",
+       "roleArn": "arn:aws:iam::<account>:role/WhileModelsInvoke"}'
+```
+
+| you register | While calls | credentials |
+|---|---|---|
+| `{name, arn, region?, roleArn?}` | a Bedrock import, custom deployment, provisioned model or inference profile | While's own role, or a role in your account named `WhileModelsInvoke*` that trusts account `940333627479` with external id `while-models`, assumed per call; While never holds a key of yours |
+| `{name, url, model, auth?}` | any OpenAI-compatible `/v1` server | `auth: "caller"` forwards your While key to it, `"none"` sends nothing |
+
+A subdomain of your own: `PUT /domain {"subdomain": "acme"}` makes
+`https://acme.models.withwhile.com/v1` answer for your account and no other;
+a call there with another account's key is refused. `GET /v1/models` lists
+what you registered, `DELETE /models/{name}` removes one. Streaming works. An import that sat idle is restored on the
+first call; until it is back the endpoint answers 503 with
+`code: model_starting` and a `Retry-After`, which the OpenAI SDKs honor.
+What While keeps: per model per day, the count of calls, errors and tokens,
+and nothing else. Never a prompt, a completion or a request log; Bedrock
+invocation logging is off and the endpoint logs errors without content.
+Each account gets 600 requests a minute across its keys, answered with a
+429 and a `Retry-After` past that.
 
 ## Tools are functions
 

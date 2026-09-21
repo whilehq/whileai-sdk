@@ -8,8 +8,8 @@ two different ways:
 
 What it does, in order:
 
-1. Reads the version from ``pyproject.toml`` and steps it by one hundredth
-   (``0.80`` -> ``0.81``, ``0.99`` -> ``1.00``), the same rule
+1. Reads the version from ``pyproject.toml`` and steps the counter by one
+   (``0.80`` -> ``0.81``, ``0.99`` -> ``0.100``), the same rule
    ``check_version.py`` enforces at publish time.
 2. In ``CHANGELOG.md`` renames ``## Unreleased`` to ``## <version> (<date>)``
    and puts a fresh, empty ``## Unreleased`` above it. That empty header is
@@ -21,7 +21,10 @@ What it does, in order:
 
 It refuses to cut when ``## Unreleased`` is missing or has no entries
 (exit code 3), so a run with nothing to ship is a no-op, not an empty
-release. The release workflow (``.github/workflows/release.yml``) runs
+release. It also refuses (exit code 1, ``--dry-run`` included) when the
+version in ``pyproject.toml`` is not a plain ``0.N``: a zero-padded segment
+(``1.07``) is ``1.7`` once PEP 440 normalizes it, so the string the package
+reports would not be the string ``CHANGELOG.md`` uses (#612). The release workflow (``.github/workflows/release.yml``) runs
 this on main and serializes concurrent runs; that workflow is how a
 release is cut, not a hand edit.
 """
@@ -41,22 +44,55 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 UNRELEASED = "## Unreleased"
 NOTHING_TO_SHIP = 3
 
-VERSION_LINE = re.compile(r'^version = "(\d+)\.(\d\d)"$', re.MULTILINE)
+VERSION_LINE = re.compile(r'^version = "(\d+)\.(\d+)"$', re.MULTILINE)
 
 
 def next_version(current: str) -> str:
-    """One hundredth up; 99 rolls the major (``check_version.next_allowed``)."""
+    """The counter goes up by one and never rolls over: 0.99 -> 0.100 -> 0.101.
+
+    Mirrors ``check_version.next_allowed``. The major stays 0; no zero
+    padding, because PEP 440 drops it (``1.07`` is ``1.7`` on PyPI, which is
+    how 2026-09-20 shipped 1.0..1.9 instead of 0.100..0.109).
+    """
     major, minor = (int(p) for p in current.split("."))
-    if minor >= 99:  # hundredths run 00..99, then the major steps
-        return f"{major + 1}.00"
-    return f"{major}.{minor + 1:02d}"
+    return f"{major}.{minor + 1}"
+
+
+def not_plain(version: str) -> str | None:
+    """Why ``version`` is not a plain ``0.N`` counter, or None when it is.
+
+    The string in ``pyproject.toml`` must survive PEP 440 unchanged, or
+    ``wai.__version__`` (read back from the installed metadata) stops
+    matching the ``CHANGELOG.md`` heading: ``1.07`` installs as ``1.7``.
+    A two-part version with no zero padding is its own normal form, so
+    the check needs no ``packaging`` import here; the test in
+    ``tests/api/test_version_string.py`` cross-checks it against
+    ``packaging.version.Version``.
+    """
+    parts = version.split(".")
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        return f"{version!r} is not MAJOR.N"
+    padded = [p for p in parts if p != str(int(p))]
+    if padded:
+        return (
+            f"{version!r} has a zero-padded segment ({', '.join(padded)}); PEP 440 reads it as "
+            f"{'.'.join(str(int(p)) for p in parts)!r}, so the installed version would not be "
+            f"the CHANGELOG.md heading. The counter is 0.N with no padding (0.99 then 0.100)."
+        )
+    if parts[0] != "0":
+        return f"{version!r} rolled the major; the counter stays 0.N (0.99 then 0.100)"
+    return None
 
 
 def read_version(path: Path) -> str:
     m = VERSION_LINE.search(path.read_text(encoding="utf-8"))
     if not m:
-        sys.exit(f'{path}: no `version = "X.YY"` line')
-    return f"{m.group(1)}.{m.group(2)}"
+        sys.exit(f'{path}: no `version = "0.N"` line')
+    version = f"{m.group(1)}.{m.group(2)}"
+    reason = not_plain(version)
+    if reason:
+        sys.exit(f"{path}: {reason}")
+    return version
 
 
 def unreleased_entries(text: str) -> str | None:

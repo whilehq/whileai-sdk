@@ -45,11 +45,15 @@
       0.0515625,
       0.1390625
     ],
-    "verdict": "moved"
+    "verdict": "unresolved"
   },
   "checks": {
     "run_std": 0.011,
     "run_std_runs": 3,
+    "train_seeds": {
+      "baseline": 1,
+      "recipe": 1
+    },
     "decontaminated_dropped": 0,
     "over_optimized": false,
     "length_before": 1387.440625,

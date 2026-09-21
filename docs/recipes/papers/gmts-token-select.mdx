@@ -52,10 +52,11 @@ noise floor; the recipe arm's 17.7 does not, and the base row's 0 is those
 evals counted under the baseline.
 
 Recipe vs baseline: **-0.310 [-0.383, -0.235]** over 120 paired tasks.
-Verdict: **flat**. The interval excludes zero but on the wrong side. `check.py`
-only rejects an interval that covers zero; the sign rule is this recipe's own,
-mapping `delta_report`'s `moved_the_wrong_way` to `flat` so the index never
-reads a collapse as a move.
+Verdict: **unresolved**. One training seed per arm; a second seed on each arm,
+passed as `train_runs=`, would resolve it, and on this evidence the resolved
+word would be flat, not moved: the interval excludes zero but on the wrong
+side, and `check.py` reserves "moved" for a gain, so a collapse never reads as
+a move.
 
 This is not a small miss. The recipe arm finished at 0.18, **below the 0.36 of
 the model that was never trained at all** — it did not fail to help, it

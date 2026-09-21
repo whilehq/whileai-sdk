@@ -28,6 +28,7 @@ import json
 import sys
 
 import whileai as wai
+from whileai.config import provenance
 
 TOOLS = [
     {
@@ -94,6 +95,7 @@ def measure(train: list[dict], holdout: list[dict]) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--budget", type=int, default=120, help="rollouts per simulate run")
     ap.add_argument("--dry-run", action="store_true", help="one seed pair, small budget")

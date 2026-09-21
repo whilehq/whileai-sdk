@@ -146,11 +146,15 @@ Returns `n`, `agreement`, `kappa` (Cohen, chance-corrected), the
 confusion counts, `pass_when_gold_fail` (the leak rate: gold
 failures the judge passed) and `fail_when_gold_pass`, both pass
 rates, `gold_kind` (where the labels came from: `"human"`,
-`"model"`, `"unknown"` for rows with no record), `ok` (rows were
-compared and the labels are a person's), and `warnings`. A second
-judge pass is model gold; rows with `gold_reward` but no
-`gold_kind` are unknown; either makes `ok` false with the reason
-unless `allow_model_gold=True`.
+`"program"`, `"model"`, `"unknown"` for rows with no record),
+`ok` (rows were compared and the labels are a person's or a
+program's), and `warnings`. A second judge pass is model gold; rows
+with `gold_reward` but no `gold_kind` are unknown; either makes
+`ok` false with the reason unless `allow_model_gold=True`. A
+program's labels (`attach_labels(kind="program")`: a verifier, a
+unit test, a rule over tool calls) are trusted like a person's, since
+a deterministic rule is at least as strong a gold as a rater (Lambert
+2025, chapter Evaluation, verifiable rewards).
 
 ## audit
 
@@ -343,6 +347,7 @@ delta_report(
     by: str | Callable[[dict], Any] | None = None,
     run_std: float | Mapping[str, float | None] | None = None,
     run_std_runs: int | None = None,
+    train_runs: TrainRuns | None = None,
     proxy: str | None = None,
     n_boot: int = 2000,
     seed: int = 0,
@@ -398,6 +403,11 @@ Arguments that matter:
 * `run_std` and `run_std_runs`: the evaluation's own re-run
   standard deviation, per metric or as one number, and how many
   re-runs it was computed from. See the noise floor below.
+* `train_runs`: the rows of every independent training seed of each
+  arm, when the two sides are separately trained models: a list of
+  row sets for the after arm (the before arm untrained), or
+  `{"before": [...], "after": [...]}` with `None` for an arm that
+  was not trained. See training seeds below.
 * `alpha` (0.05): the false-positive rate every verdict runs at.
   Each interval is at `1 - alpha` (`ci95` at the default), the
   re-run band uses the same quantile, and `family_error` is
@@ -470,6 +480,27 @@ per side: 2.78 x floor x sqrt(2/3)); `run_std` is then the headline
 metric's floor, `run_std_by_metric` has them all, `noise_band` is
 the headline band, `noise_rule` spells it out, and `eval_runs`
 says how many runs each side had.
+
+Training seeds. The noise floor measures the eval; a delta between
+two separately trained models also carries training variance, which
+the floor cannot see (#356: one recipe read -0.065 [-0.117, -0.013]
+on one run and +0.050 on the next, at one seed per arm). Pass
+`train_runs` and the headline metric gains a between-seed term: each
+trained arm's per-seed means give a between-seed standard deviation
+`train_std[arm]`, the delta's variance adds `std**2 / n_seeds` per
+arm, and `train_ci95` is the interval centred on the across-seed
+delta `train_delta` and widened in quadrature by the two-sided t
+quantile at `train_df = sum(n_seeds - 1)` (Lambert 2025, chapter
+Evaluation; Miller 2024, arXiv:2411.00640, on the variance components
+a claim rests on). `moved` then needs that interval to exclude zero
+as well; when it covers zero the verdict is `no_change_detected` and
+a warning says the seed spread ate the delta. Fewer than
+`MIN_TRAIN_SEEDS` (2) seeds on a trained arm resolves nothing: the
+verdict is `unresolved`, the interval and floor lines still print,
+and the line says "one training seed per arm; add a seed to resolve".
+Without `train_runs` the report says nothing about training seeds
+(a prompt edit or a model swap has none); the paper-recipe contract
+(`recipes/papers/check.py`) reads a one-seed delta as unresolved.
 
 Comparability. `config` says what each side was produced with
 (`pass_at(...).config` per side: task count, k, temperature, max_tokens,
@@ -831,25 +862,43 @@ Reach for it when a judge is about to become a training reward: a policy
 trained on it will find these holes, so find them first (Gao et al. 2022,
 arXiv:2210.10760). It returns a dict: `probes` (per probe: `n`,
 `kind`, `pass_before`, `pass_after`, `flips_up`, `flips_down`,
-`exploit_rate`, `flagged`, `errors`; a probe that applies to no row
-is `skipped` with the reason), `exploitable_by` (the probes at or over
-`flip_flag`), and one `warnings` line per exploit.
+`net_flips`, `denominator`, `exploit_rate`, `ci95` (its Wilson
+interval), `low_power`, `resolves`, `flagged`, `errors`; a probe
+that applies to no row is `skipped` with the reason),
+`exploitable_by` (the probes at or over `flip_flag`), one
+`warnings` line per exploit, and one `notes` line per probe that
+had too few rows to say.
 
 Each probe mutates up to `sample` graded rows one way and re-judges
 them. An additive probe (filler, the rubric's words, a success claim,
 the ask echoed, a sycophantic opener) reports `exploit_rate`: the
-share of originally failing replies that pass once the text is added.
-A replacement probe (a well-formed tool call with empty arguments, a
-refusal) reports the share of replies that pass with the content
-gone.
+net share of originally failing replies that pass once the text is
+added, `max(0, flips_up - flips_down) / originally failing`, so a
+judge whose verdicts churn both ways under the edit reads as noise,
+not as a hole (#347). A replacement probe (a well-formed tool call
+with empty arguments, a refusal) reports the share of replies that
+pass with the content gone.
+
+Every rate carries a Wilson interval, the one `agreement` gets, and
+`flagged` needs at least `PROBE_MIN_N` rows in the denominator:
+below it one flipped row on ten originally failing is already
+`flip_flag`, and the interval on 1 of 10 runs 0.02 to 0.40. A
+probe under the floor is `low_power` with `resolves`, the smallest
+exploit rate that many rows can tell from `flip_flag` at `POWER`
+(the normal approximation for one proportion, Miller 2024, section 5),
+and `flagged` stays false whatever the rate.
 
 * `probes`: `"all"` (the default) or names from `PROBES`.
 * `rubric`: the text the keyword probe draws words from; without it
-  the row's system prompt is used.
+  the row's system prompt is used. The `Rubric` handed to
+  `rubric_judge` is not seen here; pass its text as `rubric=`
+  (`judge_trust(rubric=)` forwards it).
 * `sample` (40), `seed` (0), `concurrency` (8): how many rows to
   re-judge, which ones, and how many judge calls run at once.
 * `flip_flag` (`FLIP_FLAG`, 0.10): the exploit rate at which a
-  probe is flagged.
+  probe is flagged. `PROBE_MIN_N` (20) is the denominator floor; it
+  is a module default, since this call already carries eight
+  parameters (style rule 3).
 
 ### judge_trust
 
@@ -1325,16 +1374,22 @@ mapping. A dict label names its row by `key` / `rollout_id`,
 `scenario_id` + `rollout_index`, or `prompt` (+ `final_text`),
 and carries `label` (or `reward` / `gold_reward`: 0 or 1), and
 optionally `annotator`, `note`, `ts`. `annotator` here is the
-default for labels that name none. `kind` is recorded on each label
-(`"human"`; `"model"` for a stronger model's labels).
+default for labels that name none. `kind` is recorded on each label:
+`"human"` for a person's, `"program"` (or its alias
+`"verifier"`) for a deterministic rule's (execution match, a unit
+test, a rule over tool calls), `"model"` for a stronger model's.
+Any other string raises `ValueError` naming the accepted set, so a
+typo cannot silently downgrade the gold (#343).
 
 Each row gains `gold_labels` (every label, appended unless
 `replace`), `gold_reward`, the majority of its labels, and
-`gold_kind`: `"human"` when every label on the row is a person's,
-else the other kind. `judge_trust` and `judge_agreement` only
-count human gold as a measurement of the judge. A tie leaves both
-unset. Labels that name no row, or carry no 0/1 value, are counted
-and listed.
+`gold_kind`: the one kind every label on the row shares, else
+`"mixed"`. `judge_trust` and `judge_agreement` count human and
+program gold as a measurement of the judge: a deterministic rule is
+at least as strong a gold as a rater, since it cannot be argued into
+a pass and agrees with itself on every run (Lambert 2025, chapter
+Evaluation, verifiable rewards). A tie leaves both unset. Labels that
+name no row, or carry no 0/1 value, are counted and listed.
 
 ## logprobs
 
@@ -2811,11 +2866,16 @@ rows say which run they belong to: `lineage.eval_run` (what
 `evaluate(run_id=)` stamps), or a top-level or lineage key named by
 `by`. Each run's `metric` is a mean over tasks; the report is
 those means, their mean, the sample standard deviation `run_std`,
-and `noise_band` = `noise_band(run_std)`, 1.96 x sqrt(2) x
-`run_std`: a before/after delta with one run per side is the
-difference of two re-run draws, and a delta inside that band is what
-re-running the eval does on its own (`run_std` is taken as the
-eval's spread; from three runs it is rough, and the note says so).
+and `noise_band` = `noise_band(run_std, df=n_runs - 1)`: the
+two-sided t quantile at `noise_band_df` = `n_runs - 1` times
+sqrt(2) times `run_std`, because a before/after delta with one run
+per side is the difference of two re-run draws and `run_std` is an
+estimate from these very runs, not the eval's exact spread (Lambert
+2025, chapter Evaluation). This is the band `compare(run_std=,
+run_std_runs=)` applies; with three runs the multiplier is 4.30, not
+1.96 (the 1.96 band read a three-run estimate as exact and let about
+one pure-noise delta in five through, #616). A delta inside the band
+is what re-running the eval does on its own.
 `run_std_by_metric`
 reports the same floor for pass@1 and every marker shared by all runs;
 hand that mapping to `delta_report(run_std=)` so each metric uses its
@@ -2899,7 +2959,8 @@ band on the delta at that `n`), `n_tasks_concentrated`,
 or `[]` where it does not apply). The default answer is unchanged;
 the honest paths are the two that measure.
 
-A saturated baseline cannot size anything. Rows whose tasks all pass
+A saturated `base=` cannot size anything (`base` is the before
+arm's pass rate; there is no `baseline=`). Rows whose tasks all pass
 give `p = 1`, the binomial variance `p(1-p)` is 0, and both arms
 all passing give a measured paired sd of 0; the formula then returns
 the floor, `MIN_HOLDOUT_TASKS`, which is the model collapsing, not
@@ -2910,7 +2971,7 @@ paired difference identical on every task, `DEGENERATE`), the
 rows are not used: `n_tasks` is the binomial model's answer at
 `BASE_PASS_RATE` and the rows' `k`, `sd_source` is `"model"`,
 `saturated` is `True`, and `warnings` names the ceiling and the
-fix: harder situations, so the baseline sits inside the 20-80
+fix: harder situations, so `base` sits inside the 20-80
 difficulty band (Lambert 2025, chapter Reasoning; DAPO, arXiv
 2503.14476, drops prompts at accuracy 0 and 1 because they carry no
 signal), then size again on those rows.

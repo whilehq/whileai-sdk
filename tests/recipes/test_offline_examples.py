@@ -26,13 +26,19 @@ CLI_EXAMPLES = [
     "04-train/hosted-loop/run.py",
     "04-train/prime-rl/run.py",
     "04-train/report-run/run.py",
+    "04-train/sft/wiring.py",
+    "04-train/fireworks/export_fireworks.py",
+    "04-train/fireworks/prove.py",
     "03-select/character/from_model_spec.py",
     "03-select/character/measure.py",
     "03-select/character/run.py",
     "05-export/hugging-face/roundtrip.py",
+    "05-export/bedrock-import/compare.py",
     "04-train/identity/generate.py",
     "02-measure/pass-at-k/measure.py",
+    "02-measure/public-benchmark/run.py",
     "02-measure/is-your-eval-any-good/check_eval.py",
+    "02-measure/character-to-the-wall/run.py",
     "02-measure/compare-judges/run.py",
     "02-measure/eval-your-agent/run.py",
     "03-select/prime-intellect-rl/diagnose.py",
@@ -49,6 +55,9 @@ CLI_EXAMPLES = [
     "04-train/text-to-sql/distill.py",
     "04-train/text-to-sql/rollout.py",
     "04-train/text-to-sql/train.py",
+    "04-train/text-to-sql/sql_verifier.py",
+    "04-train/grpo/reward.py",
+    "04-train/dpo/pairs.py",
     "04-train/resist-planted-instruction/run.py",
     "04-train/resist-planted-instruction/analyse.py",
     "01-simulate/verifiers/run.py",
@@ -67,6 +76,10 @@ CLI_EXAMPLES = [
 NEEDS_MODAL = {
     "04-train/dpo/train_modal.py",
     "04-train/grpo/train_modal.py",
+    "05-export/bedrock-import/merge_upload.py",
+    # boto3 is the ``whileai[bedrock]`` extra, not a dev dependency; compiled, not run
+    "05-export/bedrock-import/presign.py",
+    "04-train/sft/train_modal.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic
@@ -174,6 +187,7 @@ def test_hosted_loop_without_a_key_names_the_env_var(tmp_path):
 # in one line; --help passing proves only that the imports resolved.
 NEEDS_CREDENTIAL = [
     "04-train/hosted-loop/run.py",
+    "04-train/fireworks/prove.py",
     "04-train/prime-rl/run.py",
     "05-export/hugging-face/roundtrip.py",
     "03-select/prime-intellect-rl/generate.py",
@@ -194,6 +208,6 @@ def test_missing_credential_is_a_message_not_a_traceback(rel, tmp_path):
     assert "Traceback (most recent call last)" not in message, (
         f"{rel} raised instead of exiting with a message:\n{message[-2000:]}"
     )
-    assert any(var in message for var in ("WHILEAI_API_KEY", "VLLM_API_KEY")), (
-        f"{rel} does not name the env var to set:\n{message[-2000:]}"
-    )
+    assert any(
+        var in message for var in ("WHILEAI_API_KEY", "VLLM_API_KEY", "FIREWORKS_API_KEY")
+    ), f"{rel} does not name the env var to set:\n{message[-2000:]}"

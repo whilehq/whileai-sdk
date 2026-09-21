@@ -45,11 +45,15 @@
       0.0,
       0.1
     ],
-    "verdict": "flat"
+    "verdict": "unresolved"
   },
   "checks": {
     "run_std": 0.0087,
     "run_std_runs": 3,
+    "train_seeds": {
+      "baseline": 1,
+      "recipe": 1
+    },
     "decontaminated_dropped": 0,
     "over_optimized": false,
     "length_before": 725.0375,

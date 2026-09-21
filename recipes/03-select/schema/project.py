@@ -17,6 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations import schema
 from whileai.simulations.schema import Judgment, Marker, PolicyRef, Rollout, Task
 
@@ -201,6 +202,7 @@ def project(src: Path, out: Path, holdout: float, teacher: str) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("path")
     parser.add_argument("--out", default="out")

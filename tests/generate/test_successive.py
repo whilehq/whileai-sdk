@@ -203,6 +203,10 @@ def test_rl_reports_time_spent_idle_waiting_on_verdicts():
         rollouts_per_request=4,
         budget=8,
         grader=blocking_judge,
+        # The accounting under test is the async pool idling on the judge.
+        # Round-synchronous scheduling (the default since #645) settles every
+        # verdict inside its batch, so there is no idle round to count.
+        reproducible=False,
         **offline(advanced={"idle_judge_share": 0.0}),
     )
     groups = data.search["groups"]

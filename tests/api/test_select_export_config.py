@@ -36,6 +36,13 @@ def scored():
         repeat_policy="fixed",
         budget=32,
         seed=0,
+        # Rows land in completion order, so on a loaded CI runner a slow
+        # rollout from one situation can land after the next situation's
+        # rows and the row-20 cut below straddles a task: decontaminate
+        # then flags that task's four rows too (5, not 1). Round-synchronous
+        # scheduling lands each batch in submission order whatever the
+        # thread timing.
+        reproducible=True,
     )
     return data.grade(judge=lambda row: {"reward": int(not row["seeded"])})
 

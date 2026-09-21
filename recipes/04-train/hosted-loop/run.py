@@ -29,10 +29,23 @@ import requests
 
 import whileai.simulations as wai
 from whileai.auth import resolve_api_key
+from whileai.config import provenance
 from whileai.simulations.score.judging import run_judge
 
 STATE = Path(__file__).with_name("hosted-loop.json")
 DOCS = "https://docs.withwhile.com/api/training"
+
+# CALL_WINDOW_S = 900: the README's "call waits up to fifteen" minutes; one
+# ceiling for a slow first reply and for gateway errors while the container wakes.
+CALL_WINDOW_S = 900
+# WARMUP_STATUSES: what the gateway answers while the serving container is
+# still starting; any other status is a real error and raises at once.
+WARMUP_STATUSES = frozenset({502, 503, 504})
+# WARMUP_RETRY_S = 5, WARMUP_RETRY_MAX_S = 60: first gap between retries during
+# warm-up, doubling to the cap; a cold start takes minutes, so polling faster
+# only adds log lines.
+WARMUP_RETRY_S = 5
+WARMUP_RETRY_MAX_S = 60
 
 TOOLS = [
     {
@@ -123,7 +136,7 @@ def need(state: dict, *keys: str) -> None:
 # ------------------------------------------------------------------ steps
 
 
-def step_data(args: argparse.Namespace) -> None:
+def step_data(args: argparse.Namespace, push: bool = True) -> None:
     data = wai.simulate(
         scripted_agent,
         tools=TOOLS,
@@ -139,6 +152,9 @@ def step_data(args: argparse.Namespace) -> None:
     print(f"simulated {len(data.trajectories)} rows, pass@1 {scored.pass_at.pass_at_1:.2f}")
     train, holdout = wai.split_pseudo_production(scored.rows, fraction=0.25, seed=args.seed)
     print(f"split by task: train {len(train)} rows, holdout {len(holdout)} rows")
+    if not push:
+        print("dry run: these are the rows `data` would push; nothing sent, no key used")
+        return
     pushed = wai.push_rows(
         train,
         f"{args.name}-train",
@@ -208,13 +224,29 @@ def step_call(args: argparse.Namespace) -> None:
         "chat_template_kwargs": {"enable_thinking": False},
     }
     started = time.time()
-    res = requests.post(
-        state["endpoint"].rstrip("/") + "/chat/completions",
-        headers={"Authorization": f"Bearer {resolve_api_key()}"},
-        json=body,
-        timeout=900,  # the first call after idle pays the cold start
-    )
-    print(f"HTTP {res.status_code} in {time.time() - started:.0f}s")
+    deadline = started + CALL_WINDOW_S
+    delay = WARMUP_RETRY_S
+    while True:
+        res = requests.post(
+            state["endpoint"].rstrip("/") + "/chat/completions",
+            headers={"Authorization": f"Bearer {resolve_api_key()}"},
+            json=body,
+            # the first call after idle pays the cold start: wait out the window
+            timeout=max(1.0, deadline - time.time()),
+        )
+        print(f"HTTP {res.status_code} in {time.time() - started:.0f}s")
+        if res.status_code not in WARMUP_STATUSES:
+            break
+        # a 502/503/504 this early is the gateway answering for a container
+        # that is still waking, not the model; retry inside the same window
+        if time.time() + delay > deadline:
+            sys.exit(
+                f"HTTP {res.status_code} after {time.time() - started:.0f}s: the endpoint "
+                "is still starting; run `python run.py call` again in a minute."
+            )
+        print(f"  endpoint still starting; retrying in {delay:.0f}s")
+        time.sleep(delay)
+        delay = min(delay * 2, WARMUP_RETRY_MAX_S)
     res.raise_for_status()
     print(res.json()["choices"][0]["message"]["content"].strip())
 
@@ -234,6 +266,7 @@ STEPS = {
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("step", nargs="?", default="all", choices=["all", *STEPS])
     parser.add_argument("--name", default="hosted-loop", help="dataset, agent and model name")
@@ -244,7 +277,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--budget", type=int, default=96)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=1800)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="the data step offline: simulate, grade, split, push nothing; no key, no GPU",
+    )
     args = parser.parse_args(argv)
+    if args.dry_run:
+        print("== data (dry run)")
+        step_data(args, push=False)
+        return 0
     if not resolve_api_key():
         sys.exit(f"No API key. Run `whileai login` or set WHILEAI_API_KEY ({DOCS}).")
     steps = list(STEPS) if args.step == "all" else [args.step]

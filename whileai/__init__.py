@@ -29,7 +29,7 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 from .config import Settings, configure, context, settings
-from .models import Anthropic, Backend, Endpoint, Hosted, Ollama, OpenAI
+from .models import Anthropic, Backend, Endpoint, Fireworks, Hosted, Ollama, OpenAI
 
 try:
     from importlib.metadata import PackageNotFoundError
@@ -61,6 +61,9 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "export": ("whileai.simulations.export", "export_dataset"),
     "SimulationData": ("whileai.simulations.data", "SimulationData"),
     "ScoredData": ("whileai.simulations.score.judging", "ScoredData"),
+    # your own prompts and completions (a public benchmark) as the rows
+    # every measurement reads (#613)
+    "rows": ("whileai.simulations.schema", "rows"),
     # training methods as objects, and the trainer config written from them;
     # their home is whileai.methods
     "OPD": ("whileai.methods", "OPD"),
@@ -109,6 +112,7 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .simulations.data import SimulationData
     from .simulations.export import export_dataset as export
     from .simulations.generate.offline_agent import seeded_agent
+    from .simulations.schema import rows
     from .simulations.score.delta import delta_report as compare
     from .simulations.score.hack_scan import hack_scan
     from .simulations.score.judge_trust import judge_trust
@@ -122,17 +126,18 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
 
 # The front door: under thirty names, the loop and its nouns. The platform
 # client's names above stay importable but are documented under
-# whileai.platform.
+# whileai.platform. `Settings` stays importable too; `Fireworks` took its
+# place in the list so the front door stays at thirty-one names.
 __all__ = [
     "Anthropic",
     "Endpoint",
+    "Fireworks",
     "Hosted",
     "Judge",
     "Ollama",
     "OpenAI",
     "ScoredData",
     "Selection",
-    "Settings",
     "SimulationData",
     "Verifier",
     "__version__",
@@ -147,6 +152,7 @@ __all__ = [
     "pass_at",
     "platform",
     "preflight",
+    "rows",
     "seeded_agent",
     "select",
     "settings",

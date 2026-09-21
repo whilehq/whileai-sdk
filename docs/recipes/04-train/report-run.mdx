@@ -18,9 +18,9 @@ by its fingerprint, and why a version is scored on every behavior.
 **Takes**: 10 seconds.
 
 ```bash
+python run.py --offline       # free: no key, no network, prints the calls it would make
 python run.py                 # posts one full loop for agent refund-bot, prints the verdict
 python run.py --agent my-bot  # your own name
-python run.py --offline       # no key, no network: prints the calls it would make
 ```
 
 The script registers an agent (model + harness + the frontier model you pay

@@ -14,7 +14,8 @@ come from the template writer and a scripted agent.
 uv add whileai
 whileai login                 # or export WHILEAI_API_KEY=...
 cd recipes/04-train/hosted-loop
-python run.py                   # data -> train -> serve -> call
+python run.py --dry-run         # free: simulate, grade, split, push nothing; no key
+python run.py                   # data -> train -> serve -> call: about a minute of A10G plus a cold start, about 5 cents
 python run.py train --method sft --epochs 2   # any step alone; state is in hosted-loop.json
 python run.py models            # what the account hosts
 ```
@@ -61,7 +62,8 @@ I cannot process your request. The order ID "88213" is not valid or does not exi
 
 The rows here are small on purpose (a scripted agent, template situations)
 so the loop finishes in minutes. The loss drop shows the wiring works; it
-says nothing about the agent. Replace `scripted_agent` and `judge` with
+says nothing about the agent. The reply under `== call` is the same kind
+of wiring check: it shows the endpoint answers, and yours will differ. Replace `scripted_agent` and `judge` with
 yours, or point `data` at rows you already graded.
 
 ## What to know before you run it
@@ -72,12 +74,18 @@ yours, or point `data` at rows you already graded.
   SFT runs on an A10G and takes about a minute here; GRPO and DPO run
   on an L40S (`--method grpo --steps 10` took 137 s on Qwen3-4B).
 - **Cold starts.** The serving GPU scales to zero. The first call after
-  idle can take a few minutes; `call` waits up to fifteen.
+  idle can take a few minutes; `call` waits up to fifteen, and a 502, 503
+  or 504 while the container is still waking is retried inside that window
+  rather than raised.
 - **Thinking mode.** Qwen3 reasons before it answers unless told not to.
   `call` sends `chat_template_kwargs: {"enable_thinking": false}` so the
   reply is the answer, not the reasoning.
-- **Cost.** SFT here is about a minute of A10G, GRPO a few minutes of L40S. Serving bills while the
-  GPU is awake; the endpoint idles back to zero on its own.
+- **Cost.** SFT here is about a minute of A10G, GRPO a few minutes of L40S, and
+  `run.training["cost_usd"]` says what that came to: an estimate at Modal's list price
+  (`cost_basis` names the rate and the day, `estimate: A10G at $1.10/h, modal.com/pricing
+  2026-09-20`), so a run this size is a few cents; `print(run)` shows it as
+  `about $0.02 (A10G, 56 s, estimate)`. Serving bills while the GPU is awake; the
+  endpoint idles back to zero on its own, and rollouts and judge calls are not priced.
 - **Holdout.** `split_pseudo_production` moves whole tasks and seeds the
   held-out side with one task per failure signature first, so on a tiny
   set (7 tasks here) the holdout ends up larger than the fraction asks.

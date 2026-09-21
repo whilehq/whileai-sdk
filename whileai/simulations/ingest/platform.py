@@ -50,11 +50,11 @@ from ..defaults import (
 )
 
 #: Overridable with ``WHILEAI_API_URL``, which is what a self-hosted gate or
-#: a staging one uses. The default is the production token gate
-#: (api.withwhile.com; the older api.zeroproofai.com still answers the same
-#: routes), and the SDK prefers delegated credentials over static keys at
-#: runtime.
-DEFAULT_API_URL = "https://api.withwhile.com"
+#: a staging one uses. The default is the production token gate. It answers
+#: on its original hostname only: api.withwhile.com is the While platform
+#: API (``whileai.platform``) since 2026-09-20 and has none of these routes.
+#: The SDK prefers delegated credentials over static keys at runtime.
+DEFAULT_API_URL = "https://api.zeroproofai.com"
 
 #: What a dataset is for on the Datasets page, and the simulation mode that
 #: made it. The gate rejects anything else; the studio import takes MODES.

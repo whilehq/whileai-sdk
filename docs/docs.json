@@ -90,14 +90,13 @@
               "get-started/install",
               "get-started/your-model-and-key",
               "get-started/quickstart",
-              "get-started/connect-your-agent"
+              "get-started/connect-your-agent",
+              "integrations"
             ]
           },
           {
             "group": "Guides",
             "pages": [
-              "simulations",
-              "engine",
               "evals",
               "reward-hacking",
               "safety-evals",
@@ -128,10 +127,12 @@
               {
                 "group": "Measure",
                 "pages": [
+                  "recipes/02-measure/character-to-the-wall",
                   "recipes/02-measure/compare-judges",
                   "recipes/02-measure/eval-your-agent",
                   "recipes/02-measure/is-your-eval-any-good",
                   "recipes/02-measure/pass-at-k",
+                  "recipes/02-measure/public-benchmark",
                   "recipes/02-measure/reward-hacking",
                   "recipes/02-measure/safety-evals",
                   "recipes/02-measure/safety-evals-marketplace"
@@ -149,18 +150,21 @@
                 "group": "Train",
                 "pages": [
                   "recipes/04-train/dpo",
+                  "recipes/04-train/fireworks",
                   "recipes/04-train/grpo",
                   "recipes/04-train/hosted-loop",
                   "recipes/04-train/identity",
                   "recipes/04-train/prime-rl",
                   "recipes/04-train/report-run",
                   "recipes/04-train/resist-planted-instruction",
+                  "recipes/04-train/sft",
                   "recipes/04-train/text-to-sql"
                 ]
               },
               {
                 "group": "Export",
                 "pages": [
+                  "recipes/05-export/bedrock-import",
                   "recipes/05-export/hugging-face"
                 ]
               },
@@ -198,6 +202,7 @@
               "reference/constitution",
               "reference/overview",
               "reference/five-calls",
+              "reference/rows",
               "reference/style",
               "reference/design",
               "reference/what-to-run",
@@ -234,6 +239,7 @@
             "pages": [
               "platform/index",
               "platform/naming",
+              "platform/experiments",
               "get-started/cli",
               "reference/platform"
             ]
@@ -268,6 +274,16 @@
       }
     ]
   },
+  "redirects": [
+    {
+      "source": "/engine",
+      "destination": "/concepts/engine"
+    },
+    {
+      "source": "/simulations",
+      "destination": "/concepts/how-it-works"
+    }
+  ],
   "footer": {
     "socials": {
       "github": "https://github.com/whilehq/whileai-sdk"

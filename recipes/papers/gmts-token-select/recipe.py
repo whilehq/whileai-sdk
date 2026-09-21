@@ -50,6 +50,8 @@ from pathlib import Path
 
 import modal
 
+from whileai.config import provenance, requirement
+
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 METRIC = "pass@1"
@@ -369,7 +371,7 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        "whileai",
+        requirement(),
     )
     .env({"HF_HOME": "/root/.cache/huggingface", "TOKENIZERS_PARALLELISM": "false"})
     .add_local_file(str(HERE / "recipe.py"), "/root/recipe_mod.py")
@@ -787,6 +789,7 @@ def _selftest_mask() -> None:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arm", choices=["baseline", "recipe", "both"], default="both")
     ap.add_argument("--steps", type=int, default=40)
@@ -912,13 +915,22 @@ def main() -> None:
             target="pass_at_1",
             run_std=run_std,
             run_std_runs=int(checks.get("run_std_runs") or EVAL_RUNS),
+            # one training seed per arm: the report says unresolved (#356)
+            train_runs={"before": [arm_rows["baseline"]], "after": [arm_rows["recipe"]]},
             proxy=PROXY,
         )
         results["delta"] = {
             "recipe_vs_baseline": d["target_delta"],
             "ci": list(d["target_ci95"] or (0.0, 0.0)),
-            "verdict": "moved" if d["target_verdict"] == "moved" else "flat",
+            "verdict": (
+                "unresolved"
+                if d["target_verdict"] == "unresolved"
+                else "moved"
+                if d["target_verdict"] == "moved"
+                else "flat"
+            ),
         }
+        checks["train_seeds"] = {"baseline": 1, "recipe": 1}
         checks["over_optimized"] = bool(d.get("over_optimized"))
         results["verified"] = date.today().isoformat()
         results.pop("partial_run", None)

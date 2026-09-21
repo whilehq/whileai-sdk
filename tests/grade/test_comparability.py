@@ -139,7 +139,9 @@ def test_noise_band_is_one_function_everywhere():
     base = {f"t{i}": 0.5 for i in range(10)}
     variance = eval_variance(_rows(base), _rows({**base, "t0": 0.75}), _rows({**base, "t1": 0.25}))
     assert variance["run_std"] == 0.025
-    assert variance["noise_band"] == round(noise_band(0.025), 4) == 0.0693
+    # eval_variance knows its run count, so its band carries df = runs - 1 (#616)
+    assert variance["noise_band"] == round(noise_band(0.025, df=2), 4) == 0.1521
+    assert variance["noise_band_df"] == 2
     # a delta of 0.06 is over 2 x run_std (0.05) and under the band (0.069):
     # a re-run draw, not a change
     before = _rows({f"t{i}": 0.25 for i in range(50)})

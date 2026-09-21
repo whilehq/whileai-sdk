@@ -31,13 +31,25 @@ public call takes at most eight parameters; a report prints itself
 names are the verb a scientist says. `tests/api/test_style_ratchet.py`
 fails a PR that adds one of the retired shapes.
 
+## Pull requests
+
+Every PR names the issue it closes. The body opens with `Closes #N`, one
+line per issue, or `Part of #N` when the issue takes more than one PR. Then
+what was wrong, what changed, and the commands you ran with their result.
+GitHub closes the issue on merge, so the issue thread ends with the commit
+that fixed it and a reader goes issue, PR, diff without a search. Work that
+has no issue opens with `No issue: <one line why>`; a change big enough to
+need a design note gets an issue first. Release PRs are cut by
+`release.yml` and are exempt. `.github/workflows/pr-issue.yml` fails a PR
+that does neither, and re-runs when you edit the description.
+
 ## Shipping a release
 
 ```bash
 gh workflow run release.yml
 ```
 
-That cuts the next hundredth from the entries under `## Unreleased`, lands
+That cuts the next number (`0.99` then `0.100`) from the entries under `## Unreleased`, lands
 the bump on main and starts the publish workflow; runs queue, so two
 people shipping at once get two releases in order. Do not bump `version`
 by hand, and keep the `## Unreleased` header (the cut renames it and puts

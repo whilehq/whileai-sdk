@@ -32,6 +32,7 @@ import time
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 CONFIGS = HERE / "configs"
@@ -331,7 +332,13 @@ def summarize(
 
 
 def main() -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="write the three configs and stop: no Modal, no key, no GPU",
+    )
     ap.add_argument("--validate", action="store_true", help="dry-run the configs on CPU")
     ap.add_argument("--collect", action="store_true", help="read back the spawned runs")
     ap.add_argument("--arms", nargs="*", default=["grpo", "opsd", "opd"])
@@ -342,6 +349,10 @@ def main() -> int:
         for cfg in cfgs.values():
             print(cfg)
             print()
+    if a.dry_run:
+        for arm, cfg in cfgs.items():
+            print(f"{arm}: {cfg.path} ({len(cfg.ignored)} knobs prime-rl ignores)")
+        return 0
     if a.validate:
         return validate(cfgs)
     try:

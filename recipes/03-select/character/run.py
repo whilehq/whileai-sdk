@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 import whileai.simulations as wai
+from whileai.config import provenance
 from whileai.simulations.schema import stamp
 
 HERE = Path(__file__).resolve().parent
@@ -748,6 +749,7 @@ def wai_write(path: Path, rows: list[dict]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

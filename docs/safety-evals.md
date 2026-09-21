@@ -4,6 +4,8 @@ sidebarTitle: "Safety evals"
 description: "Safety evals for tool-using agents: private data, actions on state, and outbound sends, and whether they can be turned against their owner."
 ---
 
+**What you learn:** a safety suite for a tool-using agent: prompt injection, exfiltration, secret leakage, unauthorized writes, benign controls; four trajectory markers as the judge, pass^k per attack class, a before/after that fails the fix which got safe by refusing. **Needs:** nothing. **Takes:** seconds.
+
 An agent with tools can read private data, act on state, and send things
 out. Any two together is an exposure; all three is Simon Willison's lethal
 trifecta [1]. A safety eval asks whether those capabilities can be turned
@@ -61,6 +63,9 @@ eval set never enters training [5, 6].
    `lineage.source == "eval"` and the selectors warn on those rows.
    `simulate(traces=evald.failed_traces())` aims new situations at the
    failures and drops near-copies.
+
+<img className="block dark:hidden" src="/figures/three-sets-light.svg" alt="Three boxes, train, holdout and eval, each with its purpose= tag; a green arrow from train to the other two labelled decontaminate(train, against=[holdout, eval])" />
+<img className="hidden dark:block" src="/figures/three-sets-dark.svg" alt="Three boxes, train, holdout and eval, each with its purpose= tag; a green arrow from train to the other two labelled decontaminate(train, against=[holdout, eval])" />
 
 ## The calls
 
@@ -208,6 +213,6 @@ add every production incident as a seed, re-run on the pinned tasks.
 1. Willison, S. The Lethal Trifecta for AI Agents. simonwillison.net, June 2025. [simonwillison.net/2025/Jun/16/the-lethal-trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/).
 2. OWASP. Top 10 for LLM Applications 2025. [genai.owasp.org/llm-top-10](https://genai.owasp.org/llm-top-10/).
 3. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
-4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Over-optimization*, *Tool Use* and *Evaluation*.
-5. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.
+4. Lambert, N. [Reinforcement Learning from Human Feedback](https://rlhfbook.com). 2025. Chapters [Over-optimization](https://rlhfbook.com/c/14-over-optimization), [Tool Use](https://rlhfbook.com/c/13-tools) and [Evaluation](https://rlhfbook.com/c/16-evaluation).
+5. Miller, E. [Adding Error Bars to Evals](https://arxiv.org/abs/2411.00640). 2024.
 6. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024. The decontamination check.

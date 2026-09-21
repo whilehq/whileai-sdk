@@ -40,7 +40,9 @@ def test_eval_variance_over_separate_runs():
     assert report["n_runs"] == 3 and report["metric"] == "pass_at_1"
     assert report["means"] == {"run_1": 0.5, "run_2": 0.525, "run_3": 0.475}
     assert report["mean"] == 0.5 and report["run_std"] == 0.025
-    assert report["noise_band"] == 0.0693 and report["run_std_points"] == 2.5  # 1.96*sqrt(2)*0.025
+    # t(df=2)=4.303 x sqrt(2) x 0.025: the band compare(run_std_runs=3) applies (#616)
+    assert report["noise_band"] == 0.1521 and report["noise_band_df"] == 2
+    assert report["run_std_points"] == 2.5
     assert report["stability"] == "high_variance"
     assert report["tasks_in_every_run"] == 10 and report["notes"] == []
 

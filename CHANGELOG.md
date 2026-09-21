@@ -1,18 +1,234 @@
 # Changelog
 
-Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
-`pip install whileai==0.4` is the `0.04` line below.
+The version is `0.N` and N counts up by one per release, forever (`0.99`
+then `0.100`). PyPI drops leading zeros, so `pip install whileai==0.4` is the
+`0.04` line below. The 2026-09-20 uploads 1.0 and 1.3 to 1.9 were the 0.100
+to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
-## 1.08 (2026-09-20)
+- `simulate(reproducible=)` defaults to `None`, which is `True` unless `time_budget` is
+  set. Before, a seeded run at the default concurrency drew a task set that depended on
+  thread timing: three runs of `seed=0, budget=160` gave 59, 58 and 58 tasks and three
+  different sets, so a lesson that wanted the same file on every machine had to pin
+  `concurrency=1` (#645). Round-synchronous scheduling cost nothing in that measurement;
+  under uneven latency a slow rollout holds its batch, and `reproducible=False` buys the
+  throughput back. Same seed and same concurrency still mean the same rows: concurrency is
+  the batch size, so lesson 7 keeps `concurrency=1`, the size the SFT recipe's numbers came from.
+- `wai.config.requirement()`: the `pip` requirement for a container image,
+  `whileai>=<the version this process imported>`. Every recipe image now installs
+  that instead of a bare `"whileai"`, which is resolved once and cached under that
+  spelling, so a trainer built from the GRPO pattern kept a 57-release-old wheel and
+  failed on `wai.verify` with an `AttributeError` (#661). The identity and loss-mask
+  trainers now print the provenance line like every other entrypoint.
+- `anthropic:<model>` now works for the reasoning models (`claude-sonnet-5`,
+  `claude-opus-5`, and the rest) that reject a sampling `temperature`: the
+  backend drops the field and retries on the 400, then omits it for that model
+  on later calls. Before this, those models 400'd as a student, writer, user,
+  or judge.
+- Docs: what the hosted endpoint keeps (per-day counts only, never content) and its per-account rate limit.
+- `Example.reference` (the gold answer a row was graded against) and `Example.detail` (expected
+  against got, for a failure): the platform's rows page shows both under the reply, so a
+  "wrong result" says what the right one was.
+
+- Docs: a subdomain of your own on the hosted endpoint (`PUT /domain`), `<slug>.models.withwhile.com`.
+- Docs: serve a registered model from `https://models.withwhile.com/v1` (a Bedrock import in
+  While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
+  no SDK change; how to register one and the cross-account role shape. The Bedrock import
+  recipe's next step points there.
+- Recipe `recipes/02-measure/character-to-the-wall`: a character eval built on value
+  conflicts. Each situation pits two model-spec principles against each other so no reply
+  can honor both, and the authority ordering (root > operator > user > guideline) is the
+  answer key; `held_wall` and `kept_lower` are graded apart so caving and rigidity read as
+  different failures. Offline scripted student plus a live path for any model, with the
+  judge checked against the set's own labels. Grounds character measurement in Lambert 2025
+  (Evaluation) and Maiya et al. 2025 (arXiv:2511.01689).
+## 0.110 (2026-09-21)
+
+- `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,
+  ok, why, `tags` such as difficulty or archetype), 500 a call, and `run.rows(behavior)` reads
+  them back; the card's 20-row sample is derived when `examples=` is not given. The platform
+  shows the set at the iteration's rows page, grouped by tag, so what went well and what did
+  not is a table, not a number.
+- A `bedrock:` spec naming an imported model's ARN (`...:imported-model/...`) goes to
+  `InvokeModel` with the OpenAI chat-completion body, because Bedrock refuses Converse for
+  a model that came through Custom Model Import ("This action doesn't support the model
+  that you provided", measured on a Llama 3.1 8B import). The engine's own OpenAI-shaped
+  history goes out as is and the reply is already in its shape. A model being restored
+  after idling (`ModelNotReadyException`) is waited for: `IMPORTED_RESTORE_TRIES` (10, the
+  count AWS documents) fifteen seconds apart on the bearer path, the same count as
+  botocore's retries on the signed path; the measured restore was 96 s. New recipe
+  `recipes/05-export/bedrock-import`: merge a LoRA adapter on Modal, push to S3 through
+  presigned URLs, import, then measure with the same `rollout.py` as the vLLM run. On the
+  text-to-SQL Nemotron r1 adapter, Bedrock pass@1 0.345 (0.273..0.414) vs vLLM 0.350,
+  paired delta -0.005 (-0.037..+0.027); against the base +0.082 (+0.045..+0.123), the
+  published +0.087.
+- `format="fireworks"` on `export` / `select(...).export` and `export_preference` writes what a
+  Fireworks managed training job reads: SFT rows as `messages` + `tools` in the OpenAI wire shape
+  with the SDK's `loss_mask` carried as Fireworks' per-message `weight`, preference rows in
+  Fireworks' one-turn `input` / `preferred_output` / `non_preferred_output` shape (pairs that
+  lost later turns are counted as `fireworks_turns_cut`). The recipe `04-train/fireworks`
+  exports both offline, prints the `firectl` commands with the ids filled in, and proves the
+  served result before/after through `wai.Fireworks` and `wai.compare`.
+- Fireworks is a named backend: `wai.Fireworks("accounts/fireworks/models/<name>")` or the
+  spec `fireworks:<model>` reaches `api.fireworks.ai` on `FIREWORKS_API_KEY` (never
+  `OPENAI_API_KEY`), for the agent, the writer, the simulated person or the judge. It was
+  already reachable as an `Endpoint` with the URL typed out; now the repr says where the
+  call goes and which key it uses, like the other providers.
+- The `bedrock:<model-id>[@<region>]` spec and `wai.models.Bedrock(model_id, region=)`: Amazon
+  Bedrock's Converse API as a backend for every role (agent, writer, simulated user, judge),
+  on the user's own account (the object sits one dot down; the front door stays at 31 names).
+  A Bedrock API key (`api_key=` or `AWS_BEARER_TOKEN_BEDROCK`)
+  goes over `requests` with nothing installed; AWS credentials are signed by boto3 from the
+  new `whileai[bedrock]` extra. The model id is a foundation model, a cross-region inference
+  profile, or the ARN of a model imported with Custom Model Import, which is how a trained
+  adapter, merged into its base, is served on AWS and measured on the same held-out set. The
+  history and tools are translated at the boundary (the Anthropic backend's `split_system`
+  and `wire_tools`, then Converse blocks), `max_tokens` and `model_context_window_exceeded`
+  come back as `length`, guardrail stops as `content_filter`, and `ModelNotReadyException`
+  (an idle import being restored) is retried and then named in one sentence.
+- The platform API answers at `https://api.withwhile.com`, which is now the default for
+  `whileai login`, `whileai.platform` and every skill; the raw API Gateway hostname it had
+  since 0.72 still answers and a credentials file that pinned it moves over on its own. The
+  old token gate (datasets, traces, `whileai.simulations`) keeps its original hostname; it no
+  longer answers on the While one.
+- `wai.__version__` is the string the top `CHANGELOG.md` heading uses: `release.py --dry-run`
+  and the publish gate refuse a version that is not its own PEP 440 normal form (`1.07`
+  installs as `1.7`) or that rolls the major, and `tests/api/test_version_string.py` pins
+  the installed metadata version to the top heading and to `pyproject.toml` (#612).
+- The 30 recipe pages under `docs/recipes/` are snippet-checked again. Each runs in a copy of
+  its own recipe directory, first on `sys.path`, so `from bot import ...` and `rows/labeled.jsonl`
+  resolve the way they do for a reader who cloned the repo; and every page now runs with
+  network egress refused at the socket, so a public endpoint that needs no key cannot slip
+  through. Fixed at the source, in `recipes/**/README.md`: three blocks that used `wai` without
+  importing it, `wai.attach_labels`, `wai.coverage_gap` and `wai.hf_publish_run` spelled at the front
+  door where none of them lives (`wai.simulations.`, #456), a verifiers block that graded a placeholder
+  and pushed nothing, and three pages that reached a model or the platform without naming the
+  key (#499).
+- `whileai.config.provenance()`: one line, `whileai <version> from <directory>`, ending
+  `(source tree, not the installed wheel)` when a clone's `whileai/` is shadowing the wheel
+  and `(source tree, installed editable)` after `pip install -e .`. Every recipe prints it
+  first, on stderr, so a run started from the repository root says which package it used;
+  the Modal recipes mount the one it names. `recipes/README.md` says to run a recipe from
+  its own directory (#443).
+- `Behavior(graded_by="program")` (#614): a behavior scored by a verifier has no judge, so
+  the verdict no longer holds it at `unproven` for "judge agreement unmeasured", the line
+  says `graded by a program` where it printed the agreement, the Evals judge check passes,
+  and the brief's "do next" stops asking for hand labels. `reward_is_judge` is unchanged
+  (it is about the training reward). The field also reaches the verdict from the local
+  declaration when the server does not store it yet. The brief no longer prints "promote
+  one to get a verdict" once a version is serving.
+- `attach_labels(kind=)` (#343) accepts `"human"`, `"program"` (alias `"verifier"`) and
+  `"model"` and raises on anything else; `gold_kind="program"` is trusted gold in
+  `judge_agreement` and `judge_trust` (a deterministic rule is at least as strong a gold
+  as a rater, Lambert 2025, chapter Evaluation), and every warning names the actual kind
+  (`gold labels (program)`) instead of asserting the labels were human or a model's.
+- `judge_probes` (#347): every `exploit_rate` carries a Wilson `ci95`, printed beside it;
+  an additive probe's rate is net flips (`max(0, flips_up - flips_down)`), so symmetric
+  churn is not an exploit and the warning shows both counts; `flagged` needs
+  `PROBE_MIN_N` (20) rows in the denominator, else the probe reads `low power (n=10;
+  resolves about 0.4 at 80% power)` and stays unflagged; the `keyword_stuffing` skip
+  says to pass `rubric=` to `judge_trust`.
+- Hosted training runs carry a cost: `run.training` and `wai.get_run(id)["summary"]` get
+  `cost_usd` (`seconds / 3600 × rate`, to the cent) and `cost_basis` (`estimate: A10G at
+  $1.10/h, modal.com/pricing 2026-09-20`) beside `gpu` and `seconds`, and `print(run)` shows
+  `about $0.02 (A10G, 56 s, estimate)`. The rates are `GPU_USD_PER_HOUR` in defaults.py,
+  Modal's on-demand list prices read on 2026-09-20 (A10G 1.10, L40S 1.95, H100 3.95, A100
+  2.50, T4 0.59), since the platform's trainer runs on Modal; a GPU not in the table leaves
+  `cost_usd` None and the basis says so. Rollouts and judge calls on the serving endpoint
+  stay unpriced. The hosted-grpo-vs-sft recipe drops its "dollar column is mine"
+  disclaimer for the SDK's line (#399).
+- Docs review #441: one engine page (`concepts/engine`) and one simulator page
+  (`concepts/how-it-works`), `/engine` and `/simulations` redirect to them; `evals.md`
+  opens on the eval and the trial paragraph moves to Install; numbered references with
+  rlhfbook chapter links on evals, how-it-works, safety-evals and reward-hacking; a
+  what-you-learn / needs / takes line on every guide and get-started page; three figures
+  from `gen_guide_figures.py` (the loop, the 20 to 80 band, train/holdout/eval with the
+  decontamination arrow).
+- `recipes/04-train/hosted-loop`: `call` retries a 502, 503 or 504 from the cold serving
+  container inside the fifteen-minute window the README already promises, backing off from
+  5 s to 60 s between tries, and at the deadline says what to do (`python run.py call`
+  again in a minute) instead of a bare `raise_for_status()` traceback. README notes the
+  retry and that the sample reply is a wiring check, not a result (#445).
+- Contributing: every PR opens with `Closes #N` or `No issue: <why>`; `pr-issue.yml` enforces it
+  (CONTRIBUTING.md, Pull requests).
+- `skills/manage-experiments` 2.1: a fifth line per run, `Learned:`, the hypothesis closed in
+  one sentence with the paper when the run tried one, so the page teaches as well as reports;
+  `readback` checks for it. Docs and the `whileai init` line say five lines.
+- Versioning: the counter never rolls over (`0.99` then `0.100`); `release.py` and the
+  publish gate enforce it, the 2026-09-20 uploads 1.0 and 1.3 to 1.9 are re-cut as 0.100 to
+  0.109 and yanked, and the constitution carries the rule as belief 10 (One counter).
+- `skills/manage-experiments` 2.0: the skill is about how the coding agent explains a run,
+  not only how it names one. Per run four lines in `run.note` (Changed, Moved, Why,
+  Reproduce), one `tracked.figure` (harness: one bar per arm with its interval; training:
+  reward per step and the frozen test at checkpoints on one chart), the flipped asks as
+  the "why", the reward-up-held-out-flat sentence said out loud, `readback(tracked)` now
+  checks for the four lines and the picture. `whileai init` block reworded, same length.
+- `tracked.brief()` and `run.finish()` end with "what a person cannot read yet": an iteration
+  that does not say what it changed, a test with no rubric, a score with no graded rows, a
+  version named by its settings, each with the call that posts it (`Brief.readable`). The
+  same rules draw the "what your coding agent still owes" list on the experiment page.
+- `eval_variance(...)["noise_band"]` is now the band `compare(run_std=, run_std_runs=)` applies:
+  the two-sided t quantile at `noise_band_df` = runs - 1 times sqrt(2) times `run_std` (4.30 from
+  three re-runs, not 1.96, which let about one pure-noise delta in five through); the new
+  `noise_band_df` key says the df, `platform.noise_floor` reads the band off the report, and
+  `recipes/papers/check.py` imports the package's `noise_band` instead of carrying a copy (#616).
+- `compare` / `delta_report` take `train_runs=`, the rows of every independent training seed
+  per arm: the headline interval widens by the between-seed spread (each arm's `std**2 /
+  n_seeds`, t at `sum(n - 1)` df; Lambert 2025, chapter Evaluation; Miller 2024,
+  arXiv:2411.00640) and the printed line shows the arithmetic; "moved" needs `MIN_TRAIN_SEEDS`
+  (2) seeds on every trained arm, and one seed per arm reads `unresolved` with the line "one
+  training seed per arm; add a seed to resolve". `recipes/papers/check.py` applies the rule
+  (`checks.train_seeds`, verdicts `moved` / `flat` / `unresolved`), so every one-seed paper
+  recipe now reads `unresolved` with its numbers unchanged (#356).
+- Every recipe outside `papers/` has a `smoke.sh` CI runs with no key, no GPU and no spend
+  (17 added; the training ones run the data, reward, split or config path through
+  `reward.py`, `pairs.py`, `run.py --dry-run`, `generate.py --offline` and
+  `sql_verifier.py --selftest`), the `04-train` READMEs lead with the free line and the
+  `--steps 10` check with its cost before the real run, and the recipes index has a Costs
+  column at Modal's on-demand prices. `recipes/README.md` names the one exception and why
+  (#448).
+- `recipes/04-train/sft`: LoRA SFT on one A10G from the course's own `train.jsonl`
+  (`select(mode="sft").export`), TRL `SFTTrainer` with a PEFT adapter, three base passes for the
+  noise floor and one trained pass on the held-out set, the paired `wai.compare(run_std=)` at the
+  end, a `--steps 10` wiring run and an offline `smoke.sh`. Lesson 7 of the course runs it instead
+  of skipping the training, its before/after is the base model against the trained one with the
+  numbers from that run, and the course judge from lesson 3 on is a program over `messages` that
+  scores a real model's rows, not the stand-in's `seeded` answer key (#593).
+- Lesson 5 plants a paraphrase next to the identical copy and shows one caught and one missed,
+  says what the 8-gram rule cannot see (word overlap does not see a paraphrase), and names
+  `embedder=` as the semantic pass with the one-line call; the defaults are unchanged (#480).
+- `wai.rows(prompts, completions, reward, references=, task_ids=, markers=)`: a public
+  benchmark's questions and a model's answers become the rows every measurement reads
+  (`pass_at`, `compare`, `eval_variance`, `holdout_size`, `decontaminate`, `select`), typed
+  through the schema; the row contract (`task_id`, `prompt`, `final_text`, `reward`,
+  `markers`, the last one input as well as output) is API on `docs/reference/rows`.
+  `select(mode="rl")` on hand-built rows no longer drops a GSM8K chain of thought that ends
+  on `#### 42` as truncated, and its report names any gate that dropped rows.
+  `holdout_size`'s docstring says `base=`. Recipe `02-measure/public-benchmark`: 200 GSM8K
+  test questions through `MathEqual`, three eval passes, `holdout_size`, `select` and a
+  `compare` report, offline (#613).
+
+## 0.109 (2026-09-20)
+
+- `skills/manage-experiments`: the playbook a coding agent follows before it posts a second
+  version, a sweep or a replicate, so the page stays readable to the team: the question
+  first (`tracked.experiment`), arms named in words with the numbers in `record.optimizer`
+  and `record.data`, seeds as replicates never as behavior names, points not fractions,
+  failed rows and a note with every score, `readback(tracked)` to read the account the way
+  a teammate would, archive not delete. Written against what real agents posted on
+  2026-09-20 (`dapo-lr5e-05-s17-30st`, `looks_up_before_answering_seed1`, `0.75`).
+  `whileai init` installs it as a default skill and the `AGENTS.md` block names it; docs
+  page `platform/experiments`.
+
+## 0.108 (2026-09-20)
 
 - `Behavior(rubric=)` and `run.score(..., examples=[Example(prompt=, reply=, ok=, why=)])`: the
   platform keeps how the judge was set up and a sample of up to 20 graded rows per score,
   so the Evals page shows what passed and what failed, not only the number. The full set
   stays where the SDK wrote it. `Example` is exported from `whileai.platform`.
 
-## 1.07 (2026-09-20)
+## 0.107 (2026-09-20)
 
 - `wai.verify.tool_calls(row_or_message)` reads a tool call the same from either spelling:
   the flat `{"name", "arguments": {dict}}` a rollout row carries and the OpenAI wire shape
@@ -70,7 +286,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `import whileai as wai` as a ceiling that may fall and never rise; style rule 1 now
   says the alias is the only import shape an example shows.
 
-## 1.06 (2026-09-20)
+## 0.106 (2026-09-20)
 
 - `wai.hub.push(source, "org/name", token=, private=True)` and `wai.export(..., push_to="org/name")`:
   push a file, an adapter directory or rows to the Hugging Face Hub with your own token (`token=`,
@@ -125,7 +341,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   `prime_rl_config` stamps `harness.id = "null"` and `runtime.type = "subprocess"` on every source,
   writes no split key (a verifiers v1 taskset names its own, `dataset_split`), and takes
   `source.`, `train_source.` and `eval_source.` overrides. New guide: docs/distillation.
-## 1.05 (2026-09-20)
+## 0.105 (2026-09-20)
 
 - The release gate counts a `v<version>` tag as shipped only when its
   annotation reads `whileai <version>`. Tags left from the packages this
@@ -150,22 +366,22 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
 - `recipes/04-train/grpo` and `dpo`: `build_prompts(200, seed=0)` writes the same 119 prompts (94 train, 25 holdout) on every CPython from 3.10 to 3.14, checked by running it under each. It gave 117 on 3.12 and later and 118 on 3.10 and 3.11 until the `math.fsum` change above (#410) took the builtin `sum()` off the writer's novelty filter; the test pins the count and the READMEs drop the per-Python note.
 - `decontaminate()` says when a rule could not run: the report carries `rules_skipped` (rule -> why, empty when every rule ran), `notes` spells it out, and `embedder=` with no eval prompts to embed raises a `UserWarning`. An eval set with no `scenario_id` or `task_id` (GSM8K, a Hub set, logged traces) used to print `n_same_task: 0` and `notes: []`, the same shape as a real clearance (#488).
 
-## 1.04 (2026-09-20)
+## 0.104 (2026-09-20)
 
 - `SweepReport` sizes its columns to the longest label and model name; long `prompt@model` labels no longer run into the next column.
 
-## 1.03 (2026-09-20)
+## 0.103 (2026-09-20)
 
 - `HarnessSweep` pins `prompt` as the label before `@`: name variants `prompt@model` and the Runs page groups by prompt and by model as two axes (the first live sweep had eight one-run columns).
 - README banner: the whale lockup and tagline are centered in the image; the old files had ~300px of empty space on the right, so the logo sat left of the badges below it.
 
-## 1.02 (2026-09-20)
+## 0.102 (2026-09-20)
 
 - Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
   this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
 - `whileai.platform.HarnessSweep`: many prompt, tool and model variants of one agent, scored on the same frozen asks (`tasks=` a previous run), one run per harness fingerprint with `prompt`, `model` and `tools` pinned under `record.provenance.pins`, the noise floor from scoring one variant twice, the judge checked against hand labels when given. `SweepReport` prints the ranked table and names a winner only when its interval clears every other variant and the noise floor. The Runs page groups the dots by prompt or model (website #100).
 
-## 1.01 (2026-09-20)
+## 0.101 (2026-09-20)
 
 - Never uploaded: the gate mistook an old `zeroproof-simulations` tag for
   this release. Everything below shipped in 1.03 (`whileai==1.3` on PyPI).
@@ -211,7 +427,7 @@ Versions move in hundredths (`0.04` then `0.05`). PyPI normalizes them, so
   without raising; now every shape drops it and gives the same report
   (#479).
 
-## 1.00 (2026-09-20)
+## 0.100 (2026-09-20)
 
 - `whileai init` runs the evals check from any working directory; 0.99 resolved the script path against the skill folder and printed a can't-open-file error.
 

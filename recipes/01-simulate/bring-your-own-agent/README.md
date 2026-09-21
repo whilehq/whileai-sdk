@@ -16,6 +16,9 @@ The engine calls your function once per rollout with the situation the
 simulator wrote, and expects the tool calls it made and what it said:
 
 ```python
+import whileai as wai
+
+
 def my_agent(message: str) -> dict:
     return {
         "steps": [

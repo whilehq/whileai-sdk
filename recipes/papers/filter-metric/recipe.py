@@ -44,6 +44,8 @@ from pathlib import Path
 
 import modal
 
+from whileai.config import provenance, requirement
+
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 METRIC = "pass@1"
@@ -233,7 +235,7 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        "whileai",
+        requirement(),
     )
     .env({"HF_HOME": "/root/.cache/huggingface", "TOKENIZERS_PARALLELISM": "false"})
     .add_local_file(str(HERE / "recipe.py"), "/root/recipe_mod.py")
@@ -657,6 +659,7 @@ def selftest_science_bar() -> None:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arm", choices=["baseline", "recipe", "both", "base"], default="both")
     ap.add_argument(
@@ -786,14 +789,23 @@ def main() -> None:
             target="pass_at_1",
             run_std=float(checks.get("run_std") or 0.0),
             run_std_runs=int(checks.get("run_std_runs") or EVAL_RUNS),
+            # one training seed per arm: the report says unresolved (#356)
+            train_runs={"before": [arm_rows["baseline"]], "after": [arm_rows["recipe"]]},
             proxy=PROXY,
         )
         results["delta"] = {
             "recipe_vs_baseline": d["target_delta"],
             "ci": list(d["target_ci95"] or (0.0, 0.0)),
             "noise_band": d["noise_band"],
-            "verdict": "moved" if d["target_verdict"] == "moved" else "flat",
+            "verdict": (
+                "unresolved"
+                if d["target_verdict"] == "unresolved"
+                else "moved"
+                if d["target_verdict"] == "moved"
+                else "flat"
+            ),
         }
+        checks["train_seeds"] = {"baseline": 1, "recipe": 1}
         checks["over_optimized"] = bool(d["over_optimized"])
         results["verified"] = date.today().isoformat()
         results.pop("partial_run", None)
@@ -809,7 +821,10 @@ def main() -> None:
         clears = abs(float(delta["recipe_vs_baseline"])) >= band
         moved = clears and not (lo <= 0.0 <= hi) and not checks.get("over_optimized")
         delta["noise_band"] = band
-        delta["verdict"] = "moved" if moved else "flat"
+        # and, as in check.py, one training seed per arm resolves nothing (#356)
+        seeds = checks.get("train_seeds") or {"baseline": 1, "recipe": 1}
+        resolved = min(seeds.values()) >= wai.simulations.defaults.MIN_TRAIN_SEEDS
+        delta["verdict"] = ("moved" if moved else "flat") if resolved else "unresolved"
         checks["run_std_verified"] = date.today().isoformat()
         print(
             f"base re-evaluated {checks['run_std_runs']} times: delta "

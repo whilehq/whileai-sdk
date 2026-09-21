@@ -1,0 +1,101 @@
+---
+title: "Integrations"
+sidebarTitle: "Integrations"
+description: "Every model API, trainer, GPU provider, data source and judge the SDK talks to, with the one line that connects each and the page that shows it running."
+---
+
+<div style={{ display: "flex", flexWrap: "wrap", gap: "12px 20px", alignItems: "center", margin: "8px 0 24px" }}>
+  <a href="#models-the-agent-runs-on" title="OpenAI" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/openai-light.svg" alt="OpenAI" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/openai-dark.svg" alt="OpenAI" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="Anthropic" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/anthropic-light.svg" alt="Anthropic" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/anthropic-dark.svg" alt="Anthropic" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Fireworks" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/fireworks-light.svg" alt="Fireworks" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/fireworks-dark.svg" alt="Fireworks" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="Amazon Bedrock" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/amazonwebservices-light.svg" alt="Amazon Bedrock" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/amazonwebservices-dark.svg" alt="Amazon Bedrock" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="vLLM" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/vllm-light.svg" alt="vLLM" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/vllm-dark.svg" alt="vLLM" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#models-the-agent-runs-on" title="Ollama" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/ollama-light.svg" alt="Ollama" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/ollama-dark.svg" alt="Ollama" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Hugging Face and TRL" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/huggingface-light.svg" alt="Hugging Face and TRL" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/huggingface-dark.svg" alt="Hugging Face and TRL" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Prime Intellect and verifiers" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/primeintellect-light.svg" alt="Prime Intellect and verifiers" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/primeintellect-dark.svg" alt="Prime Intellect and verifiers" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#training" title="Modal" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/modal-light.svg" alt="Modal" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/modal-dark.svg" alt="Modal" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+  <a href="#data-in-and-out" title="OpenTelemetry" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+    <img className="block dark:hidden" src="/figures/logos/opentelemetry-light.svg" alt="OpenTelemetry" style={{ height: "20px", width: "auto", margin: 0 }} />
+    <img className="hidden dark:block" src="/figures/logos/opentelemetry-dark.svg" alt="OpenTelemetry" style={{ height: "20px", width: "auto", margin: 0 }} />
+  </a>
+</div>
+
+The SDK sits between your agent and your trainer. Everything below is a
+string or one call; keys stay in your environment and never reach While.
+
+## Models the agent runs on
+
+The agent, the situation writer and the simulated person take the same spec
+or backend object. [Connect your agent](/get-started/connect-your-agent) shows
+each one in a run.
+
+| Provider | How | Key |
+|---|---|---|
+| OpenAI | `wai.OpenAI("gpt-4.1-mini")` or `"openai:<model>"` | `OPENAI_API_KEY`; `OPENAI_BASE_URL` for a compatible server |
+| Anthropic | `wai.Anthropic("claude-haiku-4-5")` or `"anthropic:<model>"` | `ANTHROPIC_API_KEY` |
+| Fireworks | `wai.Fireworks("accounts/fireworks/models/qwen3-4b")` or `"fireworks:<model>"` | `FIREWORKS_API_KEY` |
+| Amazon Bedrock | `wai.models.Bedrock(model_id, region=)` or `"bedrock:<model-id>[@<region>]"` | `AWS_BEARER_TOKEN_BEDROCK`, else AWS credentials |
+| vLLM, SGLang, TGI, LM Studio, any OpenAI-compatible server | `wai.Endpoint(model, url="http://localhost:8000/v1")` or `"vllm:<model>@<url>"` | `VLLM_API_KEY` when the server wants one |
+| Ollama | `wai.Ollama("llama3")` or `"ollama:<model>"` | none |
+| The model While hosts | `wai.Hosted()`, the default when nothing is configured | `whileai login` |
+| Your own code | `my_agent(message) -> {"steps": [...], "final_text": "..."}` | yours |
+
+## Judges
+
+| Judge | How | Page |
+|---|---|---|
+| Any model above | `wai.Judge(rubric=..., model=wai.OpenAI("gpt-4.1"))` | [Evals](/evals) |
+| TypeSafe Jev | `"typesafe:<model>"` as the judge spec: one probability per verdict | [Overview](/reference/overview) |
+| A verifier | `wai.verify.MathEqual()`, `wai.verify.CodeExec(tests=...)`, or your function | [Verifiers](/recipes/01-simulate/verifiers) |
+
+## Training
+
+Rows leave the SDK in the shape each trainer reads, with the tool-call
+round trip checked for that shape.
+
+| Trainer | How | Page |
+|---|---|---|
+| TRL (`SFTTrainer`, `DPOTrainer`, `GRPOTrainer`) | `select(mode="sft").export("train.jsonl", format="trl")`; `wai.HackMonitor` inside the loop | [SFT](/recipes/04-train/sft), [DPO](/recipes/04-train/dpo), [GRPO](/recipes/04-train/grpo) |
+| Fireworks managed training and serving | `export(..., format="fireworks")`, then `firectl sftj create` and a deployment | [Train on Fireworks](/recipes/04-train/fireworks) |
+| prime-rl and verifiers on Prime Intellect | `wai.prime_rl_config(...)` writes the run; `export_environment` writes the environment | [prime-rl](/recipes/04-train/prime-rl), [Prime Intellect RL](/recipes/03-select/prime-intellect-rl) |
+| Modal | the training recipes run there on your account, one A10G | [SFT](/recipes/04-train/sft), [Text-to-SQL](/recipes/04-train/text-to-sql) |
+| While hosted GPUs | `wai.train(...)`, then `wai.serve(...)` gives back an OpenAI-compatible endpoint | [Hosted loop](/recipes/04-train/hosted-loop) |
+
+## Data in and out
+
+| Source or destination | How | Page |
+|---|---|---|
+| OpenTelemetry traces | `wai.simulations.rows_from_otel(batch)`, then `simulate(..., traces=rows)` | [Connect your agent](/get-started/connect-your-agent) |
+| Your own traces as JSONL | `simulate(..., traces="traces.jsonl")` | [Connect your agent](/get-started/connect-your-agent) |
+| Hugging Face Hub | `export(..., push_to="me/my-set")` for datasets, `wai.hub.push("out/adapter", "me/my-lora")` for adapters | [Hugging Face](/recipes/05-export/hugging-face) |
+| The While platform | `push`, `train`, `serve`, and the experiments page that tracks every run | [Platform](/platform) |
+
+Something you use is not here? [Open an issue](https://github.com/whilehq/whileai-sdk/issues/new)
+with the provider and the call you expected.

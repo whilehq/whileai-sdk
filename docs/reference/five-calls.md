@@ -44,6 +44,8 @@ A spec folder is `spec.json` (tools and policy) plus `rubric.md`: what doing the
 
 After training, measure whether it landed: `wai.delta_report(before=scored.rows, after=after_rows, target="pass_at_1")`. Name the training reward too, `proxy="marker:first_action"`, and the report says whether the run over-optimized it: proxy up while the target did not follow fails the report [5]. `wai.hack_scan_diff(before, after, endorsed=[...])` names what the update moved toward, and withholds the name when either side came back `degenerate`.
 
+The noise floor (`run_std=`, `run_std_runs=`, from `eval_variance` over re-runs of one model) measures the eval. When both sides are separately trained models, the delta also carries training variance, which the floor cannot see: one recipe read -0.065 [-0.117, -0.013] on one run and +0.050 on the next at one seed per arm. Pass every training seed's rows, `wai.compare(before, after, train_runs={"before": [b_seed1, b_seed2], "after": [a_seed1, a_seed2]})` (a plain list is the after arm's seeds against an untrained base), and the headline interval widens by the between-seed spread: each arm's per-seed means give a between-seed standard deviation, the delta's variance adds `std**2 / n_seeds` per arm, and the printed line shows the arithmetic the way the floor line does. "moved" then needs that interval to exclude zero too. One training seed per arm reports `unresolved`, with the interval and floor lines still printed and the fix on the line: "one training seed per arm; add a seed to resolve". Sources: [2], chapter *Evaluation*, and [9].
+
 Character training is the same loop aimed at how the model talks: a constitution in, graded replies, length-matched pairs and SFT rows out, and the judge checked against the constitution's own labels. Worked example [`recipes/03-select/character`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/03-select/character), guide [Character training](/character-training).
 
 ## The judge contract
@@ -150,14 +152,14 @@ The full list is on [Parameters](/reference/parameters). These are the ones that
 | `timeout` | `300` | Seconds per agent completion, for `local_model` and every model spec. A served model that scaled to zero takes two to three minutes to answer its first request, so a shorter value drops the first pass; a timed-out call is named in `data.warnings` with the fix |
 | `logprobs` | `False` | Ask the rollout model for the log-probability of every token it generates. Each agent turn's step gets `logprob` and `n_tokens`, the row gets the totals. `"tokens"` keeps the per-token list. Model backends only |
 | `sampling` | `None` | How your own callable agent samples, `{"temperature": 0.7, "max_tokens": 1024, "model": "my-model"}`, recorded on every row as given. A model backend records its own and ignores this |
-| `reproducible` | `False` | Same seed, same concurrency, same agent: same rows, on any CPython version. Runs batch by batch, so uneven latency costs throughput. Needs the clock off. `concurrency: 1` always runs this way |
+| `reproducible` | `None`: `True` unless `time_budget` is set | Same seed, same agent: same rows at any concurrency, on any CPython version. Runs batch by batch, so a slow rollout holds its batch; `False` buys that throughput back at the cost of a task set that depends on thread timing. A clock turns it off |
 | `grade` | `False` | Legacy: `True` writes the deterministic conduct score at simulation time. Grade after with `data.grade(...)` instead |
 | `llm_grade` | `False` | Extra LLM judge. Needs `OPENAI_API_KEY` |
 
 ## References
 
 1. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024. Reinforcement learning with verifiable rewards.
-2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Synthetic Data and Constitutional AI*, *Reasoning* and *Regularization*.
+2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Synthetic Data and Constitutional AI*, *Reasoning*, *Regularization* and *Evaluation*.
 3. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
 4. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
 5. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

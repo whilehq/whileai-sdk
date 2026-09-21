@@ -23,11 +23,13 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import sys
 from datetime import date
 from importlib.metadata import version
 from pathlib import Path
 
 import whileai.simulations as wai
+from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen3-4B"
@@ -64,6 +66,7 @@ def mean_length(rows: list[dict]) -> float:
 
 
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", choices=["baseline", "recipe", "both"], default="both")
     ap.add_argument("--steps", type=int, default=40)
@@ -114,13 +117,23 @@ def main() -> None:
             target="pass_at_1",
             run_std=run_std,
             run_std_runs=int(noise["n_runs"]),
+            # one training seed per arm: the report says unresolved; two or
+            # more per arm (pass every seed's rows) resolve it to moved or flat (#356)
+            train_runs={"before": [arm_rows["baseline"]], "after": [arm_rows["recipe"]]},
             proxy=PROXY,
         )
         results["delta"] = {
             "recipe_vs_baseline": d["target_delta"],
             "ci": list(d["target_ci95"] or (0.0, 0.0)),
-            "verdict": "moved" if d["target_verdict"] == "moved" else "flat",
+            "verdict": (
+                "unresolved"
+                if d["target_verdict"] == "unresolved"
+                else "moved"
+                if d["target_verdict"] == "moved"
+                else "flat"
+            ),
         }
+        results["checks"]["train_seeds"] = {"baseline": 1, "recipe": 1}
         results["checks"]["over_optimized"] = bool(d["over_optimized"])
         print(wai.format_delta_report(d))
     (HERE / "results.json").write_text(json.dumps(results, indent=2))
