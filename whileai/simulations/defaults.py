@@ -1202,6 +1202,16 @@ ENV_MAX_TURNS_FALLBACK = 10
 # (convention, untested)
 ENV_EVAL_EXAMPLES = 5
 ENV_EVAL_ROLLOUTS = 3
+# ENV_HARNESS_MIX = "uniform": how load_environment spreads a spec's
+# harnesses over its tasks; each task draws one with equal weight, or with
+# the weights an explicit list gives. Kim et al. 2026 (arXiv:2606.25447)
+# train across harnesses and report out-of-distribution gains, and do not
+# compare mixing weights, so equal weight is (convention, untested).
+ENV_HARNESS_MIX = "uniform"
+# ENV_HARNESS_SEED = DEFAULT_SEED: the seed hashed with the task id to pick
+# its harness, so a re-run of the environment draws the same one per task
+# (one value, one home).
+ENV_HARNESS_SEED = DEFAULT_SEED
 
 # ---------------------------------------------------------------------
 # text heuristics
@@ -1821,6 +1831,8 @@ __all__ = [
     "ENV_DECONTAMINATION_NGRAM",
     "ENV_EVAL_EXAMPLES",
     "ENV_EVAL_ROLLOUTS",
+    "ENV_HARNESS_MIX",
+    "ENV_HARNESS_SEED",
     "ENV_HOLDOUT_FRACTION",
     "ENV_MAX_TURNS_FALLBACK",
     "FAULT_STATUSES",

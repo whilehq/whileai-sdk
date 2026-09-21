@@ -32,6 +32,17 @@ to 0.109 releases under the wrong numbers; they are yanked.
   Windows the npm shim is `claude.cmd`, which a bare `["claude", ...]` cannot find (WinError 2).
 - `Harness` takes the front-door slot `Selection` held; `wai.Selection` still resolves for
   `isinstance`, it is no longer on the advertised list (rule 1, thirty-one names).
+- `export_environment(harnesses=[...])`: an exported verifiers environment rolls out under
+  several harnesses, so an on-policy trainer (prime-rl) trains a policy that holds up when the
+  harness changes (#712, step 4; Kim et al. 2026, arXiv:2606.25447: a policy trained under one
+  fixed harness collapses when the tool environment shifts). Each entry is a `wai.Harness` or a
+  plain `{label, instructions, tools}` dict; `spec.json` lists them as `{label, hash,
+  instructions, tools, disclosure}` and the package README gets a "Harnesses" section. Without
+  `harnesses=` the spec is byte for byte what it was. `load_environment` draws one harness per
+  task from a hash of the task id and `harness_seed`, weighted by `harness_mix` (`"uniform"`, or
+  one weight per harness), runs the rollout with that harness's instructions and tool schemas,
+  and writes `harness = {label, hash}` into the rollout state. `wai.export_environment` and
+  `wai.load_environment` now resolve from the one import.
 
 ## 0.112 (2026-09-21)
 

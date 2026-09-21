@@ -59,6 +59,7 @@ export_environment(
     description: str = '',
     ngram: int = 8,
     world: Mapping[str, Any] | None = None,
+    harnesses: Sequence[Any] | None = None,
 ) -> dict[str, Any]
 ```
 
@@ -108,6 +109,17 @@ advantage) and `decontamination`.
 * `name`, `description`, `max_turns`: the package name, its
   README line, and the rollout turn cap (the SDK default when
   `None`).
+* `harnesses`: `wai.Harness` objects (or plain `\{label,
+  instructions, tools\}` dicts) the trainer's rollouts run under.
+  Each task draws one from its id and a seed, and that harness's
+  instructions become the system prompt and its tool schemas the tool
+  set for the rollout; a harness with no tools of its own uses the
+  environment's. The spec lists them as `\{label, hash, instructions,
+  tools, disclosure\}` and every rollout records `harness = \{label,
+  hash\}`. Kim et al. 2026 (arXiv:2606.25447): a policy trained under
+  one fixed harness collapses when the tool environment shifts, and
+  harness-aware post-training generalizes out of distribution. Left
+  out, the spec is what it always was.
 
 ``python
 report = wai.export_environment(data, "envs/refunds", reward=my_verifier)
@@ -123,6 +135,8 @@ load_environment(
     reward: Any = None,
     execute: Any = None,
     world: Any = None,
+    harness_mix: str | Sequence[float] = 'uniform',
+    harness_seed: int = 0,
     **kwargs: Any,
 ) -> Any
 ```
@@ -136,3 +150,10 @@ becomes `eval_dataset`. `reward` and `execute` override the
 spec's references (a callable or `'module:attr'`). `world` (a
 `WorldOptions` or a dict of its fields) overrides the mock world's
 dials the spec carries; here callables such as `fault_modes` are fine.
+
+When the spec carries `harnesses` (`export_environment(harnesses=)`),
+each task draws one from a hash of `harness_seed` and its id, weighted
+by `harness_mix` (`"uniform"`, or one weight per harness), and the
+rollout runs with that harness's instructions as the system prompt and
+its tool schemas as the tool set; the rollout state carries
+`harness = {label, hash}`. Kim et al. 2026 (arXiv:2606.25447).

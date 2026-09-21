@@ -21,7 +21,9 @@ installable ``verifiers`` package, the shape Prime Intellect and TRL consume::
 What goes in the package:
 
 * ``spec.json``: the system prompt, the tool schemas verbatim, the turn
-  cap, and dotted references to the reward and the world.
+  cap, dotted references to the reward and the world, and, when
+  ``harnesses=`` was given, the harnesses a rollout may run under (label,
+  hash, instructions, tool schemas, disclosure).
 * ``data/train.jsonl`` / ``data/holdout.jsonl``: one task per prompt in
   the verifiers shape (``prompt``, ``info``, ``example_id``). ``info``
   carries the task's fault plan, world state, privileged reference and
@@ -57,6 +59,8 @@ from .defaults import (
     ENV_DECONTAMINATION_NGRAM,
     ENV_EVAL_EXAMPLES,
     ENV_EVAL_ROLLOUTS,
+    ENV_HARNESS_MIX,
+    ENV_HARNESS_SEED,
     ENV_HOLDOUT_FRACTION,
     ENV_MAX_TURNS_FALLBACK,
 )
@@ -233,6 +237,89 @@ def _tool_defs(tools: Sequence[dict] | None) -> list[dict]:
             }
         )
     return out
+
+
+def _harness_entries(harnesses: Sequence[Any] | None, fallback_tools: list[dict]) -> list[dict]:
+    """The spec's ``harnesses`` list: one JSON entry per ``wai.Harness`` or
+    per plain ``{label, instructions, tools}`` dict, hashed the way the
+    ``Harness`` fingerprint hashes, so the label and hash a rollout records
+    match the ones ``simulate(harness)`` stamps on rows. A harness with no
+    tools of its own runs with the environment's tools."""
+    if not harnesses:
+        return []
+    from ..harness import Disclosure, Harness
+
+    entries: list[dict] = []
+    for i, item in enumerate(harnesses):
+        if isinstance(item, Mapping):
+            disclosure = item.get("disclosure")
+            harness = Harness(
+                item.get("model"),
+                instructions=item.get("instructions"),
+                tools=item.get("tools") or [],
+                label=item.get("label"),
+                disclosure=Disclosure(**dict(disclosure))
+                if isinstance(disclosure, Mapping)
+                else None,
+            )
+        elif hasattr(item, "stamp") and hasattr(item, "tool_schemas"):
+            harness = item
+        else:
+            raise TypeError(
+                f"harnesses[{i}] must be a wai.Harness or a dict with label, instructions and "
+                f"tools; got {type(item).__name__}"
+            )
+        tools = _tool_defs(harness.tool_schemas()) or list(fallback_tools)
+        entries.append(
+            {
+                "label": harness.version,
+                "hash": harness.fingerprint,
+                "instructions": harness.instructions or "",
+                "tools": tools,
+                "disclosure": harness.disclosure.items(),
+            }
+        )
+    labels = [e["label"] for e in entries]
+    dupes = sorted({x for x in labels if labels.count(x) > 1})
+    if dupes:
+        raise ValueError(
+            f"harnesses= carries the same label twice ({', '.join(dupes)}); give each one its "
+            "own label= so a rollout's trace says which harness it ran under"
+        )
+    return entries
+
+
+def _harness_weights(mix: Any, n: int) -> list[float]:
+    """Normalized draw weights over ``n`` harnesses from ``harness_mix``:
+    ``"uniform"`` or a list of ``n`` non-negative numbers."""
+    if isinstance(mix, str):
+        if mix != ENV_HARNESS_MIX:
+            raise ValueError(
+                f"harness_mix= must be {ENV_HARNESS_MIX!r} or a list of {n} weights; got {mix!r}"
+            )
+        return [1.0 / n] * n if n else []
+    weights = [float(w) for w in mix]
+    if len(weights) != n or any(w < 0 for w in weights) or sum(weights) <= 0:
+        raise ValueError(
+            f"harness_mix= needs one non-negative weight per harness ({n}) with a positive "
+            f"sum; got {list(mix)!r}"
+        )
+    total = sum(weights)
+    return [w / total for w in weights]
+
+
+def _draw_index(key: str, seed: int, weights: Sequence[float]) -> int:
+    """The harness a task runs under: a sha256 of the seed and the task id
+    read as a point on [0, 1) against the cumulative weights. The same task
+    and seed give the same harness on every machine and every re-run."""
+    digest = hashlib.sha256(f"{seed}:{key}".encode()).digest()
+    point = int.from_bytes(digest[:8], "big") / float(1 << 64)
+    acc = 0.0
+    for i, w in enumerate(weights):
+        acc += w
+        if point < acc:
+            return i
+    return len(weights) - 1
 
 
 def _label(value: Any) -> float | None:
@@ -458,6 +545,22 @@ def _readme(name: str, spec: dict, report: dict) -> str:
             f"{decon.get('n_contaminated', 0)} tasks "
             f"({(decon.get('contamination_rate') or 0):.1%})"
         )
+    if spec.get("harnesses"):
+        lines += ["", "### Harnesses"]
+        for h in spec["harnesses"]:
+            cap = (h.get("disclosure") or {}).get("max_turns") or spec["max_turns"]
+            lines.append(
+                f"- **{h['label']}** (`{h['hash']}`): {len(h.get('tools') or [])} tools, "
+                f"turn cap {cap}"
+            )
+        lines += [
+            "",
+            "Each task draws one of these from its id and a seed, and the rollout runs",
+            "under that harness's instructions and tools; `harness = {label, hash}` in the",
+            "rollout state says which. Kim et al. 2026 (arXiv:2606.25447): a policy trained",
+            "under one fixed harness collapses when the tool environment shifts, and one",
+            "trained across harnesses holds up out of distribution.",
+        ]
     lines += [
         "",
         "### Quickstart",
@@ -495,6 +598,7 @@ def export_environment(
     description: str = "",
     ngram: int = ENV_DECONTAMINATION_NGRAM,
     world: Mapping[str, Any] | None = None,
+    harnesses: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
     """Write graded rows as an installable verifiers environment for an on-policy trainer.
 
@@ -540,6 +644,17 @@ def export_environment(
     * ``name``, ``description``, ``max_turns``: the package name, its
       README line, and the rollout turn cap (the SDK default when
       ``None``).
+    * ``harnesses``: ``wai.Harness`` objects (or plain ``{label,
+      instructions, tools}`` dicts) the trainer's rollouts run under.
+      Each task draws one from its id and a seed, and that harness's
+      instructions become the system prompt and its tool schemas the tool
+      set for the rollout; a harness with no tools of its own uses the
+      environment's. The spec lists them as ``{label, hash, instructions,
+      tools, disclosure}`` and every rollout records ``harness = {label,
+      hash}``. Kim et al. 2026 (arXiv:2606.25447): a policy trained under
+      one fixed harness collapses when the tool environment shifts, and
+      harness-aware post-training generalizes out of distribution. Left
+      out, the spec is what it always was.
 
     ```python
     report = wai.export_environment(data, "envs/refunds", reward=my_verifier)
@@ -567,6 +682,7 @@ def export_environment(
     tool_defs = _tool_defs(resolved_tools)
     if not tool_defs:
         raise ValueError("an environment needs tools: pass tools= or a source with a profile")
+    harness_entries = _harness_entries(harnesses, tool_defs)
 
     out_dir = Path(out)
     name = _MODULE_NAME.sub("_", (name or out_dir.name).lower()).strip("_") or "whileai_env"
@@ -608,6 +724,9 @@ def export_environment(
     }
     if world_options is not None:
         spec["world"] = world_options
+    if harness_entries:
+        spec["harnesses"] = harness_entries
+        report["harnesses"] = [{"label": h["label"], "hash": h["hash"]} for h in harness_entries]
     report.update(
         {"name": name, "reward": reward_ref, "execute": execute_ref, "warnings": warnings}
     )
@@ -667,6 +786,8 @@ def _row_from_state(state: dict, info: dict) -> dict[str, Any]:
     }
     if info.get("privileged"):
         row["privileged"] = info["privileged"]
+    if state.get("harness"):
+        row["harness"] = dict(state["harness"])
     for meta_key in _TASK_META:
         if info.get(meta_key) is not None:
             row[meta_key] = info[meta_key]
@@ -689,6 +810,8 @@ def _make_env_class() -> type:
             reward: Callable[[dict], Any],
             execute: Callable[[str, dict], Any] | None = None,
             world: WorldOptions | Mapping[str, Any] | None = None,
+            harness_mix: Any = ENV_HARNESS_MIX,
+            harness_seed: int = ENV_HARNESS_SEED,
             **kwargs: Any,
         ) -> None:
             self.spec = spec
@@ -697,6 +820,18 @@ def _make_env_class() -> type:
             # the mock world's dials: the call wins, then the spec, then defaults
             self.world = WorldOptions.coerce(world if world is not None else spec.get("world"))
             self._tool_defs_raw = list(spec.get("tools") or [])
+            # the harnesses a task may draw (Kim et al. 2026, arXiv:2606.25447);
+            # the world answers every tool any of them carries
+            self.harnesses: list[dict] = list(spec.get("harnesses") or [])
+            self.harness_weights = _harness_weights(harness_mix, len(self.harnesses))
+            self.harness_seed = int(harness_seed)
+            self._world_tool_defs = list(self._tool_defs_raw)
+            known = {t["name"] for t in self._world_tool_defs}
+            for harness in self.harnesses:
+                for tool in harness.get("tools") or []:
+                    if tool["name"] not in known:
+                        known.add(tool["name"])
+                        self._world_tool_defs.append(tool)
             rubric = vf.Rubric(
                 funcs=[
                     self.reward_func,
@@ -714,18 +849,53 @@ def _make_env_class() -> type:
                 **kwargs,
             )
             self.tool_defs = self._normalize_tool_defs(self._tool_defs_raw)
-            for tool in self._tool_defs_raw:
+            for tool in self._world_tool_defs:
                 self.tool_monitor_rubric.add_tool_metric(tool["name"])
+
+        def draw_harness(self, state: dict) -> dict | None:
+            """The harness this rollout runs under, or ``None`` when the spec
+            carries none: a hash of ``harness_seed`` and the task id, so
+            every rollout of a task, on every re-run, draws the same one."""
+            if not self.harnesses:
+                return None
+            info = state.get("info") or {}
+            key = info.get("task_id") or state.get("src_id") or state.get("example_id")
+            if key is None:
+                key = _row_from_state(state, info)["prompt"]
+            return self.harnesses[_draw_index(str(key), self.harness_seed, self.harness_weights)]
+
+        @staticmethod
+        def _prompt_under(harness: dict, prompt: Any) -> list[Any]:
+            """The rollout prompt with the harness's instructions as its
+            system message, in whatever message shape the prompt already
+            uses (dicts, or verifiers' message objects)."""
+            messages = list(prompt) if isinstance(prompt, list) else []
+            rest = [
+                m
+                for m in messages
+                if (m.get("role") if isinstance(m, dict) else getattr(m, "role", None)) != "system"
+            ]
+            instructions = str(harness.get("instructions") or "")
+            if not instructions:
+                return rest
+            if rest and not isinstance(rest[0], dict):
+                return [vf.SystemMessage(content=instructions), *rest]
+            return [{"role": "system", "content": instructions}, *rest]
 
         async def setup_state(self, state: dict) -> dict:
             state = (await super().setup_state(state)) or state
             info = dict(state.get("info") or {})
             seed = info.get("seed")
+            harness = self.draw_harness(state)
+            if harness is not None:
+                state["harness"] = {"label": harness["label"], "hash": harness["hash"]}
+                state["prompt"] = self._prompt_under(harness, state.get("prompt"))
+                state["tool_defs"] = self._normalize_tool_defs(list(harness.get("tools") or []))
             state["zp_info"] = info
             state["zp_steps"] = []
             if self.execute is None:
                 state["zp_world"] = MockEnvironment(
-                    [{"type": "function", "function": t} for t in self._tool_defs_raw],
+                    [{"type": "function", "function": t} for t in self._world_tool_defs],
                     seed=int(seed) if isinstance(seed, int) else 0,
                     faults=dict(info.get("faults") or {}),
                     world_state=str(info.get("world_state") or ""),
@@ -829,6 +999,8 @@ def load_environment(
     reward: Any = None,
     execute: Any = None,
     world: Any = None,
+    harness_mix: str | Sequence[float] = ENV_HARNESS_MIX,
+    harness_seed: int = ENV_HARNESS_SEED,
     **kwargs: Any,
 ) -> Any:
     """Build the verifiers environment from an exported ``spec.json``.
@@ -838,6 +1010,13 @@ def load_environment(
     spec's references (a callable or ``'module:attr'``). ``world`` (a
     ``WorldOptions`` or a dict of its fields) overrides the mock world's
     dials the spec carries; here callables such as ``fault_modes`` are fine.
+
+    When the spec carries ``harnesses`` (``export_environment(harnesses=)``),
+    each task draws one from a hash of ``harness_seed`` and its id, weighted
+    by ``harness_mix`` (``"uniform"``, or one weight per harness), and the
+    rollout runs with that harness's instructions as the system prompt and
+    its tool schemas as the tool set; the rollout state carries
+    ``harness = {label, hash}``. Kim et al. 2026 (arXiv:2606.25447).
     """
     try:
         from datasets import Dataset
@@ -891,6 +1070,8 @@ def load_environment(
         reward=reward_obj,
         execute=execute_obj,
         world=world,
+        harness_mix=harness_mix,
+        harness_seed=harness_seed,
         dataset=Dataset.from_list(train),
         eval_dataset=Dataset.from_list(held) if held else None,
         **kwargs,

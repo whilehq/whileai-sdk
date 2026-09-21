@@ -73,6 +73,11 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "hack_scan": ("whileai.simulations.score.hack_scan", "hack_scan"),
     "preflight": ("whileai.simulations.score.preflight", "preflight"),
     "export": ("whileai.simulations.export", "export_dataset"),
+    # an RL environment out of graded rows, and the same package loaded
+    # back for a verifiers trainer; docs/reference/harness.md spells both
+    # as `wai.X` (#712). Their home stays whileai.simulations.environment.
+    "export_environment": ("whileai.simulations.environment", "export_environment"),
+    "load_environment": ("whileai.simulations.environment", "load_environment"),
     "SimulationData": ("whileai.simulations.data", "SimulationData"),
     "ScoredData": ("whileai.simulations.score.judging", "ScoredData"),
     # your own prompts and completions (a public benchmark) as the rows
