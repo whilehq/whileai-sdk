@@ -380,7 +380,7 @@ def _sample_vllm(llm, prompts: list[str], *, n: int, max_tokens: int, seed: int)
     # process also removes cross-arm state from the seed study, which is the
     # same hazard the sibling adaptive-clip recipe hit when TRL built the LoRA
     # adapter before the trainer applied its seed.
-    max_inputs=1,
+    single_use_containers=True,
     volumes={VOLUME_ROOT: runs_volume, "/root/.cache/huggingface": hf_cache},
     secrets=[dashboard_secret],
 )
