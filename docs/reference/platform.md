@@ -406,6 +406,12 @@ run = tracked.open("run_7f3a")  # GET /runs/run_7f3a, no POST
 run.finish(hours=2.1, cost_usd=31, record={"optimizer": {"loss_type": "dapo", "lr": 5e-5}})
 ```
 
+**What it costs to run.** `record={"eval": {"cost_per_1k": 3.01, "cost_basis": "list price $2/$10 per M tokens, no caching"}}` is what this version cost to answer 1,000 of the test's tasks, in USD, as run, with one sentence on how it was counted. The experiment page draws held-out score against this cost; `cost_usd` on `finish()` is the training bill, a different number.
+
+```python
+run.finish(record={"eval": {"cost_per_1k": 2.10, "cost_basis": "measured: one L40S for 1.98 h at $1.95/h, 1,836 replies"}})
+```
+
 ### Sweep the harness
 
 For an agent on a frontier model the harness is the experiment: the prompt, the tool set and the model. Name each variant `prompt@model` and the Runs page groups the dots by prompt and by model as two axes. `HarnessSweep` scores every variant on the same frozen asks and posts one run per fingerprint, so the Runs page groups the dots by prompt or by model and the verdict says which win is real.
