@@ -7,6 +7,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Docs: `purge_agent` and `delete_empty_datasets` delete by default; the CLI and Platform pages said both came with `dry_run=True`, so a copied call deleted what it read as a preview. The pages now say to pass `dry_run=True` first.
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
 
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
