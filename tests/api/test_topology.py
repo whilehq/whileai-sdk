@@ -481,7 +481,7 @@ def test_seed_grade_grader_dimensions_texture_output(tmp_path):
 
     graded = wai.simulate(
         scripted_agent,
-        grade=True,
+        grade="conduct",
         repeats=1,
         budget=4,
         tools=TOOLS,
@@ -510,7 +510,7 @@ def test_seed_grade_grader_dimensions_texture_output(tmp_path):
 
     scored = wai.simulate(
         scripted_agent,
-        grade=True,
+        grade="conduct",
         grader=lambda _t: 0.25,
         repeats=1,
         budget=4,

@@ -77,13 +77,13 @@ def _tool_count_grader(row: dict) -> int:
 # runs serially on a fixed seed; the point is breadth of code path, not size.
 CONFIGS: list[tuple[str, dict[str, Any]]] = [
     ("explore_small", dict(budget=12, per_round=12)),
-    ("explore_graded", dict(budget=12, per_round=12, grade=True)),
+    ("explore_graded", dict(budget=12, per_round=12, grade="conduct")),
     ("explore_seed_7", dict(budget=12, per_round=12, seed=7)),
     ("explore_wide", dict(budget=24, per_round=24)),
     ("explore_mutating", dict(budget=16, per_round=16, mutate_failures=True)),
     ("grader_callable", dict(budget=12, per_round=12, grader=_tool_count_grader)),
     ("traces_steered", dict(budget=24, per_round=40, traces=TRACES)),
-    ("traces_steered_graded", dict(budget=24, per_round=40, traces=TRACES, grade=True)),
+    ("traces_steered_graded", dict(budget=24, per_round=40, traces=TRACES, grade="conduct")),
     ("rl_repeats", dict(budget=24, per_round=24, mode="rl", repeats=3)),
     ("rl_phrasings", dict(budget=24, per_round=24, mode="rl", phrasings=3, repeats=2)),
     ("unique_situations", dict(budget=12, per_round=12, unique=True)),

@@ -45,7 +45,7 @@ def _run(policy, seed=7, **kw):
         _agent,
         tools=TOOLS,
         policy=policy,
-        grade=True,
+        grade="conduct",
         mode="sft",
         repeats=2,
         per_round=40,

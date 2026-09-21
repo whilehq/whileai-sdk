@@ -282,12 +282,12 @@ def test_empty_simulate_is_one_sentence():
 
 
 def test_github_example_spec_works():
-    data = simulate_offline(spec=str(GITHUB_SPEC), budget=6, grade=True, per_round=6)
+    data = simulate_offline(spec=str(GITHUB_SPEC), budget=6, grade="conduct", per_round=6)
     names = {(t.get("function") or t).get("name") for t in data.profile.tools}
     assert {"search_issues", "get_pr"} <= names
     row = data.rows()[0]
     assert {"prompt", "messages", "steps", "final_text", "scenario_id"} <= set(row)
-    # grade=True applies the deterministic conduct grade at return.
+    # grade="conduct" applies the deterministic conduct grade at return.
     assert isinstance(row.get("reward"), (int, float))
     assert row.get("label_source") == "conduct"
     assert row["messages"][0] == {"role": "user", "content": row["prompt"]}
@@ -655,7 +655,7 @@ def test_writer_follows_bring_your_own_model(monkeypatch):
 def test_conduct_grade_reason_reaches_the_row(tmp_path):
     import json
 
-    data = simulate_offline(grade=True, budget=16)
+    data = simulate_offline(grade="conduct", budget=16)
     fails = [r for r in data.trajectories if r.get("reward") == 0]
     assert fails, "the scripted agent invents ids and claims success; some rows must fail"
     assert all(r.get("reason") for r in fails)

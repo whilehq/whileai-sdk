@@ -113,7 +113,7 @@ def simulate_rows(n: int = 24, seed: int = 0) -> list[dict]:
         policy=POLICY,
         budget=n,
         seed=seed,
-        grade=True,
+        grade="conduct",
         concurrency=4,
         simulator=False,
         time_budget=None,

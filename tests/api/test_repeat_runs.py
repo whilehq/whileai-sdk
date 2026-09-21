@@ -15,7 +15,7 @@ from tests.helpers import simulate_offline
 
 def _run(**kw):
     kw.setdefault("budget", 24)
-    return simulate_offline(mode="sft", repeats=2, concurrency=1, seed=3, grade=True, **kw)
+    return simulate_offline(mode="sft", repeats=2, concurrency=1, seed=3, grade="conduct", **kw)
 
 
 def _eval_runs(data):

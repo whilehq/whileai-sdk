@@ -79,7 +79,7 @@ def main() -> int:
         budget=args.situations * args.k,
         time_budget=None,  # the 60s default silently truncates the run
         fault_rate=args.fault_rate,
-        grade=True,
+        grade="conduct",
         simulator=not args.offline,
         output=args.out,
     )
