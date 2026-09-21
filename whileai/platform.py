@@ -392,12 +392,21 @@ class EvalSetup(_Wire):
     before it is a result. ``reader`` names how the answer span was read
     (``boxed``, ``lenient``, a judge name).
 
-    ``cost_per_1k`` is what this version cost to answer 1,000 of the test's
-    tasks, in USD, as run: tokens at list price for an API model, GPU hours
-    at the provider's rate for a served one. ``cost_basis`` says how it was
-    counted in one sentence (measured or assumed, which prices, caching or
-    not) so two versions' costs can be compared honestly. The platform draws
-    held-out score against this cost; a version without it is off that chart.
+    What it cost to answer the test is posted as facts, not dollars. For an
+    API model: ``model`` (the provider's id, ``claude-sonnet-5``), the
+    ``input_tokens`` and ``output_tokens`` the provider reported summed over
+    the ``replies`` that produced them. For a served open model: the ``gpu``
+    (``L40S``) and the ``gpu_hours`` it was up for those ``replies``. The
+    platform prices the facts from its open price book at list price, no
+    caching, and draws held-out score against the result in USD per 1,000
+    tasks: every price, its source, its date and the formula are public at
+    https://withwhile.com/pricing-book, so any two versions on any chart are
+    priced the same way.
+
+    ``cost_per_1k`` is the fallback: the number the agent priced itself, in
+    USD per 1,000 tasks, with ``cost_basis`` saying how in one sentence. The
+    platform draws it marked "reported by the agent, not priced by the book",
+    and uses it when the model or GPU is not in the book.
     """
 
     metric: str | None = None
@@ -405,6 +414,12 @@ class EvalSetup(_Wire):
     run_std: float | None = Field(default=None, ge=0)
     run_std_runs: int | None = Field(default=None, ge=1)
     reader: str | None = None
+    model: str | None = Field(default=None, max_length=120)
+    input_tokens: int | None = Field(default=None, alias="inputTokens", ge=0)
+    output_tokens: int | None = Field(default=None, alias="outputTokens", ge=0)
+    replies: int | None = Field(default=None, ge=1)
+    gpu: str | None = Field(default=None, max_length=40)
+    gpu_hours: float | None = Field(default=None, alias="gpuHours", ge=0)
     cost_per_1k: float | None = Field(default=None, alias="costPer1k", ge=0)
     cost_basis: str | None = Field(default=None, max_length=200)
 

@@ -9,6 +9,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 - Docs: the Hub-through-the-platform block on the platform reference used `wai.hf_status` and
   friends at the front door, where none of them live; it now spells the names that resolve.
+- `EvalSetup` carries the cost of answering the test as facts, not dollars: `model`,
+  `input_tokens`, `output_tokens` and `replies` for an API model; `gpu`, `gpu_hours` and
+  `replies` for a served one. The platform prices them from its open price book at list price
+  (every price, source, date and the formula at https://withwhile.com/pricing-book), so any two
+  versions on any chart are priced the same way. `cost_per_1k` stays as the fallback and the
+  platform marks it "reported by the agent, not priced by the book".
 - `wai.Harness`: the program around the model as one object you run, fingerprint and
   compare (#712). `Harness(model, instructions=, tools=)` is the prompted loop the SDK plays;
   `Harness.claude_code(...)`, `Harness.codex(...)`, `Harness.pi(...)` and `Harness.command([...])`

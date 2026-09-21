@@ -406,21 +406,27 @@ run = tracked.open("run_7f3a")  # GET /runs/run_7f3a, no POST
 run.finish(hours=2.1, cost_usd=31, record={"optimizer": {"loss_type": "dapo", "lr": 5e-5}})
 ```
 
-**What it costs to run.** `record={"eval": {"cost_per_1k": 3.01, "cost_basis": "list price $2/$10 per M tokens, no caching"}}` is what this version cost to answer 1,000 of the test's tasks, in USD, as run, with one sentence on how it was counted. The experiment page draws held-out score against this cost; `cost_usd` on `finish()` is the training bill, a different number.
+**What it costs to run.** Post facts, not dollars. For an API model, the eval block carries `model`, the `input_tokens` and `output_tokens` the provider reported summed over the run, and the `replies` that produced them; for a served open model, the `gpu` and the `gpu_hours` it was up, and the `replies`. The platform prices the facts from its open price book at list price, no caching, and draws held-out score against the result in USD per 1,000 tasks. Every price, its source, the day it was read and the formula are public at [withwhile.com/pricing-book](https://withwhile.com/pricing-book), so two versions on one chart are always priced the same way. `cost_usd` on `finish()` is the training bill, a different number.
 
 ```python
 from whileai.platform import track
 
-run = track("refund-bot").open("run_7f3a")
+run = track("text-to-sql-shop").open("run_5cc11826d439")
 run.finish(
     record={
         "eval": {
-            "cost_per_1k": 2.10,
-            "cost_basis": "measured: one L40S for 1.98 h at $1.95/h, 1,836 replies",
+            "model": "claude-sonnet-5",
+            "input_tokens": 2_148_276,
+            "output_tokens": 120_552,
+            "replies": 1833,
         }
     }
 )
+run = track("text-to-sql-shop").open("run_223dc48d4933")
+run.finish(record={"eval": {"gpu": "L40S", "gpu_hours": 1.98, "replies": 1836}})
 ```
+
+`cost_per_1k` with a `cost_basis` sentence is the fallback: a number the agent priced itself. The platform draws it marked "reported by the agent, not priced by the book", and uses it when the model or GPU is not in the book.
 
 ### Sweep the harness
 
