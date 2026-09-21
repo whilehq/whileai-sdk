@@ -23,6 +23,15 @@ what it claims, the steps, one command, what happened.
 The table is generated: `python recipes/papers/check.py --write` reads every
 `results.json`. Do not edit it by hand.
 
+One paper here is a loop, not a trained arm:
+[`meta-harness`](meta-harness) (Lee et al. 2026, arXiv:2603.28052) searches
+over harness code, scores every candidate on one frozen task set, and gates
+the pick on held-out tasks and held-out models. It is in the step-recipe
+shape (`run.py --dry-run`, `smoke.sh`, a flags table), runs offline with
+scripted candidates, and `check.py` leaves it out of the table above
+because it has no `results.json`: the live run is the replication and no
+number from it is claimed until one is measured.
+
 ## Run one
 
 ```bash

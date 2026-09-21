@@ -47,9 +47,12 @@ reading the others:
   the reward, the split, the config, the no-key message) through `--dry-run`,
   `--offline` or a selftest, and its README's first command is that same
   free line with the paid one and its cost after it. CI runs every
-  `smoke.sh` on every pull request. Recipes without one: `papers/*`, because
-  each `recipe.py` imports `modal` at the top and CI does not install it;
-  `python recipe.py --selftest` is their offline check once it is.
+  `smoke.sh` on every pull request. Recipes without one: the two-arm
+  training replications under `papers/*`, because each `recipe.py` imports
+  `modal` at the top and CI does not install it; `python recipe.py
+  --selftest` is their offline check once it is. `papers/meta-harness` is
+  the exception: a search loop, not a trained arm, so it is in this shape
+  and carries a `smoke.sh`.
 
 ## Write one
 
