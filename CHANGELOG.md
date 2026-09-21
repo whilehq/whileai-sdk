@@ -7,6 +7,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `simulate(reproducible=)` defaults to `None`, which is `True` unless `time_budget` is
+  set. Before, a seeded run at the default concurrency drew a task set that depended on
+  thread timing: three runs of `seed=0, budget=160` gave 59, 58 and 58 tasks and three
+  different sets, so a lesson that wanted the same file on every machine had to pin
+  `concurrency=1` (#645). Round-synchronous scheduling cost nothing in that measurement;
+  under uneven latency a slow rollout holds its batch, and `reproducible=False` buys the
+  throughput back. Same seed and same concurrency still mean the same rows: concurrency is
+  the batch size, so lesson 7 keeps `concurrency=1`, the size the SFT recipe's numbers came from.
 - `wai.config.requirement()`: the `pip` requirement for a container image,
   `whileai>=<the version this process imported>`. Every recipe image now installs
   that instead of a bare `"whileai"`, which is resolved once and cached under that

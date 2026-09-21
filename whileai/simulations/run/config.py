@@ -480,7 +480,7 @@ def resolve_run_config(
     requests_per_situation: int | None = None,
     rollouts_per_request: int | None = None,
     unique_situations: bool = False,
-    reproducible: bool = False,
+    reproducible: bool | None = None,
     grade: bool = False,
     llm_grade: bool = False,
     traces: Any = None,
@@ -850,7 +850,9 @@ def resolve_run_config(
         unique_cards=unique_cards,
         k_immediate=k_immediate,
         probe=probe,
-        reproducible=bool(reproducible),
+        # None: reproducible unless a clock is set, since a clock stop lands
+        # wherever the run happens to be (#645).
+        reproducible=(time_budget is None) if reproducible is None else bool(reproducible),
         budget=budget,
         cap=int(cap),
         time_budget=time_budget,

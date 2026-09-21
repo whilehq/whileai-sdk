@@ -1777,7 +1777,7 @@ simulate(
     requests_per_situation: int | None = None,
     rollouts_per_request: int | None = None,
     unique_situations: bool = False,
-    reproducible: bool = False,
+    reproducible: bool | None = None,
     grade: bool = False,
     llm_grade: bool = False,
     traces: Any = None,
@@ -2021,17 +2021,23 @@ What steers the search and answers the tools:
   stay on the plain policy; it is ignored for callable agents.
   Measured to help some agents and hurt others, so there is no
   default: configure it per agent.
-* `reproducible`: a seeded run is already reproducible bit-for-bit
-  at `concurrency: 1`, apart from timing fields and per-invocation
+* `reproducible`: the default, `None`, is `True` unless
+  `time_budget` is set. `True` makes a seeded run bit-for-bit at
+  any concurrency, apart from timing fields and per-invocation
   identity (with `grader=` every row's `lineage.scoring_run_id`
   names that one scoring pass, a fresh id per call; pass `run_id=`
-  to `run_judge` to pin it). `True` makes it so at any
-  concurrency: each batch of rollouts finishes, and every verdict of
-  the batch lands, before the next is chosen, so every round sees
-  the same state. A slow rollout holds its batch, so uneven latency
-  costs throughput, and it needs the clock off, since a clock stop
-  lands wherever the run happens to be. Without the flag, which rows
-  land before the cap depends on thread timing. Either way the draw is
+  to `run_judge` to pin it): each batch of rollouts finishes, and
+  every verdict of the batch lands, before the next is chosen, so
+  every round sees the same state. A slow rollout holds its batch,
+  so uneven latency costs throughput; pass `False` to trade the
+  same task set on every machine for that throughput. A clock turns
+  it off on its own, since a clock stop lands wherever the run
+  happens to be. It was `False` before 0.111: three runs of one
+  seed at the default concurrency then drew three different task
+  sets (59, 58 and 58 tasks from one `budget=160`), because which
+  rows land before the cap depended on thread timing, and a lesson
+  that wanted the same file on every machine had to pin
+  `concurrency=1`. Either way the draw is
   a function of the seed and the inputs alone, not of the interpreter:
   every float sum on the row-selection path is correctly rounded
   (`math.fsum`), so one seed picks the same rows on CPython 3.10

@@ -28,9 +28,10 @@ when 80% of its runs also appear in a test row.
 ## Run it
 
 The setup is lesson 2's run and lesson 3's judge. The split here is by
-position, which is fine for a demo only because the run passes
-`reproducible=True`: without it rows land in completion order, and a
-slow rollout can put one ask's four tries on both sides of the cut. For
+position, which is fine for a demo only because the run is
+reproducible (the default without a clock): with `reproducible=False`
+rows land in completion order, and a slow rollout can put one ask's
+four tries on both sides of the cut. For
 real rows, split by task so all four tries of an ask land on the same
 side.
 
@@ -87,7 +88,7 @@ data = wai.simulate(
     repeat_policy="fixed",
     budget=64,
     seed=0,
-    reproducible=True,  # rows land in submission order, so the cut below never splits an ask
+    reproducible=True,  # the default without a clock, written out: rows land in submission order, so the cut below never splits an ask
 )
 scored = data.grade(judge=judge)
 
