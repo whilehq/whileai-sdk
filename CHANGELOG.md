@@ -14,7 +14,19 @@ to 0.109 releases under the wrong numbers; they are yanked.
   them back; the card's 20-row sample is derived when `examples=` is not given. The platform
   shows the set at the iteration's rows page, grouped by tag, so what went well and what did
   not is a table, not a number.
-
+- A `bedrock:` spec naming an imported model's ARN (`...:imported-model/...`) goes to
+  `InvokeModel` with the OpenAI chat-completion body, because Bedrock refuses Converse for
+  a model that came through Custom Model Import ("This action doesn't support the model
+  that you provided", measured on a Llama 3.1 8B import). The engine's own OpenAI-shaped
+  history goes out as is and the reply is already in its shape. A model being restored
+  after idling (`ModelNotReadyException`) is waited for: `IMPORTED_RESTORE_TRIES` (10, the
+  count AWS documents) fifteen seconds apart on the bearer path, the same count as
+  botocore's retries on the signed path; the measured restore was 96 s. New recipe
+  `recipes/05-export/bedrock-import`: merge a LoRA adapter on Modal, push to S3 through
+  presigned URLs, import, then measure with the same `rollout.py` as the vLLM run. On the
+  text-to-SQL Nemotron r1 adapter, Bedrock pass@1 0.345 (0.273..0.414) vs vLLM 0.350,
+  paired delta -0.005 (-0.037..+0.027); against the base +0.082 (+0.045..+0.123), the
+  published +0.087.
 - `format="fireworks"` on `export` / `select(...).export` and `export_preference` writes what a
   Fireworks managed training job reads: SFT rows as `messages` + `tools` in the OpenAI wire shape
   with the SDK's `loss_mask` carried as Fireworks' per-message `weight`, preference rows in

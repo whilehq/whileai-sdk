@@ -119,7 +119,7 @@ def _signed(monkeypatch, responses):
     client = _FakeClient(responses)
     made = []
 
-    def make(region, timeout):
+    def make(region, timeout, tries=None):
         made.append((region, timeout))
         return client
 
@@ -512,3 +512,144 @@ def test_judge_spec_and_key_resolution_accept_bedrock(monkeypatch, bearer):
     assert resolve_judge_key(backend_spec="bedrock:m") == "bedrock-api-key-test"
     monkeypatch.delenv(bb.KEY_ENV)
     assert resolve_judge_key(backend_spec="bedrock:m") is None
+
+
+# --- imported models: InvokeModel with the OpenAI chat body -------------------
+
+ARN = "arn:aws:bedrock:us-east-1:123456789012:imported-model/abc123def456"
+
+
+def _completion(*, text="", tool_calls=None, finish="stop"):
+    message = {"role": "assistant", "content": text or None}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+    return {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "choices": [{"index": 0, "message": message, "finish_reason": finish}],
+        "usage": {"prompt_tokens": 41, "completion_tokens": 9, "total_tokens": 50},
+    }
+
+
+class _FakeInvokeClient(_FakeClient):
+    def invoke_model(self, **kwargs):
+        self.calls.append(kwargs)
+        out = self.queue.pop(0) if len(self.queue) > 1 else self.queue[0]
+        if isinstance(out, Exception):
+            raise out
+        return {"body": json.dumps(out).encode()}
+
+    def converse(self, **kwargs):  # an import refuses Converse; the route must not get here
+        raise AssertionError("Converse called for an imported model")
+
+
+def test_an_imported_model_arn_is_recognised_and_a_foundation_model_is_not():
+    assert bb.is_imported_model(ARN)
+    assert not bb.is_imported_model("us.anthropic.claude-sonnet-5")
+    assert not bb.is_imported_model(
+        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5"
+    )
+
+
+def test_invoke_body_is_the_openai_request_minus_local_keys():
+    body = bb.build_invoke_request(
+        [
+            {"role": "system", "content": "Be brief."},
+            {"role": "user", "content": "hi", "drafted": True},
+        ],
+        tools=[
+            {
+                "name": "refund",
+                "description": "Refund it",
+                "parameters": {"type": "object"},
+                "mock": {},
+            }
+        ],
+        temperature=1.05,
+        max_tokens=300,
+        extra={"top_p": 0.9, "chat_template_kwargs": {"x": 1}},
+    )
+    assert body["messages"] == [
+        {"role": "system", "content": "Be brief."},
+        {"role": "user", "content": "hi"},
+    ]
+    assert body["max_tokens"] == 300 and body["temperature"] == 1.05 and body["top_p"] == 0.9
+    assert body["tools"] == [
+        {
+            "type": "function",
+            "function": {
+                "name": "refund",
+                "description": "Refund it",
+                "parameters": {"type": "object"},
+            },
+        }
+    ]
+    assert "chat_template_kwargs" not in json.dumps(body)
+
+
+def test_invoke_reply_is_already_the_engine_shape():
+    reply = bb.reply_from_openai(_completion(text="```sql\nSELECT 1;\n```", finish="length"))
+    assert reply == {
+        "role": "assistant",
+        "content": "```sql\nSELECT 1;\n```",
+        "_finish_reason": "length",
+        "_usage": {"input_tokens": 41, "output_tokens": 9},
+    }
+    with pytest.raises(RuntimeError, match="no choices"):
+        bb.reply_from_openai({"choices": []})
+
+
+def test_invoke_url_escapes_the_arn():
+    assert bb.invoke_url("https://bedrock-runtime.us-east-1.amazonaws.com", ARN).endswith(
+        "/model/arn%3Aaws%3Abedrock%3Aus-east-1%3A123456789012%3Aimported-model%2Fabc123def456/invoke"
+    )
+
+
+def test_bearer_path_routes_an_import_to_invoke_and_waits_through_the_restore(monkeypatch, bearer):
+    sent = _record(
+        monkeypatch,
+        [
+            _Response(_error("ModelNotReadyException", "restoring"), status=429),
+            _Response(_error("ModelNotReadyException", "restoring"), status=429),
+            _Response(_completion(text="back")),
+        ],
+    )
+    slept = []
+    monkeypatch.setattr(bb.time, "sleep", lambda s: slept.append(s))
+    url, model = agents.parse_backend_spec(f"bedrock:{ARN}@us-east-1")
+    reply = agents.complete(url, model, [{"role": "user", "content": "hi"}], max_tokens=200)
+    assert reply["content"] == "back" and reply["_finish_reason"] == "stop"
+    assert sent[0]["url"].endswith("/invoke")
+    assert sent[0]["body"]["messages"] == [{"role": "user", "content": "hi"}]
+    assert "inferenceConfig" not in sent[0]["body"]
+    assert slept == [bb.IMPORTED_RESTORE_WAIT_S, bb.IMPORTED_RESTORE_WAIT_S]
+
+
+def test_a_restore_that_never_finishes_is_named_after_the_import_tries(monkeypatch, bearer):
+    sent = _record(
+        monkeypatch, [_Response(_error("ModelNotReadyException", "restoring"), status=429)]
+    )
+    url, model = agents.parse_backend_spec(f"bedrock:{ARN}")
+    with pytest.raises(RuntimeError, match="still restoring the imported model"):
+        agents.complete(url, model, [{"role": "user", "content": "hi"}])
+    assert len(sent) == bb.IMPORTED_RESTORE_TRIES + TRANSIENT_TRIES + 1
+
+
+def test_signed_path_routes_an_import_to_invoke_model_with_more_tries(monkeypatch):
+    client = _FakeInvokeClient([_completion(text="signed")])
+    made = []
+
+    def make(region, timeout, tries=None):
+        made.append((region, timeout, tries))
+        return client
+
+    monkeypatch.setattr(bb, "_make_client", make)
+    monkeypatch.setattr(bb, "has_aws_credentials", lambda: True)
+    url, model = agents.parse_backend_spec(f"bedrock:{ARN}@us-east-1")
+    reply = agents.complete(url, model, [{"role": "user", "content": "hi"}], timeout=30, n=2)
+    assert reply["content"] == "signed"
+    assert [r["content"] for r in reply["_all"]] == ["signed", "signed"]
+    assert made == [("us-east-1", 30.0, bb.IMPORTED_RESTORE_TRIES)]
+    call = client.calls[0]
+    assert call["modelId"] == ARN and call["accept"] == "application/json"
+    assert json.loads(call["body"])["messages"] == [{"role": "user", "content": "hi"}]
