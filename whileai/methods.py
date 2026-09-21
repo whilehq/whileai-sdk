@@ -76,9 +76,13 @@ from .simulations.defaults import (
     BPCO_MAX_TOKENS,
     BPCO_REWARD_RANGE,
     BPCO_TEMPERATURE,
+    FLASH_REINFORCE_BATCH,
     FLASH_REINFORCE_LEARNING_RATE,
+    FLASH_REINFORCE_LEARNING_RATE_LORA,
+    FLASH_REINFORCE_LOG_RATIO_CLAMP,
     FLASH_REINFORCE_MAX_TOKENS,
     FLASH_REINFORCE_OFF_POLICY_STEPS,
+    FLASH_REINFORCE_PROBABILITY_FLOOR,
     FLASH_REINFORCE_TEMPERATURE,
     FLASH_REINFORCE_TRUST,
     OPD_DIVERGENCE,
@@ -499,17 +503,98 @@ def _ratio(log_diff: float) -> float:
         return math.inf
 
 
+def _bernoulli_kl(p: float, q: float) -> float:
+    """The sampled-action Bernoulli KL proxy, Eq. (6) of Hu et al. 2026:
+    ``d = p log(p/q) + (1-p) log((1-p)/(1-q))`` with ``p`` the sampler's
+    probability of the token and ``q`` the learner's, each clamped to
+    ``[FLASH_REINFORCE_PROBABILITY_FLOOR, 1 - FLASH_REINFORCE_PROBABILITY_FLOOR]``
+    the way the reference loss does. Never below zero (a KL); the ``max``
+    only absorbs rounding."""
+    lo, hi = FLASH_REINFORCE_PROBABILITY_FLOOR, 1.0 - FLASH_REINFORCE_PROBABILITY_FLOOR
+    p = min(max(p, lo), hi)
+    q = min(max(q, lo), hi)
+    return max(0.0, p * math.log(p / q) + (1.0 - p) * math.log((1.0 - p) / (1.0 - q)))
+
+
+def _index_list(rows: Sequence[int], limit: int = 8) -> str:
+    shown = ", ".join(str(i) for i in rows[:limit])
+    return shown if len(rows) <= limit else f"{shown}, ... {len(rows) - limit} more"
+
+
 @dataclass(frozen=True)
 class FlashReinforce:
-    """Critic-free single-rollout REINFORCE with a batch-mean baseline (Hu et al. 2026).
+    """Critic-free REINFORCE on one rollout per prompt, safe under a stale sampler.
 
-    One rollout per prompt. The advantage is the reward minus the batch
-    mean; each token is corrected by the ratio of the trained policy to
-    the policy that sampled it; a trajectory whose mean sampled-action KL
-    to that sampler is over ``trust`` is masked whole (the sequence trust
-    region); each admitted trajectory gets the same outer weight
-    regardless of length (sample-mean optimization, ``1/T``).
-    ``off_policy_steps`` is the lag the method is built to absorb.
+    One trajectory per prompt is the shape a production trace arrives in
+    and the shape an asynchronous agent trainer produces: no group of
+    siblings to take a baseline over, no critic to train. FlashReinforce
+    takes the baseline from the batch instead (a trajectory counts as good
+    when it beat the batch's mean reward), corrects each token for the gap
+    between the policy that sampled it and the policy being trained, throws
+    away any trajectory that gap has moved too far, and weights every kept
+    trajectory the same whatever its length, so a long failure is not
+    punished more than a short one.
+
+    ``trust`` is the sequence trust region delta: the mean per-token drift
+    a trajectory may show before it is masked whole (``math.inf`` turns the
+    gate off). ``off_policy_steps`` is the lag, in optimizer steps, the
+    method is built to absorb; a trainer that takes a bound reads it.
+    ``temperature`` and ``max_tokens`` are the sampler's; the sampler is
+    untruncated (top-p 1.0), because the ratio assumes the learner never
+    puts mass where the sampler could not. ``learning_rate`` left ``None``
+    is 1e-6 on full weights (``FLASH_REINFORCE_LEARNING_RATE``) and 1e-4
+    on an adapter (``FLASH_REINFORCE_LEARNING_RATE_LORA``, untested). The
+    paper's batch is 128 trajectories (``FLASH_REINFORCE_BATCH``); the
+    batch you pass is the B below.
+
+    The mechanism, for a batch of ``B`` trajectories with rewards ``R_i``,
+    ``T_i`` action tokens each, sampler log-probabilities ``log mu`` and
+    learner log-probabilities ``log pi``:
+
+    * advantage ``A_i = R_i - mean_j R_j``, batch-centered, not divided by
+      a standard deviation (Eq. 5);
+    * per-token ratio ``rho_{i,t} = exp(log pi - log mu)`` (Eq. 1), never
+      clipped, only kept finite by clamping the log-ratio to
+      ``[-30, 30]`` (``FLASH_REINFORCE_LOG_RATIO_CLAMP``, Appendix A);
+    * per-token drift ``d_{i,t} = p log(p/q) + (1-p) log((1-p)/(1-q))``
+      with ``p = mu`` and ``q = pi`` of the sampled token (Eq. 6), its
+      mean over the trajectory ``D_i`` (Eq. 7), and the mask
+      ``m_i = 1[D_i <= trust]`` (Eq. 8);
+    * the objective ``J = (1/B) sum_i (m_i A_i / T_i) sum_t rho_{i,t}``
+      (Eq. 9), whose gradient with ``rho``, ``A`` and ``m`` held fixed is
+      ``(1/B) sum_i (m_i A_i / T_i) sum_t rho_{i,t} grad log pi`` (Eq. 10).
+
+    ``update(batch)`` returns exactly those numbers: ``coefficients[i][t]
+    = m_i * A_i * rho_{i,t} / (T_i * B)``, zero on a token ``action_mask``
+    turns off (tool output, observations: excluded from ``T_i`` and from
+    ``D_i`` too), plus the advantages, the mask and the notes. A row with
+    no ``behavior_logprobs`` is taken as on-policy (ratio 1, drift 0),
+    which is only right when the sampler was this policy; store the
+    sampler's own log-probabilities, never recomputed ones (Sec. 2.1).
+
+    Citation: Hu, Zhang, Zhang, Xu, Zhang, Peng, Yu, Molchanov, Kautz and
+    Dong 2026, FlashREINFORCE: Critic-Free Single-Rollout Asynchronous RL
+    for Agentic Language Models, NVIDIA (no arXiv id as of 2026-09-21;
+    https://yifanzhang-pro.github.io/FlashREINFORCE/FlashREINFORCE.pdf).
+    Reference loss: github.com/yifanzhang-pro/FlashREINFORCE; trainer:
+    github.com/NVIDIA-NeMo/labs-molt. Reported: stable through 6,000
+    updates at lag 4 on DeepSeek-R1-Distill-Qwen-1.5B, 38.0 five-benchmark
+    mean on Qwen2.5-Math-1.5B with half GRPO's rollouts, lag 8 on
+    Qwen3-30B-A3B, 98.3/96.5 seen/unseen on ALFWorld.
+
+    ```python
+    import whileai as wai
+
+    method = wai.FlashReinforce()          # trust=0.003, off_policy_steps=8
+    batch = [
+        {"reward": 1.0, "logprobs": [-0.5, -1.2, -0.3]},
+        {"reward": 0.0, "logprobs": [-0.9, -0.4], "behavior_logprobs": [-0.8, -0.4]},
+        {"reward": 1.0, "logprobs": [-0.1] * 20},
+    ]
+    update = method.update(batch)
+    print(update)                          # 3 of 3 admitted, mean ratio, drift
+    update.coefficients[0]                 # [A_0 * rho / (3 * 3), ...]
+    ```
     """
 
     trust: float = FLASH_REINFORCE_TRUST
@@ -520,18 +605,182 @@ class FlashReinforce:
 
     name: ClassVar[str] = "flash_reinforce"
     samples: ClassVar[int] = 1
+    batch: ClassVar[int] = FLASH_REINFORCE_BATCH
 
     def __post_init__(self) -> None:
-        raise NotImplementedError("FlashReinforce: filled in by the flash-reinforce agent")
+        trust = float(self.trust)
+        if not trust > 0:  # also refuses nan
+            raise ValueError(
+                f"trust must be above 0 (FLASH_REINFORCE_TRUST is {FLASH_REINFORCE_TRUST}, the "
+                f"mean sampled-action KL a trajectory may show; math.inf turns the gate off); "
+                f"got {self.trust}"
+            )
+        object.__setattr__(self, "trust", trust)
+        if int(self.off_policy_steps) < 0:
+            raise ValueError(
+                "off_policy_steps must be 0 or more (FLASH_REINFORCE_OFF_POLICY_STEPS is "
+                f"{FLASH_REINFORCE_OFF_POLICY_STEPS}; 0 is fully on-policy); got {self.off_policy_steps}"
+            )
+        object.__setattr__(self, "off_policy_steps", int(self.off_policy_steps))
+        if not 0 < float(self.temperature) <= 2:  # noqa: PLR2004  # the sampler's range
+            raise ValueError(
+                f"temperature must be in (0, 2] (FLASH_REINFORCE_TEMPERATURE is "
+                f"{FLASH_REINFORCE_TEMPERATURE}); got {self.temperature}"
+            )
+        if int(self.max_tokens) < 1:
+            raise ValueError(
+                f"max_tokens must be positive (FLASH_REINFORCE_MAX_TOKENS is "
+                f"{FLASH_REINFORCE_MAX_TOKENS}); got {self.max_tokens}"
+            )
+        if self.learning_rate is not None and not float(self.learning_rate) > 0:
+            raise ValueError(
+                "learning_rate must be positive, or None for the paper's "
+                f"{FLASH_REINFORCE_LEARNING_RATE} on full weights (FLASH_REINFORCE_LEARNING_RATE); "
+                f"got {self.learning_rate}"
+            )
 
     def default_learning_rate(self, lora: bool) -> float:
-        return FLASH_REINFORCE_LEARNING_RATE
+        if self.learning_rate is not None:
+            return float(self.learning_rate)
+        return FLASH_REINFORCE_LEARNING_RATE_LORA if lora else FLASH_REINFORCE_LEARNING_RATE
 
     def update(self, batch: Sequence[Mapping[str, Any]]) -> Update:
-        raise NotImplementedError
+        """The one-pass update for one fresh batch: Algorithm 1 of Hu et al. 2026.
+
+        Each trajectory is a dict with ``reward``, ``logprobs`` (under the
+        policy being trained), optional ``behavior_logprobs`` (under the
+        sampler; on-policy when absent) and optional ``action_mask``. The
+        result's ``coefficients[i][t]`` is ``m_i * A_i * rho_{i,t} / (T_i * B)``;
+        a trainer's loss is ``-(coefficients * logprobs).sum()`` with the
+        coefficients held constant. Refuses an empty batch, a row without a
+        field, a non-finite reward, and a log-probability that is not a
+        log-probability (non-finite or above 0) on an action token.
+        """
+        _trajectory_fields(batch, self.name)
+        n = len(batch)
+        rewards: list[float] = []
+        for i, traj in enumerate(batch):
+            reward = float(traj["reward"])
+            if not math.isfinite(reward):
+                raise ValueError(
+                    f"{self.name}.update: trajectory {i} has reward {reward!r}; "
+                    "a reward is a finite number"
+                )
+            rewards.append(reward)
+        baseline = sum(rewards) / n
+        advantages = [r - baseline for r in rewards]
+
+        coefficients: list[list[float]] = []
+        advantage_rows: list[list[float]] = []
+        admitted: list[bool] = []
+        drifts: list[float] = []
+        ratios: list[float] = []
+        rejected: list[int] = []
+        on_policy = 0
+        clamped = 0
+        for i, traj in enumerate(batch):
+            logprobs = [float(x) for x in traj["logprobs"]]
+            raw_behavior = traj.get("behavior_logprobs")
+            if raw_behavior is None:
+                on_policy += 1
+                behavior = logprobs
+            else:
+                behavior = [float(x) for x in raw_behavior]
+            raw_mask = traj.get("action_mask")
+            mask = [True] * len(logprobs) if raw_mask is None else [bool(x) for x in raw_mask]
+            length = sum(mask)
+            if length == 0:
+                raise ValueError(
+                    f"{self.name}.update: trajectory {i} has no action token (action_mask is "
+                    "False everywhere); a trajectory needs at least one token the policy wrote"
+                )
+            drift = 0.0
+            for t, on in enumerate(mask):
+                if not on:
+                    continue
+                lp, blp = logprobs[t], behavior[t]
+                if not (math.isfinite(lp) and math.isfinite(blp)) or lp > 0 or blp > 0:
+                    raise ValueError(
+                        f"{self.name}.update: trajectory {i} token {t} has logprob {lp!r} and "
+                        f"behavior_logprob {blp!r}; a log-probability is finite and at most 0 "
+                        "(pass log p, not p)"
+                    )
+                drift += _bernoulli_kl(math.exp(blp), math.exp(lp))
+            drift /= length
+            keep = drift <= self.trust
+            row = [0.0] * len(logprobs)
+            if keep:
+                scale = advantages[i] / (length * n)
+                for t, on in enumerate(mask):
+                    if not on:
+                        continue
+                    log_ratio = logprobs[t] - behavior[t]
+                    if abs(log_ratio) > FLASH_REINFORCE_LOG_RATIO_CLAMP:
+                        clamped += 1
+                        log_ratio = math.copysign(FLASH_REINFORCE_LOG_RATIO_CLAMP, log_ratio)
+                    rho = math.exp(log_ratio)
+                    ratios.append(rho)
+                    row[t] = scale * rho
+            else:
+                rejected.append(i)
+            coefficients.append(row)
+            advantage_rows.append([advantages[i]] * len(logprobs))
+            admitted.append(keep)
+            drifts.append(drift)
+
+        notes: list[str] = []
+        if rejected:
+            worst = max(drifts[i] for i in rejected)
+            noun = "trajectory" if len(rejected) == 1 else "trajectories"
+            notes.append(
+                f"{len(rejected)} {noun} ({_index_list(rejected)}) over trust {self.trust:g} "
+                f"masked whole (max mean KL {worst:.3g}); the sampler drifted further than the "
+                "gate allows: check behavior_logprobs are the sampler's own, then lower "
+                "off_policy_steps or raise trust"
+            )
+        if len(rejected) == n:
+            notes.append("every trajectory is masked, so this update moves nothing")
+        elif all(a == 0 for a in advantages):
+            notes.append(
+                f"every reward is {rewards[0]:g}, so every advantage is 0 and this update moves "
+                "nothing; the batch mean is the only baseline, so a batch needs prompts the "
+                "policy sometimes passes and sometimes fails: enlarge the batch or select "
+                "prompts in the 20..80% band (wai.select)"
+            )
+        if on_policy:
+            carries, taken = ("carries", "is") if on_policy == 1 else ("carry", "are")
+            notes.append(
+                f"{on_policy} trajector{'y' if on_policy == 1 else 'ies'} {carries} no "
+                f"behavior_logprobs and {taken} taken as on-policy (ratio 1, drift 0); store "
+                "the sampler's own log-probabilities to correct a stale rollout"
+            )
+        if clamped:
+            notes.append(
+                f"{clamped} admitted tokens hit the log-ratio clamp of "
+                f"+-{FLASH_REINFORCE_LOG_RATIO_CLAMP:g} (FLASH_REINFORCE_LOG_RATIO_CLAMP)"
+            )
+        stats = {
+            "batch_mean_reward": baseline,
+            "admitted_share": (n - len(rejected)) / n,
+            "mean_sequence_kl": sum(drifts) / n,
+            "max_sequence_kl": max(drifts),
+            "mean_ratio": sum(ratios) / len(ratios) if ratios else math.nan,
+        }
+        return Update(
+            method=self.name,
+            coefficients=coefficients,
+            advantages=advantage_rows,
+            admitted=admitted,
+            value_targets=None,
+            stats=stats,
+            notes=notes,
+        )
 
     def __str__(self) -> str:
-        raise NotImplementedError
+        return (
+            f"FlashReinforce(trust={self.trust:g}, off_policy_steps={self.off_policy_steps}, "
+            f"temperature={self.temperature}, max_tokens={self.max_tokens})"
+        )
 
 
 @dataclass(frozen=True)
