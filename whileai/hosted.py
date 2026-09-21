@@ -110,7 +110,7 @@ class HostedModels:
 
     ``api_key`` and ``transport`` are for tests and for a second account in
     one process; the default instance reads the key the way every platform
-    call does (``wai.configure(api_key=)``, ``WHILEAI_API_KEY``, ``whileai login``).
+    call does (``wai.configure(api_key=)``, ``WHILEAI_API_KEY``, ``wai login``).
     """
 
     def __init__(self, *, api_key: str | None = None, transport: Transport | None = None):
