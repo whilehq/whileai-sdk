@@ -13,7 +13,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
   different sets, so a lesson that wanted the same file on every machine had to pin
   `concurrency=1` (#645). Round-synchronous scheduling cost nothing in that measurement;
   under uneven latency a slow rollout holds its batch, and `reproducible=False` buys the
-  throughput back. The `concurrency=1` pins in the learn course and the SFT recipe are gone.
+  throughput back. Same seed and same concurrency still mean the same rows: concurrency is
+  the batch size, so lesson 7 keeps `concurrency=1`, the size the SFT recipe's numbers came from.
 - `wai.config.requirement()`: the `pip` requirement for a container image,
   `whileai>=<the version this process imported>`. Every recipe image now installs
   that instead of a bare `"whileai"`, which is resolved once and cached under that

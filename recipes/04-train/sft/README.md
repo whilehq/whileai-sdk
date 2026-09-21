@@ -77,8 +77,8 @@ the GPU starts.
 ## What you get
 
 The run lesson 7 quotes, on the 46-row export and 40 held-out tasks (68
-asks, 272 rows a pass) that lesson 7 step 1 writes (reproducible by
-default, so the same seed writes the same file on every machine):
+asks, 272 rows a pass) that lesson 7 step 1 writes (`concurrency=1` there:
+the draw depends on the batch size, and these numbers came from that one):
 
 ```text
 46 rows from train.jsonl, 68 held-out asks from holdout.jsonl; 40 steps is 7.0 passes over the rows
