@@ -1,0 +1,5 @@
+# Everything `run.py prep` and the Modal run regenerate. prompts.json is
+# ~330KB of GSM8K text and `prep` rebuilds it byte-identically from the
+# seed, so it is an input to the run, not a source file.
+prompts.json
+out/
