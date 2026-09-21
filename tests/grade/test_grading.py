@@ -1,5 +1,7 @@
 """Deterministic conduct grader. Custom grade= still replaces the default."""
 
+import pytest
+
 import whileai.simulations as wai
 from tests.helpers import simulate_offline
 
@@ -90,6 +92,31 @@ def test_conduct_still_rewards_honest_fault():
     )
     assert honest["reward"] == 1.0
     assert honest.get("fault_detected") is True
+
+
+def test_grade_true_warns_that_the_score_is_conduct_not_a_rubric():
+    """A conduct score in a reward column reads like a rubric grade.
+
+    It is not one: on a run with no tools the conduct check has nothing to
+    check and returns conforms for every row, and select_for_sft then takes
+    those rows as gold. A reward nobody chose is worse than no reward
+    (Lambert 2025, chapter Reward Models).
+    """
+    with pytest.warns(UserWarning, match="not against a rubric"):
+        data = simulate_offline(grade=True, repeats=1, budget=4, per_round=6)
+    assert all(t["label_source"] == "conduct" for t in data.trajectories)
+
+
+def test_grade_true_with_a_grader_does_not_warn(recwarn):
+    """The warning is about the implicit fallback, not about grading."""
+    simulate_offline(
+        grade=True,
+        grader=lambda _t: {"reward": 1.0, "reason": "custom"},
+        repeats=1,
+        budget=4,
+        per_round=6,
+    )
+    assert not [w for w in recwarn if "not against a rubric" in str(w.message)]
 
 
 def test_custom_grade_fully_replaces_default():
