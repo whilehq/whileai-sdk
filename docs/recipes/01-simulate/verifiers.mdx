@@ -92,6 +92,13 @@ optimized rows still carry `privileged` (they are SDK rows, and a verifier
 has to be able to re-score them); `wai.training_rows(rows)` is the export
 that never projects it, which is what `run.py` prints at the end.
 
+`MathEqual` decides with [Math-Verify](https://github.com/huggingface/Math-Verify)
+(`pip install "whileai[math]"`), the verifier behind Open R1 and lighteval, and
+stops with that line when it is missing. On 3,840 held-out MATH-500 completions
+the string-and-number rule it replaced failed 199 correct answers (`\frac 59`
+vs `\frac{5}{9}`, `\text{(C)}` vs `C`, set order) and passed 64 wrong ones whose
+last digit matched the gold (`6\sqrt{3}` against `1+2\sqrt{3}`): 6.8% of verdicts.
+
 ## Code execution safety
 
 `CodeExec` runs the candidate in a fresh subprocess with isolated mode, a
