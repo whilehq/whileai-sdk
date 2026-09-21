@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.112 (2026-09-21)
+
 - `EvalSetup(cost_per_1k=, cost_basis=)`: what a version cost to answer 1,000 of the test's tasks
   in USD, and one sentence on how it was counted. The platform's experiment chart draws
   held-out score against this cost, so a cheaper model that scores the same is visible as such.
