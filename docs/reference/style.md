@@ -90,6 +90,23 @@ and the GitHub repository topics. *(one shape per library: every code
 example on dspy.ai opens `import dspy`, every PyTorch page `import
 torch`.)*
 
+A name a page spells `wai.X` resolves on `wai`. One import shape means
+`wai.` is the only prefix a reader can type, so a page that writes
+`wai.eval_variance` for a name that is not there hands the reader an
+`AttributeError` and no path to the call. Two lists do two jobs, and
+neither is the other: `__all__` is the front door, under thirty names, the
+loop and its nouns, and the ratchet pins its size; `_LAZY` in
+`whileai/__init__.py` is what the one import reaches, and it is already
+larger (the platform client's own names live there, documented under
+`wai.platform`). A name enters `_LAZY` when a doc, a recipe or a skill
+writes it as `wai.X`, and enters `__all__` when it is also rule 5 clean
+and another name comes off. A call listed in one table beside front-door
+calls makes the same promise a front-door call makes, whichever list it
+sits on. The count of `wai.X` spellings under `docs/`, `recipes/` and
+`skills/` that do not resolve is not pinned yet; most of them are in files
+that rebind `wai` to `whileai.simulations`, so the alias ratchet has to
+fall first.
+
 The first README paragraph also carries the ownership sentence once,
 verbatim: **You own the model, the data and the weights: the datasets are
 built from your production traces, the model is an open model post-trained
@@ -150,8 +167,9 @@ A report that was a dict first becomes a `whileai.report.Report`, which
 *is* a dict: every key, `.get`, `json.dumps` and `==` against a plain dict
 keep working, and `__str__` is the block the `format_*` twin writes. That
 is the migration step that costs a caller nothing. `judge_trust`,
-`hack_scan`, `delta_report` (`wai.compare`) and `leak_report` are through
-it; `decontaminate`, `export` and `preflight` are not.
+`hack_scan`, `delta_report` (`wai.compare`), `leak_report`,
+`eval_variance` and `holdout_size` are through it; `decontaminate`,
+`export` and `preflight` are not.
 
 **6. Public names are the verb a scientist says.** `simulate`, `grade`,
 `select`, `compare`, `train`, `serve`, `push`. Implementation words are

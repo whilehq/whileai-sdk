@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- README hero PNGs cropped to even padding. The canvas carried 275 px of empty
+  space on the right, so the centered banner rendered off-center on GitHub.
+- `recipes/community/process-vs-outcome-reward`: `run.py` and `report_platform.py`
+  print the provenance line first, on stderr, like every other entrypoint (#615
+  landed without it and turned main red).
 - The command is `wai`. `wai login`, `wai status`, `wai init`, `wai init-evals`, `wai verdict <id>`
   and the rest: every doc, recipe, skill, error message and the block `wai init` writes into
   `AGENTS.md` now spell it that way, and the block tells the coding agent to type `wai`, never
@@ -50,6 +55,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
   different failures. Offline scripted student plus a live path for any model, with the
   judge checked against the set's own labels. Grounds character measurement in Lambert 2025
   (Evaluation) and Maiya et al. 2025 (arXiv:2511.01689).
+- `wai.eval_variance` and `wai.holdout_size` resolve from the one import, and both print
+  themselves. `CONSTITUTION.md` belief 1 names four measurement calls and
+  `docs/reference/rows.md` lists them in one table; two were `wai.` and two were
+  `AttributeError` until you found `whileai.simulations.score.stats`, which no page prints
+  (#662). Both now return a `Report`, so the noise floor prints its `run_std`, the band a
+  delta has to clear and the call that takes it, and the sizing call prints the task count,
+  where its standard deviation came from and what that assumes. A `Report` is a dict, so
+  every caller reading keys is untouched. `whileai.__all__` is unchanged at 31 names and
+  every ratchet count holds.
+
 ## 0.110 (2026-09-21)
 
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,

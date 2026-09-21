@@ -2852,7 +2852,7 @@ eval_variance(
     *runs: Sequence[dict],
     metric: str = 'pass_at_1',
     by: str | None = None,
-) -> dict[str, Any]
+) -> EvalVarianceReport
 ```
 
 Defined in [`whileai/simulations/score/stats.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/stats.py).
@@ -2899,7 +2899,7 @@ holdout_size(
     task_std: float | None = None,
     rows: Sequence[dict] | None = None,
     ceiling_pass_rate: float = 0.9,
-) -> dict[str, Any]
+) -> HoldoutSizeReport
 ```
 
 Defined in [`whileai/simulations/score/stats.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/stats.py).
