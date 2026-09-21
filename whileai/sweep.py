@@ -32,6 +32,7 @@ from .platform import (
     Provenance,
     RunRecord,
     Tracked,
+    _pinned,
 )
 
 Agent = Callable[[str], dict[str, Any]]
@@ -293,6 +294,8 @@ class HarnessSweep:
         rows, or a JSONL path: the frozen asks) and post one run per variant.
         ``post=False`` scores without touching the platform."""
         pairs = list(variants.values()) if isinstance(variants, Mapping) else list(variants)
+        # a ``whileai.Harness`` (runnable) is accepted next to the platform record
+        pairs = [(_pinned(h), a) for h, a in pairs]
         if not pairs:
             raise ValueError("variants is empty; pass at least one (Harness, agent) pair")
         check_labels([h for h, _ in pairs])

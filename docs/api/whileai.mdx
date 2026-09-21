@@ -13,12 +13,12 @@ description: "The platform client: sign in, tracked agents, runs, verdicts."
 | [`Anthropic`](#anthropic) | Anthropic's Messages API. |
 | [`Endpoint`](#endpoint) | Any OpenAI-compatible server you run: vLLM, SGLang, TGI, LM Studio, a trained adapter behind a URL. |
 | [`Fireworks`](#fireworks) | An open model Fireworks serves, named the way Fireworks names it (`accounts/fireworks/models/<name>`). |
+| [`Harness`](#harness) | The program around the model: instructions, tools, the loop that runs them, and the facts a reader needs to compare two of them. |
 | [`Hosted`](#hosted) | The model While hosts, on your account key (`wai login` or `wai.configure(api_key=...)`). |
 | [`Judge`](#judge) | An LLM judge: a model, a rubric, and the context the agent was under. |
 | [`Ollama`](#ollama) | A model served by Ollama on this machine. |
 | [`OpenAI`](#openai) | OpenAI's chat API. |
 | [`ScoredData`](#scoreddata) | Scored trajectories: the one representation grade and eval share. |
-| [`Selection`](#selection) | Rows kept by `optimize`, with the report that says why. |
 | [`SimulationData`](#simulationdata) | *no docstring* |
 | [`Verifier`](#verifier) | Base class. |
 | [`compare`](#compare) | Compare an `after` run to a `before` run on pass@1 and every shared marker, and say whether the change is real. |
@@ -94,6 +94,98 @@ with wai.context(judge=wai.OpenAI("gpt-4.1")):
 ```python
 settings = Settings(agent=default (While hosted), judge=default (While hosted), simulator=default (While hosted), api_key=unset)
 ```
+
+## harness
+
+The harness: the program around the model, as one object you can run,
+fingerprint and compare.
+
+
+### Harness
+
+```python
+class Harness(
+    model: Any = None,
+    instructions: str | None = None,
+    tools: Sequence[Any] | None = None,
+    agent: Callable[[str], Trajectory] | None = None,
+    label: str | None = None,
+    disclosure: Disclosure | None = None,
+)
+```
+
+Defined in [`whileai/harness.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/harness.py).
+
+The program around the model: instructions, tools, the loop that
+runs them, and the facts a reader needs to compare two of them.
+
+Reach for it when the thing you are changing is not the weights. Pass
+it wherever an agent goes (`simulate(harness)`), and every row
+carries `harness = {label, hash, model, kind}`, so `attribute`
+can later say which lever moved the score. `pin()` is the platform
+record for `tracked.run(harness=)`.
+
+* `model`: a backend (`wai.OpenAI("gpt-4.1-mini")`), a
+  `provider:model` string, or `None` for the configured or hosted
+  model. On a command harness it is the name the CLI is told.
+* `instructions`: the system prompt (a command harness appends or
+  prepends it the way its CLI allows, and the disclosure says which).
+* `tools`: `@wai.tool` functions, plain functions, or OpenAI
+  function schemas; a command harness lists the tools the CLI ships.
+* `agent`: a callable `message -> trajectory` to fingerprint, or
+  the runner `Harness.command` builds. `None` is the prompted
+  loop the SDK plays itself.
+* `label`: the version name the platform shows; `h-<fingerprint>`
+  when left out. Name variants `prompt@model` and the Runs page
+  groups by both.
+* `disclosure`: a `Disclosure`; presets fill it from the CLI flags
+  and the context files present in `cwd`.
+
+Lambert 2025, chapter Evaluation: a score is only comparable with the
+setup held constant, so the setup is what the fingerprint hashes.
+
+#### Harness.into_simulate
+
+```python
+into_simulate(
+    self,
+    tools: Any,
+    system_prompt: str | None,
+    max_turns: int | None,
+) -> tuple[Any, Any, str | None, int | None]
+```
+
+What `simulate(harness)` hands the engine: the agent to play,
+and the tools, system prompt and turn cap the call did not name
+taken from the harness. A prompted harness becomes its model spec
+so the engine plays the world and the scheduled faults itself; a
+command or callable harness is played as it is.
+
+#### Harness.pin
+
+```python
+pin(self) -> Any
+```
+
+The platform record (`whileai.platform.Harness`) for
+`tracked.run(harness=)`: same label, same fingerprint.
+
+#### Harness.stamp
+
+```python
+stamp(self) -> dict[str, Any]
+```
+
+What every row from this harness carries under `harness`.
+
+#### Harness.tool_schemas
+
+```python
+tool_schemas(self) -> list[dict[str, Any]] | None
+```
+
+The tools as OpenAI function schemas, or `None` when there are
+none (the engine keeps its "no tools given" branch).
 
 ## judge
 
@@ -335,58 +427,6 @@ batches, and a failed send is retried on the next flush.
 
 `Selection`: the rows worth training on, as an object that prints its report.
 
-
-### Selection
-
-```python
-class Selection(
-    rows: Sequence[dict],
-    report: dict[str, Any] | None = None,
-    mode: str = 'rl',
-    system_prompt: str = '',
-    tools: Sequence[dict] | None = None,
-)
-```
-
-Defined in [`whileai/selection.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/selection.py).
-
-Rows kept by `optimize`, with the report that says why.
-
-#### Selection.export
-
-```python
-export(
-    self,
-    output: str | None = None,
-    format: str = 'openai',
-    unroll: bool = False,
-    validate: bool = True,
-    system_prompt: str | None = None,
-    tools: Sequence[dict] | None = None,
-) -> dict[str, Any]
-```
-
-Write the rows trainer-ready: `export_dataset` with this
-selection's system prompt and tools already filled in. `format`
-is `"openai"` (chat JSONL with a `loss_mask` per message),
-`"trl"` (what `SFTTrainer` loads) or `"fireworks"` (what a
-Fireworks managed training job reads); `unroll=True` makes one
-sample per agent turn. `system_prompt=` and `tools=` replace
-what the selection carries, for rows that arrived as a plain
-list. It warns when the written rows call tools but carry no tool
-schema, or came from a run with a system prompt and carry none: a
-tool-calling file whose prompts never show the tools trains a
-model to call a schema it was never shown (#592).
-
-#### Selection.push
-
-```python
-push(self, name: str, **kwargs: Any) -> dict
-```
-
-Upload to the platform as a dataset: `push_rows` with this
-selection's mode. `gate=True` (the default) refuses RL rows that
-carry no gradient.
 
 ### select
 

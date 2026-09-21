@@ -179,6 +179,12 @@ class Harness(_Wire):
     instructions: str | None = None
     tools: list[str] = Field(default_factory=list)
     model: str | None = None
+    #: What ``whileai.Harness`` discloses beyond the three fields above
+    #: (kind, context files, turn cap, compaction, retries, subagents,
+    #: sampling, the command line): folded into the fingerprint, never sent,
+    #: so the wire is unchanged and a prompted harness with no disclosure
+    #: keeps the hash it had (#712).
+    disclosure: dict[str, Any] | None = Field(default=None, exclude=True)
 
     @field_validator("tools", mode="before")
     @classmethod
@@ -187,11 +193,17 @@ class Harness(_Wire):
 
     @property
     def fingerprint(self) -> str:
-        """Twelve hex characters over model, instructions and sorted tools."""
-        blob = json.dumps(
-            {"model": self.model, "instructions": self.instructions, "tools": sorted(self.tools)},
-            sort_keys=True,
-        )
+        """Twelve hex characters over model, instructions, sorted tools and,
+        when present, the disclosure. The same formula as
+        ``whileai.harness.Harness.fingerprint``."""
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "instructions": self.instructions,
+            "tools": sorted(self.tools),
+        }
+        if self.disclosure:
+            payload["disclosure"] = self.disclosure
+        blob = json.dumps(payload, sort_keys=True, default=str)
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
 
     @property
@@ -203,6 +215,15 @@ class Harness(_Wire):
         out["label"] = self.version
         out["hash"] = self.fingerprint
         return out
+
+
+def _pinned(harness: Any) -> Any:
+    """A ``whileai.Harness`` (anything with ``pin()``) as its platform
+    record; a platform ``Harness``, a string or ``None`` as given."""
+    pin = getattr(harness, "pin", None)
+    if callable(pin) and not isinstance(harness, Harness):
+        return pin()
+    return harness
 
 
 class Judge(_Wire):
@@ -1945,7 +1966,7 @@ class Tracked:
         self.id = id
         self.name = name or id
         self.model = model
-        self.harness = harness
+        self.harness = _pinned(harness)
         self.frontier = frontier
         self._api_key = api_key
         self._transport = transport
@@ -2198,6 +2219,7 @@ class Tracked:
         spec = version if isinstance(version, RunSpec) else RunSpec(version=version, **fields)
         if spec.base is None and self.model:
             spec.base = self.model
+        harness = _pinned(harness)
         pinned = (
             harness if isinstance(harness, Harness) else self.harness if harness is None else None
         )
@@ -2503,6 +2525,7 @@ def track(
         model = model or found.model
 
     h: Harness | None
+    harness = _pinned(harness)
     if isinstance(harness, Harness):
         h = harness
     elif isinstance(harness, str):

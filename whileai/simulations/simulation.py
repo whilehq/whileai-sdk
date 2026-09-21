@@ -387,6 +387,17 @@ def simulate(
     # way ``configure(agent=...)`` resolves it: its spec string goes down
     # the same road as ``agent="openai:gpt-4.1-mini"``, and a key given on
     # it is kept for its provider (#472).
+    # A Harness is the agent and its setup in one object (#712): it supplies
+    # the tools, system prompt and turn cap the call did not name, becomes
+    # its model spec (prompted, so the engine plays the world and the
+    # scheduled faults) or stays a callable (a command harness), and stamps
+    # every row with its fingerprint so ``wai.harness.attribute`` can read a
+    # harness x model grid off the rows.
+    harness = _as_harness(agent)
+    if harness is not None:
+        agent, tools, system_prompt, max_turns = harness.into_simulate(
+            tools, system_prompt, max_turns
+        )
     agent = _resolve_backend(agent, kwarg="agent")
     backend = _resolve_backend(backend, kwarg="backend")
     # Named knobs travel the same road as before (``advanced`` / aliases),
@@ -443,8 +454,20 @@ def simulate(
         passed=passed,
     )
     if n_runs == 1:
-        return Run(resolve_run_config(agent, **kwargs)).run()
-    return _repeat_runs(agent, n_runs, kwargs)
+        data = Run(resolve_run_config(agent, **kwargs)).run()
+    else:
+        data = _repeat_runs(agent, n_runs, kwargs)
+    if harness is not None:
+        harness.stamp_rows(data.trajectories)
+    return data
+
+
+def _as_harness(agent: Any) -> Any:
+    """``agent`` when it is a ``whileai.Harness``, else ``None``. Imported
+    here so the engine never depends on the front door at import time."""
+    from ..harness import Harness
+
+    return agent if isinstance(agent, Harness) else None
 
 
 def _stamp_eval_run(rows: list[dict], index: int, *, replayed_from: int | None = None) -> None:

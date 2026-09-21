@@ -7,6 +7,7 @@ import contextlib
 import importlib
 import inspect as _inspect
 import json
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -512,7 +513,12 @@ def claude_code(
         if max_turns is not None:
             command += ["--max-turns", str(max_turns)]
         command += [str(argument) for argument in extra_args]
-        proc = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        # looked up on PATH first: on Windows the npm shim is `claude.cmd`,
+        # which CreateProcess does not find under the bare name (#712)
+        program = shutil.which(command[0]) or command[0]
+        proc = subprocess.run(
+            [program, *command[1:]], cwd=cwd, capture_output=True, text=True, timeout=timeout
+        )
         if proc.returncode != 0 and not proc.stdout.strip():
             raise RuntimeError(f"claude exited {proc.returncode}: {proc.stderr[:300]}")
         return parse_claude_stream(proc.stdout)

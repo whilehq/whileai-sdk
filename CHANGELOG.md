@@ -7,6 +7,30 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.Harness`: the program around the model as one object you run, fingerprint and
+  compare (#712). `Harness(model, instructions=, tools=)` is the prompted loop the SDK plays;
+  `Harness.claude_code(...)`, `Harness.codex(...)`, `Harness.pi(...)` and `Harness.command([...])`
+  drive a coding agent through its JSON event stream, one subprocess per task, the trace
+  normalized to the same `{steps, final_text}` every adapter returns; `Harness(agent=callable)`
+  fingerprints an agent you already have. `simulate(harness)` takes the tools, system prompt
+  and turn cap from it and stamps every row `harness = {label, hash, model, kind}`. The
+  fingerprint hashes the disclosure fields Zhang et al. 2026 (arXiv:2605.23950) ask a
+  comparison to state (`Disclosure`: context files, turn cap, compaction, retries, subagents,
+  sampling), so a prompt edit or a new `CLAUDE.md` is a new version without anyone naming it.
+  `harness.pin()` is the platform record; `track(harness=)`, `tracked.run(harness=)` and
+  `HarnessSweep` accept it, and the wire does not change (a platform `Harness` with no
+  disclosure keeps its hash).
+- `wai.harness.attribute(rows)`: which lever moved the score across a harness x model grid on
+  one task set. The two-way decomposition of the cell means into a harness share, a model share
+  and their interaction, a bootstrap interval over tasks on each share, whether the leading
+  model changes with the harness (Zhang et al. 2026's ranking reversal), and the verdict in
+  words: the harness moved it more, the model did, or the difference could be chance. A missing
+  cell or a task seen in only some cells is named, never skipped in silence.
+- `claude_code(...)` and `Harness.command` look the program up on PATH before spawning it: on
+  Windows the npm shim is `claude.cmd`, which a bare `["claude", ...]` cannot find (WinError 2).
+- `Harness` takes the front-door slot `Selection` held; `wai.Selection` still resolves for
+  `isinstance`, it is no longer on the advertised list (rule 1, thirty-one names).
+
 ## 0.112 (2026-09-21)
 
 - `EvalSetup(cost_per_1k=, cost_basis=)`: what a version cost to answer 1,000 of the test's tasks

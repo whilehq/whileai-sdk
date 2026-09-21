@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -52,7 +53,9 @@ def test_prompt_and_flags_reach_the_cli(monkeypatch):
     seen = _capture_run(monkeypatch, Proc(_stream(FINAL)))
     agent = wai.claude_code(["--model", "sonnet"], cwd="/repo", max_turns=3, timeout=7)
     out = agent("summarize the README")
-    assert seen["command"][:3] == ["claude", "-p", "summarize the README"]
+    # the program is looked up on PATH first (claude.cmd on Windows, #712)
+    assert Path(seen["command"][0]).stem.lower() == "claude"
+    assert seen["command"][1:3] == ["-p", "summarize the README"]
     assert seen["command"][3:6] == ["--output-format", "stream-json", "--verbose"]
     assert seen["command"][-4:] == ["--max-turns", "3", "--model", "sonnet"]
     assert seen["cwd"] == "/repo" and seen["timeout"] == 7
