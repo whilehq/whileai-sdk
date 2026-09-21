@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Docs: the Hub-through-the-platform block on the platform reference used `wai.hf_status` and
+  friends at the front door, where none of them live; it now spells the names that resolve.
 - `wai.Harness`: the program around the model as one object you run, fingerprint and
   compare (#712). `Harness(model, instructions=, tools=)` is the prompted loop the SDK plays;
   `Harness.claude_code(...)`, `Harness.codex(...)`, `Harness.pi(...)` and `Harness.command([...])`
@@ -59,6 +61,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
   under uneven latency a slow rollout holds its batch, and `reproducible=False` buys the
   throughput back. Same seed and same concurrency still mean the same rows: concurrency is
   the batch size, so lesson 7 keeps `concurrency=1`, the size the SFT recipe's numbers came from.
+- `wai.platform.hosted`: the client for the hosted endpoint at `models.withwhile.com`.
+  `register(name, arn=, role_arn=)` for a Bedrock model in While's account or yours,
+  `register(name, url=, model=)` for any OpenAI-compatible server, `list`, `get`, `delete`,
+  `usage(name, days=)` (per-day calls, errors, tokens; nothing else is kept), `subdomain(slug)`
+  for `<slug>.models.withwhile.com`, and `endpoint(name)`, a `wai.Endpoint` on the account key
+  ready for `simulate()`. `WHILEAI_MODELS_URL` overrides the host. Typed with pydantic
+  (`HostedModel`, `Subdomain`, `UsageDay`), `transport=` for tests like `Tracked`.
 - `wai.config.requirement()`: the `pip` requirement for a container image,
   `whileai>=<the version this process imported>`. Every recipe image now installs
   that instead of a bare `"whileai"`, which is resolved once and cached under that

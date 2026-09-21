@@ -88,6 +88,7 @@ from pydantic.alias_generators import to_camel
 
 from whileai._env import getenv
 from whileai.auth import resolve_api_key
+from whileai.hosted import HostedModel, HostedModels, Subdomain, UsageDay, hosted
 
 log = logging.getLogger("whileai.platform")
 
@@ -1553,11 +1554,20 @@ def _key(explicit: str | None) -> str:
 
 
 def _request(
-    method: str, path: str, *, api_key: str, body: Any = None, timeout: float = 30.0
+    method: str,
+    path: str,
+    *,
+    api_key: str,
+    body: Any = None,
+    timeout: float = 30.0,
+    base: str | None = None,
 ) -> Any:
-    """One call. Returns the parsed JSON; raises PlatformError on 4xx/5xx."""
+    """One call. Returns the parsed JSON; raises PlatformError on 4xx/5xx.
+    ``base`` is another While host (the models endpoint); the platform API
+    when unset."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(platform_url() + path, data=data, method=method)
+    origin = (base or platform_url()).rstrip("/")
+    req = urllib.request.Request(origin + path, data=data, method=method)
     req.add_header("X-Api-Key", api_key)
     req.add_header("User-Agent", "whileai-sdk")
     if data is not None:
@@ -1573,9 +1583,7 @@ def _request(
             message = e.reason
         raise PlatformError(e.code, f"{method} {path}: {message}") from None
     except urllib.error.URLError as e:
-        raise PlatformError(
-            0, f"{method} {path}: could not reach {platform_url()} ({e.reason})"
-        ) from None
+        raise PlatformError(0, f"{method} {path}: could not reach {origin} ({e.reason})") from None
     return json.loads(raw or b"{}")
 
 
@@ -2674,6 +2682,8 @@ __all__ = [
     "Frontier",
     "Harness",
     "HarnessSweep",
+    "HostedModel",
+    "HostedModels",
     "Judge",
     "LiveDay",
     "LiveSeries",
@@ -2686,6 +2696,7 @@ __all__ = [
     "RunSpec",
     "Score",
     "Step",
+    "Subdomain",
     "SweepReport",
     "Tracked",
     "TrackedInfo",
@@ -2693,6 +2704,7 @@ __all__ = [
     "TrainPoint",
     "TrainerCallback",
     "TrainingRun",
+    "UsageDay",
     "Verdict",
     "VersionScore",
     "account",
@@ -2704,6 +2716,7 @@ __all__ = [
     "eval_checks",
     "get_run",
     "hf_publish",
+    "hosted",
     "import_hf",
     "login",
     "logout",
