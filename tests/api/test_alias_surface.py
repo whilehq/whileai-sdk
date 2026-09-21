@@ -106,7 +106,7 @@ def test_readme_never_shows_another_shape() -> None:
 
 def test_banner_alt_names_the_mark() -> None:
     """The alt text is what a reader without images, and a crawler, gets."""
-    assert 'alt="wai, the While whale. Models improve while they work."' in README
+    assert 'alt="whileai, with wai the While whale. Models improve while they work."' in README
 
 
 def _flat(text: str) -> str:

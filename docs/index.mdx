@@ -7,13 +7,16 @@ description: "A scientific post-training library for language models: SFT and RL
 **What you learn:** the loop, simulate to export, as one program. **Needs:** nothing. **Takes:** about twenty seconds on a laptop.
 
 `whileai` is a post-training library for language models: SFT and RL on
-open models, with the measurement that says whether training helped. The
-loop is simulate, grade, measure with intervals, select, train, prove on a
+open models, with the measurement that says whether training helped. It is
+for AI researchers, ML engineers and applied-AI developers. The loop is
+simulate, grade, measure with intervals, select, train, prove on a
 held-out set, serve, and feed the new traces back in. Nothing in that loop
 needs an account, and every default names the paper it came from.
 
+wai is While's whale and the alias of the whileai SDK: `import whileai as wai`.
+
 The data end of the loop is built for agents that call tools. Give it
-an agent, or just the agent's tools and system prompt. It writes the
+an agent, or only the agent's tools and system prompt. It writes the
 situations the agent might meet, runs the agent through them against a
 world that fails on purpose, and hands back every conversation as a row
 you grade with your own judge or a verifier.
@@ -28,14 +31,15 @@ The loop, offline, no key, about twenty seconds on a laptop:
 import whileai as wai
 
 
-@wai.tool
+@wai.tool  # the function is the tool; its signature is the schema
 def get_order(order_id: str) -> dict:
-    """Look up an order by id."""  # the function is the tool; its signature is the schema
+    """Look up an order by id."""
     ...
 
 
 data = wai.simulate(
-    wai.seeded_agent([get_order]),  # a stand-in agent that misbehaves on a labeled share of rows
+    # a stand-in agent that misbehaves on a labeled share of rows
+    wai.seeded_agent([get_order]),
     tools=[get_order],
     system_prompt="Help customers with orders.",
     simulator=False,  # template situation writer: no model, no network
@@ -44,9 +48,12 @@ data = wai.simulate(
     repeat_policy="fixed",
     budget=64,
 )
-scored = data.grade(judge=lambda row: {"reward": int(not row["seeded"])})  # any judge or verifier
+# any judge or verifier
+scored = data.grade(judge=lambda row: {"reward": int(not row["seeded"])})
 print(scored.pass_at)
-rows = scored.select(mode="rl")  # leaked answer keys dropped, the 20 to 80% band, unanimous groups dropped, hack scan
+# leaked answer keys dropped, the 20 to 80% band (DIFFICULTY_BAND),
+# unanimous groups dropped, reward-hack scan
+rows = scored.select(mode="rl")
 rows.export("train.jsonl")
 ```
 
@@ -62,10 +69,11 @@ pass@1 0.67 [0.55..0.78] | pass^4 (pass_pow_k) 0.19 [0.00..0.38] | pass@4 1.00 [
 | headroom | 0.33 | | | pass@4 minus pass@1, the gap an RL update could close |
 
 Swap the stand-in for your agent and the lambda for your judge and the
-program is the same. The package then does the bookkeeping that is easy
-to skip and expensive to get wrong: pass rates with intervals, difficulty
-bands for RL, a check that your judge agrees with people, decontamination
-against your eval set, and a scan for rewards the policy can game.
+program is the same. The package then does the bookkeeping that is
+tempting to skip and expensive to get wrong: pass rates with intervals,
+difficulty bands for RL, a check that your judge agrees with people,
+decontamination against your eval set, and a scan for rewards the policy
+can game.
 
 Two domains, kept apart. `import whileai as wai` is the library: simulate,
 grade, measure, select, export, on your machine against your models, no
@@ -93,6 +101,27 @@ talks to withwhile.com lives there and nowhere else.
 
 Never trained a model? [Learn](/learn) is seven lessons from zero, each
 offline in under a minute, ending at the quickstart above.
+
+## The defaults this run used
+
+The program above sets no thresholds, so four defaults produced its
+numbers. Each one is a named constant in
+[`defaults.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/defaults.py),
+carries its source in a comment beside it, and takes an argument on the
+call that uses it.
+
+| Constant | Value | What it did here | Source |
+|---|---|---|---|
+| `CI_LEVEL` | 0.95 | the interval on every number in the table above | Miller 2024 [1] |
+| `BOOTSTRAP_DRAWS` | 2000 | resamples behind each interval | Efron and Tibshirani put the floor at 1000; above it, convention, untested |
+| `DIFFICULTY_BAND` | (0.2, 0.8) | which tasks `select(mode="rl")` kept | Lambert 2025, chapter [Reasoning](https://rlhfbook.com/c/07-reasoning); DAPO [2] |
+| `HACK_THRESHOLD` | 0.3 | the reward-hack scan `select` ran | Gao et al. [3] |
+
+### References
+
+1. Miller, E. [Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations](https://arxiv.org/abs/2411.00640). 2024.
+2. Yu, Q. et al. [DAPO: An Open-Source LLM Reinforcement Learning System at Scale](https://arxiv.org/abs/2503.14476). 2025.
+3. Gao, L. et al. [Scaling Laws for Reward Model Overoptimization](https://arxiv.org/abs/2210.10760). 2022.
 
 ## The loop
 
@@ -141,3 +170,9 @@ generated from the package on each release, so they cannot drift.
     with the number it moved and the number it did not.
   </Card>
 </CardGroup>
+
+## Next
+
+Run `uv add whileai`, then open
+[the quickstart](/get-started/quickstart): it is the program above one
+line at a time, with what each line prints.

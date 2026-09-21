@@ -81,3 +81,31 @@ def test_every_recipe_entrypoint_prints_it() -> None:
         if "print(provenance(), file=sys.stderr)" not in p.read_text(encoding="utf-8")
     ]
     assert missing == [], missing
+
+
+def test_requirement_is_a_floor_at_the_imported_version(monkeypatch) -> None:
+    """``requirement()`` (#661): a bare ``"whileai"`` in a container image is
+    resolved once and cached under that spelling, so the container keeps
+    the wheel that was newest on the day the layer was built. The floor
+    puts the version in the layer key."""
+    from whileai.config import requirement
+
+    monkeypatch.setattr(whileai, "__version__", "0.110")
+    assert requirement() == "whileai>=0.110"
+    # no installed distribution: no floor is known, the bare name stands
+    monkeypatch.setattr(whileai, "__version__", "0.0.0")
+    assert requirement() == "whileai"
+    monkeypatch.setattr(whileai, "__version__", "")
+    assert requirement() == "whileai"
+
+
+def test_every_recipe_image_installs_the_floor_not_the_bare_name() -> None:
+    """No recipe image may list ``"whileai"`` bare: that is the spelling
+    that froze a trainer at a 57-release-old wheel (#661)."""
+    bare = re.compile(r'(?m)(^\s*|,\s*)"whileai"\s*[,)]')
+    offenders = []
+    for path in RECIPES.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        if "pip_install" in text and bare.search(text):
+            offenders.append(str(path.relative_to(ROOT)))
+    assert offenders == [], offenders

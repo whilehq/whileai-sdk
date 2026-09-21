@@ -76,6 +76,14 @@ _STOP_REASONS = {
     "pause_turn": "stop",
 }
 
+# Models that answered 400 "temperature is deprecated for this model": the
+# reasoning family (claude-sonnet-5, opus-5/4.8/4.7, fable-5) dropped sampling
+# and rejects the field. Remembered per process so the retry in ``_one_call``
+# fires at most once per model, not on every call the way an opt-in param
+# would. No static model list to keep current: a model teaches us on its first
+# 400. ``_NO_TEMPERATURE`` is reset only by restarting the process.
+_NO_TEMPERATURE: set[str] = set()
+
 
 def is_anthropic_url(base_url: str | None) -> bool:
     """True when this base URL is the Anthropic Messages API."""
@@ -338,6 +346,18 @@ def _one_call(
             payload["max_tokens"] = max(MIN_REPLY_TOKENS, int(payload["max_tokens"]) // 2)
             continue
         if (
+            status == HTTPStatus.BAD_REQUEST
+            and "temperature" in payload
+            and "temperature" in body.lower()
+        ):
+            # Reasoning models 400 with "temperature is deprecated for this
+            # model". Drop the field, note the model so ``complete()`` omits it
+            # next time, and retry once. The ``in payload`` guard keeps a 400
+            # that merely mentions temperature for another reason from looping.
+            payload.pop("temperature", None)
+            _NO_TEMPERATURE.add(model)
+            continue
+        if (
             status == HTTPStatus.TOO_MANY_REQUESTS or status >= HTTPStatus.INTERNAL_SERVER_ERROR
         ) and transient < TRANSIENT_TRIES:
             time.sleep(_retry_after(response.headers, transient))
@@ -384,10 +404,14 @@ def complete(
         "model": model,
         "max_tokens": max(1, int(max_tokens)),
         "messages": wire_messages,
-        # The OpenAI-compatible backends take temperatures above 1 (the writer
-        # goes to 1.05); this API caps at 1 and 400s above it.
-        "temperature": max(0.0, min(1.0, float(temperature))),
     }
+    if model not in _NO_TEMPERATURE:
+        # The OpenAI-compatible backends take temperatures above 1 (the writer
+        # goes to 1.05); this API caps at 1 and 400s above it. Newer reasoning
+        # models drop sampling and 400 on ``temperature`` at any value; once one
+        # does, ``_one_call`` records it in ``_NO_TEMPERATURE`` and the field is
+        # omitted here on the next call.
+        payload["temperature"] = max(0.0, min(1.0, float(temperature)))
     if system:
         payload["system"] = system
     wired = wire_tools(tools)

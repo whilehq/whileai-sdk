@@ -185,6 +185,7 @@
                   "recipes/community/index",
                   "recipes/community/can-the-judge-be-trusted",
                   "recipes/community/force-the-branch",
+                  "recipes/community/grpo-group-size-at-fixed-budget",
                   "recipes/community/hosted-grpo-vs-sft",
                   "recipes/community/how-much-contamination-survives",
                   "recipes/community/identity-spec-no-unasked-maker-aas",

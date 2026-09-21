@@ -22,6 +22,15 @@ def _fake_key(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_temperature_memo():
+    """The 'this model rejects temperature' memo is process-global; keep it
+    from leaking between tests."""
+    ab._NO_TEMPERATURE.clear()
+    yield
+    ab._NO_TEMPERATURE.clear()
+
+
+@pytest.fixture(autouse=True)
 def _only_anthropic_calls(monkeypatch):
     """The conftest blocks every model call. Let the Anthropic ones through:
     requests.post is monkeypatched in each test, so nothing leaves the box."""
@@ -280,6 +289,56 @@ def test_a_4xx_raises_with_the_api_message_and_the_model(monkeypatch):
     with pytest.raises(RuntimeError) as err:
         agents.complete(ab.ANTHROPIC_BASE_URL, "nope", [{"role": "user", "content": "hi"}])
     assert "nope" in str(err.value) and "model: nope" in str(err.value)
+
+
+def test_a_temperature_400_drops_the_field_retries_and_remembers(monkeypatch):
+    """Reasoning models (claude-sonnet-5, opus-5, ...) 400 on ``temperature``.
+    The call drops it and retries once, mirroring the max_tokens walk, then
+    omits it up front for that model."""
+    error = {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": "temperature is deprecated for this model",
+        },
+    }
+    sent: list[dict] = []
+    queue = [_Response(error, status=400), _Response(_message(text="ok"))]
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        # copy: _one_call mutates the one payload dict across retries
+        sent.append(dict(json))
+        return queue.pop(0) if len(queue) > 1 else queue[0]
+
+    monkeypatch.setattr(ab.requests, "post", fake_post)
+    reply = agents.complete(
+        ab.ANTHROPIC_BASE_URL,
+        "claude-sonnet-5",
+        [{"role": "user", "content": "hi"}],
+        temperature=0.7,
+    )
+    assert reply["content"] == "ok"
+    assert len(sent) == 2
+    assert sent[0]["temperature"] == 0.7  # first attempt carried it
+    assert "temperature" not in sent[1]  # the retry dropped it
+    assert "claude-sonnet-5" in ab._NO_TEMPERATURE
+
+    # a later call to the same model skips temperature up front: one attempt
+    again: list[dict] = []
+
+    def fake_post_again(url, headers=None, json=None, timeout=None):
+        again.append(dict(json))
+        return _Response(_message(text="again"))
+
+    monkeypatch.setattr(ab.requests, "post", fake_post_again)
+    agents.complete(
+        ab.ANTHROPIC_BASE_URL,
+        "claude-sonnet-5",
+        [{"role": "user", "content": "hi"}],
+        temperature=0.7,
+    )
+    assert len(again) == 1
+    assert "temperature" not in again[0]
 
 
 def test_a_rate_limit_retries_then_raises(monkeypatch):
