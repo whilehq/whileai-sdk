@@ -18,6 +18,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
   `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
   the part it does not cover.
+- Docs: the API pages' fenced examples rendered as inline text (25 blocks on 7 pages,
+  `wai.export_dataset` among them) since the generator's ``name`` collapse ate the fence's
+  backticks. Fixed in `scripts/gen_api_docs.py`; the collapse now runs over prose only.
 
 ## 0.117 (2026-09-22)
 

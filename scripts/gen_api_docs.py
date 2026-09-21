@@ -105,14 +105,32 @@ def _escape_prose(line: str) -> str:
     return "".join(parts)
 
 
+def _prose(lines: list[str]) -> list[str]:
+    """Render a run of prose: RST-style ``name`` (which may span a line
+    break) becomes `name`, then each line gets the MDX escapes.
+
+    Prose only. Run over the whole docstring, the collapse matched a
+    fence's own backticks and turned ```python into ``python.
+    """
+    text = re.sub(r"``([^`]+)``", r"`\1`", "\n".join(lines))
+    return [_escape_prose(line) for line in text.split("\n")]
+
+
 def _docstring(obj: object) -> str:
     doc = inspect.getdoc(obj) or ""
-    doc = re.sub(r"``([^`]+)``", r"`\1`", doc)
     out: list[str] = []
+    prose: list[str] = []
     in_fence = False
     in_doctest = False
+
+    def flush() -> None:
+        if prose:
+            out.extend(_prose(prose))
+            prose.clear()
+
     for line in doc.split("\n"):
         if line.startswith("```"):
+            flush()
             in_fence = not in_fence
             out.append(line)
             continue
@@ -121,14 +139,19 @@ def _docstring(obj: object) -> str:
             continue
         is_doctest = line.lstrip().startswith(">>>") or (in_doctest and line.strip())
         if is_doctest and not in_doctest:
+            flush()
             out.append("```python")
             in_doctest = True
         elif not is_doctest and in_doctest:
             out.append("```")
             in_doctest = False
-        out.append(line if in_doctest else _escape_prose(line))
+        if in_doctest:
+            out.append(line)
+        else:
+            prose.append(line)
     if in_doctest:
         out.append("```")
+    flush()
     return "\n".join(out).strip()
 
 

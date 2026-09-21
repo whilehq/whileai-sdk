@@ -124,10 +124,10 @@ update on such tasks has zero advantage everywhere (#684).
   harness-aware post-training generalizes out of distribution. Left
   out, the spec is what it always was.
 
-``python
+```python
 report = wai.export_environment(data, "envs/refunds", reward=my_verifier)
 print(report["train"], report["holdout"], report["path"])
-``
+```
 
 ### load_environment
 

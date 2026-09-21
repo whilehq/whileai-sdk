@@ -160,11 +160,11 @@ Arguments that matter:
   keyword `grade_llm`, `pairwise_judge` and `rubric_judge`
   take. `llm_spec` is its older name and still works.
 
-``python
+```python
 data = wai.simulate(agent, tools=TOOLS, simulator=False, budget=16)
 data.grade(lambda row: 1.0 if row.get("final_text") else 0.0)
 print(data.pass_at)
-``
+```
 
 #### SimulationData.grade_llm
 
@@ -311,11 +311,11 @@ Requires graded rows — grade in-loop (`grade=True`, `grader=`)
 or afterwards with `grade()`. The report lands in
 `search["selection"]` and on the result's `.report`.
 
-``python
+```python
 rows = data.select(mode="rl")
 print(rows)              # what each gate dropped and why
 rows.export("train.jsonl")
-``
+```
 
 #### SimulationData.training_set
 
