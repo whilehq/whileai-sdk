@@ -112,7 +112,9 @@ print(wai.BPCO())
 ```
 
 ```text
-<filled after merge>
+FlashReinforce(trust=0.003, off_policy_steps=8, temperature=1.0, max_tokens=8192)
+SAO(ratio=(0.7, 6.0), gae_alpha=1.5, critic_steps=2, critic_warmup=10, temperature=1.0, max_tokens=131072, critic_learning_rate=5e-06)
+BPCO(clip=0.2, gae_alpha=0.4, reward_range=(0.0, 1.0), critic_warmup=15, temperature=1.0, max_tokens=12000, lr=1e-06, critic_lr=1e-05)
 ```
 
 The update itself is a method on the object, and it takes a batch of
@@ -126,7 +128,7 @@ the arithmetic the trainer would do, laid out where you can read it.
 import whileai as wai
 
 batch = [
-    {"reward": 1.0, "logprobs": [-0.4, -0.7, -0.2], "behavior_logprobs": [-0.5, -0.7, -0.3]},
+    {"reward": 1.0, "logprobs": [-0.4, -0.7, -0.2], "behavior_logprobs": [-0.41, -0.7, -0.21]},
     {"reward": 0.0, "logprobs": [-1.1, -0.3], "behavior_logprobs": [-1.0, -0.3]},
     {
         "reward": 1.0,
@@ -141,8 +143,21 @@ print(update)
 ```
 
 ```text
-<filled after merge>
+flash_reinforce update: 3 of 4 trajectories admitted
+  batch mean reward: 0.5
+  admitted share: 0.75
+  mean sequence kl: 0.1746
+  max sequence kl: 0.6969
+  mean ratio: 0.9906
+  1 trajectory (3) over trust 0.003 masked whole (max mean KL 0.697); the sampler drifted further than the gate allows: check behavior_logprobs are the sampler's own, then lower off_policy_steps or raise trust
 ```
+
+Three of the four traces went in. The two passes are pushed up and the
+fail pushed down, each by half, and the third trace's tool token carries
+nothing. The fourth trace is out whole: the model that wrote it gave its
+first word a probability today's model puts at a twentieth of that, and
+a trace that far from the model is not evidence about the model. The
+note says which trace, how far, and the two knobs that move the line.
 
 The same batch, with a `values` list per trace from your critic, goes to
 `wai.SAO().update(batch)` and `wai.BPCO().update(batch)`, and each prints
@@ -167,7 +182,7 @@ except ValueError as e:
 ```
 
 ```text
-<filled after merge>
+refused: prime_rl_config: wai.SAO needs a value critic, and prime-rl only ever hosts the trainable policy (prime_rl/configs/algorithm.py, FrozenModelConfig): no value network, so no GAE advantage. The half prime-rl has is the token band: its icepop loss masks a token whose trainer/inference ratio leaves (ratio_low, ratio_high), which is SAO's direct double-sided importance sampling, and wai.Async(correction='icepop', ratio=(0.7, 6.0)) writes it around a group-mean or EMA baseline, which is a different method. What you can do: apply method.update(batch) inside your own trainer loop (the coefficients multiply each token's log-probability gradient; the batch contract is above Update in whileai/methods.py), with your critic's 'values' on each trajectory; or wait for the trainer.
 ```
 
 The nearest thing prime-rl does run one rollout per prompt is `"rae"`,

@@ -10,21 +10,6 @@
   ],
   "skips": [
     {
-      "page": "docs/learn/train-on-production-traces.mdx",
-      "contains": "print(wai.FlashReinforce())",
-      "reason": "the single-rollout constructors land in a parallel PR (session 016qG7ej); the quoted output is pasted from a real run after the merge, and this entry goes with it"
-    },
-    {
-      "page": "docs/learn/train-on-production-traces.mdx",
-      "contains": "update = wai.FlashReinforce().update(batch)",
-      "reason": "the single-rollout constructors land in a parallel PR (session 016qG7ej); the quoted output is pasted from a real run after the merge, and this entry goes with it"
-    },
-    {
-      "page": "docs/learn/train-on-production-traces.mdx",
-      "contains": "wai.prime_rl_config(\"refunds-v1\", wai.SAO()",
-      "reason": "the single-rollout constructors land in a parallel PR (session 016qG7ej); the quoted output is pasted from a real run after the merge, and this entry goes with it"
-    },
-    {
       "page": "docs/reference/five-calls.md",
       "contains": "judge(row) -> {\"reward\": 0 or 1}",
       "reason": "the shape of a return value, not a program"
