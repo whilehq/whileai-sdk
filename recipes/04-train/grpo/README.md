@@ -32,6 +32,16 @@ The image mounts whichever `whileai` Python resolves on your machine
 `whileai/` when you run from the repo root. The first line the run prints,
 `whileai <version> from <dir>`, says which.
 
+The image's own `pip_install` list names the SDK as
+`wai.config.requirement()`, which is `whileai>=<the version on your laptop>`.
+Copy that into your own trainer, not a bare `"whileai"`: a bare name is
+resolved once, when the image layer is first built, and the container keeps
+that day's wheel until the layer key changes. One trainer built that way
+was still importing a 57-release-old wheel and failed on `wai.verify` with
+an `AttributeError` that said nothing about versions
+(whilehq/whileai-sdk#661). With the version in the requirement, every
+release is a new layer.
+
 Default: 200 prompts, 20% held out by scenario, Qwen2.5-1.5B-Instruct, 40
 steps of 8 generations, one A10G, under fifteen minutes. The run's URL is
 printed at the start. No key means the same run with the numbers printed at

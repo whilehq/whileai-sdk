@@ -47,7 +47,7 @@ from pathlib import Path
 
 import modal
 
-from whileai.config import provenance
+from whileai.config import provenance, requirement
 
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen3.5-4B-Base"
@@ -221,7 +221,7 @@ image = (
         "peft==0.21.0",
         "flash-linear-attention==0.5.2",
         "datasets>=4.7.0",
-        "whileai",
+        requirement(),
     )
     .env(
         {

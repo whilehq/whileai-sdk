@@ -7,10 +7,42 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `simulate(reproducible=)` defaults to `None`, which is `True` unless `time_budget` is
+  set. Before, a seeded run at the default concurrency drew a task set that depended on
+  thread timing: three runs of `seed=0, budget=160` gave 59, 58 and 58 tasks and three
+  different sets, so a lesson that wanted the same file on every machine had to pin
+  `concurrency=1` (#645). Round-synchronous scheduling cost nothing in that measurement;
+  under uneven latency a slow rollout holds its batch, and `reproducible=False` buys the
+  throughput back. Same seed and same concurrency still mean the same rows: concurrency is
+  the batch size, so lesson 7 keeps `concurrency=1`, the size the SFT recipe's numbers came from.
+- `wai.config.requirement()`: the `pip` requirement for a container image,
+  `whileai>=<the version this process imported>`. Every recipe image now installs
+  that instead of a bare `"whileai"`, which is resolved once and cached under that
+  spelling, so a trainer built from the GRPO pattern kept a 57-release-old wheel and
+  failed on `wai.verify` with an `AttributeError` (#661). The identity and loss-mask
+  trainers now print the provenance line like every other entrypoint.
+- `anthropic:<model>` now works for the reasoning models (`claude-sonnet-5`,
+  `claude-opus-5`, and the rest) that reject a sampling `temperature`: the
+  backend drops the field and retries on the 400, then omits it for that model
+  on later calls. Before this, those models 400'd as a student, writer, user,
+  or judge.
+- Docs: what the hosted endpoint keeps (per-day counts only, never content) and its per-account rate limit.
+- `Example.reference` (the gold answer a row was graded against) and `Example.detail` (expected
+  against got, for a failure): the platform's rows page shows both under the reply, so a
+  "wrong result" says what the right one was.
+
+- Docs: a subdomain of your own on the hosted endpoint (`PUT /domain`), `<slug>.models.withwhile.com`.
 - Docs: serve a registered model from `https://models.withwhile.com/v1` (a Bedrock import in
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
   no SDK change; how to register one and the cross-account role shape. The Bedrock import
   recipe's next step points there.
+- Recipe `recipes/02-measure/character-to-the-wall`: a character eval built on value
+  conflicts. Each situation pits two model-spec principles against each other so no reply
+  can honor both, and the authority ordering (root > operator > user > guideline) is the
+  answer key; `held_wall` and `kept_lower` are graded apart so caving and rigidity read as
+  different failures. Offline scripted student plus a live path for any model, with the
+  judge checked against the set's own labels. Grounds character measurement in Lambert 2025
+  (Evaluation) and Maiya et al. 2025 (arXiv:2511.01689).
 - `wai.eval_variance` and `wai.holdout_size` resolve from the one import, and both print
   themselves. `CONSTITUTION.md` belief 1 names four measurement calls and
   `docs/reference/rows.md` lists them in one table; two were `wai.` and two were

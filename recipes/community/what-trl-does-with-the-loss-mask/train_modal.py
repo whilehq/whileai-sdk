@@ -16,9 +16,12 @@ my own Modal account; nothing touches While hosting.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import modal
+
+from whileai.config import provenance, requirement
 
 HERE = Path(__file__).resolve().parent
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
@@ -35,7 +38,7 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        "whileai",
+        requirement(),
     )
     .env({"HF_HOME": "/root/.cache/huggingface", "TOKENIZERS_PARALLELISM": "false"})
     .add_local_file(str(HERE / "train.trl.jsonl"), "/root/train.trl.jsonl")
@@ -223,6 +226,7 @@ def run(steps_epochs: int = 3, lr: float = 1e-4, seed: int = 0) -> dict:
 
 @app.local_entrypoint()
 def main() -> None:
+    print(provenance(), file=sys.stderr)
     res = run.remote()
     Path(HERE / "raw_results.json").write_text(json.dumps(res))
     print("supervised fraction:", res["supervised_fraction"])

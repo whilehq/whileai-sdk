@@ -387,6 +387,14 @@ def test_score_rows_post_the_full_set_in_chunks_and_make_the_sample():
     assert [b["offset"] for _p, b in posts] == [0, 500]
     assert len(posts[0][1]["rows"]) == 500 and len(posts[1][1]["rows"]) == 120
     assert posts[0][1]["rows"][0]["tags"] == {"difficulty": "easy"}
+    ex = Example(
+        prompt="p",
+        reply="SELECT 1",
+        ok=False,
+        reference="SELECT 2",
+        detail="expected [(2,)] got [(1,)]",
+    )
+    assert ex.wire()["reference"] == "SELECT 2" and ex.wire()["detail"].startswith("expected")
     assert any(m == "DELETE" and p.endswith("/rows") for m, p, _b in fake.calls)
     ev = [b for m, p, b in fake.calls if m == "POST" and p.endswith("/evals")][-1][0]
     assert len(ev["examples"]) == 20 and sum(1 for e in ev["examples"] if not e["ok"]) == 14

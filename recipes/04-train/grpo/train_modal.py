@@ -41,7 +41,7 @@ from pathlib import Path
 
 import modal
 
-from whileai.config import provenance
+from whileai.config import provenance, requirement
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -62,7 +62,7 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        "whileai",
+        requirement(),
     )
     .env({"HF_HOME": "/root/.cache/huggingface", "TOKENIZERS_PARALLELISM": "false"})
     .add_local_file(str(HERE / "reward.py"), "/root/reward.py")

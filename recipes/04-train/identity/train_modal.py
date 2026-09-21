@@ -31,8 +31,11 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 import modal
+
+from whileai.config import provenance, requirement
 
 BASE_MODEL = "Qwen/Qwen3-4B-Instruct-2507"
 
@@ -47,7 +50,7 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        "whileai",
+        requirement(),
     )
     .env({"HF_HOME": "/root/.cache/huggingface"})
 )
@@ -207,6 +210,7 @@ def main(
     max_seq_length: int = 2048,
 ):
     """Read the local train jsonl and launch the remote job."""
+    print(provenance(), file=sys.stderr)
     rows: list[dict] = []
     with open(train_file, encoding="utf-8") as handle:
         for line_no, line in enumerate(handle, start=1):

@@ -348,12 +348,45 @@ def provenance() -> str:
     return _provenance_line(whileai.__version__, where, _editable_root())
 
 
+def requirement() -> str:
+    """The ``pip`` requirement that gives a remote container at least the
+    ``whileai`` this process imported: ``whileai>=<version>``.
+
+    A bare ``"whileai"`` in a container image is resolved once, when the
+    image layer is first built, and cached under that spelling: the
+    container keeps whatever was newest that day until the layer key
+    changes, while the laptop moves on. The first symptom is an
+    ``AttributeError`` for a call the laptop has and the container's older
+    wheel does not. Writing the version into the requirement makes each
+    release a new layer key and makes the drift visible in the image
+    definition. It is a floor, not a pin, so a checkout whose version is
+    already on the index installs, and so does the next release.
+
+    When the distribution is not installed (``__version__`` is
+    ``0.0.0``) the bare name is returned, because no floor is known.
+
+        >>> import whileai as wai
+        >>> wai.config.requirement()  # doctest: +SKIP
+        'whileai>=0.110'
+        >>> image = modal.Image.debian_slim().pip_install(  # doctest: +SKIP
+        ...     "torch==2.7.1", "trl==0.19.1", wai.config.requirement()
+        ... )
+    """
+    import whileai
+
+    version = str(whileai.__version__ or "").strip()
+    if not version or version == "0.0.0":
+        return "whileai"
+    return f"whileai>={version}"
+
+
 __all__ = [
     "Settings",
     "configure",
     "context",
     "current",
     "provenance",
+    "requirement",
     "reset",
     "resolve_backend",
     "settings",

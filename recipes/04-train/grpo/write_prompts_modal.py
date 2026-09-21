@@ -19,7 +19,7 @@ from pathlib import Path
 
 import modal
 
-from whileai.config import provenance
+from whileai.config import provenance, requirement
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -30,7 +30,7 @@ app = modal.App("whileai-grpo-prompts")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("torch==2.7.1", "transformers==4.54.0", "accelerate==1.8.1", "whileai")
+    .pip_install("torch==2.7.1", "transformers==4.54.0", "accelerate==1.8.1", requirement())
     .env({"HF_HOME": "/root/.cache/huggingface", "TOKENIZERS_PARALLELISM": "false"})
     .add_local_file(str(HERE / "reward.py"), "/root/reward.py")
     .add_local_file(str(HERE / "prompts.py"), "/root/prompts.py")
