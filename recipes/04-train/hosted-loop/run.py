@@ -136,7 +136,7 @@ def need(state: dict, *keys: str) -> None:
 # ------------------------------------------------------------------ steps
 
 
-def step_data(args: argparse.Namespace) -> None:
+def step_data(args: argparse.Namespace, push: bool = True) -> None:
     data = wai.simulate(
         scripted_agent,
         tools=TOOLS,
@@ -152,6 +152,9 @@ def step_data(args: argparse.Namespace) -> None:
     print(f"simulated {len(data.trajectories)} rows, pass@1 {scored.pass_at.pass_at_1:.2f}")
     train, holdout = wai.split_pseudo_production(scored.rows, fraction=0.25, seed=args.seed)
     print(f"split by task: train {len(train)} rows, holdout {len(holdout)} rows")
+    if not push:
+        print("dry run: these are the rows `data` would push; nothing sent, no key used")
+        return
     pushed = wai.push_rows(
         train,
         f"{args.name}-train",
@@ -274,7 +277,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--budget", type=int, default=96)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=1800)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="the data step offline: simulate, grade, split, push nothing; no key, no GPU",
+    )
     args = parser.parse_args(argv)
+    if args.dry_run:
+        print("== data (dry run)")
+        step_data(args, push=False)
+        return 0
     if not resolve_api_key():
         sys.exit(f"No API key. Run `whileai login` or set WHILEAI_API_KEY ({DOCS}).")
     steps = list(STEPS) if args.step == "all" else [args.step]

@@ -261,6 +261,46 @@ def load_export(path: str, *, system: str | None = None) -> list[dict[str, Any]]
     return out
 
 
+def main(argv: list[str] | None = None) -> int:
+    """The offline path: prompts from the template writer, replies from a
+    scripted policy that follows the rule half the time, and the pairs the
+    trainer would see, with the pair report.
+
+        python pairs.py --n 40       # what smoke.sh runs; no key, no GPU
+    """
+    import argparse
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "grpo"))
+    from reward import SYSTEM, build_prompts, scripted_reply, split_holdout
+
+    from whileai.config import provenance
+
+    print(provenance(), file=sys.stderr)
+    ap = argparse.ArgumentParser(description=main.__doc__)
+    ap.add_argument("--n", type=int, default=40, help="prompts from the template writer")
+    ap.add_argument("--seed", type=int, default=0)
+    args = ap.parse_args(argv)
+    train, held = split_holdout(build_prompts(args.n, seed=args.seed))
+    print(f"{len(train)} train prompts, {len(held)} holdout")
+    # Two passes and two fails per prompt: every prompt has contrast.
+    replies = [
+        [scripted_reply(p["case"]), scripted_reply(p["case"], follow=False)] * 2 for p in train
+    ]
+    rows, report = sampled_pairs(train, replies, system=SYSTEM, constructed=True)
+    print(
+        f"pairs {report['trl_rows']} from {report['prompts_with_contrast']}/{report['prompts_seen']} "
+        f"prompts with contrast, {report['constructed_pairs']} constructed; "
+        f"chosen longer {report['length']['chosen_longer_frac']:.2f}"
+    )
+    first = rows[0]
+    print(f"one pair: user={first['prompt'][-1]['content']!r}")
+    print(f"  chosen={first['chosen'][0]['content']!r}")
+    print(f"  rejected={first['rejected'][0]['content']!r}")
+    return 0
+
+
 __all__ = [
     "constructed_negatives",
     "dpo_rows",
@@ -269,3 +309,7 @@ __all__ = [
     "load_export",
     "sampled_pairs",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -45,7 +45,10 @@ batch. See Climb.
 | Recipe (filter on binary outcome) | 0.46 | [0.39, 0.53] | 0.70 | 40 | 21.8 |
 
 Recipe vs baseline: **+0.067 [+0.021, +0.113]** over 120 paired tasks.
-Verdict: **moved**. The interval excludes zero, the delta clears the eval's
+Verdict: **unresolved**. One training seed per arm; a second seed on each arm,
+passed as `train_runs=`, would resolve it to moved or flat (the eval checks
+below all pass, and they measure the eval, not the training). The interval
+excludes zero, the delta clears the eval's
 own re-run band (run_std 0.0078 from 10 base re-runs, band 0.025 = t(df=9)
 2.26 x sqrt(2) x run_std on a difference of two re-run draws), and the proxy
 check is clean: the shaped score went *down* -0.035 [-0.080, +0.009] while

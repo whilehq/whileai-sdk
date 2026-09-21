@@ -160,7 +160,9 @@ refresh(self) -> str
 
 Read a hosted run's state from the platform: `running`,
 `done` or `failed`. Fills `adapter`, `training` (before,
-after, seconds, rows) and `error` once it has ended.
+after, seconds, rows, and `cost_usd` with its `cost_basis`
+when the platform reports the GPU: an estimate from Modal's list
+price, `GPU_USD_PER_HOUR`) and `error` once it has ended.
 
 #### TrainingRun.wait
 
@@ -250,7 +252,15 @@ get_run(run_id: str, api_key: str | None = None) -> dict[str, Any]
 
 Defined in [`whileai/simulations/training.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/training.py).
 
-The run plus `series`: its points, oldest first.
+The run plus `series`: its points, oldest first. A hosted run's
+`summary` carries `gpu` and `seconds`; `get_run` puts
+`cost_usd` (`seconds / 3600 * rate`, to the cent) and
+`cost_basis` (`estimate: A10G at $1.10/h, modal.com/pricing
+2026-09-20`) beside them. The rate is Modal's on-demand list price on
+the day it was read (`GPU_USD_PER_HOUR`), since the platform's
+trainer runs on Modal; it is an estimate, not a bill. A GPU the table
+does not name leaves `cost_usd` None and the basis says so.
+Rollouts and judge calls on the serving endpoint are not priced.
 
 ### list_runs
 
@@ -394,7 +404,12 @@ the loss curve, `run.delta` and `get_run` work unchanged, and the
 trainer finishes it. `run.refresh()` reads where it is;
 `run.wait()` (or `wait=True`) blocks until `done` or `failed`,
 after which `run.adapter` names the weights and `run.training`
-carries before, after, rows and seconds. `serve` puts the adapter on
+carries before, after, rows, seconds and, when the platform reports
+the GPU, `cost_usd` with its `cost_basis`: `seconds / 3600 *
+rate` at Modal's on-demand list price (`GPU_USD_PER_HOUR`, read
+2026-09-20), an estimate, not a bill; `print(run)` shows it as
+`about $0.02 (A10G, 56 s, estimate)`. Rollouts and judge calls on
+the serving endpoint are not priced. `serve` puts the adapter on
 an endpoint.
 
 The knobs a run is reproduced and compared by (Lambert 2025, chapters

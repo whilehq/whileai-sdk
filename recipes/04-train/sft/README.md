@@ -1,0 +1,146 @@
+# SFT on your own GPU, from the course's own export
+
+Lesson 7 of [the course](https://docs.withwhile.com/learn/train-and-prove)
+writes `train.jsonl` with `select(mode="sft").export(...)`. This recipe is
+the step that used to be a comment: a LoRA SFT run on one A10G on your Modal
+account from that file, three base passes on the held-out set for the noise
+floor, one trained pass, and the paired before/after with its interval.
+
+**What you learn**: what an SFT run on a trainer-ready export actually
+consists of (render the chat template with the tool schema, an adapter, a
+few passes over the rows), why the base model is evaluated three times
+before the adapter is evaluated once, and how `wai.compare(run_std=)` turns
+those three passes into the bar a delta has to clear.
+
+**Needs**: a Modal account (`modal token new`). No `WHILEAI_API_KEY`, no
+model key: the rows come from the stand-in agent, offline. `smoke.sh` needs
+nothing.
+
+**Takes**: about ten minutes on one A10G end to end, model load included;
+the `--steps 10` wiring run about six.
+
+**Costs**: under a dollar. One A10G is about $1.10 an hour on Modal.
+
+## Run it
+
+```bash
+uv add whileai
+cd recipes/04-train/sft
+python wiring.py --smoke                                   # no key, no GPU: the loaders, the plan, the judge
+modal run train_modal.py --data train.jsonl --steps 10     # the wiring on a GPU: about six minutes, about ten cents
+modal run train_modal.py --data train.jsonl                # 40 steps: about ten minutes, under twenty cents
+python wiring.py --report holdout_rows.jsonl               # lesson 7 step 3 again, from the rows the run wrote
+```
+
+`train.jsonl` and `holdout.jsonl` are what lesson 7 step 1 writes; run that
+block first, in the directory you run `modal` from. `--holdout` names the
+held-out file when it is not next to the export.
+
+| flag | default | what it does |
+|---|---|---|
+| `--data` | `train.jsonl` | the export: one chat per line, system prompt in, tool schema on |
+| `--holdout` | `holdout.jsonl` | the held-out tasks from lesson 5's split, one stand-in row per ask |
+| `--steps` | 40 | optimizer steps at 8 rows a step; 10 is the wiring run |
+| `--run-name` | `lesson7-sft` | where the adapter lands on the `whileai-sft-runs` volume |
+| `--base-model` | `Qwen/Qwen2.5-1.5B-Instruct` | the base, the same one the grpo and dpo recipes train |
+| `--out` | `holdout_rows.jsonl` | every sampled row, both arms, written back to your laptop |
+
+Every number in `wiring.py` is a named constant with its reason next to it:
+rank 16 with alpha 32 on every linear projection [2, 3], learning rate 1e-4
+(ten times a full fine-tune's, because the adapter starts at zero [1, 2]),
+8 rows a step, 40 steps, 128 new tokens per turn, 4 tries per ask, 3 base
+passes. Change one from the call or in the file; the plan is printed before
+the GPU starts.
+
+## What happens
+
+1. `wiring.load_export` reads the file back and normalises every tool call
+   to `{"name", "arguments": dict}`. The export writes the OpenAI wire shape
+   with `arguments` as a JSON string; rendered as is, the model would learn
+   to emit a quoted string where the template wants an object.
+2. The base model answers every held-out ask four times, three passes with
+   three seeds. Each answer is two turns: the tool call, then the reply to
+   what the fake world returned (the same result the stand-in got for that
+   task). That is the noise floor, measured before anything is trained.
+3. TRL's `SFTTrainer` with a PEFT `LoraConfig` trains on the rendered chats.
+   The chat template is applied here, with the tool schema, because
+   `SFTTrainer` does not read the export's `tools` column. The loss runs
+   over every token; TRL's assistant-only mask needs a template with
+   generation markers, which Qwen2.5's lacks.
+4. The adapter answers the same asks once, on the first base seed, so
+   before and after are paired. Both arms go through one `evaluate`
+   function; the only difference is the adapter.
+5. Every row comes back as `holdout_rows.jsonl`. The judge (lesson 3's, a
+   program over `messages`), `eval_variance` over the three base passes, and
+   `wai.compare(before, after, run_std=, run_std_runs=3)` run on your laptop.
+
+## What you get
+
+The run lesson 7 quotes, on the 46-row export and 40 held-out tasks (68
+asks, 272 rows a pass) that lesson 7 step 1 writes (`concurrency=1` there:
+the draw depends on the batch size, and these numbers came from that one):
+
+```text
+46 rows from train.jsonl, 68 held-out asks from holdout.jsonl; 40 steps is 7.0 passes over the rows
+46 training rows rendered; the longest is 411 tokens (max_length 1024)
+68 held-out asks over 40 tasks
+base pass 1 (seed 1): 272 rows in 84.1s
+base pass 2 (seed 2): 272 rows in 83.0s
+base pass 3 (seed 3): 272 rows in 79.5s
+trained 40 steps in 35.2s: loss 3.072 -> 0.798
+trained pass (seed 1): 84.3s
+A10G: 373.2s total, training 35.2s; adapter at whileai-sft-runs:/lesson7-sft/adapter
+wrote 1088 rows to holdout_rows.jsonl
+before: pass@1 0.25 [0.16..0.35] | pass^4 (pass_pow_k) 0.07 [0.01..0.15] | pass@4 0.48 [0.34..0.64] | headroom 0.24 (40 groups, k=4; groups are uneven (4 to 16 repeats); k is the smallest)
+after:  pass@1 0.73 [0.63..0.81] | pass^4 (pass_pow_k) 0.41 [0.28..0.55] | pass@4 0.95 [0.87..1.00] | headroom 0.22 (40 groups, k=4; groups are uneven (4 to 16 repeats); k is the smallest)
+base passes: 0.246 / 0.248 / 0.244  run_std 0.002
+PASS
+eval noise: run_std 0.002, a delta under 0.011 is noise (t(df=2)=4.30 x run_std x sqrt(1/1 + 1/1); run_std given from 3 re-runs)
+answered: 100.0% before, 100.0% after
+  pass_at_1                    0.246 -> 0.728  +0.481 [+0.342..+0.616]  up  (40 paired)  noise<0.011
+```
+
+Read the last block. The before arm is base pass 1; the after arm is the
+adapter on the same asks and the same seed. `run_std` is the spread of the
+three base passes, and `compare` prints the delta a single before/after has
+to clear before it is more than re-running the eval. The interval on the
+paired delta is over tasks; forty tasks is under the 89 `holdout_size` asks
+for, and the interval is as wide as that implies.
+
+That run: one A10G, 373 seconds in the container (7 to load a cached
+model, three base passes of about 82 seconds, 35 seconds of training, one
+trained pass of 84 seconds), about $0.11 at Modal's A10G rate. The rows it
+wrote are in `runs/lesson7/holdout_rows.jsonl.gz`, and lesson 7 step 3 runs
+on them in the docs check.
+
+## Caveats
+
+- Forty held-out tasks. Lesson 4's `holdout_size` says 89 for a 10-point
+  gain at 80% power; the run clears its bar because the gain is large, not
+  because the set is. `budget=` and the slice in lesson 7 step 1 are the
+  knobs.
+- The training rows and the judge share one definition of the job. This
+  measures that the rule was learned, not that the agent got better at
+  anything the rule does not say. Add a metric the training did not
+  optimise before you quote the number outside the course.
+- One training seed. The noise floor is three evaluation passes of the base;
+  training noise is not measured. `--run-name` and a second run are the
+  replicate.
+- The demonstrations come from `seeded_agent`, so the ceiling is that
+  generator's behaviour; the same script runs unchanged on an export from
+  your own agent's graded rows.
+
+## Next
+
+`recipes/04-train/grpo` trains the same base with a reward instead of
+demonstrations, on the tasks in the 20 to 80 band lesson 6 selects. The
+adapter here is on the `whileai-sft-runs` volume: `modal volume get
+whileai-sft-runs lesson7-sft/adapter` brings it down to serve.
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Instruction Finetuning*.
+2. Hu, E. J. et al. LoRA: Low-Rank Adaptation of Large Language Models. arXiv:2106.09685, 2021.
+3. Dettmers, T. et al. QLoRA: Efficient Finetuning of Quantized LLMs. arXiv:2305.14314, 2023. Adapters on every linear layer.
+4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*: the noise floor from re-runs.
+5. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024. The paired difference.

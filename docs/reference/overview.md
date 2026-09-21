@@ -17,7 +17,7 @@ Have an agent and want a pass rate with an interval? Start at [Evals](/evals): o
 Releases of `whileai` before 0.3 were an unrelated encrypted agent-to-agent messaging client. Pin `whileai<0.3` if you still depend on it.
 </Note>
 
-Two ways in, one engine. Give it the agent's tools and system prompt and it samples situations across everything that agent can be asked. Give it graded traces as well (`traces=`, plain row dicts, see [Close the loop](/reference/what-to-run#close-the-loop-aim-the-budget-with-traces)) and it aims the budget at the situations that fail in production, so new rows land where the agent is weak. Every row is a full conversation: user turns, agent turns, tool calls, tool results, scheduled faults. Rows come back ungraded; your grader decides what good means. The default mode, `explore`, draws one unique situation per row. How it thinks: [Simulations](/simulations).
+Two ways in, one engine. Give it the agent's tools and system prompt and it samples situations across everything that agent can be asked. Give it graded traces as well (`traces=`, plain row dicts, see [Close the loop](/reference/what-to-run#close-the-loop-aim-the-budget-with-traces)) and it aims the budget at the situations that fail in production, so new rows land where the agent is weak. Every row is a full conversation: user turns, agent turns, tool calls, tool results, scheduled faults. Rows come back ungraded; your grader decides what good means. The default mode, `explore`, draws one unique situation per row. How it thinks: [How it works](/concepts/how-it-works).
 
 ## How a row gets made
 
@@ -195,12 +195,13 @@ data = wai.simulate(
 )
 ```
 
-A model spec names the backend and the model. Four are built in:
+A model spec names the backend and the model. Five are built in:
 
 - `ollama:<model>`: a local Ollama server, no key.
 - `vllm:<model>@<url>`: any vLLM or OpenAI-compatible endpoint you serve.
 - `openai:<model>`: `OPENAI_API_KEY`, and `OPENAI_BASE_URL` for a compatible endpoint that is not OpenAI's.
 - `anthropic:<model>`: the Claude Messages API on `ANTHROPIC_API_KEY` (`WHILEAI_ANTHROPIC_API_KEY` overrides it).
+- `fireworks:<model>`: an open model Fireworks serves, on `FIREWORKS_API_KEY`; the model id is Fireworks' own (`accounts/fireworks/models/<name>`).
 - `typesafe:<model>`: TypeSafe's Jev, a decision model, on `TYPESAFE_API_KEY` (`WHILEAI_TYPESAFE_API_KEY` overrides it; `TYPESAFE_BASE_URL` points it at a gateway). Judge only: it answers typed questions with a probability each and writes no text, so `spec=` takes it and `agent=`, `simulator=` and `user_model=` refuse it.
 
 A spec works everywhere one is accepted: `agent=`, `simulator=` for the situation writer, `user_model=` for the simulated person, and `spec=` on `wai.grade` for the judge.

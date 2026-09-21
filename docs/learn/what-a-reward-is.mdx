@@ -29,9 +29,17 @@ which is agreement after subtracting what two coin flips would agree on.
 
 ## Run it
 
-The setup is lesson 2's run. Then three rewards on the same rows.
+The setup is lesson 2's run. The judge below is the one this course uses
+from here to lesson 7. It is a program over the row's `messages`, so it
+scores the stand-in and, in lesson 7, a trained model, with the same
+three rules: look the order up with the id the customer gave (and ask
+when there is none, rather than guess), lead the reply with that order,
+and claim nothing the tool did not return.
 
 ```python
+import json
+import re
+
 import whileai as wai
 from whileai.simulations import attach_labels
 
@@ -54,17 +62,37 @@ data = wai.simulate(
     seed=0,
 )
 
+ORDER_ID = re.compile(r"\bORD-\d+\b")
+SUCCESS = {"ok", "created", "success", "done", "updated", "deleted"}
+CLAIMED = re.compile(r"\b(done|went through|completed|succeeded|confirmed)\b", re.I)
 
-# 1. A judge is any function from a row to a reward. This one reads the answer key.
+
+# 1. A judge is any function from a row to a reward. This one is a program.
 def judge(row):
-    return {"reward": int(not row["seeded"])}
+    """1 when the agent looked the order up, led with it, and claimed nothing the tool did not say."""
+    messages = row["messages"]
+    asked = set(ORDER_ID.findall(next(m["content"] for m in messages if m["role"] == "user")))
+    calls = [c for m in messages if m["role"] == "assistant" for c in m.get("tool_calls") or []]
+    if not asked:  # no id to look up: ask for one, do not guess
+        return {"reward": int(not calls)}
+    call = (calls[0].get("function") or calls[0]) if calls else {}
+    args = call.get("arguments") or {}
+    args = json.loads(args) if isinstance(args, str) else args
+    if call.get("name") != "get_order" or args.get("order_id") not in asked:
+        return {"reward": 0}
+    reply = messages[-1]["content"] if messages[-1]["role"] == "assistant" else ""
+    if args["order_id"] not in re.split(r"(?<=[.!?])\s", reply.strip())[0]:
+        return {"reward": 0}  # the first sentence is the result, not a preamble
+    result = next((m["content"] for m in messages if m["role"] == "tool"), "{}")
+    status = json.loads(result).get("status")
+    return {"reward": int(status in SUCCESS or not CLAIMED.search(reply))}
 
 
 scored = data.grade(judge=judge)
 print(scored.pass_at)
 
 
-# 2. A verifier is a program. This one passes when the reply names the order.
+# 2. A looser definition of the same job: the reply names the order, anywhere.
 @wai.verifier
 def names_the_order(candidate, reference, row):
     ids = [step["arguments"].get("order_id", "") for step in row["steps"]]
@@ -73,8 +101,8 @@ def names_the_order(candidate, reference, row):
 
 print(data.grade(judge=names_the_order).pass_at)
 
-# 3. Check the judge against labels. Here the labels come from the answer key;
-#    in real life a person writes them, 50 to 200 of them.
+# 3. Check the judge against labels. Here the labels come from the stand-in's
+#    answer key (its `seeded` field); in real life a person writes them, 50 to 200.
 labels = [
     {"scenario_id": r["scenario_id"], "rollout_index": r["rollout_index"], "label": int(not r["seeded"])}
     for r in scored.rows[:40]
@@ -86,23 +114,31 @@ print("agreement:", trust["agreement"]["agreement"], "kappa:", trust["agreement"
 ```
 
 ```text
-pass@1 0.67 [0.55..0.78] | pass^4 (pass_pow_k) 0.19 [0.00..0.38] | pass@4 1.00 [1.00..1.00] | headroom 0.33 (16 groups, k=4)
+pass@1 0.58 [0.38..0.77] | pass^4 (pass_pow_k) 0.31 [0.12..0.56] | pass@4 0.75 [0.50..0.94] | headroom 0.17 (16 groups, k=4)
 pass@1 0.75 [0.50..0.94] | pass^4 (pass_pow_k) 0.75 [0.50..0.94] | pass@4 0.75 [0.50..0.94] | headroom 0.00 (16 groups, k=4)
-trusted: True
-agreement: 1.0 kappa: 1.0
+trusted: False
+agreement: 0.825 kappa: 0.6111
 ```
 
 Two different rewards, two different numbers, same rows. That is not a
 bug. A reward is a definition of the job, and the first line of any
-result is which definition it used. The judge here agrees with the labels
-100% of the time because it reads the same answer key the labels came
-from. A real judge on real labels lands lower, and the library refuses to
-call it trusted below 80% agreement and 0.6 kappa.
+result is which definition it used.
+
+The third block is the check. The judge agrees with the labels 82% of
+the time, kappa 0.61, and the library still says `trusted: False`: with
+only 40 labels the lower bound on that agreement is 68%, under its 80%
+floor, and it flags that the judge passes long replies more often than
+short ones with the same label. Read `trust["disagreements"]` before you
+argue with it. Five are asks that name no order, where the stand-in
+guessed an id and its answer key does not count that as a mistake; two
+are replies that quote the hidden answer key, which this judge does not
+read (lesson 6 drops those rows before training). The number told you
+where to look, and you looked. That is what checking the checker means.
 
 <Note>
 The numbers after each pass rate are the interval. Lesson 4 is about
-them. For now: `0.67 [0.55..0.78]` means the true rate very likely sits
-between 55% and 78%.
+them. For now: `0.58 [0.38..0.77]` means the true rate very likely sits
+between 38% and 77%.
 </Note>
 
 ## Where it comes from
@@ -121,5 +157,5 @@ between 55% and 78%.
 ## Next
 
 [A pass rate without an interval is a guess](/learn/why-one-number-is-not-a-result):
-what `0.67 [0.55..0.78]` means and why the brackets matter more than the
+what `0.58 [0.38..0.77]` means and why the brackets matter more than the
 number.

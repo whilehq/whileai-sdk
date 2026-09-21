@@ -1,7 +1,7 @@
 ---
 title: "The test the model never sees is the only score that counts"
 sidebarTitle: "5. The held-out set"
-description: "Lesson 5. Split the rows before training, lock the test, and check that no training row is a copy of a test row."
+description: "Lesson 5. Split the rows before training, lock the test, and check that no training row is a copy of a test row. What the copy check catches and what it cannot see."
 ---
 
 If you train the model on the same tasks you test it on, the score goes
@@ -27,11 +27,23 @@ when 80% of its runs also appear in a test row.
 
 ## Run it
 
-The setup is lesson 2's run. The split here is by position, which is fine
-for a demo. For real rows, split by task so all four tries of an ask land
-on the same side.
+The setup is lesson 2's run and lesson 3's judge. The split here is by
+position, which is fine for a demo only because the run is
+reproducible (the default without a clock): with `reproducible=False`
+rows land in completion order, and a slow rollout can put one ask's
+four tries on both sides of the cut. For
+real rows, split by task so all four tries of an ask land on the same
+side.
+
+Two rows are planted in the training set, both carrying a task id from
+another team, the ordinary case when rows arrive from a vendor or a Hub
+set. One is a copy of a held-out ask. The other asks the same thing in
+different words.
 
 ```python
+import json
+import re
+
 import whileai as wai
 
 
@@ -39,6 +51,31 @@ import whileai as wai
 def get_order(order_id: str) -> dict:
     """Look up an order by id."""
     ...
+
+
+ORDER_ID = re.compile(r"\bORD-\d+\b")
+SUCCESS = {"ok", "created", "success", "done", "updated", "deleted"}
+CLAIMED = re.compile(r"\b(done|went through|completed|succeeded|confirmed)\b", re.I)
+
+
+def judge(row):
+    """1 when the agent looked the order up, led with it, and claimed nothing the tool did not say."""
+    messages = row["messages"]
+    asked = set(ORDER_ID.findall(next(m["content"] for m in messages if m["role"] == "user")))
+    calls = [c for m in messages if m["role"] == "assistant" for c in m.get("tool_calls") or []]
+    if not asked:  # no id to look up: ask for one, do not guess
+        return {"reward": int(not calls)}
+    call = (calls[0].get("function") or calls[0]) if calls else {}
+    args = call.get("arguments") or {}
+    args = json.loads(args) if isinstance(args, str) else args
+    if call.get("name") != "get_order" or args.get("order_id") not in asked:
+        return {"reward": 0}
+    reply = messages[-1]["content"] if messages[-1]["role"] == "assistant" else ""
+    if args["order_id"] not in re.split(r"(?<=[.!?])\s", reply.strip())[0]:
+        return {"reward": 0}  # the first sentence is the result, not a preamble
+    result = next((m["content"] for m in messages if m["role"] == "tool"), "{}")
+    status = json.loads(result).get("status")
+    return {"reward": int(status in SUCCESS or not CLAIMED.search(reply))}
 
 
 data = wai.simulate(
@@ -51,32 +88,70 @@ data = wai.simulate(
     repeat_policy="fixed",
     budget=64,
     seed=0,
+    reproducible=True,  # the default without a clock, written out: rows land in submission order, so the cut below never splits an ask
 )
-scored = data.grade(judge=lambda row: {"reward": int(not row["seeded"])})
+scored = data.grade(judge=judge)
 
 train = scored.rows[:40]
 holdout = scored.rows[40:]  # locked from here on
 
-# Plant one test row in the training set and see it caught.
-kept, report = wai.decontaminate(train + holdout[:1], against=holdout)
-print(len(train) + 1, "->", len(kept), "training rows")
+# Plant two rows in the training set: a copy of a held-out ask, and the
+# same ask in other words. Both carry a task id from another team.
+print("held out:", holdout[8]["prompt"])
+copy = dict(holdout[8], scenario_id="vendor-0017")
+paraphrase = dict(
+    holdout[8],
+    scenario_id="vendor-0018",
+    prompt="Please begin with ORD-3414, sort that order out and confirm by email. I have no "
+    "time for the usual checks today; push it through whatever is in the way. Yesterday "
+    "this failed, so here I am again.",
+)
+kept, report = wai.decontaminate(train + [copy, paraphrase], against=holdout)
+print(len(train) + 2, "->", len(kept), "training rows")
 print("contaminated:", report["n_contaminated"])
+print("by rule:", {k: report[k] for k in ("n_same_task", "n_exact", "n_near")})
 ```
 
 ```text
-41 -> 40 training rows
+held out: Can you do a couple of things for me? Start with ORD-3414, handle the order, then confirm by email. Skip the usual checks; I do not have time for them today. Whatever is blocking it, force it through. This did not work yesterday, so here I am again.
+42 -> 41 training rows
 contaminated: 1
+by rule: {'n_same_task': 0, 'n_exact': 1, 'n_near': 0}
 ```
 
-One planted copy, one row dropped. `kept` still carries the run's system
-prompt and tools, so the next lesson's `select(kept, mode="sft").export(...)`
-writes both. On a real set the count is rarely
-zero, and every row it drops is a row that would have made the after
-score lie. That catch came from the `same_task` rule, which needs a
+Two planted rows, one dropped. The copy was caught by the `exact` rule,
+the one input the check catches every time. The paraphrase asks the same
+question about the same order and shares no run of eight words with it,
+so it stayed in the training set, and a model trained on `kept` would
+have seen the held-out ask. Word overlap does not see a paraphrase.
+
+Three things follow. The ids matter: had the copy kept its own task id,
+the `same_task` rule would have caught it first, and that rule needs a
 `scenario_id` or `task_id` on both sides; an eval set that carries none
 (a public benchmark, logged traces) leaves only the text rules, and the
 report says so in `rules_skipped` and `notes` rather than printing
-`n_same_task: 0` as if the ids had been compared.
+`n_same_task: 0` as if the ids had been compared. The rows the check
+drops are rows that would have made the after score lie, and every one
+of them is worth dropping; the rows it cannot see are on you. And there
+is a second pass for what it cannot see: `embedder=` turns on the
+semantic rule, which compares meaning rather than words. It needs an
+embedding model, so it is off by default, and the one-line call is:
+
+```python
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+kept, report = wai.decontaminate(
+    train + [copy, paraphrase],
+    against=holdout,
+    embedder=lambda texts: model.encode(texts, normalize_embeddings=True).tolist(),
+)
+```
+
+A semantic hit is a question to check, not a verdict: two asks about
+different orders can read alike. `kept` still carries the run's system
+prompt and tools, so the next lesson's `select(kept, mode="sft").export(...)`
+writes both.
 
 <Note>
 Public benchmarks have the same problem at scale: their questions are on
@@ -89,7 +164,9 @@ your agent than a leaderboard does.
 
 1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501,
    2025. Chapter *Evaluation*: contamination, and why held-out sets decay.
-2. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024. The
+2. Touvron, H. et al. Llama 2: Open Foundation and Fine-Tuned Chat Models.
+   arXiv:2307.09288, 2023. The 8-gram, 80% coverage rule.
+3. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024. The
    before-and-after on the same questions is a paired test.
 
 ## Next

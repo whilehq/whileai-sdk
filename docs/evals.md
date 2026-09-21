@@ -4,6 +4,8 @@ sidebarTitle: "Evals"
 description: "A pass rate with an interval, a table of where the agent fails, and a CI check that turns red when it gets worse. Offline, no key, seconds."
 ---
 
+**What you learn:** evals for the agent you already have: wrap it, write the policy as a judge, pass@1 with an interval per policy branch, the coverage warnings that catch a hollow run, a CI gate. **Needs:** nothing. **Takes:** seconds.
+
 You have an agent. You want a pass rate with an interval, a table of where
 it fails, and a check that turns red in CI when it gets worse. The runnable
 version is
@@ -13,26 +15,14 @@ version is
 <img className="block dark:hidden" src="/figures/evals-loop-light.svg" alt="Your callable, simulate with fixed repeats, evaluate with your judge, pass_at, a CI gate; hand labels feed judge_trust" />
 <img className="hidden dark:block" src="/figures/evals-loop-dark.svg" alt="Your callable, simulate with fixed repeats, evaluate with your judge, pass_at, a CI gate; hand labels feed judge_trust" />
 
-The package is `whileai`, the import is `whileai.simulations`, keys start
-with `zp_`.
-
-## 1. Install and sign in
+## 1. Install
 
 ```bash
 uv add whileai
-whileai signup --email you@example.com   # new account, no browser; or: whileai login
-whileai status                            # which key the SDK will use
 ```
 
-Nothing below needs the key until you drop `simulator=False`. `WHILEAI_API_KEY`
-in the environment or the login saved at `~/.whileai/credentials.json` both
-count; set `WHILEAI_HOME=/some/fresh/dir` to isolate a new account.
-
-**The trial.** A fresh `signup` key gets 25,000 input and 50,000 output
-tokens a day, about twelve hosted situations of a four-tool agent; a run
-past that stops with `Hosted model daily quota exceeded`. `simulate(...,
-simulator=False)` writes situations offline with no quota, and one sign-in
-at the While site (the link `whileai status` prints) lifts the limit.
+Nothing below needs a key until you drop `simulator=False`; the key, the
+trial and where a saved login lives are on [Install](/get-started/install#keys).
 
 ## 2. Wrap your agent
 
@@ -181,7 +171,9 @@ for note in scored.warnings:  # hollow-run checks; fix before reading the number
 
 - `pass@1` is how often the agent does the job. `pass^k` is how often it
   did on every one of `k` tries: for anything that moves money, that is
-  the number. `pass@k` minus `pass@1` is headroom for training.
+  the number. `pass@k` minus `pass@1` is headroom for training [1, 2].
+- The interval is a bootstrap over tasks, not tries, because the tries of
+  one task are not independent draws [3, 4].
 - `repeat_policy="fixed"` asks for all repeats up front. The `mode="rl"`
   default, `"successive"`, stops early on unanimous asks: right for
   training data, wrong for an eval.
@@ -251,7 +243,7 @@ The key is `rollout_id` when the row has one, else
 `scenario_id#rollout_index` (what a `simulate` row carries).
 
 `judge_trust` reads `gold_reward` and reports agreement with its Wilson
-lower bound, held-out halves, a length bias check and re-judge flips.
+lower bound, held-out halves, a length bias check and re-judge flips [5].
 **FAIL on eight labels means label more:** at perfect agreement the lower
 bound needs sixteen labels to clear 0.8, and the report says how many.
 Labels attached any other way count as model-made and keep `ok` false
@@ -319,7 +311,8 @@ Marker stats (`marker_summary(rows)["grounded"]`): `mean`, `ci95` (not
 `degenerate`, and `note` (too few tasks) or `warning` (never varied).
 
 `judge_trust(rows)`: `ok`, `agreement.{agreement, ci95, kappa, n}`,
-`gold_kind` (`"human"`, `"model"`, `"unknown"`), `n_labeled`,
+`gold_kind` (`"human"`, `"program"`, `"model"`, `"unknown"`; the first two
+are trusted), `n_labeled`,
 `held_out_halves`, `length_sensitivity`, `perturbation`, `probes`,
 `disagreements`, and `warnings`, where every line names its fix.
 
@@ -333,3 +326,14 @@ Marker stats (`marker_summary(rows)["grounded"]`): `mean`, `ci95` (not
   `scored.push("refund-evals", purpose="eval")`.
 - Production traces are rows too: `wai.rows_from_otel(spans)` reads
   OpenTelemetry spans, and the same judge and markers score them.
+
+<img className="block dark:hidden" src="/figures/three-sets-light.svg" alt="Three boxes, train, holdout and eval, each with its purpose= tag; a green arrow from train to the other two labelled decontaminate(train, against=[holdout, eval])" />
+<img className="hidden dark:block" src="/figures/three-sets-dark.svg" alt="Three boxes, train, holdout and eval, each with its purpose= tag; a green arrow from train to the other two labelled decontaminate(train, against=[holdout, eval])" />
+
+## References
+
+1. Chen, M. et al. [Evaluating Large Language Models Trained on Code](https://arxiv.org/abs/2107.03374). 2021. The pass@k estimator.
+2. Yao, S. et al. [τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains](https://arxiv.org/abs/2406.12045). 2024. pass^k.
+3. Miller, E. [Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations](https://arxiv.org/abs/2411.00640). 2024. Intervals over questions, and pairing when two models answer the same ones.
+4. Lambert, N. [Reinforcement Learning from Human Feedback](https://rlhfbook.com), chapter [Evaluation](https://rlhfbook.com/c/16-evaluation). 2025.
+5. Zheng, L. et al. [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685). NeurIPS 2023. Agreement with people, and the length bias.

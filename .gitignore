@@ -33,14 +33,20 @@ specs/
 # per-recipe output folders.
 !recipes/04-train/grpo/prompts.jsonl
 !recipes/04-train/text-to-sql/tasks.jsonl
+!recipes/02-measure/public-benchmark/gsm8k_test_200.jsonl
 recipes/04-train/hosted-loop/hosted-loop.json
 recipes/02-measure/safety-evals-marketplace/*.json
+recipes/02-measure/character-to-the-wall/out/
 recipes/03-select/character/out/
 recipes/04-train/identity/out/
+recipes/04-train/fireworks/out/
 recipes/04-train/text-to-sql/raw/
 recipes/04-train/text-to-sql/out/
 recipes/04-train/text-to-sql/pg/
 recipes/04-train/text-to-sql/author.done.txt
+# what the smoke runs write
+recipes/03-select/schema/out/
+recipes/community/what-trl-does-with-the-loss-mask/out/
 # the old location; a stub README points at recipes/
 !recipes/03-select/prime-intellect-rl/
 !recipes/04-train/identity/

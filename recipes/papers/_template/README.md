@@ -28,7 +28,7 @@ python recipe.py --arm recipe --steps 200  # one arm, longer
 | Baseline | | | | | |
 | Recipe | | | | | |
 
-Recipe vs baseline: <+0.00 [lo, hi]>. Verdict: <moved / flat>.
+Recipe vs baseline: <+0.00 [lo, hi]>. Verdict: <moved / flat / unresolved>. <At one training seed per arm the verdict is unresolved: say in one sentence what would resolve it, a second seed on each arm passed as `train_runs=`.>
 
 ## Checks
 

@@ -87,8 +87,12 @@ row ended in the same tool fault, which is a missing fixture, not a
 missing ask.
 
 ```python
-report = wai.coverage_gap(OLD_TESTS, tools=TOOLS, system_prompt=POLICY, rows=scored.rows)
-print(wai.format_coverage_gap(report))
+import whileai as wai
+
+report = wai.simulations.coverage_gap(
+    OLD_TESTS, tools=TOOLS, system_prompt=POLICY, rows=scored.rows
+)
+print(wai.simulations.format_coverage_gap(report))
 ```
 
 Asks can also come from the file that holds them:

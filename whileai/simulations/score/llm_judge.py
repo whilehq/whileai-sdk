@@ -39,7 +39,7 @@ JUDGE_SYSTEM = (
 
 def resolve_judge_key(api_key: str | None = None, backend_spec: str | None = None) -> str | None:
     """User-supplied OpenAI-compatible key. An ``anthropic:`` spec reads
-    ANTHROPIC_API_KEY; hosted Qwen only if the spec points there."""
+    ANTHROPIC_API_KEY, a ``bedrock:`` spec AWS_BEARER_TOKEN_BEDROCK; hosted Qwen only if the spec points there."""
     key = str(api_key or "").strip()
     if key:
         return key
@@ -48,6 +48,11 @@ def resolve_judge_key(api_key: str | None = None, backend_spec: str | None = Non
         from ..generate.anthropic_backend import resolve_key as anthropic_key
 
         return anthropic_key() or None
+    if spec.startswith("bedrock:"):
+        from ..generate.bedrock_backend import resolve_key as bedrock_key
+
+        # empty means "sign with AWS credentials", which needs no key here
+        return bedrock_key() or None
     if spec.startswith("typesafe:"):
         from ..generate.typesafe_backend import resolve_key as typesafe_key
 

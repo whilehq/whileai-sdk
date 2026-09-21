@@ -4,8 +4,8 @@ sidebarTitle: "4. Why the interval matters"
 description: "Lesson 4. pass@1, the interval around it, pass^k and headroom, and how many tasks a real result needs."
 ---
 
-The agent passed 67% of tasks. Run the same thing on sixteen different
-tasks and it passes 60%, or 75%. Neither run was wrong. Sixteen tasks is
+The agent passed 58% of tasks. Run the same thing on sixteen different
+tasks and it passes 50%, or 65%. Neither run was wrong. Sixteen tasks is
 a small sample of all the asks your customers could send, and a small
 sample bounces. The interval is the honest way to say how much. If two
 numbers have overlapping intervals, they are not different, whatever the
@@ -39,7 +39,12 @@ is why most "it got better" claims are noise.
 
 ## Run it
 
+The judge is lesson 3's, unchanged.
+
 ```python
+import json
+import re
+
 import whileai as wai
 from whileai.simulations import holdout_size
 
@@ -48,6 +53,31 @@ from whileai.simulations import holdout_size
 def get_order(order_id: str) -> dict:
     """Look up an order by id."""
     ...
+
+
+ORDER_ID = re.compile(r"\bORD-\d+\b")
+SUCCESS = {"ok", "created", "success", "done", "updated", "deleted"}
+CLAIMED = re.compile(r"\b(done|went through|completed|succeeded|confirmed)\b", re.I)
+
+
+def judge(row):
+    """1 when the agent looked the order up, led with it, and claimed nothing the tool did not say."""
+    messages = row["messages"]
+    asked = set(ORDER_ID.findall(next(m["content"] for m in messages if m["role"] == "user")))
+    calls = [c for m in messages if m["role"] == "assistant" for c in m.get("tool_calls") or []]
+    if not asked:  # no id to look up: ask for one, do not guess
+        return {"reward": int(not calls)}
+    call = (calls[0].get("function") or calls[0]) if calls else {}
+    args = call.get("arguments") or {}
+    args = json.loads(args) if isinstance(args, str) else args
+    if call.get("name") != "get_order" or args.get("order_id") not in asked:
+        return {"reward": 0}
+    reply = messages[-1]["content"] if messages[-1]["role"] == "assistant" else ""
+    if args["order_id"] not in re.split(r"(?<=[.!?])\s", reply.strip())[0]:
+        return {"reward": 0}  # the first sentence is the result, not a preamble
+    result = next((m["content"] for m in messages if m["role"] == "tool"), "{}")
+    status = json.loads(result).get("status")
+    return {"reward": int(status in SUCCESS or not CLAIMED.search(reply))}
 
 
 data = wai.simulate(
@@ -61,22 +91,24 @@ data = wai.simulate(
     budget=64,
     seed=0,
 )
-scored = data.grade(judge=lambda row: {"reward": int(not row["seeded"])})
+scored = data.grade(judge=judge)
 
 print(scored.pass_at)
 print(holdout_size(0.10, base=0.6, k=4)["n_tasks"], "tasks to prove a 10-point gain")
 ```
 
 ```text
-pass@1 0.67 [0.55..0.78] | pass^4 (pass_pow_k) 0.19 [0.00..0.38] | pass@4 1.00 [1.00..1.00] | headroom 0.33 (16 groups, k=4)
+pass@1 0.58 [0.38..0.77] | pass^4 (pass_pow_k) 0.31 [0.12..0.56] | pass@4 0.75 [0.50..0.94] | headroom 0.17 (16 groups, k=4)
 89 tasks to prove a 10-point gain
 ```
 
-Read the line. On one try the agent does the job 67% of the time, and
-with sixteen tasks the true rate could be anywhere from 55% to 78%. All
-four tries pass on only 19% of tasks, so it is not reliable. At least
-one try passes on every task, so it already knows how. The headroom of
-33 points is what a training run has to work with.
+Read the line. On one try the agent does the job 58% of the time, and
+with sixteen tasks the true rate could be anywhere from 38% to 77%. All
+four tries pass on only 31% of tasks, so it is not reliable. At least
+one try passes on 75% of tasks; the other quarter are asks that name no
+order, where the stand-in guesses an id every time and never passes. The
+headroom of 17 points is what a training run has to work with on the
+tasks it already sometimes gets right.
 
 ## Where it comes from
 

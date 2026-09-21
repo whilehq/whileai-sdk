@@ -4,6 +4,8 @@ sidebarTitle: "Quickstart"
 description: "Sixty seconds, offline: simulate a stand-in agent, grade it with a one-line judge, read pass@1 with an interval, keep the rows worth training on."
 ---
 
+**What you learn:** simulate a stand-in agent, grade it with a one-line judge, read pass@1 with an interval, keep the rows worth training on. **Needs:** nothing. **Takes:** sixty seconds.
+
 <Note>
 Running your own model? [Your model and your key](/get-started/your-model-and-key)
 is the two-line version: the model as a string, the key in the
@@ -91,6 +93,9 @@ your judge catches exactly those rows before you trust it on real ones.
       warning: Difficulty was measured from 4 rollouts per task, so a task's band assignment can be off by about ±0.3. Use repeats=16 for a firmer band (the count the 20-80 band is measured from, Lambert 2025, chapter Reasoning).
     ```
 
+    <img className="block dark:hidden" src="/figures/difficulty-band-light.svg" alt="A histogram of tasks by pass rate at k=8: the 20 to 80 percent band is shaded and kept, the all-pass and all-fail bars are grey and dropped as unanimous groups, the bars just outside the band are dropped as too hard or too easy" />
+    <img className="hidden dark:block" src="/figures/difficulty-band-dark.svg" alt="A histogram of tasks by pass rate at k=8: the 20 to 80 percent band is shaded and kept, the all-pass and all-fail bars are grey and dropped as unanimous groups, the bars just outside the band are dropped as too hard or too easy" />
+
     The warnings are part of the answer. The judge here reads the label
     the stand-in left behind, and the planted mistakes add words, so
     shorter replies really are better; on a real judge that line means
@@ -140,7 +145,7 @@ key from `whileai login`. The full table is on
     A pass rate with an interval, a table of where the agent fails, and a
     CI check that turns red when it gets worse.
   </Card>
-  <Card title="Simulations" icon="dice" href="/simulations">
+  <Card title="How it works" icon="dice" href="/concepts/how-it-works">
     How the engine picks situations, plays the customer, and breaks the
     tools on purpose.
   </Card>

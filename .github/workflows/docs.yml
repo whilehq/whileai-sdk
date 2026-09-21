@@ -47,9 +47,10 @@ jobs:
           python-version: "3.12"
       - run: uv sync --extra dev
       # Every ```python block under docs/ is executed against the package, page
-      # by page, with no keys set, except the generated docs/api/ and
-      # docs/recipes/ trees. A block that needs a key is skipped only where the
-      # page tells the reader it needs one.
+      # by page, with no keys set and no network, except the generated docs/api/
+      # tree. A docs/recipes/ page runs in a copy of its recipe directory. A
+      # block that needs a key is skipped only where the page tells the reader
+      # it needs one.
       - run: uv run python scripts/check_doc_snippets.py
 
   docs-follow-code:

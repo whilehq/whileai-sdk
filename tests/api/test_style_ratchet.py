@@ -27,9 +27,10 @@ MAX_PARAMS = 8
 PINS = {
     "exports": 208,  # rule 1: names in whileai.simulations.__all__
     # rule 1: names in whileai.__all__. The rule says "under thirty"; `tool`
-    # (#447) made it exactly thirty, so this pin is the line itself and the
-    # next name added has to take one off. See #456.
-    "front_door": 30,
+    # (#447) made it exactly thirty, and `rows` (#613, the front door for a
+    # public benchmark) thirty-one by the maintainer's call. The next name
+    # added takes one off (`Fireworks` took `Settings` off). See #456.
+    "front_door": 31,
     "wide_calls": 27,  # rule 3: public calls with more than MAX_PARAMS parameters
     "format_twins": 12,  # rule 5: format_* functions instead of __str__ on a report
     "bare_returns": 3,  # rule 5: front-door calls returning a bare dict or tuple

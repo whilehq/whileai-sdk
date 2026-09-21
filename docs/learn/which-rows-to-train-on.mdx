@@ -41,7 +41,12 @@ Two more gates run at the same time.
 
 ## Run it
 
+The judge is lesson 3's, unchanged.
+
 ```python
+import json
+import re
+
 import whileai as wai
 
 
@@ -49,6 +54,31 @@ import whileai as wai
 def get_order(order_id: str) -> dict:
     """Look up an order by id."""
     ...
+
+
+ORDER_ID = re.compile(r"\bORD-\d+\b")
+SUCCESS = {"ok", "created", "success", "done", "updated", "deleted"}
+CLAIMED = re.compile(r"\b(done|went through|completed|succeeded|confirmed)\b", re.I)
+
+
+def judge(row):
+    """1 when the agent looked the order up, led with it, and claimed nothing the tool did not say."""
+    messages = row["messages"]
+    asked = set(ORDER_ID.findall(next(m["content"] for m in messages if m["role"] == "user")))
+    calls = [c for m in messages if m["role"] == "assistant" for c in m.get("tool_calls") or []]
+    if not asked:  # no id to look up: ask for one, do not guess
+        return {"reward": int(not calls)}
+    call = (calls[0].get("function") or calls[0]) if calls else {}
+    args = call.get("arguments") or {}
+    args = json.loads(args) if isinstance(args, str) else args
+    if call.get("name") != "get_order" or args.get("order_id") not in asked:
+        return {"reward": 0}
+    reply = messages[-1]["content"] if messages[-1]["role"] == "assistant" else ""
+    if args["order_id"] not in re.split(r"(?<=[.!?])\s", reply.strip())[0]:
+        return {"reward": 0}  # the first sentence is the result, not a preamble
+    result = next((m["content"] for m in messages if m["role"] == "tool"), "{}")
+    status = json.loads(result).get("status")
+    return {"reward": int(status in SUCCESS or not CLAIMED.search(reply))}
 
 
 data = wai.simulate(
@@ -62,28 +92,28 @@ data = wai.simulate(
     budget=64,
     seed=0,
 )
-scored = data.grade(judge=lambda row: {"reward": int(not row["seeded"])})
+scored = data.grade(judge=judge)
 
 print(scored.select(mode="sft"))  # the passes
 print(scored.select(mode="rl"))  # the middle
 ```
 
 ```text
-sft selection: kept 16 of 64 rows
-  eligible 16 (reward >= 1.0), junk 0, not passing 17
+sft selection: kept 12 of 64 rows
+  eligible 12 (reward >= 1.0), junk 0, not passing 26
   privileged leaks dropped: 4
-  distinct behaviors: 6, covered: 6
+  distinct behaviors: 5, covered: 5
   completions per prompt: mean 4.0, median 4, max 4; 0 of 16 prompts have one. Rejection-sampling selection wants 10 to 30 so the pick is not biased (Lambert 2025, chapter Rejection Sampling; Llama 3 samples 10 to 30). Raise repeats= if you mean to choose among completions rather than filter.
-rl selection: kept 27 of 64 rows
+rl selection: kept 16 of 64 rows
   band 20%..80% pass rate: 0 asks dropped (0 too easy, 0 too hard)
-  unanimous groups dropped: 6; duplicates dropped: 27; truncated drop: 0
+  unanimous groups dropped: 10; duplicates dropped: 27; truncated drop: 0
   privileged leaks dropped: 4
-  groups kept: 10
-  hack scan: train
+  groups kept: 6
+  hack scan: no signal
   warning: 27 duplicate rollout(s) within 13 ask(s) dropped
   warning: reward punishes reply length (corr -0.74); check the judge before training
-  warning: reward punishes boilerplate (corr -0.32); check the judge before training
-  warning: reward punishes hedging (corr -0.37); check the judge before training
+  warning: reward punishes boilerplate (corr -0.37); check the judge before training
+  warning: no feature clears the noise floor (max |rho| 0.00, floor 0.00 from 100 within-ask shuffles): the reward is not separating rollouts of the same ask on anything measurable; check the judge before training
   warning: 3 rollouts per ask at the median; the floor is coarse below 4, re-scan at repeats>=8 before acting on a close call
   warning: Difficulty was measured from 4 rollouts per task, so a task's band assignment can be off by about ±0.3. Use repeats=16 for a firmer band (the count the 20-80 band is measured from, Lambert 2025, chapter Reasoning).
 ```
@@ -91,16 +121,20 @@ rl selection: kept 27 of 64 rows
 The gates are the point of the call, so read four of them.
 
 - **privileged leaks dropped: 4.** Four replies recite the answer key
-  the grader was given. Whatever the judge said, those rows did not earn
-  it, and the export would refuse them anyway. Both modes drop them
-  first.
-- **unanimous groups dropped: 6.** Six asks where every try scored the
-  same, one of them only once its leaked failure was gone. Nothing to
-  learn there.
-- **reward punishes reply length (corr -0.74).** Here the judge reads the
-  answer key, and the planted mistakes add words (an apology, a hedge), so
-  shorter replies really are the better ones. On a real judge this line
-  means: check whether it is grading the job or the word count.
+  the grader was given. Lesson 3's judge does not read that key, so it
+  passed three of them; the export would refuse them anyway. Both modes
+  drop them first.
+- **unanimous groups dropped: 10.** Ten asks where every try scored the
+  same: the asks that name no order, where the stand-in guesses an id on
+  every try and never passes, and the asks it got right all four times.
+  Nothing to learn there. Six groups are in the middle, and those sixteen
+  rows are the RL set.
+- **reward punishes reply length (corr -0.74).** The judge wants the
+  result in the first sentence, and the planted mistakes put a sentence
+  in front of it, so shorter replies really are the better ones here. On
+  a real judge this line means: check whether it is grading the job or
+  the word count. The line under it says no single feature predicts the
+  reward within an ask, which is the healthy reading of the same scan.
 - **Use repeats=16 for a firmer band.** Four tries is a coarse estimate of
   a task's pass rate. The band is measured from sixteen in the source it
   cites. Sixty-four rows is a lesson, not a training set.

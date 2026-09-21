@@ -117,13 +117,23 @@ def main() -> None:
             target="pass_at_1",
             run_std=run_std,
             run_std_runs=int(noise["n_runs"]),
+            # one training seed per arm: the report says unresolved; two or
+            # more per arm (pass every seed's rows) resolve it to moved or flat (#356)
+            train_runs={"before": [arm_rows["baseline"]], "after": [arm_rows["recipe"]]},
             proxy=PROXY,
         )
         results["delta"] = {
             "recipe_vs_baseline": d["target_delta"],
             "ci": list(d["target_ci95"] or (0.0, 0.0)),
-            "verdict": "moved" if d["target_verdict"] == "moved" else "flat",
+            "verdict": (
+                "unresolved"
+                if d["target_verdict"] == "unresolved"
+                else "moved"
+                if d["target_verdict"] == "moved"
+                else "flat"
+            ),
         }
+        results["checks"]["train_seeds"] = {"baseline": 1, "recipe": 1}
         results["checks"]["over_optimized"] = bool(d["over_optimized"])
         print(wai.format_delta_report(d))
     (HERE / "results.json").write_text(json.dumps(results, indent=2))

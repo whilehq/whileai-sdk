@@ -45,7 +45,7 @@
       0.020833333333333332,
       0.1125
     ],
-    "verdict": "moved",
+    "verdict": "unresolved",
     "noise_band": 0.02495181840908594
   },
   "checks": {
@@ -61,6 +61,10 @@
     "seed": 0,
     "pins": "torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0",
     "run_std_runs": 10,
+    "train_seeds": {
+      "baseline": 1,
+      "recipe": 1
+    },
     "run_std_verified": "2026-09-18"
   },
   "gpu": "L40S",

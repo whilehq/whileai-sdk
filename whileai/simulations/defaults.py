@@ -458,6 +458,18 @@ MIN_CI_TASKS = 3
 # (Lambert 2025, chapter Evaluation: a held-constant eval moves 0.25 to
 # 1.5 points between runs; convention on the count).
 MIN_RERUNS = 3
+# MIN_TRAIN_SEEDS = 2: independently trained seeds per arm before
+# ``delta_report(train_runs=)`` may call a delta between two trained
+# models "moved"; one seed per arm reads ``unresolved``. The claim is a
+# delta between two separately trained models, and the eval re-run floor
+# (``run_std``) measures only the eval, so one seed cannot separate the
+# change from run-to-run training variance (#356: the same recipe
+# flipped sign, -0.065 to +0.050, between two runs at one seed). Two is
+# the fewest that give a between-seed spread at all; the between-seed
+# term is the seed-to-seed variance of each arm's mean (Lambert 2025,
+# chapter Evaluation; Miller 2024, arXiv:2411.00640, on adding the
+# variance components a claim rests on). Convention on the count.
+MIN_TRAIN_SEEDS = 2
 # BASE_PASS_RATE = 0.6: the before-side pass rate ``holdout_size`` assumes
 # when no rows are given. The centre of the 20-80 difficulty band, where a
 # binary task carries the most variance and the sizing is most
@@ -590,6 +602,16 @@ LENGTH_GAP_FLAG = 0.15
 # 0.992 on MT-Bench (arXiv:2606.19544), so a tenth of verdicts moving is
 # far outside the measured range. Convention on the exact number.
 FLIP_FLAG = 0.10
+# PROBE_MIN_N = 20: rows a judge probe needs in its denominator (originally
+# failing replies for an additive probe, re-judged replies for a
+# replacement one) before ``flagged`` may be true. Under it one flipped row
+# is already FLIP_FLAG: 1 of 10 is 0.10 exactly, and its 95% Wilson
+# interval runs 0.02 to 0.40, so the flag would rest on a single verdict
+# (#347). At 20 one row is 0.05, half the flag, and the interval on 2 of
+# 20 is 0.03 to 0.30. Below the floor the probe says "low power" with the
+# rate it could resolve at POWER instead of flagging. Convention on the
+# exact number (convention, untested).
+PROBE_MIN_N = 20
 # MAX_SKIPPED_SHARE = 0.10: share of a judge_trust gold sample the judge may
 # leave out of the agreement count (a reward that is not exactly 0 or 1,
 # so ``judge_agreement`` skips the row) before ``ok`` is false. The rows
@@ -942,6 +964,26 @@ TRAINING_POLL_MIN_S = 1.0
 # TRAINING_ERROR_CHARS = 2000: a finish error is cut here; the run page
 # shows one screen of it.
 TRAINING_ERROR_CHARS = 2000
+# GPU_USD_PER_HOUR = {A10G 1.10, L40S 1.95, H100 3.95, A100 2.50, T4 0.59}:
+# what one GPU-hour of a hosted training run costs, as an estimate. The
+# platform's trainer runs on Modal, so Modal's on-demand list price is the
+# honest rate. Modal quotes per second (A10 $0.000306, L40S $0.000542,
+# H100 SXM5 $0.001097, A100 80 GB $0.000694, T4 $0.000164); the table is
+# those rates times 3600, to the cent. A run's ``cost_usd`` is
+# ``seconds / SECONDS_PER_HOUR * rate``. Rollouts and judge calls on the
+# shared serving endpoint are not priced. (https://modal.com/pricing, read
+# 2026-09-20)
+GPU_USD_PER_HOUR: Mapping[str, float] = MappingProxyType(
+    {"A10G": 1.10, "L40S": 1.95, "H100": 3.95, "A100": 2.50, "T4": 0.59}
+)
+# GPU_PRICE_SOURCE = "modal.com/pricing 2026-09-20": the page and the day
+# GPU_USD_PER_HOUR was read from, quoted in every ``cost_basis`` so the
+# reader can check the rate behind the number. (https://modal.com/pricing,
+# read 2026-09-20)
+GPU_PRICE_SOURCE = "modal.com/pricing 2026-09-20"
+# SECONDS_PER_HOUR = 3600: the unit conversion between a run's ``seconds``
+# and the per-hour rate. (definition)
+SECONDS_PER_HOUR = 3600
 
 # TRAINING_KNOBS = {knob: {lo, hi, ref, why}}: accepted range and reference
 # value per knob, by method. ``lo``/``hi`` are what ``train`` accepts; ``ref``
@@ -1784,6 +1826,8 @@ __all__ = [
     "FAULT_STATUSES",
     "FINGERPRINT_STEM_MIN_LEN",
     "FLIP_FLAG",
+    "GPU_PRICE_SOURCE",
+    "GPU_USD_PER_HOUR",
     "HACK_THRESHOLD",
     "HOLDOUT_BUCKET_HEX_CHARS",
     "HUNG_SLOT_S",
@@ -1810,6 +1854,7 @@ __all__ = [
     "MIN_KAPPA",
     "MIN_REPLY_TOKENS",
     "MIN_RERUNS",
+    "MIN_TRAIN_SEEDS",
     "MONITOR_BUFFER",
     "MONITOR_CONCURRENCY",
     "MONITOR_DELTA",
@@ -1873,6 +1918,7 @@ __all__ = [
     "PRIME_RL_LEARNING_RATE_LORA",
     "PRIME_RL_SEQ_LEN",
     "PRIME_RL_STEPS",
+    "PROBE_MIN_N",
     "PROGRESS_MIN_BUDGET",
     "PROGRESS_MIN_ROWS_FOR_ESTIMATE",
     "PROVE_EFFECT",
@@ -1887,6 +1933,7 @@ __all__ = [
     "SAMPLING_TEMPERATURE_MAX",
     "SATURATION_CAP",
     "SCENARIO_ID_CHARS",
+    "SECONDS_PER_HOUR",
     "SEMANTIC_SIMILARITY",
     "SFT_COMPLETIONS_PER_PROMPT",
     "SFT_PHRASINGS_PER_SITUATION",

@@ -37,7 +37,9 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        "whileai",
+        # A floor, never the bare name: bare resolves to whatever the image
+        # cache last saw and can freeze a trainer on an ancient wheel (#661).
+        "whileai>=0.109",
     )
     .env(
         {

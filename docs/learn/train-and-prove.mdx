@@ -1,7 +1,7 @@
 ---
 title: "Training is done when the held-out score moved"
 sidebarTitle: "7. Train and prove"
-description: "Lesson 7. Export the rows, train on your own compute, and prove the change with a paired before and after on the held-out set."
+description: "Lesson 7. Export the rows, train a LoRA adapter on one A10G on your own Modal account, and prove the change with a paired before and after on the held-out set."
 ---
 
 You have rows worth training on and a locked test set. Three steps are
@@ -14,28 +14,40 @@ and saying so is the result.
 ## The mechanism
 
 `export` writes one JSON object per line, in the shape trainers read,
-and refuses a broken row. The training itself is a recipe, not a call in
-this course, because it needs a GPU: the
-[GRPO recipe](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/grpo)
-runs on Modal on one A10G in under fifteen minutes, on your Modal account.
+and refuses a broken row. The training is one command on your Modal
+account: the
+[SFT recipe](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train/sft)
+trains a small open model with a LoRA adapter on that file, on one A10G,
+in about ten minutes, for under twenty cents. It also runs the base model
+over the held-out tasks three times before it trains anything, because a
+score bounces from run to run and you need to know by how much before
+you can call a change real. That spread is the **noise floor**.
 
 The proof is a **paired comparison**. Every held-out task is run by both
 models, the difference is taken task by task, and the interval on the
-average difference has to exclude zero. Paired, because the same hard
-task is hard for both models, and pairing cancels that out. The library
-also refuses to compare two runs that were not on the same tasks.
+average difference has to exclude zero and clear the noise floor. Paired,
+because the same hard task is hard for both models, and pairing cancels
+that out. The library also refuses to compare two runs that were not on
+the same tasks.
 
 ## Run it
 
-There is no trained model in this course, so the two arms below are two
-stand-in agents: one that plants a mistake on half its rows, and one that
-plants it on a tenth. Everything else is exactly what you run after a
-real training job. `tasks=before` pins the second run to the first run's
-tasks, and `model_version` names the arms.
+Lessons 2 to 6 used the stand-in agent, because the ideas run offline.
+This lesson trains a real model, so it is the one lesson that needs an
+account: `modal token new` on your laptop. The judge is lesson 3's,
+unchanged, and that is the point: it reads `messages`, so the same
+program scores the stand-in's rows here and the trained model's rows in
+step 3.
+
+Step 1 writes more rows than the earlier lessons, because sixty-four rows
+train nothing: four wordings of every ask, split by task the way lesson 5
+said to, the passes kept the way lesson 6 said to.
 
 ```python
+import json
+import re
+
 import whileai as wai
-from whileai.simulations import format_delta_report
 
 
 @wai.tool
@@ -44,69 +56,148 @@ def get_order(order_id: str) -> dict:
     ...
 
 
-common = dict(
+ORDER_ID = re.compile(r"\bORD-\d+\b")
+SUCCESS = {"ok", "created", "success", "done", "updated", "deleted"}
+CLAIMED = re.compile(r"\b(done|went through|completed|succeeded|confirmed)\b", re.I)
+
+
+def judge(row):
+    """1 when the agent looked the order up, led with it, and claimed nothing the tool did not say."""
+    messages = row["messages"]
+    asked = set(ORDER_ID.findall(next(m["content"] for m in messages if m["role"] == "user")))
+    calls = [c for m in messages if m["role"] == "assistant" for c in m.get("tool_calls") or []]
+    if not asked:  # no id to look up: ask for one, do not guess
+        return {"reward": int(not calls)}
+    call = (calls[0].get("function") or calls[0]) if calls else {}
+    args = call.get("arguments") or {}
+    args = json.loads(args) if isinstance(args, str) else args
+    if call.get("name") != "get_order" or args.get("order_id") not in asked:
+        return {"reward": 0}
+    reply = messages[-1]["content"] if messages[-1]["role"] == "assistant" else ""
+    if args["order_id"] not in re.split(r"(?<=[.!?])\s", reply.strip())[0]:
+        return {"reward": 0}  # the first sentence is the result, not a preamble
+    result = next((m["content"] for m in messages if m["role"] == "tool"), "{}")
+    status = json.loads(result).get("status")
+    return {"reward": int(status in SUCCESS or not CLAIMED.search(reply))}
+
+
+data = wai.simulate(
+    wai.seeded_agent([get_order]),
     tools=[get_order],
     system_prompt="Help customers with orders.",
     simulator=False,
     mode="rl",
     repeats=4,
     repeat_policy="fixed",
+    phrasings=4,  # four wordings of every ask
+    budget=640,
+    concurrency=1,  # the draw depends on the batch size; this is the size the SFT recipe's numbers came from
     seed=0,
 )
-
-
-def judge(row):
-    return {"reward": int(not row["seeded"])}
-
-
-# 1. Export. The passes from lesson 6, as a file for your trainer.
-data = wai.simulate(wai.seeded_agent([get_order]), budget=64, **common)
 scored = data.grade(judge=judge)
-report = scored.select(mode="sft").export("train.jsonl")
-print(report["n"], "rows written")
 
-# 2. Train. See recipes/04-train. This course skips it.
-
-# 3. Prove. The same held-out tasks, before and after, paired.
-before = wai.simulate(
-    wai.seeded_agent([get_order], rate=0.5),
-    budget=64,
-    advanced={"model_version": "v1"},
-    **common,
+# 1. Split by task (lesson 5), keep the passes (lesson 6), write both sides.
+tasks = sorted({r["scenario_id"] for r in scored.rows})
+held = set(tasks[-40:])  # locked from here on
+train = [r for r in scored.rows if r["scenario_id"] not in held]
+holdout = [r for r in scored.rows if r["scenario_id"] in held]
+train, report = wai.decontaminate(train, against=holdout)
+written = wai.select(train, mode="sft").export(
+    "train.jsonl", system_prompt="Help customers with orders.", tools=[get_order.schema]
 )
-after = wai.simulate(
-    wai.seeded_agent([get_order], rate=0.1),
-    tasks=before,  # the same tasks
-    advanced={"model_version": "v2"},
-    **common,
-)
-b = before.grade(judge=judge)
-a = after.grade(judge=judge)
-print("before:", b.pass_at)
-print("after: ", a.pass_at)
-print(format_delta_report(wai.compare(b.rows, a.rows)))
+with open("holdout.jsonl", "w") as f:
+    for r in holdout:
+        f.write(json.dumps({"scenario_id": r["scenario_id"], "messages": r["messages"]}) + "\n")
+print(len(scored.rows), "rows over", len(tasks), "tasks;", len(held), "tasks held out")
+print(report["n_contaminated"], "training rows dropped as near copies of a held-out ask")
+print(written["n"], "rows written to train.jsonl")
 ```
 
 ```text
-16 rows written
-before: pass@1 0.56 [0.44..0.69] | pass^4 (pass_pow_k) 0.06 [0.00..0.19] | pass@4 0.94 [0.81..1.00] | headroom 0.38 (16 groups, k=4)
-after:  pass@1 0.91 [0.83..0.97] | pass^4 (pass_pow_k) 0.69 [0.44..0.88] | pass@4 1.00 [1.00..1.00] | headroom 0.09 (16 groups, k=4)
-PASS
-answered: 100.0% before, 100.0% after
-  pass_at_1                    0.562 -> 0.906  +0.344 [+0.234..+0.469]  up  (16 paired)
+640 rows over 104 tasks; 40 tasks held out
+84 training rows dropped as near copies of a held-out ask
+46 rows written to train.jsonl
 ```
 
-Read the last line. Sixteen tasks, paired. The after arm is 34 points
-higher, and the interval on that difference runs from 23 to 47 points.
-It does not touch zero, so the verdict is PASS. Had it read
-`+0.05 [-0.03..+0.13]`, the verdict would be no difference, and the
-honest sentence is "training did not move it".
+Forty-six rows: the stand-in's passes on the training tasks, each one a
+system prompt, the ask, the lookup, what came back, and a reply that led
+with it. `holdout.jsonl` carries the forty locked tasks with the answer
+the fake world gave each lookup, so the trained model is asked the same
+question in the same world.
+
+Step 2 is the training. One command, on your account, from the directory
+the two files are in. It loads `Qwen/Qwen2.5-1.5B-Instruct`, runs the
+base model over the held-out asks three times, trains a LoRA adapter for
+forty steps, runs the adapter once on the same asks and the same seed,
+and writes every sampled row back to your laptop as `holdout_rows.jsonl`.
+This is what it printed on the run the rest of this page reads from.
+
+```bash
+modal run recipes/04-train/sft/train_modal.py --data train.jsonl
+```
+
+```text
+46 rows from train.jsonl, 68 held-out asks from holdout.jsonl; 40 steps is 7.0 passes over the rows
+46 training rows rendered; the longest is 411 tokens (max_length 1024)
+68 held-out asks over 40 tasks
+base pass 1 (seed 1): 272 rows in 84.1s
+base pass 2 (seed 2): 272 rows in 83.0s
+base pass 3 (seed 3): 272 rows in 79.5s
+trained 40 steps in 35.2s: loss 3.072 -> 0.798
+trained pass (seed 1): 84.3s
+A10G: 373.2s total, training 35.2s; adapter at whileai-sft-runs:/lesson7-sft/adapter
+wrote 1088 rows to holdout_rows.jsonl
+```
+
+Step 3 is the proof, on your laptop, from that file. The judge scores a
+real model's rows the same way it scored the stand-in's. The three base
+passes give the noise floor, and `compare` takes it directly.
+
+```python
+rows = [json.loads(line) for line in open("holdout_rows.jsonl")]
+for r in rows:
+    r.update(judge(r))  # the same judge, on a real model's rows
+
+base = [[r for r in rows if r["model_version"] == "base" and r["run"] == n] for n in (1, 2, 3)]
+trained = [r for r in rows if r["model_version"] == "trained"]
+noise = wai.simulations.eval_variance(*base)
+
+print("before:", wai.pass_at(base[0]))
+print("after: ", wai.pass_at(trained))
+print("base passes:", " / ".join(f"{m:.3f}" for m in noise["means"].values()), " run_std", f"{noise['run_std']:.3f}")
+print(wai.compare(base[0], trained, run_std=noise["run_std"], run_std_runs=3))
+```
+
+```text
+before: pass@1 0.25 [0.16..0.35] | pass^4 (pass_pow_k) 0.07 [0.01..0.15] | pass@4 0.48 [0.34..0.64] | headroom 0.24 (40 groups, k=4; groups are uneven (4 to 16 repeats); k is the smallest)
+after:  pass@1 0.73 [0.63..0.81] | pass^4 (pass_pow_k) 0.41 [0.28..0.55] | pass@4 0.95 [0.87..1.00] | headroom 0.22 (40 groups, k=4; groups are uneven (4 to 16 repeats); k is the smallest)
+base passes: 0.246 / 0.248 / 0.244  run_std 0.002
+PASS
+eval noise: run_std 0.002, a delta under 0.011 is noise (t(df=2)=4.30 x run_std x sqrt(1/1 + 1/1); run_std given from 3 re-runs)
+answered: 100.0% before, 100.0% after
+  pass_at_1                    0.246 -> 0.728  +0.481 [+0.342..+0.616]  up  (40 paired)  noise<0.011
+```
+
+Read the last line. Forty tasks, paired. The base model did the job on
+25% of tries; the trained one on 73%. The difference is 48 points, and
+the interval on it runs from 34 to 62. It does not touch zero, and it
+clears the one point that re-running the eval moves the number on its
+own (three base passes landed within half a point of each other), so the
+verdict is PASS. Had it read `+0.05 [-0.03..+0.13]`, the verdict would be
+no difference, and the honest sentence is "training did not move it".
+
+Two more things the line says. `pass^4` went from 7% to 41%: the share
+of asks the model gets right every time, which is what a customer sees,
+went up six times over and is still under half. And forty tasks is fewer than the 89
+that lesson 4's `holdout_size` asked for; the interval is as wide as
+that implies, and the gain cleared it because it is large, not because
+the set is.
 
 <Note>
-One PASS is one PASS. The report's own verdict for this run is
-"moved, unreplicated": it moved once. Run it again with a different seed
-before you tell anyone. A result you can repeat is the only kind this
-library is built to produce.
+One PASS is one PASS. Three passes of the base model measured how much
+the eval moves; the training ran once. Run the training again under a
+different `--run-name` before you tell anyone. A result you can repeat
+is the only kind this library is built to produce.
 </Note>
 
 ## Then it starts again
@@ -124,7 +215,8 @@ the loop, and the reason the agent gets better while it works.
 - [Evals](/evals): the measurement half on its own, for a team that is
   not ready to train.
 - [Train on your own GPU](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train):
-  GRPO and DPO recipes on Modal, with the paired delta at the end.
+  the SFT recipe this lesson ran, and GRPO and DPO on the same base, with
+  the paired delta at the end.
 - [Papers, reproduced](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers):
   one recent post-training paper per recipe, each with its verdict.
 
@@ -132,13 +224,13 @@ the loop, and the reason the agent gets better while it works.
 
 1. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024. The
    paired difference, and why it is the right test for before and after.
-2. Rafailov, R. et al. Direct Preference Optimization: Your Language
-   Model is Secretly a Reward Model. NeurIPS, 2023. arXiv:2305.18290. The
-   DPO recipe above.
-3. Shao, Z. et al. DeepSeekMath. arXiv:2402.03300, 2024. The GRPO recipe
-   above.
-4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501,
-   2025. Chapters *Direct-Alignment Algorithms* and *Evaluation*.
+2. Hu, E. J. et al. LoRA: Low-Rank Adaptation of Large Language Models.
+   arXiv:2106.09685, 2021. The adapter the recipe trains.
+3. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501,
+   2025. Chapters *Instruction Finetuning* and *Evaluation*: SFT, and the
+   noise floor from re-running an eval.
+4. Shao, Z. et al. DeepSeekMath. arXiv:2402.03300, 2024. The GRPO recipe
+   next to this one.
 
 ## Next
 

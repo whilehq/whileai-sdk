@@ -14,7 +14,9 @@ before/after on a holdout when it is done.
 uv add whileai modal
 modal profile activate <your workspace>
 export WHILEAI_API_KEY=...          # for the dashboard; optional
-modal run recipes/04-train/dpo/train_modal.py
+sh recipes/04-train/dpo/smoke.sh                             # free: prompts, split, the pairs and their report; no key, no GPU
+modal run recipes/04-train/dpo/train_modal.py --steps 10     # about 2 minutes of A10G, about 5 cents: does the margin move at all
+modal run recipes/04-train/dpo/train_modal.py                # the run: 60 steps, about 10 minutes, about 20 cents
 modal run recipes/04-train/dpo/train_modal.py --pairs pairs.jsonl        # your own pairs
 modal run recipes/04-train/dpo/train_modal.py --loss-type ipo --beta 0.1  # another DPO loss
 ```
