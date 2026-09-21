@@ -90,7 +90,8 @@
               "get-started/install",
               "get-started/your-model-and-key",
               "get-started/quickstart",
-              "get-started/connect-your-agent"
+              "get-started/connect-your-agent",
+              "integrations"
             ]
           },
           {
