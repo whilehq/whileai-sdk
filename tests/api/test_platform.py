@@ -371,7 +371,14 @@ def test_eval_setup_carries_cost_per_1k_on_the_wire():
     """The eval block of a run's record says what 1,000 tasks cost and how that was counted."""
     from whileai.platform import EvalSetup, RunRecord
 
-    rec = RunRecord(eval=EvalSetup(metric="pass@1", k=4, cost_per_1k=3.01, cost_basis="list price $2/$10 per M tokens, no caching"))
+    rec = RunRecord(
+        eval=EvalSetup(
+            metric="pass@1",
+            k=4,
+            cost_per_1k=3.01,
+            cost_basis="list price $2/$10 per M tokens, no caching",
+        )
+    )
     wire = rec.wire()
     assert wire["eval"]["costPer1k"] == 3.01
     assert wire["eval"]["costBasis"].startswith("list price")
