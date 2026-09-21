@@ -32,12 +32,14 @@ def main() -> None:
     print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", default=BASE_MODEL, help="the base Fireworks model id")
-    ap.add_argument("--tuned", required=True, help="the deployed trained model id")
+    ap.add_argument("--tuned", default=None, help="the deployed trained model id")
     ap.add_argument("--judge", default=None, help="judge spec; default is the judge While hosts")
     ap.add_argument("--tasks", type=int, default=TASKS)
     args = ap.parse_args()
     if not os.environ.get("FIREWORKS_API_KEY"):
         sys.exit("prove.py runs both arms on Fireworks: set FIREWORKS_API_KEY first")
+    if not args.tuned:
+        ap.error("--tuned names the deployed trained model, accounts/<ACCOUNT_ID>/models/<name>")
     judge = wai.Judge(rubric=RUBRIC, model=args.judge) if args.judge else wai.Judge(rubric=RUBRIC)
 
     before = wai.simulate(
