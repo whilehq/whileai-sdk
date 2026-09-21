@@ -4117,12 +4117,26 @@ class Run:
                 "unjudged": len(scored.unjudged()),
             }
         if c.grade and c.grader is None and not c.llm_grade and data.trajectories:
-            # grade=True shipped a release as an accepted-and-ignored flag: the
-            # advertised one-call path returned ungraded rows, and select_for_rl
-            # then had nothing to select. It now applies the documented default:
-            # the deterministic conduct grade, offline and free. The hosted or
-            # LLM judges stay where they were: llm_grade=True, grader=, or
-            # grade() afterwards.
+            # The deterministic conduct check, offline and free. It reports
+            # what the agent did, not whether it did the job, so its rows carry
+            # label_source="conduct" and must not be read as a rubric grade.
+            # "grade" reads as "grade against my rubric" and this checked no
+            # rubric, so say so rather than let a conduct score be mistaken for
+            # one. On a run with no tools it has nothing to check and returns
+            # conforms for every row: measured 212 of 212 at reward 1.0 on a
+            # tau2 airline spec, a reply of "Sure, cancelled." among them, and
+            # select_for_sft(min_reward=1.0) then took all 212 as gold. A
+            # reward nobody chose is worse than no reward (Lambert 2025,
+            # chapter Reward Models).
+            warnings.warn(
+                "grade=True scored these rows with the conduct check, not "
+                "against a rubric: it reports what the agent did, not "
+                "whether it did the job, and on a run with no tools it "
+                "returns conforms for every row. Rows carry "
+                'label_source="conduct". For a grade against a rubric '
+                "pass llm_grade=True, grader=, or grade() afterwards.",
+                stacklevel=2,
+            )
             declared = {
                 str((t.get("function") or t).get("name") or "")
                 for t in (data.profile.tools or [])

@@ -11,6 +11,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
   no SDK change; how to register one and the cross-account role shape. The Bedrock import
   recipe's next step points there.
+- `simulate(grade=True)` warns that it scored with the deterministic conduct check rather than
+  against a rubric. Behaviour is unchanged: the flag is documented as the legacy conduct score and
+  36 call sites expect it. It was silent, and a conduct score reads like a rubric grade once it is
+  in a `reward` column. On a tau2 airline spec with no tools it returned conforms for all 212 rows,
+  including a reply of "Sure, cancelled." to a cancellation, and `select_for_sft(min_reward=1.0)`
+  then selected all 212 as gold with no warning. Rows already carried `label_source="conduct"`;
+  nothing downstream read it.
+
 ## 0.110 (2026-09-21)
 
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,
