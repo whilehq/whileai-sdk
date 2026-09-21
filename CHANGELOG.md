@@ -11,6 +11,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
   no SDK change; how to register one and the cross-account role shape. The Bedrock import
   recipe's next step points there.
+- `recipes/papers/zero-rl-format-reward`: `--train-seeds` takes a comma list and trains each arm
+  once per seed, because `run_arm` was called without `seed=` and every run silently used the
+  default 17. Every seed's rows now go to `delta_report(train_runs=)`, so the headline carries a
+  between-seed term; `results.json` gains `train_seed_values`, `train_seed_scores` and
+  `train_seed_std`, kept apart from `run_std`, which measures the eval rather than the trainer.
+  Run-to-run std with a fixed setup is 0.25 to 1.5 points (Lambert 2025, chapter Evaluation), so
+  one seed an arm could not resolve this recipe's +0.094. Cache keys are now `<arm>-s<seed>.json`.
+
 ## 0.110 (2026-09-21)
 
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,

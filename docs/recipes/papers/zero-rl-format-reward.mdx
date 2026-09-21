@@ -31,6 +31,7 @@ python recipe.py --selftest   # the two rewards on hand-written replies, no GPU 
 python recipe.py              # both arms, 46 GPU minutes on one H100, $3
 python recipe.py --reuse      # the delta again from .cache/<arm>.json, no GPU
 python recipe.py --arm recipe --steps 60 --max-completion 4096   # one arm, longer
+python recipe.py --train-seeds 17,18,19   # three seeds an arm, the delta with a between-seed term
 ```
 
 ## Result
@@ -65,7 +66,7 @@ into `results.json`.
 | Length: mean completion length before -> after, per arm | [5] | base 1,387 chars; baseline **1,336**, recipe **1,928** |
 | Format: share of replies with a `\boxed{}` before -> after, per arm | [5] | base 0.91; baseline **0.96**, recipe **0.83** |
 | Hack scan on the last training batch: `hack_scan` | [5] | recipe top feature `contains:let`, baseline `contains:1 }`: surface features of MATH derivations, not of the reward. Nothing is endorsed |
-| Pinned: seed, torch, transformers, trl, peft, vllm | [the contract](/recipes/papers#the-contract) | seed 17 in the trainer, `--seed 0` for the data split; torch 2.13.0, transformers 5.17.0, trl 1.13.0, peft 0.21.0, vllm 0.29.0, whileai 0.83 |
+| Pinned: seed, torch, transformers, trl, peft, vllm | [the contract](/recipes/papers#the-contract) | `--train-seeds 17` in the trainer (a comma list runs several), `--seed 0` for the data split; torch 2.13.0, transformers 5.17.0, trl 1.13.0, peft 0.21.0, vllm 0.29.0, whileai 0.83 |
 
 Training-curve numbers above are from the trainer's own log (`completions/mean_length`, `completions/clipped_ratio`, `reward`, `kl`), which the run page carries as the reward, KL and length curves. Zero-variance groups (`frac_reward_zero_std`) averaged 0.29 on the strict arm and 0.41 on the lenient arm: at a 0.57 mean reward the lenient arm wastes more of its groups on all-correct prompts, which is what DAPO's dynamic sampling [3] is for and the next knob to turn.
 
@@ -83,7 +84,9 @@ Round 1 died on the recipe arm's first loss forward: TRL upcasts the full 248k-t
 - The gap is real at this size and it is not about the box. Base replies already box 91% of the time, so the -1 penalty rarely fires on the holdout; it fires during training on every rollout that runs out of room, and that is enough to change what the policy learns to do with its budget.
 - Score the target, not the reward. `delta_report(proxy="strict_reward")` shows the lenient arm losing on the baseline's own reward while winning on accuracy; without that row the baseline's 96% boxed share would look like the better-trained model.
 - Qwen3.5's hybrid architecture trains under TRL 1.13 with vLLM colocated and LoRA on every linear layer, at 70 to 85 s a step for 48 rollouts of 1.5k tokens on one H100. The memory ceiling is the fp32 logits in the loss forward, not the engine; keep the per-device batch at half a group.
-- Next: three seeds per arm, and DAPO's dynamic sampling [3] on the lenient arm, whose groups saturate at a 0.57 mean reward.
+- Next: DAPO's dynamic sampling [3] on the lenient arm, whose groups saturate at a 0.57 mean reward.
+  Three seeds an arm is now `--train-seeds 17,18,19`: every seed's rows go to `delta_report(train_runs=)`,
+  which adds the between-seed term the single-seed verdict was missing.
 
 Verified 2026-09-18, whileai 0.83, TRL 1.13.0 GRPOTrainer + vLLM 0.29.0 on Modal. Run page: https://withwhile.com/platform/training/run_064f9185fdf88eef (recipe arm), https://withwhile.com/platform/training/run_42f97ae9878c4621 (baseline arm); Runs page: https://while.ai/platform/runs?agent=zero-rl-qwen3.5-4b
 

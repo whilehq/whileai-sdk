@@ -697,7 +697,15 @@ def main() -> None:
     ap.add_argument("--arm", choices=["baseline", "recipe", "both"], default="both")
     ap.add_argument("--steps", type=int, default=30)
     ap.add_argument("--k", type=int, default=4, help="eval samples per holdout task")
-    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--seed", type=int, default=0, help="data shuffle seed")
+    ap.add_argument(
+        "--train-seeds",
+        default="17",
+        help="comma-separated training seeds per arm, e.g. 17,18,19. Run-to-run "
+        "std with a fixed setup is 0.25 to 1.5 points, so one seed an arm cannot "
+        "separate a gain from the trainer's own spread (Lambert 2025, chapter "
+        "Evaluation).",
+    )
     ap.add_argument("--n-train", type=int, default=1024)
     ap.add_argument("--n-holdout", type=int, default=160)
     ap.add_argument("--generations", type=int, default=8, help="rollouts per prompt")
@@ -729,6 +737,9 @@ def main() -> None:
     print(f"decontaminate: {decon['n_contaminated']} of {decon['n']} train rows dropped")
     arms = ["baseline", "recipe"] if args.arm == "both" else [args.arm]
     strict = {"baseline": True, "recipe": False}
+    train_seeds = [int(x) for x in args.train_seeds.split(",") if x.strip()]
+    if not train_seeds:
+        raise SystemExit("--train-seeds needs at least one seed")
 
     results = json.loads((HERE / "results.json").read_text())
     results.update(
@@ -757,24 +768,28 @@ def main() -> None:
     gpu_minutes = 0.0
     run_url = ""
 
-    # Every arm's rows land in .cache/<arm>.json the moment it returns, so a
-    # crash in the second arm never costs the first, and `--reuse` rebuilds
-    # the delta from disk.
+    # Every run's rows land in .cache/<arm>-s<seed>.json the moment it returns,
+    # so a crash in a later run never costs an earlier one, and `--reuse`
+    # rebuilds the delta from disk.
     cache = HERE / ".cache"
     cache.mkdir(exist_ok=True)
+    seed_rows: dict[str, list[list[dict]]] = {arm: [] for arm in arms}
+    seed_scores: dict[str, list[float]] = {arm: [] for arm in arms}
     with modal.enable_output(), app.run():
-        for i, arm in enumerate(arms):
-            cached = cache / f"{arm}.json"
+        for i, (arm, train_seed) in enumerate(
+            (a, s) for a in arms for s in train_seeds
+        ):
+            cached = cache / f"{arm}-s{train_seed}.json"
             if args.reuse and cached.exists():
                 out = json.loads(cached.read_text())
-                print(f"{arm}: reused {cached}")
+                print(f"{arm} seed {train_seed}: reused {cached}")
             else:
                 out = run_arm.remote(
                     arm,
                     strict[arm],
                     train_tasks,
                     holdout,
-                    f"zero-rl-{arm}-{date.today().isoformat()}",
+                    f"zero-rl-{arm}-s{train_seed}-{date.today().isoformat()}",
                     steps=args.steps,
                     num_generations=args.generations,
                     prompts_per_step=args.prompts_per_step,
@@ -783,6 +798,7 @@ def main() -> None:
                     max_completion_length=args.max_completion,
                     eval_samples=args.k,
                     eval_base=(i == 0),
+                    seed=train_seed,
                 )
                 cached.write_text(json.dumps(out))
             gpu_minutes += out["gpu_minutes"]
@@ -803,11 +819,19 @@ def main() -> None:
                 checks["run_std_runs"] = int(noise["n_runs"])
                 checks["length_before"] = mean_length(base_runs[0])
                 checks["boxed_before"] = boxed_share(base_runs[0])
-            arm_rows[arm] = out["after_rows"]
+            seed_rows[arm].append(out["after_rows"])
+            seed_scores[arm].append(float(summarize(out["after_rows"])["score"]))
+            # The headline pools every seed of the arm; the per-seed spread is
+            # carried separately below, because pooling hides it.
+            arm_rows[arm] = [r for rows in seed_rows[arm] for r in rows]
             results["arms"][arm] = {
-                **summarize(out["after_rows"]),
+                **summarize(arm_rows[arm]),
                 "steps": out["steps"],
-                "gpu_minutes": round(out["gpu_minutes"], 1),
+                "gpu_minutes": round(
+                    results["arms"].get(arm, {}).get("gpu_minutes", 0.0)
+                    + out["gpu_minutes"],
+                    1,
+                ),
             }
             checks["length_after"][arm] = out["length_after"]
             checks["boxed_after"][arm] = out["boxed_after"]
@@ -820,8 +844,12 @@ def main() -> None:
             target="pass_at_1",
             run_std=run_std,
             run_std_runs=int(checks.get("run_std_runs") or EVAL_RUNS),
-            # one training seed per arm: the report says unresolved (#356)
-            train_runs={"before": [arm_rows["baseline"]], "after": [arm_rows["recipe"]]},
+            # One row set per training seed per arm. With a single seed an arm
+            # the report says unresolved (#356); with several the headline
+            # gains a between-seed term, which is the only thing that separates
+            # a real gain from the trainer's run-to-run spread of 0.25 to 1.5
+            # points (Lambert 2025, chapter Evaluation).
+            train_runs={"before": seed_rows["baseline"], "after": seed_rows["recipe"]},
             markers=[PROXY],
             proxy=PROXY,
         )
@@ -836,7 +864,15 @@ def main() -> None:
                 else "flat"
             ),
         }
-        checks["train_seeds"] = {"baseline": 1, "recipe": 1}
+        checks["train_seeds"] = {arm: len(seed_rows[arm]) for arm in arms}
+        checks["train_seed_values"] = train_seeds
+        # Distinct from run_std, which re-scores one model and measures the
+        # eval. This measures the trainer.
+        checks["train_seed_scores"] = {arm: seed_scores[arm] for arm in arms}
+        checks["train_seed_std"] = {
+            arm: (round(statistics.stdev(seed_scores[arm]), 4) if len(seed_scores[arm]) > 1 else None)
+            for arm in arms
+        }
         checks["over_optimized"] = bool(d.get("over_optimized"))
         results["verified"] = date.today().isoformat()
         results.pop("partial_run", None)
