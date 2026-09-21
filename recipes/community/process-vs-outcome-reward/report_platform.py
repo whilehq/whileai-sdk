@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
+from whileai.config import provenance
 from whileai.platform import Behavior, Frontier, Harness, track
 
 HERE = Path(__file__).parent
@@ -127,4 +129,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    print(provenance(), file=sys.stderr)
     main()

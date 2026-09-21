@@ -25,12 +25,14 @@ import json
 import math
 import random
 import re
+import sys
 import urllib.request
 from pathlib import Path
 
 from rewards import gold_final_answer, numbers_in, outcome_score, process_score
 
 import whileai as wai
+from whileai.config import provenance
 from whileai.simulations import eval_variance, holdout_size
 
 HERE = Path(__file__).parent
@@ -334,4 +336,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    print(provenance(), file=sys.stderr)
     main()
