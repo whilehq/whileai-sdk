@@ -7,7 +7,7 @@
     python run.py call             # one chat completion against the endpoint
     python run.py models           # what the account hosts
 
-Needs a key: ``whileai login`` or WHILEAI_API_KEY
+Needs a key: ``wai login`` or WHILEAI_API_KEY
 (https://docs.withwhile.com/get-started/quickstart). The
 rows come from the offline template writer and a scripted agent, so no model
 key is needed to build them. Training runs on the platform's A10G (about a
@@ -288,7 +288,7 @@ def main(argv: list[str] | None = None) -> int:
         step_data(args, push=False)
         return 0
     if not resolve_api_key():
-        sys.exit(f"No API key. Run `whileai login` or set WHILEAI_API_KEY ({DOCS}).")
+        sys.exit(f"No API key. Run `wai login` or set WHILEAI_API_KEY ({DOCS}).")
     steps = list(STEPS) if args.step == "all" else [args.step]
     if args.step == "all":
         steps.remove("models")

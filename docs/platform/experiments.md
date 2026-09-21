@@ -6,7 +6,7 @@ description: "Before a coding agent posts a second version, a sweep or a trainin
 
 The coding agent knows the repo. The person opening the page does not have its context and reads for two reasons: to learn what a paper or an idea does when tried, and to find a behavior and fix it fast at work. Both want one look: what changed, did it move, why, what it taught, and can I run it again. On one day in September 2026 real agents posted `dapo-lr5e-05-s17-30st` nineteen times, no note on any run, no chart, a `0.75` on a page that counts points, and no question on six agents of seven. Every page was correct and said nothing.
 
-The fix is a playbook the agent follows before the second run, tested in CI like every skill: [skills/manage-experiments](https://github.com/whilehq/whileai-sdk/blob/main/skills/manage-experiments/SKILL.md). `whileai init` installs it under `.claude/skills/` and the `AGENTS.md` block names it.
+The fix is a playbook the agent follows before the second run, tested in CI like every skill: [skills/manage-experiments](https://github.com/whilehq/whileai-sdk/blob/main/skills/manage-experiments/SKILL.md). `wai init` installs it under `.claude/skills/` and the `AGENTS.md` block names it.
 
 | The person asks | The agent posts | Call |
 |---|---|---|

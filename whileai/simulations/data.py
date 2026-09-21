@@ -890,7 +890,7 @@ class SimulationData:
         The simulation mode is recorded on both.
 
         ``api_key`` defaults to the ``WHILEAI_API_KEY`` env var, then the
-        key saved by ``whileai login``. Pass ``parent`` (a ``ds_...``
+        key saved by ``wai login``. Pass ``parent`` (a ``ds_...``
         id) when this run iterates on an existing dataset, so lineage shows
         on the platform. ``publish=True`` with an ``agent`` name also puts it
         on the public catalog at huggingface.co/while-ai as a card. Returns

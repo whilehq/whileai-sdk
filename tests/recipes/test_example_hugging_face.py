@@ -243,5 +243,5 @@ def test_without_a_key_it_names_the_env_var_and_makes_no_request(stub, tmp_path)
     out = _run(tmp_path, stub, key=None)
     assert out.returncode != 0
     assert "WHILEAI_API_KEY" in out.stderr
-    assert "whileai login" in out.stderr
+    assert "wai login" in out.stderr
     assert stub.requests == []

@@ -7,7 +7,7 @@ valid Clerk session token and then passed as the X-Api-Key on protected routes.
 
 The legacy ``WHILEAI_API_KEY`` env var still works for compatibility, but the
 preferred runtime credential is ``WHILEAI_DELEGATED_CREDENTIAL``. With neither
-set, the key saved by ``whileai login`` (``~/.whileai/credentials.json``)
+set, the key saved by ``wai login`` (``~/.whileai/credentials.json``)
 is used.
 
 Stdlib only, matching the package's no-dependencies rule.
@@ -81,7 +81,7 @@ def _key(api_key: str | None) -> str:
     key = api_key or getenv("DELEGATED_CREDENTIAL") or getenv("API_KEY") or stored_api_key() or ""
     if not key:
         raise PlatformError(
-            "No credential. Run `whileai login`, or pass api_key=..., or set "
+            "No credential. Run `wai login`, or pass api_key=..., or set "
             "WHILEAI_DELEGATED_CREDENTIAL / WHILEAI_API_KEY."
         )
     return key

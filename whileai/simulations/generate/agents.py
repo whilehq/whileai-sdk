@@ -144,7 +144,7 @@ def _settings():
 
 def _account_key() -> str:
     """The account's zp_ key: ``wai.configure(api_key=)``, else
-    WHILEAI_API_KEY, else what `whileai login` saved."""
+    WHILEAI_API_KEY, else what `wai login` saved."""
     from ...auth import resolve_api_key
 
     return str(resolve_api_key() or "").strip()
@@ -438,7 +438,7 @@ def missing_hosted_key(base_url: str | None = None, api_key: str | None = None) 
 
 
 MISSING_HOSTED_KEY = (
-    "Hosted models need a key: run `whileai login` (or `whileai signup "
+    "Hosted models need a key: run `wai login` (or `wai signup "
     "--email you@example.com`) so the run uses your account key, or set "
     "VLLM_API_KEY for the shared pool."
 )

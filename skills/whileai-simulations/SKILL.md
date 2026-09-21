@@ -147,7 +147,7 @@ runs. The difference is whether `traces=` is supplied:
 
 ```python
 # BYOK; omit agent= to use While-hosted Qwen on the account key
-# (`whileai login`), or on VLLM_API_KEY for the shared pool when set.
+# (`wai login`), or on VLLM_API_KEY for the shared pool when set.
 agent = "openai:gpt-4.1-mini"
 
 repair = wai.simulate(

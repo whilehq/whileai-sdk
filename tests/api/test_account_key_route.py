@@ -1,6 +1,6 @@
 """No VLLM_API_KEY, an account key: hosted runs go to the account endpoints.
 
-`whileai signup` and `whileai login` are enough for a hosted run. The
+`wai signup` and `wai login` are enough for a hosted run. The
 zeroproof-serve proxy behind ACCOUNT_AGENT / ACCOUNT_JUDGE takes the zp_ key,
 enforces the daily allowance with 429 and meters on the server. VLLM_API_KEY
 still wins and goes to the shared pool.
@@ -64,7 +64,7 @@ def test_no_key_at_all_names_both_ways_in(monkeypatch):
     assert default_agent_spec() == DEFAULT_AGENT
     msg = missing_hosted_key()
     assert msg == MISSING_HOSTED_KEY
-    assert "whileai login" in msg and "VLLM_API_KEY" in msg and "\n" not in msg
+    assert "wai login" in msg and "VLLM_API_KEY" in msg and "\n" not in msg
 
 
 def test_explicit_env_specs_are_untouched(saved_key, monkeypatch):

@@ -3,7 +3,7 @@
 Each of these cost a first-hour customer minutes in the sixth pass:
 a warning that did not name its key, a valid empty schema read as a
 missing one, ``read_runbook`` called destructive, ``recommend`` rejecting
-the spelling ``simulate`` accepts, ``whileai status`` printing ``null``
+the spelling ``simulate`` accepts, ``wai status`` printing ``null``
 for "no key", an SFT export that never says it carried failures, a total
 length confound that only warned above eight pairs, and ``tasks=``
 quietly re-running at k=1.
@@ -111,7 +111,7 @@ def test_status_says_when_no_key_is_configured(monkeypatch, tmp_path, capsys):
     shown = json.loads(captured.out)
     assert shown["configured"] is False and shown["key"] is None
     assert "no API key configured" in captured.err
-    assert "whileai login" in captured.err
+    assert "wai login" in captured.err
 
 
 # ------------------------------------------------------------- exports

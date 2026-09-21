@@ -1,4 +1,4 @@
-"""The files ``whileai init-evals`` writes.
+"""The files ``wai init-evals`` writes.
 
 Each constant is the text of one generated file. The tokens spelled
 ``__WAI_...__`` are replaced by :mod:`whileai.init_evals` with what the
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 AGENT_PY = '''"""Your agent, in the shape the eval engine calls.
 
-`whileai init-evals` wrote this file. It is yours now: edit it.
+`wai init-evals` wrote this file. It is yours now: edit it.
 
 The engine calls `agent(message)` once per rollout, with one ask, and
 wants back the tool calls the agent made and what it said:
@@ -122,7 +122,7 @@ def agent(message: str) -> dict[str, Any]:
 
 JUDGE_PY = '''"""Your policy, as a program. This is the part only you can write.
 
-`whileai init-evals` wrote this file with two example markers so the run
+`wai init-evals` wrote this file with two example markers so the run
 goes end to end today. Edit it until it says what "did the job" means for
 your agent.
 
@@ -209,9 +209,9 @@ RUN_PY = '''"""The eval: every ask k times, judged on the trajectory, pass@1 wit
     python evals/run.py                  # offline writer, no key, seconds
     python evals/run.py --gap            # what your asks never reach, first
     python evals/run.py --gate 0.9       # exit 1 under the floor, 2 on a hollow run
-    python evals/run.py --hosted --k 8   # the hosted writer (needs `whileai login`)
+    python evals/run.py --hosted --k 8   # the hosted writer (needs `wai login`)
 
-`whileai init-evals` wrote this file. Three things to edit: SEEDS below,
+`wai init-evals` wrote this file. Three things to edit: SEEDS below,
 the wrapper in agent.py, and your policy in judge.py.
 """
 
@@ -439,7 +439,7 @@ def test_answering_with_no_tool_call_and_an_invented_id_fails():
 
 README_MD = """# Evals for __WAI_AGENT_LABEL__
 
-Written by `whileai init-evals`. Two lanes:
+Written by `wai init-evals`. Two lanes:
 
 ```bash
 pytest evals/test_judge.py          # the judge on hand-written rows, one second
@@ -451,5 +451,5 @@ python evals/run.py --gate 0.9      # CI: exit 1 under the floor, 2 on a hollow 
 Edit three things: `SEEDS` in `run.py` (one ask per policy branch, with
 real ids), `judge.py` (your policy, read off the trajectory), and
 `agent.py` (the wrapper, if the scan guessed wrong). Then drop
-`--offline` for the hosted writer: `whileai login` first.
+`--offline` for the hosted writer: `wai login` first.
 """

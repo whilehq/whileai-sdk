@@ -617,7 +617,7 @@ def test_missing_key_names_the_fix(monkeypatch, tmp_path):
     monkeypatch.setenv("WHILEAI_HOME", str(tmp_path))
     with pytest.raises(PlatformError) as e:
         track("a")
-    assert "whileai login" in str(e.value)
+    assert "wai login" in str(e.value)
 
 
 def test_run_record_rides_on_the_spec_and_on_finish():

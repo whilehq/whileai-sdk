@@ -22,12 +22,14 @@ def _asks(data) -> set[str]:
 # ------------------------------------------------------- the zp command
 
 
-def test_zp_and_wai_run_the_same_cli():
-    # tomllib is 3.11+, and the test suite runs on 3.10 too.
+def test_wai_is_the_command_and_whileai_still_runs_it():
+    # tomllib is 3.11+, and the test suite runs on 3.10 too. `zp` was
+    # retired on 2026-09-21 ("zp is deprecated. wai.").
     text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     block = text.split("[project.scripts]", 1)[1].split("[", 1)[0]
-    for name in ("whileai", "zp", "wai"):
+    for name in ("wai", "whileai"):
         assert f'{name} = "whileai.cli:main"' in block
+    assert "zp = " not in block
 
 
 # ------------------------------------------------------- every seed runs

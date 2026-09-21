@@ -29,7 +29,7 @@ The two models we copy:
 
 This is what the first twelve lines of the README should be. It is the bar
 every public call is measured against. It runs a model on both sides, so it
-needs `WHILEAI_API_KEY` in the environment, or `whileai login`, plus the key
+needs `WHILEAI_API_KEY` in the environment, or `wai login`, plus the key
 for whichever provider the specs name.
 
 ```python

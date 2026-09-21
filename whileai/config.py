@@ -6,7 +6,7 @@ Where a call goes is decided in this order, first match wins:
 2. the innermost ``with wai.context(...)`` block;
 3. what ``wai.configure(...)`` set for the process;
 4. the environment (``WHILEAI_AGENT``, ``OPENAI_API_KEY``, ...);
-5. the package default: the model While hosts, on the key ``whileai login`` saved.
+5. the package default: the model While hosts, on the key ``wai login`` saved.
 
     import whileai as wai
 
@@ -122,7 +122,7 @@ class Settings:
     agent: str | None = None
     judge: str | None = None
     simulator: str | None = None
-    #: the While account key (hosted models, platform); ``whileai login`` sets it too
+    #: the While account key (hosted models, platform); ``wai login`` sets it too
     api_key: str | None = None
     #: provider -> key, filled from backend objects: ``openai``, ``anthropic``,
     #: ``bedrock`` (a Bedrock API key), ``vllm``, ``typesafe``. ``ollama``

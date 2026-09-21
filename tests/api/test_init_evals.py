@@ -1,4 +1,4 @@
-"""``whileai init-evals`` writes an eval harness that runs on the project it found.
+"""``wai init-evals`` writes an eval harness that runs on the project it found.
 
 A coding agent told to build evals for a bot spent ten minutes copying
 the recipe by hand. This command writes the same four files, wired to the

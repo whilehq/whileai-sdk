@@ -1,4 +1,4 @@
-"""`whileai login`: the device flow from the CLI's side, with the gate faked."""
+"""`wai login`: the device flow from the CLI's side, with the gate faked."""
 
 from __future__ import annotations
 
@@ -200,7 +200,7 @@ def test_key_name_defaults_to_the_host(gate):
 
 
 def test_platform_calls_fall_back_to_the_saved_key(gate, monkeypatch):
-    with pytest.raises(platform.PlatformError, match="whileai login"):
+    with pytest.raises(platform.PlatformError, match="wai login"):
         platform._key(None)
     gate.approved = True
     auth.login(open_browser=False, out=lambda s: None)
@@ -268,7 +268,7 @@ def test_signup_creates_the_account_and_saves_the_key(gate, tmp_path):
 
 
 def test_signup_existing_account_points_at_login(gate):
-    with pytest.raises(auth.LoginError, match="whileai login"):
+    with pytest.raises(auth.LoginError, match="wai login"):
         auth.signup("taken@example.com", out=lambda s: None)
     with pytest.raises(auth.LoginError, match="valid email"):
         auth.signup("nope", out=lambda s: None)
@@ -281,7 +281,7 @@ def test_cli_signup(gate, capsys):
     assert shown["source"] == "file"
     assert shown["tier"] == "trial"
     assert cli.main(["signup", "--email", "taken@example.com"]) == 1
-    assert "whileai login" in capsys.readouterr().err
+    assert "wai login" in capsys.readouterr().err
 
 
 def test_cli_exit_codes(gate):

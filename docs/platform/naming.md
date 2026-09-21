@@ -24,4 +24,4 @@ Three checks before the first post:
 
 Why the test is the exception: a score is comparable only with the setup held constant (rlhfbook.com, "Evaluation"), so the test's name is its content and changes on its own when an ask changes. Everything else is a label a person reads, and the person is on the team.
 
-The `AGENTS.md` block that `whileai init` writes carries this in one line: *you know this repo best; name the agent, behaviors, versions and experiments in its words, and the test by its content.*
+The `AGENTS.md` block that `wai init` writes carries this in one line: *you know this repo best; name the agent, behaviors, versions and experiments in its words, and the test by its content.*

@@ -154,7 +154,7 @@ checked 58 of 60 rows: 3 quoted privileged context (5%)
 
 ### Evals for the agent you already have
 
-Not training anything yet? The shortest path is an eval: wrap your agent as `agent(message) -> {steps, final_text}`, write the policy as a judge that reads the trajectory, run the asks `k` times each, and read pass@1 (the share of asks the agent gets right on one try) with its interval. Offline first, then the hosted writer. The how-to is [Evals](/evals); the runnable version is [`recipes/02-measure/eval-your-agent`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/eval-your-agent), which ends at a CI gate, not a push. `whileai init-evals` writes `agent.py`, `judge.py`, `run.py`, `test_judge.py` and a README for you, wired to the tools, system prompt and callable it finds in the project, and prints what it picked.
+Not training anything yet? The shortest path is an eval: wrap your agent as `agent(message) -> {steps, final_text}`, write the policy as a judge that reads the trajectory, run the asks `k` times each, and read pass@1 (the share of asks the agent gets right on one try) with its interval. Offline first, then the hosted writer. The how-to is [Evals](/evals); the runnable version is [`recipes/02-measure/eval-your-agent`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/eval-your-agent), which ends at a CI gate, not a push. `wai init-evals` writes `agent.py`, `judge.py`, `run.py`, `test_judge.py` and a README for you, wired to the tools, system prompt and callable it finds in the project, and prints what it picked.
 
 ```python
 data = wai.simulate(
@@ -235,7 +235,7 @@ data.trajectories[0]["failure_class"]  # on a failing row: the judge's own choic
 
 #### A model you serve
 
-To put a number on a model you serve (`wai.serve`, or your own vLLM), make it the agent, and run both arms of a before/after through the same call so the only difference is the weights. The writer still runs on a hosted model, so this needs `WHILEAI_API_KEY` in the environment, or `whileai login`, unless you add `simulator=False`:
+To put a number on a model you serve (`wai.serve`, or your own vLLM), make it the agent, and run both arms of a before/after through the same call so the only difference is the weights. The writer still runs on a hosted model, so this needs `WHILEAI_API_KEY` in the environment, or `wai login`, unless you add `simulator=False`:
 
 ```python
 agent = wai.local_model(endpoint, name, tools=TOOLS, system=POLICY, thinking=False)
@@ -253,10 +253,10 @@ Two `local_model` knobs the situation writer cannot guess for you:
 
 ### Hosted models
 
-With no `agent=`, the run uses While-hosted models. Your account key is enough: `whileai login` (or `whileai signup --email you@example.com`) and the run goes to the account endpoints, Qwen3-4B for the writer and the agent and Phi-4 for the judge, on your daily allowance. A trial key gets 25k input and 50k output tokens a day; `whileai status` prints your allowance and how to lift it. The endpoint refuses with 429 when the allowance is spent, and the run stops there and says so. `VLLM_API_KEY`, when set, wins and goes to the shared pool instead: warm and faster, shared and unmetered; ask us for one.
+With no `agent=`, the run uses While-hosted models. Your account key is enough: `wai login` (or `wai signup --email you@example.com`) and the run goes to the account endpoints, Qwen3-4B for the writer and the agent and Phi-4 for the judge, on your daily allowance. A trial key gets 25k input and 50k output tokens a day; `wai status` prints your allowance and how to lift it. The endpoint refuses with 429 when the allowance is spent, and the run stops there and says so. `VLLM_API_KEY`, when set, wins and goes to the shared pool instead: warm and faster, shared and unmetered; ask us for one.
 
 ```bash
-whileai login              # or: export WHILEAI_API_KEY=zp_...
+wai login              # or: export WHILEAI_API_KEY=zp_...
 export VLLM_API_KEY=...      # optional: the shared pool instead
 ```
 

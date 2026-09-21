@@ -7,7 +7,7 @@ print the tagged commit.
     python roundtrip.py --push ds_0123 --repo my-airline-set --private
     python roundtrip.py --push-run run_0123 --repo my-airline-lora
 
-Needs a platform key (``whileai login`` or WHILEAI_API_KEY). The push
+Needs a platform key (``wai login`` or WHILEAI_API_KEY). The push
 halves also need a Hugging Face account connected on the platform.
 """
 
