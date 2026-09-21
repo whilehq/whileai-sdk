@@ -13,7 +13,13 @@ import json
 import pytest
 
 import whileai.simulations as wai
-from whileai.simulations.environment import _ref_of, build_tasks, resolve_ref
+from whileai.harness import Disclosure, Harness
+from whileai.simulations.environment import (
+    _ref_of,
+    _row_from_state,
+    build_tasks,
+    resolve_ref,
+)
 from whileai.simulations.score.grading import conduct_grade
 
 TOOLS = [
@@ -338,3 +344,203 @@ def test_truncated_rollouts_score_zero_and_trace_monitor_runs(tmp_path):
 def test_build_tasks_counts_mixed_groups():
     _, _, report = build_tasks(_rows(), holdout=0.5, band=None)
     assert report["graded_mixed"] == 2  # ORD-3 and ORD-4 were both solved and failed
+
+
+# --------------------------------------------------------------------------
+# harnesses=: the trainer rolls out under several harnesses (#712, step 4;
+# Kim et al. 2026, arXiv:2606.25447)
+# --------------------------------------------------------------------------
+
+EAGER = "Refund first, ask questions later."
+
+
+def _harnesses() -> list:
+    careful = Harness(
+        instructions=POLICY, tools=TOOLS, label="careful", disclosure=Disclosure(max_turns=4)
+    )
+    eager = {"label": "eager", "instructions": EAGER, "tools": TOOLS[:1]}
+    return [careful, eager]
+
+
+def _many_rows(n: int = 40) -> list[dict]:
+    return [
+        {"prompt": f"please help with order ORD-{i} today", "reward": i % 2, "steps": []}
+        for i in range(n)
+    ]
+
+
+def test_export_with_two_harnesses_writes_them_to_the_spec_and_the_readme(tmp_path):
+    out = tmp_path / "env"
+    careful, eager = _harnesses()
+    report = wai.export_environment(
+        _rows(), out, tools=TOOLS, system_prompt=POLICY, holdout=0.5, harnesses=[careful, eager]
+    )
+    spec = json.loads((out / "env" / "spec.json").read_text())
+    assert spec["system_prompt"] == POLICY and len(spec["tools"]) == 2  # unchanged
+    assert [h["label"] for h in spec["harnesses"]] == ["careful", "eager"]
+    assert spec["harnesses"][0]["hash"] == careful.fingerprint
+    assert spec["harnesses"][0]["instructions"] == POLICY
+    assert [t["name"] for t in spec["harnesses"][0]["tools"]] == ["lookup_order", "create_refund"]
+    assert spec["harnesses"][0]["disclosure"] == {"max_turns": 4}
+    assert spec["harnesses"][1]["instructions"] == EAGER
+    assert [t["name"] for t in spec["harnesses"][1]["tools"]] == ["lookup_order"]
+    assert (
+        spec["harnesses"][1]["hash"]
+        == Harness(instructions=EAGER, tools=TOOLS[:1], label="eager").fingerprint
+    )
+    assert report["harnesses"] == [
+        {"label": "careful", "hash": careful.fingerprint},
+        {"label": "eager", "hash": spec["harnesses"][1]["hash"]},
+    ]
+    readme = (out / "README.md").read_text()
+    assert "### Harnesses" in readme and "arXiv:2606.25447" in readme
+    assert f"- **careful** (`{careful.fingerprint}`): 2 tools, turn cap 4" in readme
+    assert (
+        f"- **eager** (`{spec['harnesses'][1]['hash']}`): 1 tools, turn cap {spec['max_turns']}"
+        in readme
+    )
+
+
+def test_export_refuses_two_harnesses_with_one_label(tmp_path):
+    same = [
+        Harness(instructions=POLICY, tools=TOOLS, label="v1"),
+        {"label": "v1", "instructions": EAGER},
+    ]
+    with pytest.raises(ValueError, match="same label twice"):
+        wai.export_environment(_rows(), tmp_path / "env", tools=TOOLS, holdout=0.5, harnesses=same)
+    with pytest.raises(TypeError, match="harnesses\\[0\\]"):
+        wai.export_environment(_rows(), tmp_path / "env2", tools=TOOLS, holdout=0.5, harnesses=[3])
+
+
+def test_export_without_harnesses_leaves_the_spec_and_readme_as_they_were(tmp_path):
+    out = tmp_path / "env"
+    wai.export_environment(_rows(), out, tools=TOOLS, system_prompt=POLICY, holdout=0.5)
+    spec = json.loads((out / "env" / "spec.json").read_text())
+    assert "harnesses" not in spec
+    assert set(spec) == {
+        "name",
+        "system_prompt",
+        "tools",
+        "max_turns",
+        "reward",
+        "execute",
+        "sdk_version",
+    }
+    assert "### Harnesses" not in (out / "README.md").read_text()
+
+
+def _harness_state(task: dict, spec: dict) -> dict:
+    state = _fake_state(task, spec)
+    state["example_id"] = task["example_id"]
+    return state
+
+
+@needs_verifiers
+def test_load_environment_draws_a_harness_per_task_and_runs_under_it(tmp_path):
+    out = tmp_path / "env"
+    wai.export_environment(
+        _many_rows(),
+        out,
+        tools=TOOLS,
+        system_prompt=POLICY,
+        holdout=0.2,
+        band=None,
+        reward=outcome_reward,
+        harnesses=_harnesses(),
+    )
+    env = wai.load_environment(out / "env" / "spec.json")
+    spec = json.loads((out / "env" / "spec.json").read_text())
+    by_label = {h["label"]: h for h in spec["harnesses"]}
+    tasks = [
+        json.loads(line) for line in (out / "env" / "data" / "train.jsonl").read_text().splitlines()
+    ]
+    assert len(tasks) >= 20
+
+    seen: dict[str, str] = {}
+    for task in tasks:
+        first = asyncio.run(env.setup_state(_harness_state(task, spec)))
+        again = asyncio.run(env.setup_state(_harness_state(task, spec)))
+        assert first["harness"] == again["harness"]  # the same task draws the same harness
+        label = first["harness"]["label"]
+        assert first["harness"] == {"label": label, "hash": by_label[label]["hash"]}
+        # the rollout's system prompt and tools are that harness's
+        assert first["prompt"][0] == {"role": "system", "content": by_label[label]["instructions"]}
+        assert first["prompt"][1]["role"] == "user"
+        assert [t.name for t in first["tool_defs"]] == [t["name"] for t in by_label[label]["tools"]]
+        seen[task["example_id"]] = label
+    assert set(seen.values()) == {"careful", "eager"}  # across many tasks both appear
+
+    # a fresh environment from the same spec draws the same map: a re-run is a re-run
+    env2 = wai.load_environment(out / "env" / "spec.json")
+    for task in tasks:
+        assert (
+            asyncio.run(env2.setup_state(_harness_state(task, spec)))["harness"]["label"]
+            == seen[task["example_id"]]
+        )
+
+    # the trace and the reward see which harness the rollout ran under
+    task = tasks[0]
+    state = asyncio.run(env.setup_state(_harness_state(task, spec)))
+    args = env.update_tool_args("lookup_order", {"order_id": "ORD-1"}, [], state)
+    asyncio.run(env.call_tool("lookup_order", args, "c1"))
+    state["completion"] = [{"role": "assistant", "content": "Looked it up."}]
+    assert _row_from_state(state, state["zp_info"])["harness"] == state["harness"]
+    assert env.reward_func(state) == 1.0
+    # the world answers every tool any harness carries, and the monitor counts them
+    rubrics = getattr(env.rubric, "rubrics", None) or [env.rubric]
+    names = {f.__name__ for r in rubrics for f in getattr(r, "funcs", [])}
+    assert {"lookup_order_calls", "create_refund_calls"} <= names
+
+
+@needs_verifiers
+def test_load_environment_harness_mix_weights_and_message_objects(tmp_path):
+    import verifiers as vf
+
+    out = tmp_path / "env"
+    wai.export_environment(
+        _many_rows(), out, tools=TOOLS, holdout=0.2, band=None, harnesses=_harnesses()
+    )
+    spec = json.loads((out / "env" / "spec.json").read_text())
+    tasks = [
+        json.loads(line) for line in (out / "env" / "data" / "train.jsonl").read_text().splitlines()
+    ]
+
+    only_eager = wai.load_environment(out / "env" / "spec.json", harness_mix=[0, 1])
+    labels = {
+        asyncio.run(only_eager.setup_state(_harness_state(t, spec)))["harness"]["label"]
+        for t in tasks
+    }
+    assert labels == {"eager"}
+
+    other_seed = wai.load_environment(out / "env" / "spec.json", harness_seed=1)
+    base = wai.load_environment(out / "env" / "spec.json")
+    draws = [
+        asyncio.run(base.setup_state(_harness_state(t, spec)))["harness"]["label"]
+        == asyncio.run(other_seed.setup_state(_harness_state(t, spec)))["harness"]["label"]
+        for t in tasks
+    ]
+    assert not all(draws)  # the seed is part of the draw
+
+    with pytest.raises(ValueError, match="harness_mix="):
+        wai.load_environment(out / "env" / "spec.json", harness_mix=[1])
+    with pytest.raises(ValueError, match="harness_mix="):
+        wai.load_environment(out / "env" / "spec.json", harness_mix="random")
+
+    # verifiers hands setup_state message objects, not dicts; the harness's
+    # instructions replace the system message in the same shape
+    state = _harness_state(tasks[0], spec)
+    state["prompt"] = [vf.SystemMessage(content=POLICY), vf.UserMessage(content=tasks[0]["prompt"])]
+    state = asyncio.run(base.setup_state(state))
+    expected = {h["label"]: h for h in spec["harnesses"]}[state["harness"]["label"]]["instructions"]
+    assert isinstance(state["prompt"][0], vf.SystemMessage)
+    assert state["prompt"][0].content == expected and state["prompt"][1].role == "user"
+
+
+def test_load_environment_without_harnesses_draws_none():
+    from whileai.simulations.environment import _draw_index, _harness_weights
+
+    assert _harness_weights("uniform", 0) == []
+    assert _harness_weights("uniform", 2) == [0.5, 0.5]
+    assert _harness_weights([1, 3], 2) == [0.25, 0.75]
+    assert _draw_index("t1", 0, [1.0, 0.0]) == 0 and _draw_index("t1", 0, [0.0, 1.0]) == 1
+    assert _draw_index("t1", 0, [0.5, 0.5]) == _draw_index("t1", 0, [0.5, 0.5])

@@ -198,6 +198,49 @@ attribution on pass_at_1: 2 harnesses x 2 models, 40 tasks each cell
 A grid with a hole (one harness never ran on one model) or tasks that
 appear in only some cells is named in the error, never averaged over.
 
+## Train under several harnesses
+
+A policy trained under one fixed harness collapses when the tool
+environment shifts; one trained across harnesses holds up out of
+distribution [3]. `export_environment(harnesses=[...])` writes the harnesses
+into the environment's `spec.json` (label, hash, instructions, tool
+schemas, disclosure), and the trainer's environment draws one per task
+from a hash of the task id and a seed, so a re-run draws the same map. The
+rollout runs with that harness's instructions as its system prompt and its
+tool schemas as its tool set, and its state carries `harness = {label,
+hash}`, so a trace says which one it ran under. The package README lists
+them under "Harnesses". `load_environment(harness_mix=)` takes `"uniform"`
+or one weight per harness.
+
+```python
+import json
+import tempfile
+from pathlib import Path
+
+eager = wai.Harness(
+    agent=eager_agent,
+    instructions="Refund the order the customer names. Do not look it up first.",
+    tools=TOOLS[1:],
+    label="eager@scripted",
+    model="scripted",
+)
+out = Path(tempfile.mkdtemp()) / "refunds"
+wai.export_environment(
+    data, out, tools=TOOLS, system_prompt=POLICY, band=None, harnesses=[careful, eager]
+)
+spec = json.loads((out / "refunds" / "spec.json").read_text())
+by_label = {"careful@scripted": careful, "eager@scripted": eager}
+for h in spec["harnesses"]:
+    print(h["label"], len(h["tools"]), "tools", h["hash"] == by_label[h["label"]].fingerprint)
+print("### Harnesses" in (out / "README.md").read_text())
+```
+
+```
+careful@scripted 2 tools True
+eager@scripted 1 tools True
+True
+```
+
 ## On the platform
 
 `harness.pin()` is the platform record with the same label and hash, and
@@ -221,11 +264,15 @@ run = tracked.run("careful@scripted", method="eval", targets=["refund_policy"], 
   documentation of its JSON stream and checked against recorded shapes in
   `tests/api/test_harness.py`; nobody has run them live yet. If you do,
   open an issue with the first three lines of the stream.
+- The harness draw in an exported environment is tested offline through
+  verifiers' own rollout state (`tests/api/test_environment.py`): the same
+  task draws the same harness twice, both harnesses appear across forty
+  tasks, and the rollout's system prompt and tools are that harness's. No
+  prime-rl run has trained on a two-harness spec yet.
 - Not here yet, tracked in
   [#712](https://github.com/whilehq/whileai-sdk/issues/712): a harness
-  from the Prime Intellect Environments Hub by id [5], the Meta-Harness
-  outer loop as a recipe [2], and `export_environment(harnesses=[...])` so
-  an on-policy trainer rolls out under several harnesses [3].
+  from the Prime Intellect Environments Hub by id [5], and the Meta-Harness
+  outer loop as a recipe [2].
 
 ## References
 
