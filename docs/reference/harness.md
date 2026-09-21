@@ -269,10 +269,15 @@ run = tracked.run("careful@scripted", method="eval", targets=["refund_policy"], 
   task draws the same harness twice, both harnesses appear across forty
   tasks, and the rollout's system prompt and tools are that harness's. No
   prime-rl run has trained on a two-harness spec yet.
+- The Meta-Harness outer loop [2] is
+  [`recipes/papers/meta-harness`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/meta-harness):
+  candidates as files, a proposer that reads every prior candidate's
+  source, score and worst rows, and a gate on held-out tasks and a
+  held-out model. Its dry run shows the loop with scripted candidates; the
+  live replication has not been run and the recipe claims no number.
 - Not here yet, tracked in
   [#712](https://github.com/whilehq/whileai-sdk/issues/712): a harness
-  from the Prime Intellect Environments Hub by id [5], and the Meta-Harness
-  outer loop as a recipe [2].
+  from the Prime Intellect Environments Hub by id [5].
 
 ## References
 

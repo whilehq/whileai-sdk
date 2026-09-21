@@ -7,6 +7,22 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/meta-harness`: the Meta-Harness outer loop (Lee, Nair, Zhang, Lee, Khattab,
+  Finn 2026, arXiv:2603.28052) as a recipe (#712). `candidates/*.py` each define
+  `harness(model) -> wai.Harness`; `run.py` freezes one task set with `tasks=`, scores every
+  candidate with one judge, writes `out/ledger.jsonl` (file, fingerprint, model, train and holdout
+  pass@1 with intervals, worst rows) and `out/traces/<candidate>/`; `--propose` writes the
+  paper's filesystem interface for the proposer (every candidate's source, score and five worst
+  rows, then "write `candidates/<next>.py`"); `--select` gates the train-split pick on the holdout
+  and on a held-out model with an interval that excludes zero (`compare_runs`) and prints
+  `wai.harness.attribute` over the candidate x model grid. `--dry-run` runs the loop offline on
+  scripted candidates (seeded agents at a planted rate) and is what `smoke.sh` and CI run; the
+  live run with keys is the replication, and no number from it is claimed. `skills/harness-search`
+  is the playbook for the coding agent as the proposer: read `proposal.md`, write the next file,
+  run, read the ledger, stop when the gate passes or after N rounds, report Changed / Moved / Why /
+  Learned / Reproduce and post every candidate as a harness version. `recipes/papers/check.py`
+  leaves a step-shaped paper recipe (one with `run.py`) out of the results table.
+
 ## 0.113 (2026-09-21)
 
 - Docs: the Hub-through-the-platform block on the platform reference used `wai.hf_status` and
@@ -51,22 +67,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
   one weight per harness), runs the rollout with that harness's instructions and tool schemas,
   and writes `harness = {label, hash}` into the rollout state. `wai.export_environment` and
   `wai.load_environment` now resolve from the one import.
-- `recipes/papers/meta-harness`: the Meta-Harness outer loop (Lee, Nair, Zhang, Lee, Khattab,
-  Finn 2026, arXiv:2603.28052) as a recipe (#712). `candidates/*.py` each define
-  `harness(model) -> wai.Harness`; `run.py` freezes one task set with `tasks=`, scores every
-  candidate with one judge, writes `out/ledger.jsonl` (file, fingerprint, model, train and holdout
-  pass@1 with intervals, worst rows) and `out/traces/<candidate>/`; `--propose` writes the
-  paper's filesystem interface for the proposer (every candidate's source, score and five worst
-  rows, then "write `candidates/<next>.py`"); `--select` gates the train-split pick on the holdout
-  and on a held-out model with an interval that excludes zero (`compare_runs`) and prints
-  `wai.harness.attribute` over the candidate x model grid. `--dry-run` runs the loop offline on
-  scripted candidates (seeded agents at a planted rate) and is what `smoke.sh` and CI run; the
-  live run with keys is the replication, and no number from it is claimed. `skills/harness-search`
-  is the playbook for the coding agent as the proposer: read `proposal.md`, write the next file,
-  run, read the ledger, stop when the gate passes or after N rounds, report Changed / Moved / Why /
-  Learned / Reproduce and post every candidate as a harness version. `recipes/papers/check.py`
-  leaves a step-shaped paper recipe (one with `run.py`) out of the results table.
-
 ## 0.112 (2026-09-21)
 
 - `EvalSetup(cost_per_1k=, cost_basis=)`: what a version cost to answer 1,000 of the test's tasks
