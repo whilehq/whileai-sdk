@@ -1,0 +1,248 @@
+---
+title: "A production trace is one try with a score"
+sidebarTitle: "9. Train on production traces"
+description: "Lesson 9. Real traffic comes one attempt per ask, scored after the fact, in a world you cannot replay. The three methods that train on exactly that shape, what they bring instead of a group, and what is proven so far."
+---
+
+Lesson 7 ended with the loop: the model you served is now the agent, and
+its traffic is the next set of rows. But traffic does not come in fours.
+Each customer asked once, the agent answered once, and the world moved
+on: the order shipped, the ticket closed, the refund went out. You cannot
+ask the same question again in the same world to see what else the agent
+might have said. What you have, per ask, is one attempt and a score that
+arrived later: the customer accepted the reply or did not, the ticket
+closed or reopened, a judge read it and said 0 or 1. Lesson 6's update
+needs siblings to compare against and the trace has none. Lesson 8's
+update needs a teacher and you may have none. There is a third way, and
+it is the newest thing in this course.
+
+## The mechanism
+
+Lesson 6 said the RL update in one line: score each try, subtract the
+average of its group, push the tries above average up and the ones below
+down. Every word of that line has a problem when the rows are production
+traces, and each of the three methods below answers it a different way.
+
+**There is no group.** A grouped update (GRPO, `mode="rl"`, k rollouts
+per prompt) takes the average over the k tries of the same ask. One try
+per ask means the average is the try itself, the difference is zero, and
+the update does nothing. The methods bring their own average, the field's
+word is **baseline**.
+
+- **The batch average.** Take every trace in the update, whatever asks
+  they came from, and subtract the mean of their scores. Cruder than a
+  per-ask average, because a hard ask and an easy ask share it, but it
+  exists, and it costs nothing. That is **FlashReinforce**.
+- **A learned average.** Train a second, small head, the **critic**, to
+  predict the score from the trace so far, at every word. The advantage
+  of a word is the score minus what the critic expected at that point,
+  so a hard ask (low expectation) and an easy ask (high expectation) are
+  judged against their own bar. **SAO** and **BPCO** both do this; BPCO
+  bounds the critic so it can never predict a score outside the range
+  scores come in, and SAO skips the words the tools wrote when it hands
+  credit backward through the trace.
+
+**The trace is stale.** It was written by the model you served last
+week, and the model you are training has moved since. The correction
+the field uses is the **ratio**: how likely today's model is to write the
+word, over how likely the model that wrote the trace was. A ratio of 1.4
+means today's model likes that word more, and the push is scaled by 1.4.
+A ratio far from 1 means the trace no longer says much about today's
+model, and each method draws its line differently: FlashReinforce drops
+a whole trace whose average drift is over its `trust`; SAO masks a word
+whose ratio leaves a band, `(0.7, 6.0)` by default; BPCO clips the ratio
+to a range that widens for a rare word, so a word the old model almost
+never wrote is not thrown away just for being rare.
+
+**Length.** A long trace has more words, so a plain sum gives it more
+say. FlashReinforce gives every admitted trace the same weight, one over
+its length, the paper's `1/T`.
+
+What each needs from a row is small, and it is the same four things:
+the `reward`; the log-probability of every generated token under the
+model being trained (`logprobs`); the same under the model that wrote
+the trace (`behavior_logprobs`, what a serving stack returns as
+`token_logprobs` if you ask for it); and, for a trace with tool calls,
+an `action_mask` that is false on the tokens the tools wrote, so they
+carry no gradient. SAO and BPCO add `values`, the critic's prediction at
+each token.
+
+## Run it
+
+First, the baseline and the ratio by hand, on four traces. Made-up
+numbers; the arithmetic is the whole idea.
+
+```python
+import math
+
+rewards = [1.0, 0.0, 1.0, 0.0]  # four traces, four different asks, one attempt each
+baseline = sum(rewards) / len(rewards)
+for i, r in enumerate(rewards):
+    print(f"trace {i}: reward {r:.0f}, minus the batch mean {baseline:.2f}, advantage {r - baseline:+.2f}")
+
+# One word of trace 0. The model that wrote the trace gave it probability 0.5;
+# the model being trained today gives it 0.7. The ratio scales the push.
+wrote, today = math.log(0.5), math.log(0.7)
+print(f"ratio today/wrote {math.exp(today - wrote):.2f}")
+```
+
+```text
+trace 0: reward 1, minus the batch mean 0.50, advantage +0.50
+trace 1: reward 0, minus the batch mean 0.50, advantage -0.50
+trace 2: reward 1, minus the batch mean 0.50, advantage +0.50
+trace 3: reward 0, minus the batch mean 0.50, advantage -0.50
+ratio today/wrote 1.40
+```
+
+Two passes and two fails, so the passes are pushed up by half and the
+fails down by half, and the one word today's model already likes more
+gets pushed 1.4 times as hard. With a group of one there would have been
+nothing to subtract; with the batch there is.
+
+Now the three methods as objects. Each carries its defaults, every one
+named and cited in `defaults.py`, and a bad value is refused on the
+line that set it.
+
+```python
+import whileai as wai
+
+print(wai.FlashReinforce())
+print(wai.SAO())
+print(wai.BPCO())
+```
+
+```text
+<filled after merge>
+```
+
+The update itself is a method on the object, and it takes a batch of
+plain dicts in the shape above. It returns what it did and why: which
+traces it admitted, the coefficient on every token, and the numbers a
+run page would show. Nothing is trained here; a trainer multiplies each
+coefficient by the gradient of its token's log-probability, and this is
+the arithmetic the trainer would do, laid out where you can read it.
+
+```python
+import whileai as wai
+
+batch = [
+    {"reward": 1.0, "logprobs": [-0.4, -0.7, -0.2], "behavior_logprobs": [-0.5, -0.7, -0.3]},
+    {"reward": 0.0, "logprobs": [-1.1, -0.3], "behavior_logprobs": [-1.0, -0.3]},
+    {
+        "reward": 1.0,
+        "logprobs": [-0.2, -0.9, -0.6, -0.1],
+        "behavior_logprobs": [-0.2, -0.9, -0.6, -0.1],
+        "action_mask": [True, True, False, True],  # the third token is tool output
+    },
+    {"reward": 0.0, "logprobs": [-3.0, -0.5], "behavior_logprobs": [-0.4, -0.5]},  # far from the model that wrote it
+]
+update = wai.FlashReinforce().update(batch)
+print(update)
+```
+
+```text
+<filled after merge>
+```
+
+The same batch, with a `values` list per trace from your critic, goes to
+`wai.SAO().update(batch)` and `wai.BPCO().update(batch)`, and each prints
+the same kind of report.
+
+Last, the trainer. Lesson 8 wrote a prime-rl config with
+`prime_rl_config`, and the honest answer for these three methods is that
+prime-rl cannot run them yet: its reward baselines are the group mean
+(zero over a group of one) or a running average of past rewards, it hosts
+no critic, and its losses mask single tokens rather than drop a whole
+stale trace or clip a ratio. So the writer refuses, and the refusal says
+what is missing and what to do instead, rather than writing a file that
+would train a different method under this one's name.
+
+```python
+import whileai as wai
+
+try:
+    wai.prime_rl_config("refunds-v1", wai.SAO(), model="Qwen/Qwen3-4B")
+except ValueError as e:
+    print("refused:", e)
+```
+
+```text
+<filled after merge>
+```
+
+The nearest thing prime-rl does run one rollout per prompt is `"rae"`,
+REINFORCE against a running average of past rewards, and
+`wai.prime_rl_config(env, "rae", model=..., **{"orchestrator.group_size": 1})`
+writes it, with a warning that names the baseline it is.
+
+## When it fits, and when it does not
+
+It fits when the rows are what this lesson opened with: one attempt per
+ask, a score that arrived after the fact, a world that cannot be
+replayed, and enough of them (hundreds at the least) that a batch mean
+is steady or a critic has something to fit. It also fits when the traces
+are a few model versions old; FlashReinforce is built for a lag of about
+eight updates between the model that wrote a trace and the one that
+trains on it, and the ratio and the trust region are what absorb the
+gap.
+
+It does not fit when you can replay the world. If the ask can be run
+again against the same state, run it four times and use lesson 6's
+update: a per-ask average is a tighter baseline than any of these, and
+you keep the unanimous-group filter that tells you which asks teach
+nothing. It does not fit with a few dozen traces, because a batch mean
+over a few dozen scores is mostly noise. And it does not fit with a score
+you have not checked: a model trained on "the customer accepted the
+reply" learns whatever gets accepted, so lesson 3's judge check and
+lesson 6's reward scan come first, on the traces, before any of this
+runs. If the serving stack did not log `token_logprobs`, there is no
+ratio to form; turn that on first and train on the traces that come
+after.
+
+## What is proven, and what is not
+
+The update rules are checked in the test suite: each method's
+`update()` is applied to a toy policy, a table of probabilities with no
+neural network behind it, and the tests watch the reward climb, the
+stale trace get dropped or masked, and the tool tokens carry no
+gradient. That proves the arithmetic is the paper's arithmetic. It does
+not prove the papers' results. No GPU replication of any of the three
+has been run in this library yet; the numbers in the papers (a 30B model
+trained at a lag of eight updates beating GRPO at a lag of one, in
+FlashREINFORCE; the reasoning and coding gains in SAO and BPCO) are the
+papers' numbers, measured on the papers' setups, and lesson 4's rule
+applies to them as to anything else. When a recipe reproduces one under
+`recipes/papers/`, with the interval and the noise floor, this page will
+say so.
+
+## Where it comes from
+
+1. Hu et al. FlashREINFORCE. NVIDIA, 2026. Critic-free REINFORCE with a
+   batch-mean baseline, one rollout per prompt, a sequence trust region
+   on the drift from the sampling policy, and `1/T`.
+2. Hou et al. SAO: Single-Rollout Asynchronous Optimization.
+   arXiv:2607.07508, 2026. A value critic with length-adaptive GAE that
+   skips observation tokens, and a token masked when its ratio leaves
+   the band.
+3. Qi et al. BPCO: Best Practice Critic Optimization. arXiv:2608.23566,
+   2026. A critic bounded to the reward range through an arctangent,
+   Monte Carlo value targets, and DPPO's clip that widens for a rare
+   token.
+4. Williams, R. J. Simple statistical gradient-following algorithms for
+   connectionist reinforcement learning. Machine Learning, 1992. REINFORCE,
+   and why subtracting a baseline changes the noise and not the answer.
+5. Schulman, J. et al. High-Dimensional Continuous Control Using
+   Generalized Advantage Estimation. arXiv:1506.02438, 2016. GAE, the
+   critic's way of handing credit backward.
+6. Schulman, J. et al. Proximal Policy Optimization Algorithms.
+   arXiv:1707.06347, 2017. The clipped ratio BPCO starts from.
+7. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501,
+   2025. Chapter *Policy Gradient Algorithms*: the baseline, the ratio
+   and the clip in one place.
+
+## Next
+
+You have read the whole course. The [quickstart](/get-started/quickstart)
+is the same loop with a real model on both sides, and
+[Train on your own GPU](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train)
+is where a recipe for these three methods will land when one has run.

@@ -984,6 +984,15 @@ def train(
     A dataset already training answers with that run instead of a second.
     """
     if method is not None and not isinstance(method, str):
+        from ..methods import SingleRollout
+
+        if isinstance(method, SingleRollout):
+            raise TypeError(
+                f"the hosted trainer runs {', '.join(METHODS)}; wai.{type(method).__name__}(...) "
+                "is a single-rollout method whose update rule is method.update(batch), applied "
+                "inside your own trainer loop; wai.prime_rl_config(env, method, model=...) "
+                "refuses it and says what prime-rl lacks (issue 564)."
+            )
         raise TypeError(
             f"the hosted trainer runs {', '.join(METHODS)}; a method object such as "
             f"wai.{type(method).__name__}(...) runs on your own GPUs through "

@@ -7,6 +7,39 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.FlashReinforce`, `wai.SAO` and `wai.BPCO`: the single-rollout methods, one trajectory
+  per prompt, the shape a production trace arrives in (one attempt per ask, scored after the
+  fact, a world that cannot be replayed), so there is no group to take a baseline over and each
+  brings its own. `FlashReinforce` (Hu et al. 2026, NVIDIA) is critic-free REINFORCE with the
+  batch mean as the baseline, token importance ratios, a sequence trust region on the mean
+  sampled-action KL to the policy that wrote the trace (`trust`), `1/T` per trajectory and a lag
+  of about eight updates built in (`off_policy_steps`). `SAO` (Hou et al. 2026,
+  arXiv:2607.07508) is a value critic with length-adaptive GAE that skips the tokens the
+  environment wrote (`gae_alpha`, `critic_steps`, `critic_learning_rate`) and direct
+  double-sided importance sampling that masks a token whose current/rollout ratio leaves
+  `ratio`. `BPCO` (Qi et al. 2026, arXiv:2608.23566) is a critic bounded to `reward_range`
+  through an arctangent, Monte Carlo value targets, unnormalized length-adaptive GAE and DPPO
+  clipping with range `clip / mu` that widens for a rare token, after `critic_warmup` updates
+  of the critic alone. Each object's `update(batch)` is the update rule in plain Python over a
+  batch of trajectory dicts (`reward`, `logprobs`, `behavior_logprobs`, optional `values` and
+  `action_mask`) and returns an `Update` that prints what it admitted, masked and dropped and
+  why; every default is named and cited in `defaults.py` under its own `--- FlashReinforce`,
+  `--- SAO`, `--- BPCO` block.
+- `prime_rl_config` refuses the three single-rollout methods with the reason and the fix rather
+  than writing a config that would train something else under their name: prime-rl main's
+  reward baselines are the group mean (`grpo`, `max_rl`, identically zero at `group_size = 1`)
+  or a per-agent EMA (`rae`), it hosts no value model, and its losses (`ipo`, `icepop`) mask
+  per token with no sequence trust region and no clip. The message names `method.update(batch)`
+  in your own trainer loop and, for FlashReinforce, the nearest thing prime-rl runs: `"rae"`
+  (SPIRAL's EMA baseline, `group_size` 1 allowed), now accepted as a method string and inside
+  `Async`, written with a warning that says which baseline it is. The hosted `train()` says the
+  same for a single-rollout object.
+- Learn, lesson 9: [Train on production traces](https://docs.withwhile.com/learn/train-on-production-traces).
+  Why a grouped update has nothing to group on one try per ask, the baseline and the ratio by
+  hand, the three objects, one `update()` on a hand-made batch, the prime-rl refusal, when it
+  fits and when it does not, and what is proven (the update rules, in tests, on a toy policy)
+  against what is not (no GPU replication yet; the papers' numbers are the papers').
+
 ## 0.113 (2026-09-21)
 
 - Docs: the Hub-through-the-platform block on the platform reference used `wai.hf_status` and

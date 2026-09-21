@@ -41,7 +41,12 @@ trainer's own words.
   per prompt and cannot be re-run, becomes a training signal. Each
   object's ``update(batch)`` is the update rule itself, in plain Python,
   so a trainer (or a test) can apply it to any batch of trajectories and
-  read what it kept and why.
+  read what it kept and why. On prime-rl all three are refused, with the
+  reason and the fix in the message: its reward advantages are group
+  relative (``grpo``, ``max_rl``: reward minus the group mean, zero over
+  a group of one) or an EMA baseline (``rae``), it hosts no value model,
+  and its losses mask per token (``ipo``, ``icepop``) with no sequence
+  trust region and no clip. The nearest thing it runs is ``"rae"``.
 * ``prime_rl_config``, the TOML prime-rl reads, from a method object
   and a taskset.
 """
@@ -53,7 +58,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, NoReturn
 
 from .models import Backend
 from .simulations.defaults import (
@@ -116,8 +121,11 @@ PRIVILEGED = ("demonstration", "reference", "hint", "feedback")
 ANCHORS = ("ema", "initial", "live")
 CORRECTIONS = ("ipo", "icepop", "tis")
 #: the reward-based algorithms prime-rl names, usable as the string form
-#: of ``method=`` and inside ``Async``
-PRIME_RL_ALGORITHMS = ("grpo", "max_rl")
+#: of ``method=`` and inside ``Async``: ``grpo`` and ``max_rl`` take the
+#: group mean as the baseline, ``rae`` an EMA of the agent's past rewards
+#: (SPIRAL, arXiv:2506.24119), the one that runs at ``group_size = 1``
+#: (prime-rl ``configs/algorithm.py``, ``RAEAlgoConfig``)
+PRIME_RL_ALGORITHMS = ("grpo", "max_rl", "rae")
 
 ISSUE = "https://github.com/whilehq/whileai-sdk/issues/564"
 
@@ -323,8 +331,8 @@ class OPSD:
 class Async:
     """A method trained on rollouts that may lag the policy by a bounded number of steps.
 
-    ``method`` is what to train (``"grpo"``, ``"max_rl"``, an ``OPD``
-    or an ``OPSD``). ``off_policy_steps`` is the bound: a rollout
+    ``method`` is what to train (``"grpo"``, ``"max_rl"``, ``"rae"``, an
+    ``OPD`` or an ``OPSD``). ``off_policy_steps`` is the bound: a rollout
     sampled more than this many optimizer steps before the update that
     consumes it is dropped (8: ScaleRL, arXiv:2510.13786; AReaL,
     arXiv:2505.24298, 4 for code; one step costs nothing, Noukhovitch et
@@ -679,6 +687,72 @@ def _source(name: str, taskset: str | None = None) -> dict[str, Any]:
     }
 
 
+#: what prime-rl (main, 2026-09-21) has where a single-rollout method needs
+#: something else, with the file that says so. ``orchestrator.algo``
+#: (``packages/prime-rl-configs/src/prime_rl/configs/algorithm.py``,
+#: ``AlgoConfig``) is grpo, echo, max_rl, rae, hierarchical_grpo, opd,
+#: opsd, sft, debug; ``trainer.loss`` (``configs/trainer.py``,
+#: ``LossConfig``) is ipo, icepop, custom.
+_PRIME_RL_NO_BATCH_MEAN = (
+    "prime-rl's reward advantages are group relative (orchestrator.algo grpo and max_rl: reward "
+    "minus the group mean, src/prime_rl/orchestrator/algo/grpo.py), identically zero over a "
+    "group of one, or an EMA of the agent's past rewards (rae); a batch-mean baseline is not "
+    "offered"
+)
+_PRIME_RL_NO_CRITIC = (
+    "prime-rl only ever hosts the trainable policy (prime_rl/configs/algorithm.py, "
+    "FrozenModelConfig): no value network, so no GAE advantage"
+)
+_PRIME_RL_TOKEN_LOSSES = (
+    "its losses mask per token (trainer.loss ipo on the probability difference, icepop on the "
+    "ratio band; src/prime_rl/trainer/rl/loss.py) and normalize by the global token count "
+    "(rl_scale in src/prime_rl/trainer/rl/train.py)"
+)
+_RUN_IT_YOURSELF = (
+    "apply method.update(batch) inside your own trainer loop (the coefficients multiply each "
+    "token's log-probability gradient; the batch contract is above Update in whileai/methods.py)"
+)
+
+
+def _refuse_single_rollout(method: SingleRollout) -> NoReturn:
+    """Say what prime-rl lacks for this method and what to do instead.
+
+    Raised from ``prime_rl_config`` rather than writing the nearest config,
+    because a TOML headed ``flash_reinforce`` that ran ``rae`` with a
+    token-level mask would train a different method under this one's name.
+    """
+    name = type(method).__name__
+    if isinstance(method, FlashReinforce):
+        raise ValueError(
+            f"prime_rl_config: wai.{name} cannot run on prime-rl as written. "
+            f"{_PRIME_RL_NO_BATCH_MEAN}; {_PRIME_RL_TOKEN_LOSSES}, so there is no sequence trust "
+            f"region for trust={method.trust} and no 1/T weight per trajectory. What you can do: "
+            f"{_RUN_IT_YOURSELF}; or run the nearest prime-rl algorithm, 'rae' (REINFORCE against "
+            "an EMA of past rewards, SPIRAL, arXiv:2506.24119; group_size 1 allowed), as "
+            f"wai.prime_rl_config(env, wai.Async('rae', off_policy_steps={method.off_policy_steps}, "
+            "correction='icepop'), model=..., **{'orchestrator.group_size': 1}), which is a "
+            "different baseline and a token-level mask, named as such; or wait for the trainer."
+        )
+    if isinstance(method, SAO):
+        lo, hi = method.ratio
+        raise ValueError(
+            f"prime_rl_config: wai.{name} needs a value critic, and {_PRIME_RL_NO_CRITIC}. The "
+            f"half prime-rl has is the token band: its icepop loss masks a token whose "
+            f"trainer/inference ratio leaves (ratio_low, ratio_high), which is SAO's direct "
+            f"double-sided importance sampling, and wai.Async(correction='icepop', ratio=({lo}, "
+            f"{hi})) writes it around a group-mean or EMA baseline, which is a different method. "
+            f"What you can do: {_RUN_IT_YOURSELF}, with your critic's 'values' on each "
+            "trajectory; or wait for the trainer."
+        )
+    raise ValueError(
+        f"prime_rl_config: wai.{name} needs a value critic, and {_PRIME_RL_NO_CRITIC}; and "
+        f"prime-rl has no clip at all: {_PRIME_RL_TOKEN_LOSSES}, never clipping the ratio, so "
+        f"the DPPO range clip/mu (clip={method.clip}) has no home there. What you can do: "
+        f"{_RUN_IT_YOURSELF}, with your critic's 'values' on each trajectory; or wait for the "
+        "trainer."
+    )
+
+
 def _taskset_id(env: Any) -> tuple[str, list[str]]:
     """The taskset id prime-rl addresses, and any warning about where it came from."""
     warnings: list[str] = []
@@ -762,8 +836,15 @@ def prime_rl_config(
     registered under, or the directory ``wai.export_environment`` wrote
     (its package name is used, with a warning that the export is the
     ``load_environment`` shape prime-rl main does not address by id).
-    ``method`` is ``"grpo"``, ``"max_rl"``, a ``OPD``, an
-    ``OPSD`` or an ``Async`` around one of those. ``model`` is
+    ``method`` is ``"grpo"``, ``"max_rl"``, ``"rae"`` (reward minus an
+    EMA of past rewards, the one prime-rl baseline that stands at
+    ``group_size = 1``), a ``OPD``, an ``OPSD`` or an ``Async`` around one
+    of those. A single-rollout method (``FlashReinforce``, ``SAO``,
+    ``BPCO``) is refused with a ``ValueError`` that says what prime-rl
+    lacks (a batch-mean baseline, a value model, a sequence trust region,
+    a clip) and what to do instead (``method.update(batch)`` in your own
+    trainer loop, or ``"rae"``), because a TOML labelled with the method's
+    name that trained something else would be worse than none. ``model`` is
     the policy to train; ``gpus`` are split half to the inference engine
     and half to the trainer (``PRIME_RL_GPUS``, 2, is the floor: prime-rl
     runs them on separate devices); ``steps`` and ``batch`` are optimizer
@@ -804,10 +885,7 @@ def prime_rl_config(
     outer = method
     inner: OPD | OPSD | SingleRollout | str = method.method if isinstance(method, Async) else method
     if isinstance(inner, (FlashReinforce, SAO, BPCO)):
-        raise NotImplementedError(
-            f"prime_rl_config for wai.{type(inner).__name__}: the prime-rl mapping is written "
-            "by the integration agent"
-        )
+        _refuse_single_rollout(inner)
     if isinstance(inner, str):
         inner = _check_choice("method", inner, PRIME_RL_ALGORITHMS)
     elif not isinstance(inner, (OPD, OPSD)):
@@ -826,6 +904,14 @@ def prime_rl_config(
         lr = PRIME_RL_LEARNING_RATE_LORA if lora else PRIME_RL_LEARNING_RATE_FULL
         algo: dict[str, Any] = {"type": inner}
         method_name = inner
+        if inner == "rae":
+            warnings.append(
+                "rae's baseline is an EMA of the agent's own past rewards (orchestrator.algo.decay, "
+                "prime-rl's 0.95, about twenty traces), not a group mean or a batch mean; on a "
+                "single-agent taskset it is REINFORCE with that baseline, and group_size 1 is "
+                "allowed (prime-rl docs/algorithms.md, RAEAlgoConfig). Override "
+                "orchestrator.group_size to run it one rollout per prompt."
+            )
     else:
         samples = int(inner.samples)
         temperature = float(inner.temperature)

@@ -1,5 +1,7 @@
 """wai.OPD, wai.OPSD, wai.Async and wai.prime_rl_config: method objects with cited
-defaults, refused on a bad value, written into the TOML prime-rl reads.
+defaults, refused on a bad value, written into the TOML prime-rl reads. The
+single-rollout methods (wai.FlashReinforce, wai.SAO, wai.BPCO) are refused there
+with the reason, and the tests say so.
 
 Nothing here touches a model or a network. The TOML is parsed back with
 tomllib where the interpreter has it (3.11+)."""
@@ -32,7 +34,13 @@ def test_front_door_resolves_the_methods_and_stays_under_the_cap():
     assert wai.OPD is wai.methods.OPD
     assert wai.OPSD is wai.methods.OPSD
     assert wai.Async is wai.methods.Async
+    assert wai.FlashReinforce is wai.methods.FlashReinforce
+    assert wai.SAO is wai.methods.SAO
+    assert wai.BPCO is wai.methods.BPCO
     assert wai.prime_rl_config is wai.methods.prime_rl_config
+    for cls in (wai.FlashReinforce, wai.SAO, wai.BPCO):
+        assert cls.samples == 1  # one rollout per prompt: the shape a production trace has
+        assert isinstance(cls.name, str) and cls.name
     assert "methods" in wai.__all__
     assert len(wai.__all__) <= 31  # rule 1 of docs/reference/style.md; 31 since `rows` (#613)
     assert wai.Backend is not None  # left the front door, still importable
@@ -129,6 +137,15 @@ def test_every_method_default_is_cited_in_defaults():
         "ASYNC_OFF_POLICY_STEPS",
         "ASYNC_CORRECTION",
         "PRIME_RL_GPUS",
+        "FLASH_REINFORCE_TRUST",
+        "FLASH_REINFORCE_OFF_POLICY_STEPS",
+        "SAO_RATIO",
+        "SAO_GAE_ALPHA",
+        "SAO_CRITIC_STEPS",
+        "BPCO_CLIP",
+        "BPCO_GAE_ALPHA",
+        "BPCO_REWARD_RANGE",
+        "BPCO_CRITIC_WARMUP",
     ):
         assert f"# {name} = " in src or f"/ {name} = " in src, name
     for arxiv in (
@@ -138,8 +155,27 @@ def test_every_method_default_is_cited_in_defaults():
         "2601.20802",
         "2510.13786",
         "2410.18252",
+        "2607.07508",  # SAO
+        "2608.23566",  # BPCO
     ):
         assert arxiv in src
+
+
+def test_update_prints_what_it_admitted_and_why():
+    """The single-rollout result type prints itself: admitted count, stats, notes."""
+    up = wai.methods.Update(
+        method="flash_reinforce",
+        coefficients=[[0.5, 0.5], [0.0]],
+        advantages=[[0.5, 0.5], [-0.5]],
+        admitted=[True, False],
+        stats={"admitted_share": 0.5},
+        notes=["trajectory 1 dropped: mean KL to the sampler over trust"],
+    )
+    assert up.n == 2 and up.n_admitted == 1 and up.value_targets is None
+    text = str(up)
+    assert text.startswith("flash_reinforce update: 1 of 2 trajectories admitted")
+    assert "admitted share: 0.5" in text and "trajectory 1 dropped" in text
+    assert "<pre>" in up._repr_html_()
 
 
 # --- the writer ----------------------------------------------------------
@@ -295,3 +331,73 @@ def test_hosted_train_points_a_method_object_at_prime_rl_config():
         train("ds_123", method=wai.OPD(TEACHER))
     with pytest.raises(TypeError, match="Async"):
         train("ds_123", method=wai.Async())
+
+
+# --- the single-rollout methods on prime-rl -------------------------------
+#
+# What prime-rl main (2026-09-21) offers, read from the tree: orchestrator.algo
+# is grpo, echo, max_rl, rae, hierarchical_grpo, opd, opsd, sft, debug
+# (packages/prime-rl-configs/src/prime_rl/configs/algorithm.py); the reward
+# baselines are the group mean (grpo, max_rl: zero over a group of one) or a
+# per-agent EMA (rae, group_size 1 allowed); it hosts no value model; and
+# trainer.loss is ipo, icepop or custom (configs/trainer.py), all per token,
+# normalized by the global token count (trainer/rl/train.py rl_scale). So a
+# single-rollout method is refused with the reason and the fix, and the one
+# thing that runs one rollout per prompt there is "rae".
+
+
+def test_prime_rl_config_rae_runs_one_rollout_per_prompt_and_names_its_baseline():
+    cfg = wai.prime_rl_config(
+        "refunds-v1",
+        wai.Async("rae", correction="icepop"),
+        model="Qwen/Qwen3-4B",
+        **{"orchestrator.group_size": 1},
+    )
+    d = _parse(cfg.text)
+    assert d["orchestrator"]["algo"] == {"type": "rae"}
+    assert d["orchestrator"]["group_size"] == 1
+    assert d["trainer"]["loss"]["type"] == "icepop"
+    assert cfg.method == "async rae"
+    assert any("EMA" in w and "group_size 1" in w for w in cfg.warnings)
+    assert wai.Async("rae").inner_name == "rae"
+    plain = wai.prime_rl_config("refunds-v1", "rae", model="Qwen/Qwen3-4B")
+    assert _parse(plain.text)["orchestrator"]["algo"] == {"type": "rae"}
+    assert any("not a group mean or a batch mean" in w for w in plain.warnings)
+
+
+def test_prime_rl_config_refuses_flash_reinforce_and_names_rae():
+    """No batch-mean baseline at group_size 1, no sequence trust region, no 1/T."""
+    with pytest.raises(ValueError, match="batch-mean baseline is not offered") as e:
+        wai.prime_rl_config("refunds-v1", wai.FlashReinforce(), model="Qwen/Qwen3-4B")
+    text = str(e.value)
+    assert "orchestrator/algo/grpo.py" in text  # where the group-mean advantage lives
+    assert "no sequence trust region" in text and "1/T" in text
+    assert "method.update(batch)" in text  # the fix that exists today
+    assert "wai.Async('rae'" in text and "'orchestrator.group_size': 1" in text  # the nearest
+    assert "different baseline" in text  # and it is named as a different method
+
+
+def test_prime_rl_config_refuses_the_critic_methods_and_says_what_is_missing():
+    with pytest.raises(ValueError, match="only ever hosts the trainable policy") as sao:
+        wai.prime_rl_config("refunds-v1", wai.SAO(), model="Qwen/Qwen3-4B")
+    text = str(sao.value)
+    assert "icepop" in text and "ratio=(0.7, 6.0)" in text  # the half prime-rl has, named
+    assert "different method" in text and "method.update(batch)" in text and "'values'" in text
+    with pytest.raises(ValueError, match="no clip at all") as bpco:
+        wai.prime_rl_config("refunds-v1", wai.BPCO(), model="Qwen/Qwen3-4B")
+    text = str(bpco.value)
+    assert "only ever hosts the trainable policy" in text
+    assert "clip/mu" in text and "method.update(batch)" in text
+
+
+def test_prime_rl_config_never_writes_a_file_for_a_refused_method(tmp_path):
+    out = tmp_path / "sao.toml"
+    with pytest.raises(ValueError):
+        wai.prime_rl_config("refunds-v1", wai.SAO(), model="Qwen/Qwen3-4B", out=out)
+    assert not out.exists()
+
+
+def test_hosted_train_names_update_for_a_single_rollout_method():
+    for method in (wai.FlashReinforce(), wai.SAO(), wai.BPCO()):
+        with pytest.raises(TypeError, match=r"method\.update\(batch\)"):
+            train("ds_123", method=method)

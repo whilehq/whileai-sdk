@@ -231,7 +231,8 @@
               "learn/the-held-out-set",
               "learn/which-rows-to-train-on",
               "learn/train-and-prove",
-              "learn/learn-without-a-reward"
+              "learn/learn-without-a-reward",
+              "learn/train-on-production-traces"
             ]
           }
         ]
