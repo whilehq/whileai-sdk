@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.113 (2026-09-21)
+
 - Docs: the Hub-through-the-platform block on the platform reference used `wai.hf_status` and
   friends at the front door, where none of them live; it now spells the names that resolve.
 - `EvalSetup` carries the cost of answering the test as facts, not dollars: `model`,
