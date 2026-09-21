@@ -369,6 +369,13 @@ class EvalSetup(_Wire):
     ``run_std_runs`` re-runs of the same eval, the floor a delta has to clear
     before it is a result. ``reader`` names how the answer span was read
     (``boxed``, ``lenient``, a judge name).
+
+    ``cost_per_1k`` is what this version cost to answer 1,000 of the test's
+    tasks, in USD, as run: tokens at list price for an API model, GPU hours
+    at the provider's rate for a served one. ``cost_basis`` says how it was
+    counted in one sentence (measured or assumed, which prices, caching or
+    not) so two versions' costs can be compared honestly. The platform draws
+    held-out score against this cost; a version without it is off that chart.
     """
 
     metric: str | None = None
@@ -376,6 +383,8 @@ class EvalSetup(_Wire):
     run_std: float | None = Field(default=None, ge=0)
     run_std_runs: int | None = Field(default=None, ge=1)
     reader: str | None = None
+    cost_per_1k: float | None = Field(default=None, alias="costPer1k", ge=0)
+    cost_basis: str | None = Field(default=None, max_length=200)
 
 
 class Provenance(_Wire):

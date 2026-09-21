@@ -367,6 +367,25 @@ def test_score_carries_a_sample_of_graded_rows():
     )
 
 
+def test_eval_setup_carries_cost_per_1k_on_the_wire():
+    """The eval block of a run's record says what 1,000 tasks cost and how that was counted."""
+    from whileai.platform import EvalSetup, RunRecord
+
+    rec = RunRecord(
+        eval=EvalSetup(
+            metric="pass@1",
+            k=4,
+            cost_per_1k=3.01,
+            cost_basis="list price $2/$10 per M tokens, no caching",
+        )
+    )
+    wire = rec.wire()
+    assert wire["eval"]["costPer1k"] == 3.01
+    assert wire["eval"]["costBasis"].startswith("list price")
+    back = RunRecord.model_validate(wire)
+    assert back.eval is not None and back.eval.cost_per_1k == 3.01
+
+
 def test_score_rows_post_the_full_set_in_chunks_and_make_the_sample():
     """rows= posts every graded row after the score, 500 a call, and the
     card's sample is the first 14 failures plus passes when examples= is not given."""
