@@ -1751,6 +1751,97 @@ ASYNC_IPO_EPS = 0.3
 ASYNC_ICEPOP_RATIO = (0.5, 5.0)
 ASYNC_TIS_CAP = 2.0
 
+# ---------------------------------------------------------------------
+# single-rollout methods (FlashReinforce, SAO, BPCO): whileai/methods.py
+# One trajectory per prompt and no group to take a baseline over, so each
+# method brings its own baseline: the batch mean (FlashReinforce) or a
+# critic (SAO, BPCO). Sections are per method so parallel work reconciles
+# by section, not by line.
+# ---------------------------------------------------------------------
+
+# --- FlashReinforce (Hu et al. 2026, NVIDIA) ---------------------------
+
+# FLASH_REINFORCE_TRUST = 0.1: the sequence trust region. A trajectory is
+# admitted to the update when its mean sampled-action KL proxy to the
+# policy that sampled it is at most this; above it the whole trajectory
+# is masked, the drift a token-level ratio cannot correct (Hu et al.
+# 2026, FlashREINFORCE, section on the sequence trust region).
+# (convention, untested: the paper's own value is to be read off the
+# PDF and written here)
+FLASH_REINFORCE_TRUST = 0.1
+# FLASH_REINFORCE_OFF_POLICY_STEPS = 8: the policy lag the method is built
+# to absorb. The Qwen3-30B-A3B run trains at a lag of about eight updates
+# and beats GRPO at a lag of one (Hu et al. 2026, FlashREINFORCE); the
+# same bound ScaleRL (arXiv:2510.13786) and prime-rl default to.
+FLASH_REINFORCE_OFF_POLICY_STEPS = 8
+# FLASH_REINFORCE_LEARNING_RATE = 1e-6: the optimizer step on full
+# weights. (convention, untested: to be read off the paper)
+FLASH_REINFORCE_LEARNING_RATE = 1e-6
+# FLASH_REINFORCE_TEMPERATURE = 1.0: sample at the temperature the ratio
+# is taken at, so the behavior log-probabilities on the row are the ones
+# the correction divides by. (convention, untested)
+FLASH_REINFORCE_TEMPERATURE = 1.0
+# FLASH_REINFORCE_MAX_TOKENS = 8192: the response cap. (convention,
+# untested: to be read off the paper)
+FLASH_REINFORCE_MAX_TOKENS = 8192
+
+# --- SAO, single-rollout asynchronous optimization (Hou et al. 2026) ---
+
+# SAO_RATIO = (0.7, 6.0): the token band of direct double-sided importance
+# sampling, 1 - eps_low to 1 + eps_high. A token whose current/rollout
+# probability ratio leaves the band is masked, not clipped (Hou et al.
+# 2026, arXiv:2607.07508: eps_low 0.3 and eps_high 5.0 for reasoning;
+# 0.8 and 3.0, the band (0.2, 4.0), for coding).
+SAO_RATIO = (0.7, 6.0)
+# SAO_GAE_ALPHA = 1.5: length-adaptive GAE, lambda = 1 - 1/(alpha * L)
+# for a response of L tokens, so the weight on the terminal reward stays
+# about exp(-1/alpha) whatever the length (Hou et al. 2026,
+# arXiv:2607.07508).
+SAO_GAE_ALPHA = 1.5
+# SAO_CRITIC_STEPS = 2: value-network updates per policy update (Hou et
+# al. 2026, arXiv:2607.07508, K = 2).
+SAO_CRITIC_STEPS = 2
+# SAO_LEARNING_RATE = 1e-6 / SAO_CRITIC_LEARNING_RATE = 5e-6: the policy
+# and critic optimizer steps (Hou et al. 2026, arXiv:2607.07508).
+SAO_LEARNING_RATE = 1e-6
+SAO_CRITIC_LEARNING_RATE = 5e-6
+# SAO_TEMPERATURE = 1.0: sample at the temperature the ratio is taken at.
+# (convention, untested)
+SAO_TEMPERATURE = 1.0
+# SAO_MAX_TOKENS = 8192: the response cap. (convention, untested: to be
+# read off the paper)
+SAO_MAX_TOKENS = 8192
+
+# --- BPCO, best practice critic optimization (Qi et al. 2026) ----------
+
+# BPCO_CLIP = 0.2: the DPPO clip epsilon. The clip range on the ratio is
+# eps divided by the behavior probability of the token, so a rare token
+# gets a wider range (Qi et al. 2026, arXiv:2608.23566). (convention,
+# untested: the paper's own value is to be read off the PDF)
+BPCO_CLIP = 0.2
+# BPCO_GAE_ALPHA = 0.4: length-adaptive GAE for the policy advantage,
+# lambda_pi = 1 - 1/(alpha * L) (Qi et al. 2026, arXiv:2608.23566); the
+# critic's own target is Monte Carlo, lambda_V = 1.
+BPCO_GAE_ALPHA = 0.4
+# BPCO_REWARD_RANGE = (0.0, 1.0): the interval the critic's prediction is
+# bounded to through a scaled arctangent, R_min + (R_max - R_min)(1/2 +
+# atan(z)/pi) (Qi et al. 2026, arXiv:2608.23566); a 0/1 outcome reward
+# lives on this interval (PASS_REWARD).
+BPCO_REWARD_RANGE = (0.0, 1.0)
+# BPCO_CRITIC_WARMUP = 15: policy updates the critic trains alone before
+# the policy moves (Qi et al. 2026, arXiv:2608.23566).
+BPCO_CRITIC_WARMUP = 15
+# BPCO_LEARNING_RATE = 1e-6 / BPCO_CRITIC_LEARNING_RATE = 1e-5: the policy
+# and critic optimizer steps (Qi et al. 2026, arXiv:2608.23566).
+BPCO_LEARNING_RATE = 1e-6
+BPCO_CRITIC_LEARNING_RATE = 1e-5
+# BPCO_TEMPERATURE = 1.0: sample at the temperature the ratio is taken at.
+# (convention, untested)
+BPCO_TEMPERATURE = 1.0
+# BPCO_MAX_TOKENS = 8192: the response cap. (convention, untested: to be
+# read off the paper)
+BPCO_MAX_TOKENS = 8192
+
 # PRIME_RL_GPUS = 2: the fewest GPUs a prime-rl run takes. It runs the
 # inference engine and the trainer as separate processes on separate
 # devices (INTELLECT-2, arXiv:2505.07291, section 2), so one of each is
@@ -1797,6 +1888,14 @@ __all__ = [
     "ASYNC_TIS_CAP",
     "BASE_PASS_RATE",
     "BOOTSTRAP_DRAWS",
+    "BPCO_CLIP",
+    "BPCO_CRITIC_LEARNING_RATE",
+    "BPCO_CRITIC_WARMUP",
+    "BPCO_GAE_ALPHA",
+    "BPCO_LEARNING_RATE",
+    "BPCO_MAX_TOKENS",
+    "BPCO_REWARD_RANGE",
+    "BPCO_TEMPERATURE",
     "CEILING_PASS_RATE",
     "CHARS_PER_TOKEN",
     "CI_LEVEL",
@@ -1837,6 +1936,11 @@ __all__ = [
     "ENV_MAX_TURNS_FALLBACK",
     "FAULT_STATUSES",
     "FINGERPRINT_STEM_MIN_LEN",
+    "FLASH_REINFORCE_LEARNING_RATE",
+    "FLASH_REINFORCE_MAX_TOKENS",
+    "FLASH_REINFORCE_OFF_POLICY_STEPS",
+    "FLASH_REINFORCE_TEMPERATURE",
+    "FLASH_REINFORCE_TRUST",
     "FLIP_FLAG",
     "GPU_PRICE_SOURCE",
     "GPU_USD_PER_HOUR",
@@ -1943,6 +2047,13 @@ __all__ = [
     "RULE_AXIS_CAP_GRID",
     "RULE_AXIS_CAP_REPORT",
     "SAMPLING_TEMPERATURE_MAX",
+    "SAO_CRITIC_LEARNING_RATE",
+    "SAO_CRITIC_STEPS",
+    "SAO_GAE_ALPHA",
+    "SAO_LEARNING_RATE",
+    "SAO_MAX_TOKENS",
+    "SAO_RATIO",
+    "SAO_TEMPERATURE",
     "SATURATION_CAP",
     "SCENARIO_ID_CHARS",
     "SECONDS_PER_HOUR",

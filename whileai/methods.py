@@ -33,6 +33,15 @@ trainer's own words.
   rollout may lag the policy, and the per-token correction for the gap
   (Noukhovitch et al. 2024, arXiv:2410.18252; Khatri et al. 2025,
   arXiv:2510.13786).
+* ``FlashReinforce``, ``SAO`` and ``BPCO``, the single-rollout methods:
+  one trajectory per prompt, no group to take a baseline over, so the
+  baseline is the batch mean (FlashReinforce, Hu et al. 2026) or a critic
+  (SAO, Hou et al. 2026, arXiv:2607.07508; BPCO, Qi et al. 2026,
+  arXiv:2608.23566). They are how a production trace, which comes one
+  per prompt and cannot be re-run, becomes a training signal. Each
+  object's ``update(batch)`` is the update rule itself, in plain Python,
+  so a trainer (or a test) can apply it to any batch of trajectories and
+  read what it kept and why.
 * ``prime_rl_config``, the TOML prime-rl reads, from a method object
   and a taskset.
 """
@@ -41,7 +50,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -53,6 +62,19 @@ from .simulations.defaults import (
     ASYNC_IPO_EPS,
     ASYNC_OFF_POLICY_STEPS,
     ASYNC_TIS_CAP,
+    BPCO_CLIP,
+    BPCO_CRITIC_LEARNING_RATE,
+    BPCO_CRITIC_WARMUP,
+    BPCO_GAE_ALPHA,
+    BPCO_LEARNING_RATE,
+    BPCO_MAX_TOKENS,
+    BPCO_REWARD_RANGE,
+    BPCO_TEMPERATURE,
+    FLASH_REINFORCE_LEARNING_RATE,
+    FLASH_REINFORCE_MAX_TOKENS,
+    FLASH_REINFORCE_OFF_POLICY_STEPS,
+    FLASH_REINFORCE_TEMPERATURE,
+    FLASH_REINFORCE_TRUST,
     OPD_DIVERGENCE,
     OPD_LEARNING_RATE_FULL,
     OPD_LEARNING_RATE_LORA,
@@ -78,6 +100,13 @@ from .simulations.defaults import (
     PRIME_RL_SEQ_LEN,
     PRIME_RL_STEPS,
     RL_ROLLOUTS_PER_PROMPT,
+    SAO_CRITIC_LEARNING_RATE,
+    SAO_CRITIC_STEPS,
+    SAO_GAE_ALPHA,
+    SAO_LEARNING_RATE,
+    SAO_MAX_TOKENS,
+    SAO_RATIO,
+    SAO_TEMPERATURE,
     TRAINING_LORA_ALPHA,
     TRAINING_LORA_RANK,
 )
@@ -365,7 +394,200 @@ class Async:
         return f"Async({self.method}, off_policy_steps={self.off_policy_steps}, {fix[self.correction]})"
 
 
-Method = OPD | OPSD | Async | str
+# --------------------------------------------------------------------------
+# single-rollout methods: one trajectory per prompt
+# --------------------------------------------------------------------------
+#
+# A trajectory is a plain dict, the shape a row already has:
+#   reward             float, the trajectory's scalar reward
+#   logprobs           list[float], per generated token, under the policy being trained
+#   behavior_logprobs  list[float], per token, under the policy that sampled it
+#                      (a row's ``token_logprobs``; equal to ``logprobs`` when on-policy)
+#   values             list[float], optional, the critic's value at each token (SAO, BPCO)
+#   action_mask        list[bool], optional, False on tokens the environment wrote
+#                      (tool output, observations) so they carry no gradient
+#
+# Each method's ``update(batch)`` returns an ``Update``: the per-token
+# coefficient that multiplies the gradient of the token's log-probability,
+# with the baseline, the masks, the ratios and the 1/B and 1/T factors
+# already applied. A trainer's loss is ``-(coefficient * logprob).sum()``
+# with the coefficient held constant; a test applies the same numbers to a
+# tabular softmax policy and watches the reward climb.
+
+
+@dataclass
+class Update:
+    """What one single-rollout update does to a batch, and why.
+
+    ``coefficients[i][t]`` multiplies the gradient of the log-probability
+    of token ``t`` of trajectory ``i``; ``advantages[i][t]`` is the
+    advantage before any ratio or mask; ``admitted[i]`` says whether the
+    trajectory contributed at all; ``value_targets`` is what a critic
+    trains toward, ``None`` for a critic-free method. ``stats`` holds the
+    numbers a run page shows (admitted share, masked-token share, mean
+    ratio) and ``notes`` says in words what was dropped and why.
+    """
+
+    method: str
+    coefficients: list[list[float]]
+    advantages: list[list[float]]
+    admitted: list[bool]
+    value_targets: list[list[float]] | None = None
+    stats: dict[str, float] = field(default_factory=dict)
+    notes: list[str] = field(default_factory=list)
+
+    @property
+    def n(self) -> int:
+        return len(self.coefficients)
+
+    @property
+    def n_admitted(self) -> int:
+        return sum(1 for a in self.admitted if a)
+
+    def __str__(self) -> str:
+        lines = [f"{self.method} update: {self.n_admitted} of {self.n} trajectories admitted"]
+        for k, v in self.stats.items():
+            lines.append(f"  {k.replace('_', ' ')}: {v:.4g}")
+        for note in self.notes:
+            lines.append(f"  {note}")
+        return "\n".join(lines)
+
+    def _repr_html_(self) -> str:
+        return "<pre>" + str(self).replace("<", "&lt;") + "</pre>"
+
+
+def _trajectory_fields(batch: Sequence[Mapping[str, Any]], method: str) -> None:
+    """Refuse a batch a single-rollout update cannot read, naming the row and the field."""
+    if not batch:
+        raise ValueError(f"{method}.update: the batch is empty; pass at least one trajectory")
+    for i, traj in enumerate(batch):
+        if "reward" not in traj:
+            raise ValueError(f"{method}.update: trajectory {i} has no 'reward'")
+        lp = traj.get("logprobs")
+        if not isinstance(lp, Sequence) or isinstance(lp, str) or len(lp) == 0:
+            raise ValueError(
+                f"{method}.update: trajectory {i} needs 'logprobs', one per generated token, "
+                "under the policy being trained"
+            )
+        for key in ("behavior_logprobs", "values", "action_mask"):
+            v = traj.get(key)
+            if v is not None and len(v) != len(lp):
+                raise ValueError(
+                    f"{method}.update: trajectory {i} has {len(v)} {key} for {len(lp)} logprobs; "
+                    "one per token"
+                )
+
+
+@dataclass(frozen=True)
+class FlashReinforce:
+    """Critic-free single-rollout REINFORCE with a batch-mean baseline (Hu et al. 2026).
+
+    One rollout per prompt. The advantage is the reward minus the batch
+    mean; each token is corrected by the ratio of the trained policy to
+    the policy that sampled it; a trajectory whose mean sampled-action KL
+    to that sampler is over ``trust`` is masked whole (the sequence trust
+    region); each admitted trajectory gets the same outer weight
+    regardless of length (sample-mean optimization, ``1/T``).
+    ``off_policy_steps`` is the lag the method is built to absorb.
+    """
+
+    trust: float = FLASH_REINFORCE_TRUST
+    off_policy_steps: int = FLASH_REINFORCE_OFF_POLICY_STEPS
+    temperature: float = FLASH_REINFORCE_TEMPERATURE
+    max_tokens: int = FLASH_REINFORCE_MAX_TOKENS
+    learning_rate: float | None = None
+
+    name: ClassVar[str] = "flash_reinforce"
+    samples: ClassVar[int] = 1
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError("FlashReinforce: filled in by the flash-reinforce agent")
+
+    def default_learning_rate(self, lora: bool) -> float:
+        return FLASH_REINFORCE_LEARNING_RATE
+
+    def update(self, batch: Sequence[Mapping[str, Any]]) -> Update:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class SAO:
+    """Single-rollout asynchronous optimization: a critic and a token band (Hou et al. 2026).
+
+    One rollout per prompt. A value network gives each token an advantage
+    (length-adaptive GAE, ``lambda = 1 - 1/(gae_alpha * L)``, skipping
+    tokens the environment wrote); a token whose current/rollout ratio
+    leaves ``ratio`` is masked, not clipped (direct double-sided
+    importance sampling); the critic takes ``critic_steps`` updates per
+    policy update. arXiv:2607.07508.
+    """
+
+    ratio: tuple[float, float] = SAO_RATIO
+    gae_alpha: float = SAO_GAE_ALPHA
+    critic_steps: int = SAO_CRITIC_STEPS
+    temperature: float = SAO_TEMPERATURE
+    max_tokens: int = SAO_MAX_TOKENS
+    learning_rate: float | None = None
+    critic_learning_rate: float = SAO_CRITIC_LEARNING_RATE
+
+    name: ClassVar[str] = "sao"
+    samples: ClassVar[int] = 1
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError("SAO: filled in by the sao agent")
+
+    def default_learning_rate(self, lora: bool) -> float:
+        return SAO_LEARNING_RATE
+
+    def update(self, batch: Sequence[Mapping[str, Any]]) -> Update:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class BPCO:
+    """Best practice critic optimization: a bounded critic, one response (Qi et al. 2026).
+
+    One rollout per prompt. The critic predicts inside ``reward_range``
+    through a scaled arctangent and trains toward the Monte Carlo return;
+    the policy advantage is length-adaptive GAE (``lambda = 1 - 1/(gae_alpha
+    * L)``), unnormalized; the surrogate is DPPO, a clip range of
+    ``clip / mu`` that widens for a rare token; the critic trains alone for
+    ``critic_warmup`` updates first. arXiv:2608.23566.
+    """
+
+    clip: float = BPCO_CLIP
+    gae_alpha: float = BPCO_GAE_ALPHA
+    reward_range: tuple[float, float] = BPCO_REWARD_RANGE
+    critic_warmup: int = BPCO_CRITIC_WARMUP
+    temperature: float = BPCO_TEMPERATURE
+    max_tokens: int = BPCO_MAX_TOKENS
+    learning_rate: float | None = None
+    critic_learning_rate: float = BPCO_CRITIC_LEARNING_RATE
+
+    name: ClassVar[str] = "bpco"
+    samples: ClassVar[int] = 1
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError("BPCO: filled in by the bpco agent")
+
+    def default_learning_rate(self, lora: bool) -> float:
+        return BPCO_LEARNING_RATE
+
+    def update(self, batch: Sequence[Mapping[str, Any]]) -> Update:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        raise NotImplementedError
+
+
+SingleRollout = FlashReinforce | SAO | BPCO
+Method = OPD | OPSD | Async | SingleRollout | str
 
 
 # --------------------------------------------------------------------------
@@ -580,7 +802,12 @@ def prime_rl_config(
     comments: dict[str, str] = {}
 
     outer = method
-    inner: OPD | OPSD | str = method.method if isinstance(method, Async) else method
+    inner: OPD | OPSD | SingleRollout | str = method.method if isinstance(method, Async) else method
+    if isinstance(inner, (FlashReinforce, SAO, BPCO)):
+        raise NotImplementedError(
+            f"prime_rl_config for wai.{type(inner).__name__}: the prime-rl mapping is written "
+            "by the integration agent"
+        )
     if isinstance(inner, str):
         inner = _check_choice("method", inner, PRIME_RL_ALGORITHMS)
     elif not isinstance(inner, (OPD, OPSD)):
@@ -752,14 +979,19 @@ def prime_rl_config(
 
 __all__ = [
     "ANCHORS",
+    "BPCO",
     "CORRECTIONS",
     "DIVERGENCES",
     "OPD",
     "OPSD",
     "PRIME_RL_ALGORITHMS",
     "PRIVILEGED",
+    "SAO",
     "Async",
+    "FlashReinforce",
     "Method",
     "PrimeRLConfig",
+    "SingleRollout",
+    "Update",
     "prime_rl_config",
 ]

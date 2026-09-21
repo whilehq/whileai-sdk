@@ -88,6 +88,11 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "OPD": ("whileai.methods", "OPD"),
     "OPSD": ("whileai.methods", "OPSD"),
     "Async": ("whileai.methods", "Async"),
+    # the single-rollout methods: one trajectory per prompt, the shape a
+    # production trace arrives in
+    "FlashReinforce": ("whileai.methods", "FlashReinforce"),
+    "SAO": ("whileai.methods", "SAO"),
+    "BPCO": ("whileai.methods", "BPCO"),
     "prime_rl_config": ("whileai.methods", "prime_rl_config"),
     # namespaces
     "verify": ("whileai.simulations.verify", None),
@@ -125,7 +130,7 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from . import hub
     from .auth import LoginError, account, login, logout, resolve_api_key, signup
     from .judge import Judge
-    from .methods import OPD, OPSD, Async, prime_rl_config
+    from .methods import BPCO, OPD, OPSD, SAO, Async, FlashReinforce, prime_rl_config
     from .selection import Selection, select
     from .simulations import methods, platform, simulations, verify  # type: ignore[attr-defined]
     from .simulations.data import SimulationData
