@@ -12,6 +12,7 @@ either arm.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from export_fireworks import BASE_MODEL, POLICY, RUBRIC, TOOLS
@@ -35,6 +36,8 @@ def main() -> None:
     ap.add_argument("--judge", default=None, help="judge spec; default is the judge While hosts")
     ap.add_argument("--tasks", type=int, default=TASKS)
     args = ap.parse_args()
+    if not os.environ.get("FIREWORKS_API_KEY"):
+        sys.exit("prove.py runs both arms on Fireworks: set FIREWORKS_API_KEY first")
     judge = wai.Judge(rubric=RUBRIC, model=args.judge) if args.judge else wai.Judge(rubric=RUBRIC)
 
     before = wai.simulate(
