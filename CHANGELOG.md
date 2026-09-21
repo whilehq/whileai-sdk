@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.110 (2026-09-21)
+
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,
   ok, why, `tags` such as difficulty or archetype), 500 a call, and `run.rows(behavior)` reads
   them back; the card's 20-row sample is derived when `examples=` is not given. The platform
