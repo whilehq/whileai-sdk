@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.config.requirement()`: the `pip` requirement for a container image,
+  `whileai>=<the version this process imported>`. Every recipe image now installs
+  that instead of a bare `"whileai"`, which is resolved once and cached under that
+  spelling, so a trainer built from the GRPO pattern kept a 57-release-old wheel and
+  failed on `wai.verify` with an `AttributeError` (#661). The identity and loss-mask
+  trainers now print the provenance line like every other entrypoint.
 - `anthropic:<model>` now works for the reasoning models (`claude-sonnet-5`,
   `claude-opus-5`, and the rest) that reject a sampling `temperature`: the
   backend drops the field and retries on the 400, then omits it for that model
