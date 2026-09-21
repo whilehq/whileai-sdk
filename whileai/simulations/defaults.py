@@ -1760,30 +1760,77 @@ ASYNC_TIS_CAP = 2.0
 # ---------------------------------------------------------------------
 
 # --- FlashReinforce (Hu et al. 2026, NVIDIA) ---------------------------
+# FlashREINFORCE: Critic-Free Single-Rollout Asynchronous RL for Agentic
+# Language Models (Hu, Zhang, Zhang, Xu, Zhang, Peng, Yu, Molchanov, Kautz
+# and Dong, NVIDIA, September 2026). No arXiv id as of 2026-09-21; the
+# paper is https://yifanzhang-pro.github.io/FlashREINFORCE/FlashREINFORCE.pdf,
+# the reference loss is github.com/yifanzhang-pro/FlashREINFORCE
+# (flashreinforce/loss.py) and the trainer is github.com/NVIDIA-NeMo/labs-molt.
+# Equation, section and table numbers below are that PDF's.
 
-# FLASH_REINFORCE_TRUST = 0.1: the sequence trust region. A trajectory is
-# admitted to the update when its mean sampled-action KL proxy to the
-# policy that sampled it is at most this; above it the whole trajectory
-# is masked, the drift a token-level ratio cannot correct (Hu et al.
-# 2026, FlashREINFORCE, section on the sequence trust region).
-# (convention, untested: the paper's own value is to be read off the
-# PDF and written here)
-FLASH_REINFORCE_TRUST = 0.1
+# FLASH_REINFORCE_TRUST = 0.003: the sequence trust region delta. A
+# trajectory is admitted when the mean over its action tokens of the
+# sampled-action Bernoulli KL between the policy that sampled it and the
+# policy being trained is at most delta; above it the whole trajectory is
+# masked, since a token ratio corrects the action at a stored history but
+# not the history itself (Hu et al. 2026, Eqs. 6 to 8, Sec. 3.2). The paper
+# sets no single value: 3e-3 is the reference loss's default, the
+# Qwen2.5-Math run (Table 13) and the Molt launcher's default; it rejects
+# 0.13% of trajectories and beats 1e-3 at steps 2,000 to 4,000 (Sec.
+# 4.3.3, Table 15). The Python-tool 7B and ALFWorld runs use 1e-3 (Tables
+# 11, 17), the R1-distill run caps at 5e-3 (Table 9) and the 30B MoE main
+# comparison uses 1e-2 (Table 12). math.inf turns the gate off, the
+# paper's no-trust ablation.
+FLASH_REINFORCE_TRUST = 0.003
 # FLASH_REINFORCE_OFF_POLICY_STEPS = 8: the policy lag the method is built
-# to absorb. The Qwen3-30B-A3B run trains at a lag of about eight updates
-# and beats GRPO at a lag of one (Hu et al. 2026, FlashREINFORCE); the
-# same bound ScaleRL (arXiv:2510.13786) and prime-rl default to.
+# to absorb, in optimizer steps between sampling a rollout and training on
+# it. The paper caps nothing ("no explicit cap; induced by asynchronous
+# completion", Table 13) and measures the lag instead: about 4 on
+# DeepSeek-R1-Distill-Qwen-1.5B through 6,000 updates (queue depth 8,
+# Table 9) and about 8 on Qwen3-30B-A3B through 1,450 updates (Sec. 4.2.4,
+# Table 12), the largest it reports stable; the same bound ScaleRL
+# (arXiv:2510.13786) and prime-rl default to. A trainer that takes a bound
+# reads this one.
 FLASH_REINFORCE_OFF_POLICY_STEPS = 8
-# FLASH_REINFORCE_LEARNING_RATE = 1e-6: the optimizer step on full
-# weights. (convention, untested: to be read off the paper)
+# FLASH_REINFORCE_BATCH = 128: trajectories per update, one per prompt, so
+# also the prompts per update and the B the reward mean is taken over.
+# Every reasoning and tool-use run in the paper uses 128 (Tables 9, 11, 12,
+# 13); ALFWorld uses 64 (Table 17). Each batch takes one full-batch step and
+# is discarded (Sec. 3.1; four sequential minibatches of the same data score
+# 26.8 against 28.5, Table 5).
+FLASH_REINFORCE_BATCH = 128
+# FLASH_REINFORCE_LEARNING_RATE = 1e-6: the AdamW peak step on full weights,
+# with weight decay 0.1, gradient clip 1.0, cosine decay and 3% warmup
+# (Hu et al. 2026, Tables 9, 11, 12, 13, 17; ALFWorld runs it constant).
 FLASH_REINFORCE_LEARNING_RATE = 1e-6
-# FLASH_REINFORCE_TEMPERATURE = 1.0: sample at the temperature the ratio
-# is taken at, so the behavior log-probabilities on the row are the ones
-# the correction divides by. (convention, untested)
+# FLASH_REINFORCE_LEARNING_RATE_LORA = 1e-4: the step for an adapter. The
+# paper trains full weights only; this is the adapter rate the OPD recipe
+# uses (OPD_LEARNING_RATE_LORA, tinker-cookbook's rank-128 LoRA at 1e-4).
+# (convention, untested)
+FLASH_REINFORCE_LEARNING_RATE_LORA = 1e-4
+# FLASH_REINFORCE_TEMPERATURE = 1.0: rollouts are sampled at temperature 1.0
+# and top-p 1.0 (Hu et al. 2026, Tables 9, 12, 13), so the behavior
+# log-probabilities the ratio divides by are the sampler's own. Top-k or
+# top-p truncation breaks the common-support assumption the correction
+# rests on (Sec. 2.2, "support still matters"), so the sampler is untruncated.
 FLASH_REINFORCE_TEMPERATURE = 1.0
-# FLASH_REINFORCE_MAX_TOKENS = 8192: the response cap. (convention,
-# untested: to be read off the paper)
+# FLASH_REINFORCE_MAX_TOKENS = 8192: the generated-token cap. The R1-distill
+# run allows 8,192 response tokens (Table 9), ALFWorld 8,192 across turns
+# (Table 17) and the 30B MoE 8,192 per turn (Table 12); Qwen2.5-Math uses
+# 4,096 (Table 13) and the 7B tool run 6,144 across turns (Table 11).
 FLASH_REINFORCE_MAX_TOKENS = 8192
+# FLASH_REINFORCE_LOG_RATIO_CLAMP = 30.0: the numerical guard on the
+# learner-to-behavior log-ratio before it is exponentiated. Training
+# computes the log-ratio in float32 and clamps it to [-30, 30] (Hu et al.
+# 2026, Appendix A, implementation details; Molt does the same, per the
+# reference repository's docs/training.md). It is not PPO clipping: exp(30)
+# is about 1e13, so it only keeps the ratio finite.
+FLASH_REINFORCE_LOG_RATIO_CLAMP = 30.0
+# FLASH_REINFORCE_PROBABILITY_FLOOR = 1e-6: the gate's probabilities p (the
+# sampler's) and q (the learner's) are clamped to [1e-6, 1 - 1e-6] before
+# the Bernoulli KL, so log(0) never appears; the reference loss matches
+# Molt's stabilization here and nowhere else (flashreinforce/loss.py).
+FLASH_REINFORCE_PROBABILITY_FLOOR = 1e-6
 
 # --- SAO, single-rollout asynchronous optimization (Hou et al. 2026) ---
 
@@ -1936,9 +1983,13 @@ __all__ = [
     "ENV_MAX_TURNS_FALLBACK",
     "FAULT_STATUSES",
     "FINGERPRINT_STEM_MIN_LEN",
+    "FLASH_REINFORCE_BATCH",
     "FLASH_REINFORCE_LEARNING_RATE",
+    "FLASH_REINFORCE_LEARNING_RATE_LORA",
+    "FLASH_REINFORCE_LOG_RATIO_CLAMP",
     "FLASH_REINFORCE_MAX_TOKENS",
     "FLASH_REINFORCE_OFF_POLICY_STEPS",
+    "FLASH_REINFORCE_PROBABILITY_FLOOR",
     "FLASH_REINFORCE_TEMPERATURE",
     "FLASH_REINFORCE_TRUST",
     "FLIP_FLAG",
