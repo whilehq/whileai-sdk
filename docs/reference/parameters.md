@@ -26,7 +26,7 @@ Every knob `simulate()` takes. The defaults below are checked against the code b
 | `mode` | `"explore"` | `explore`, `sft`, `rl`, `adaptive` |
 | `fault_rate` | `0.5` | Share of tool calls the mock world breaks (`0.8` under `mode="rl"`). `0` off. Alias `risk=`. A callable `agent=` that answers its own tool calls never sees one |
 | `hard_share` | from mode | Share of situations drawn from the hard tiers (adversarial, boundary, ambiguous), 0 to 1. Under `runs=N`, `search["tier_mix"]` counts every run's rows and lists `per_run` |
-| `reproducible` | `False` | Round-synchronous scheduling: same seed, same concurrency, same agent, same rows, on any CPython version (3.10 to 3.13; the draw never depends on the interpreter). Needs the clock off; `concurrency: 1` always runs this way |
+| `reproducible` | `None`: `True` unless `time_budget` is set | Round-synchronous scheduling: same seed, same agent, same rows at any concurrency, on any CPython version (3.10 to 3.13; the draw never depends on the interpreter). Runs batch by batch, so a slow rollout holds its batch; `False` trades the same task set on every machine for that throughput. A clock turns it off, since a clock stop lands wherever the run is. Measured before the default changed (0.111): three runs of one seed at the default concurrency drew three different task sets (59, 58, 58 tasks from `budget=160`); with the flag, one, in the same time |
 | `budget` | `1000` | Row cap, per run under `runs=N` (`report()["budget_per_run"]`). With `situations=N` the run stops once every situation has its rollouts (`stopped_because="situations_exhausted"`) whatever the budget still allows |
 | `time_budget` | `None` | Seconds. Off by default; `None` or `0` disables |
 | `until` | `"compute"` | `"saturation"` also stops when coverage plateaus |
@@ -50,7 +50,7 @@ What a researcher changes between runs: who plays the user and how patient they 
 
 | `advanced` key | Default | |
 |---|---|---|
-| `seed` | `0` | Reproducible draws. Bit-for-bit at `concurrency: 1` or with `reproducible=True`, within a process, across processes and across CPython versions (3.10 to 3.13); otherwise which rows land before the cap depends on thread timing |
+| `seed` | `0` | Reproducible draws. Bit-for-bit by default (`reproducible` resolves to `True` without a clock), within a process, across processes, across machines and across CPython versions (3.10 to 3.13). With `reproducible=False` or `time_budget`, which rows land before the cap depends on thread timing |
 | `concurrency` | `32` | Parallel rollouts |
 | `avg_turns` | `12` | Target conversation length in turns. The person speaks at most `avg_turns // 2` times; `12` leaves room to verify, look up, confirm, and write |
 | `max_turns` | by tool count | Hard cap on turns. `max_turns=1` is one user line and one reply, whatever the reply says: a question in the reply does not earn a second user line (#586) |

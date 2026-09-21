@@ -152,7 +152,7 @@ The full list is on [Parameters](/reference/parameters). These are the ones that
 | `timeout` | `300` | Seconds per agent completion, for `local_model` and every model spec. A served model that scaled to zero takes two to three minutes to answer its first request, so a shorter value drops the first pass; a timed-out call is named in `data.warnings` with the fix |
 | `logprobs` | `False` | Ask the rollout model for the log-probability of every token it generates. Each agent turn's step gets `logprob` and `n_tokens`, the row gets the totals. `"tokens"` keeps the per-token list. Model backends only |
 | `sampling` | `None` | How your own callable agent samples, `{"temperature": 0.7, "max_tokens": 1024, "model": "my-model"}`, recorded on every row as given. A model backend records its own and ignores this |
-| `reproducible` | `False` | Same seed, same concurrency, same agent: same rows, on any CPython version. Runs batch by batch, so uneven latency costs throughput. Needs the clock off. `concurrency: 1` always runs this way |
+| `reproducible` | `None`: `True` unless `time_budget` is set | Same seed, same agent: same rows at any concurrency, on any CPython version. Runs batch by batch, so a slow rollout holds its batch; `False` buys that throughput back at the cost of a task set that depends on thread timing. A clock turns it off |
 | `grade` | `False` | Legacy: `True` writes the deterministic conduct score at simulation time. Grade after with `data.grade(...)` instead |
 | `llm_grade` | `False` | Extra LLM judge. Needs `OPENAI_API_KEY` |
 

@@ -91,8 +91,7 @@ data = wai.simulate(
     repeat_policy="fixed",
     phrasings=4,  # four wordings of every ask
     budget=640,
-    concurrency=1,  # one rollout at a time, so the same seed writes the same file on every machine
-    seed=0,
+    seed=0,  # reproducible by default: the same seed writes the same file on every machine
 )
 scored = data.grade(judge=judge)
 
