@@ -9,6 +9,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 - README hero PNGs cropped to even padding. The canvas carried 275 px of empty
   space on the right, so the centered banner rendered off-center on GitHub.
+- `recipes/community/process-vs-outcome-reward`: `run.py` and `report_platform.py`
+  print the provenance line first, on stderr, like every other entrypoint (#615
+  landed without it and turned main red).
 - `simulate(reproducible=)` defaults to `None`, which is `True` unless `time_budget` is
   set. Before, a seeded run at the default concurrency drew a task set that depended on
   thread timing: three runs of `seed=0, budget=160` gave 59, 58 and 58 tasks and three
