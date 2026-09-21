@@ -49,6 +49,7 @@ trainer's own words.
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -67,6 +68,7 @@ from .simulations.defaults import (
     BPCO_CRITIC_WARMUP,
     BPCO_GAE_ALPHA,
     BPCO_LEARNING_RATE,
+    BPCO_LOG_RATIO_CAP,
     BPCO_MAX_TOKENS,
     BPCO_REWARD_RANGE,
     BPCO_TEMPERATURE,
@@ -75,6 +77,7 @@ from .simulations.defaults import (
     FLASH_REINFORCE_OFF_POLICY_STEPS,
     FLASH_REINFORCE_TEMPERATURE,
     FLASH_REINFORCE_TRUST,
+    MESSAGE_EXAMPLES,
     OPD_DIVERGENCE,
     OPD_LEARNING_RATE_FULL,
     OPD_LEARNING_RATE_LORA,
@@ -553,12 +556,80 @@ class SAO:
 class BPCO:
     """Best practice critic optimization: a bounded critic, one response (Qi et al. 2026).
 
-    One rollout per prompt. The critic predicts inside ``reward_range``
-    through a scaled arctangent and trains toward the Monte Carlo return;
-    the policy advantage is length-adaptive GAE (``lambda = 1 - 1/(gae_alpha
-    * L)``), unnormalized; the surrogate is DPPO, a clip range of
-    ``clip / mu`` that widens for a rare token; the critic trains alone for
-    ``critic_warmup`` updates first. arXiv:2608.23566.
+    One rollout per prompt, and a critic in place of a group. The critic
+    can only say a number inside the reward's own range, it is trained on
+    the reward the rollout actually earned, the advantage it hands the
+    policy is left at its natural scale, the credit a token gets from the
+    final reward does not fade with the length of the response, and the
+    policy step clips a token by how much its probability moved rather
+    than by how much its ratio moved. Each of those is one ablation in the
+    paper; together they let a critic-based method fit a small solvable
+    set to nearly 100% where PPO collapses, and match or beat Dr. GRPO at
+    16 samples per prompt with one (arXiv:2608.23566, figures 1 to 11).
+
+    The mechanism, per token ``t`` of a response of ``L`` generated tokens
+    with terminal reward ``R``:
+
+    * the critic's raw head output ``z`` is bounded to ``reward_range``
+      ``(R_min, R_max)`` by ``V = R_min + (R_max - R_min)(1/2 + atan(z)/pi)``
+      (equation 9; ``bound()`` and ``unbound()`` are that map and its
+      inverse). ``update`` reads the bounded ``values`` and refuses one
+      outside the range;
+    * the critic target is the Monte Carlo return, ``lambda_V = 1``,
+      ``gamma = 1``, so with the reward only at the end it telescopes to
+      ``R`` at every token (equation 11); ``value_targets`` is that. The
+      paper's critic loss is the squared error to it (equation 6; the
+      release keeps verl's clipped form with ``cliprange_value`` 0.5);
+    * the policy advantage is GAE with ``delta_t = r_t + V(s_{t+1}) - V(s_t)``,
+      ``r_t = 0`` before the last token and ``R`` at it, ``V`` past the end
+      ``0``, and the length-adaptive ``lambda_pi(L) = 1 - 1/(gae_alpha * L)``
+      (equations 3, 4 and 14), so the terminal residual's weight in the first
+      token is ``lambda^L``, near ``exp(-1/gae_alpha)`` at any length. It is
+      not normalized: no batch mean is subtracted and no standard deviation
+      divides it (section 3.4). Where ``L < 1/gae_alpha`` the formula goes
+      negative; the paper does not say, so ``lambda`` is clamped at 0 and a
+      note says so;
+    * the surrogate is DPPO, binary total variation (equation 2):
+      ``min(rho A, clip(rho, 1 - clip/mu, 1 + clip/mu) A)`` with
+      ``rho = pi(y_t|s_t) / mu(y_t|s_t)`` against the policy that sampled the
+      token (the release reuses the rollout log-probabilities as the old
+      ones) and ``mu`` that policy's probability of it. ``coefficients[i][t]``
+      is the surrogate's gradient weight: ``rho A`` where the unclipped branch
+      is the minimum, ``0`` where the clipped branch is (``A > 0`` and ``rho``
+      above the range, or ``A < 0`` and ``rho`` below it). The loss sums a
+      sequence's tokens and averages over sequences (verl's
+      ``seq-mean-token-sum``, the release's ``AGG_MODE``), so no length
+      weight enters the coefficient; the ``1/N`` is the batch mean;
+    * a token the ``action_mask`` marks as the environment's carries no
+      value, no residual and no coefficient; ``L`` counts the policy's own
+      tokens. ``critic_warmup`` is the trainer's schedule: for that many
+      updates it fits the critic on ``value_targets`` and skips the policy
+      step (section 4; the release's ``trainer.critic_warmup``).
+
+    ``stats``: ``clipped_token_share``, ``mean_ratio``, ``mean_advantage``,
+    ``mean_clip_range`` (the mean half-width ``clip/mu``), ``mean_lambda``,
+    ``admitted_share`` and, when the batch's rewards differ, the explained
+    variance of the critic against the Monte Carlo target (equation 10).
+
+    Reference: Qi, Zhou and Lee 2026, Best Practice Critic Optimization,
+    arXiv:2608.23566 (DPPO: Qi et al. 2026, arXiv:2602.04879; LA-GAE:
+    VAPO, arXiv:2504.05118, and SAO, arXiv:2607.07508; the Monte Carlo
+    target: VC-PPO, arXiv:2503.01491). The numbers behind each default are
+    in ``defaults.py`` under ``BPCO_*``.
+
+    Example, offline::
+
+        import whileai as wai
+
+        m = wai.BPCO()
+        v = [m.bound(z) for z in (-1.0, 0.0, 1.0)]        # the critic's bounded predictions
+        update = m.update([
+            {"reward": 1.0, "logprobs": [-0.5, -1.0, -0.2], "values": v},
+            {"reward": 0.0, "logprobs": [-0.7, -0.3, -0.9], "values": v},
+        ])
+        print(update)          # bpco update: 2 of 2 trajectories admitted, then the stats
+        update.coefficients    # rho * A per token; on-policy here, so rho = 1
+        update.value_targets   # [[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]]
     """
 
     clip: float = BPCO_CLIP
@@ -574,16 +645,233 @@ class BPCO:
     samples: ClassVar[int] = 1
 
     def __post_init__(self) -> None:
-        raise NotImplementedError("BPCO: filled in by the bpco agent")
+        if not 0 < float(self.clip) <= 1:
+            raise ValueError(
+                "clip is the DPPO threshold on a token's probability shift, |pi - mu| <= clip, "
+                f"in (0, 1] (BPCO_CLIP is {BPCO_CLIP}); got {self.clip}"
+            )
+        if not float(self.gae_alpha) > 0:
+            raise ValueError(
+                "gae_alpha must be positive: lambda = 1 - 1/(gae_alpha * L) "
+                f"(BPCO_GAE_ALPHA is {BPCO_GAE_ALPHA}); got {self.gae_alpha}"
+            )
+        try:
+            lo, hi = (float(x) for x in self.reward_range)
+        except (TypeError, ValueError) as e:
+            raise ValueError(
+                f"reward_range must be a pair (low, high) (BPCO_REWARD_RANGE is "
+                f"{BPCO_REWARD_RANGE}); got {self.reward_range!r}"
+            ) from e
+        if not (math.isfinite(lo) and math.isfinite(hi) and lo < hi):
+            raise ValueError(
+                "reward_range must be finite with low < high; the critic predicts inside it "
+                f"(BPCO_REWARD_RANGE is {BPCO_REWARD_RANGE}); got {self.reward_range}"
+            )
+        object.__setattr__(self, "reward_range", (lo, hi))
+        if int(self.critic_warmup) < 0 or int(self.critic_warmup) != self.critic_warmup:
+            raise ValueError(
+                "critic_warmup is a count of updates, 0 or more "
+                f"(BPCO_CRITIC_WARMUP is {BPCO_CRITIC_WARMUP}); got {self.critic_warmup}"
+            )
+        if not 0 < float(self.temperature) <= 2:  # noqa: PLR2004  # the sampler's range
+            raise ValueError(f"temperature must be in (0, 2]; got {self.temperature}")
+        if int(self.max_tokens) < 1:
+            raise ValueError(f"max_tokens must be positive; got {self.max_tokens}")
+        if self.learning_rate is not None and not float(self.learning_rate) > 0:
+            raise ValueError(
+                f"learning_rate must be positive, or None for BPCO_LEARNING_RATE "
+                f"({BPCO_LEARNING_RATE}); got {self.learning_rate}"
+            )
+        if not float(self.critic_learning_rate) > 0:
+            raise ValueError(
+                "critic_learning_rate must be positive (BPCO_CRITIC_LEARNING_RATE is "
+                f"{BPCO_CRITIC_LEARNING_RATE}); got {self.critic_learning_rate}"
+            )
 
     def default_learning_rate(self, lora: bool) -> float:
+        """The policy step: ``learning_rate`` if set, else ``BPCO_LEARNING_RATE``
+        (the paper trains full weights and gives no adapter rate)."""
+        if self.learning_rate is not None:
+            return float(self.learning_rate)
         return BPCO_LEARNING_RATE
 
+    def bound(self, z: float) -> float:
+        """The critic's raw head output mapped into ``reward_range``:
+        ``R_min + (R_max - R_min)(1/2 + atan(z)/pi)`` (equation 9). Every
+        finite ``z`` lands strictly inside the range; ``0`` at the midpoint."""
+        lo, hi = self.reward_range
+        return lo + (hi - lo) * (math.atan(float(z)) / math.pi + 1 / 2)
+
+    def unbound(self, v: float) -> float:
+        """The inverse of ``bound``: the head output that predicts ``v``.
+        Refuses a value at or past an end of the range, which no finite output reaches."""
+        lo, hi = self.reward_range
+        v = float(v)
+        if not lo < v < hi:
+            raise ValueError(
+                f"unbound({v}): bound() maps onto the open interval ({lo}, {hi}), so a value "
+                "at or past an end has no finite head output"
+            )
+        return math.tan(math.pi * ((v - lo) / (hi - lo) - 1 / 2))
+
     def update(self, batch: Sequence[Mapping[str, Any]]) -> Update:
-        raise NotImplementedError
+        """LA-GAE advantages, DPPO coefficients and Monte Carlo value targets
+        for a batch of trajectories, per the class docstring.
+
+        Each trajectory is a mapping with ``reward`` (terminal), ``logprobs``
+        (one per generated token, under the policy being trained),
+        ``values`` (the critic's bounded prediction at each token, required),
+        and optionally ``behavior_logprobs`` (under the policy that sampled
+        the token; absent means on-policy, ratio 1) and ``action_mask`` (1
+        for the policy's tokens, 0 for the environment's).
+        """
+        _trajectory_fields(batch, self.name)
+        lo, hi = self.reward_range
+        coefficients: list[list[float]] = []
+        advantages: list[list[float]] = []
+        admitted: list[bool] = []
+        targets: list[list[float]] = []
+        n_action = n_clipped = 0
+        sum_ratio = sum_adv = sum_range = sum_lambda = 0.0
+        short: list[int] = []
+        masked_out: list[int] = []
+        pairs: list[tuple[float, float]] = []  # (reward, value) per action token, for EV
+        for i, traj in enumerate(batch):
+            lp = [float(x) for x in traj["logprobs"]]
+            n = len(lp)
+            raw_values = traj.get("values")
+            if raw_values is None:
+                raise ValueError(
+                    f"{self.name}.update: trajectory {i} has no 'values'. BPCO is critic-based: "
+                    "pass the critic's bounded prediction at every token, "
+                    "values=[m.bound(z) for z in head_outputs]"
+                )
+            values = [float(v) for v in raw_values]
+            for t, v in enumerate(values):
+                if not lo <= v <= hi:
+                    raise ValueError(
+                        f"{self.name}.update: trajectory {i} value {v} at token {t} is outside "
+                        f"reward_range {self.reward_range}; the critic predicts through bound(): "
+                        "values=[m.bound(z) for z in head_outputs]"
+                    )
+            behavior = traj.get("behavior_logprobs")
+            mu_lp = lp if behavior is None else [float(x) for x in behavior]
+            raw_mask = traj.get("action_mask")
+            mask = [1] * n if raw_mask is None else [1 if m else 0 for m in raw_mask]
+            reward = float(traj["reward"])
+            length = sum(mask)
+            targets.append([reward] * n)
+            if length == 0:
+                masked_out.append(i)
+                admitted.append(False)
+                coefficients.append([0.0] * n)
+                advantages.append([0.0] * n)
+                continue
+            lam = 1 - 1 / (float(self.gae_alpha) * length)
+            if lam < 0:
+                lam = 0.0
+                short.append(i)
+            last_action = max(t for t in range(n) if mask[t])
+            adv = [0.0] * n
+            next_value = 0.0
+            last_gae = 0.0
+            for t in range(n - 1, -1, -1):
+                if not mask[t]:
+                    continue
+                r_t = reward if t == last_action else 0.0
+                delta = r_t + next_value - values[t]
+                last_gae = delta + lam * last_gae
+                next_value = values[t]
+                adv[t] = last_gae
+            coef = [0.0] * n
+            cap = float(BPCO_LOG_RATIO_CAP)
+            for t in range(n):
+                if not mask[t]:
+                    continue
+                log_ratio = min(cap, max(-cap, lp[t] - mu_lp[t]))
+                ratio = math.exp(log_ratio)
+                mu = math.exp(mu_lp[t])
+                half = float(self.clip) / mu if mu > 0 else math.inf
+                a = adv[t]
+                if a > 0:
+                    active = ratio <= 1 + half
+                elif a < 0:
+                    active = ratio >= 1 - half
+                else:
+                    active = True
+                coef[t] = ratio * a if active else 0.0
+                n_action += 1
+                n_clipped += 0 if active else 1
+                sum_ratio += ratio
+                sum_adv += a
+                sum_range += half
+                pairs.append((reward, values[t]))
+            sum_lambda += lam
+            coefficients.append(coef)
+            advantages.append(adv)
+            admitted.append(True)
+        n_admitted = sum(1 for a in admitted if a)
+        stats: dict[str, float] = {"admitted_share": n_admitted / len(batch)}
+        notes: list[str] = []
+        if n_action:
+            stats["clipped_token_share"] = n_clipped / n_action
+            stats["mean_ratio"] = sum_ratio / n_action
+            stats["mean_advantage"] = sum_adv / n_action
+            stats["mean_clip_range"] = sum_range / n_action
+            stats["mean_lambda"] = sum_lambda / n_admitted
+        ev = _explained_variance(pairs)
+        if ev is None:
+            notes.append(
+                "explained variance not computed: it needs rewards that differ across the batch "
+                "(equation 10 divides by their variance); pass a batch with both outcomes"
+            )
+        else:
+            stats["explained_variance"] = ev
+        if masked_out:
+            notes.append(
+                f"{len(masked_out)} of {len(batch)} trajectories have every token masked "
+                f"(action_mask all 0) and were not admitted: {masked_out[:MESSAGE_EXAMPLES]}"
+            )
+        if short:
+            floor = 1 / float(self.gae_alpha)
+            notes.append(
+                f"{len(short)} trajectories are shorter than 1/gae_alpha = {floor:.3g} tokens, "
+                "where lambda = 1 - 1/(gae_alpha * L) goes negative; clamped at 0 (one-step "
+                "TD), which the paper leaves unspecified"
+            )
+        return Update(
+            method=self.name,
+            coefficients=coefficients,
+            advantages=advantages,
+            admitted=admitted,
+            value_targets=targets,
+            stats=stats,
+            notes=notes,
+        )
 
     def __str__(self) -> str:
-        raise NotImplementedError
+        return (
+            f"BPCO(clip={self.clip}, gae_alpha={self.gae_alpha}, reward_range={self.reward_range}, "
+            f"critic_warmup={self.critic_warmup}, temperature={self.temperature}, "
+            f"max_tokens={self.max_tokens}, lr={self.default_learning_rate(lora=False)}, "
+            f"critic_lr={self.critic_learning_rate})"
+        )
+
+
+def _explained_variance(pairs: Sequence[tuple[float, float]]) -> float | None:
+    """``1 - Var(R - V) / Var(R)`` over tokens (arXiv:2608.23566, equation 10);
+    None when the rewards do not vary."""
+    if not pairs:
+        return None
+    n = len(pairs)
+    mean_r = sum(r for r, _ in pairs) / n
+    var_r = sum((r - mean_r) ** 2 for r, _ in pairs) / n
+    if var_r <= 0:
+        return None
+    errs = [r - v for r, v in pairs]
+    mean_e = sum(errs) / n
+    var_e = sum((e - mean_e) ** 2 for e in errs) / n
+    return 1 - var_e / var_r
 
 
 SingleRollout = FlashReinforce | SAO | BPCO

@@ -1813,34 +1813,65 @@ SAO_TEMPERATURE = 1.0
 SAO_MAX_TOKENS = 8192
 
 # --- BPCO, best practice critic optimization (Qi et al. 2026) ----------
+# Two sources, named per constant: the paper (Qi, Zhou and Lee 2026,
+# arXiv:2608.23566; equations and sections cited as printed) and its code
+# release, a verl fork at github.com/QPHutu/golden_critic (the BPCO scripts
+# under examples/dppo_trainer/ and verl/trainer/ppo/core_algos.py). A
+# number the paper does not print is read off the release and says so.
 
-# BPCO_CLIP = 0.2: the DPPO clip epsilon. The clip range on the ratio is
-# eps divided by the behavior probability of the token, so a rare token
-# gets a wider range (Qi et al. 2026, arXiv:2608.23566). (convention,
-# untested: the paper's own value is to be read off the PDF)
+# BPCO_CLIP = 0.2: the DPPO threshold epsilon on the sampled token's
+# probability shift, |pi - mu| <= eps, which the ratio surrogate writes as
+# a clip range of 1 -/+ eps/mu that widens for a rare token (Qi et al.
+# 2026, arXiv:2608.23566, equation 2, the binary total-variation DPPO of
+# arXiv:2602.04879). The paper prints no value; the release, which drew
+# the paper's curves, trains dppo_tv at verl's clip_ratio default of 0.2
+# (the BPCO scripts leave it unset; DPPO's own script uses 0.15).
 BPCO_CLIP = 0.2
 # BPCO_GAE_ALPHA = 0.4: length-adaptive GAE for the policy advantage,
-# lambda_pi = 1 - 1/(alpha * L) (Qi et al. 2026, arXiv:2608.23566); the
-# critic's own target is Monte Carlo, lambda_V = 1.
+# lambda_pi(L) = 1 - 1/(alpha * L) over the L generated tokens, so the
+# terminal reward's weight in the first token stays near exp(-1/alpha)
+# at any length (Qi et al. 2026, arXiv:2608.23566, equation 14; section
+# 3.6: 0.4 fit the sanity set faster than lambda = 1 and held AIME 2025
+# where a fixed 0.99 declined; release: LAM=0.4 with adv_estimator=lagae).
+# The critic's own target uses lambda_V = 1 and gamma = 1 (equation 11).
 BPCO_GAE_ALPHA = 0.4
 # BPCO_REWARD_RANGE = (0.0, 1.0): the interval the critic's prediction is
 # bounded to through a scaled arctangent, R_min + (R_max - R_min)(1/2 +
-# atan(z)/pi) (Qi et al. 2026, arXiv:2608.23566); a 0/1 outcome reward
-# lives on this interval (PASS_REWARD).
+# atan(z)/pi) (Qi et al. 2026, arXiv:2608.23566, equation 9). The paper's
+# rewards are binary, so R_min = 0 and R_max = 1 (section 3.2), and the
+# release's value head hardcodes (0, 1); a 0/1 outcome reward here lives
+# on the same interval (PASS_REWARD).
 BPCO_REWARD_RANGE = (0.0, 1.0)
-# BPCO_CRITIC_WARMUP = 15: policy updates the critic trains alone before
-# the policy moves (Qi et al. 2026, arXiv:2608.23566).
+# BPCO_CRITIC_WARMUP = 15: updates the critic trains alone before the
+# policy moves, for every critic-based run of the broader evaluation (Qi
+# et al. 2026, arXiv:2608.23566, section 4; release:
+# trainer.critic_warmup=15). The 1,460-problem sanity test (section 3)
+# saw no benefit from warm-up and ran with 0.
 BPCO_CRITIC_WARMUP = 15
 # BPCO_LEARNING_RATE = 1e-6 / BPCO_CRITIC_LEARNING_RATE = 1e-5: the policy
-# and critic optimizer steps (Qi et al. 2026, arXiv:2608.23566).
+# and critic optimizer steps, verl's defaults, which the paper adopts
+# (Qi et al. 2026, arXiv:2608.23566, section 3; release: ACTOR_LR and
+# CRITIC_LR in run_sanity_test.sh). Full weights; the paper trains no
+# adapter. The release's DeepScaleR and 30B-A3B scripts lower the critic
+# to 5e-6, which the paper does not print.
 BPCO_LEARNING_RATE = 1e-6
 BPCO_CRITIC_LEARNING_RATE = 1e-5
-# BPCO_TEMPERATURE = 1.0: sample at the temperature the ratio is taken at.
-# (convention, untested)
+# BPCO_TEMPERATURE = 1.0: the sampling temperature. The paper does not
+# print one; the release samples at verl's rollout default of 1.0 and
+# validates at 1.0 (val_kwargs.temperature). (convention, untested: the
+# paper never varies it)
 BPCO_TEMPERATURE = 1.0
-# BPCO_MAX_TOKENS = 8192: the response cap. (convention, untested: to be
-# read off the paper)
-BPCO_MAX_TOKENS = 8192
+# BPCO_MAX_TOKENS = 12000: the response cap, the shortest the paper prints:
+# 12,000 tokens for Qwen3-30B-A3B on DAPO-Math-17K (Qi et al. 2026,
+# arXiv:2608.23566, section 4.2). The DeepScaleR runs allow 24,000
+# (section 4.1) and the release's sanity test 8,096.
+BPCO_MAX_TOKENS = 12000
+# BPCO_LOG_RATIO_CAP = 20.0: the log of the policy/behavior ratio is
+# clamped to [-cap, cap] before it is exponentiated, so a token whose
+# probability collapsed under the update cannot overflow the ratio
+# (release: compute_policy_loss_dppo_tv clamps at 20; exp(20) is 4.9e8,
+# past any range DPPO keeps). Not in the paper. (convention, untested)
+BPCO_LOG_RATIO_CAP = 20.0
 
 # PRIME_RL_GPUS = 2: the fewest GPUs a prime-rl run takes. It runs the
 # inference engine and the trainer as separate processes on separate
@@ -1893,6 +1924,7 @@ __all__ = [
     "BPCO_CRITIC_WARMUP",
     "BPCO_GAE_ALPHA",
     "BPCO_LEARNING_RATE",
+    "BPCO_LOG_RATIO_CAP",
     "BPCO_MAX_TOKENS",
     "BPCO_REWARD_RANGE",
     "BPCO_TEMPERATURE",
