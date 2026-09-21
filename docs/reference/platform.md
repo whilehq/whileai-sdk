@@ -409,6 +409,9 @@ run.finish(hours=2.1, cost_usd=31, record={"optimizer": {"loss_type": "dapo", "l
 **What it costs to run.** `record={"eval": {"cost_per_1k": 3.01, "cost_basis": "list price $2/$10 per M tokens, no caching"}}` is what this version cost to answer 1,000 of the test's tasks, in USD, as run, with one sentence on how it was counted. The experiment page draws held-out score against this cost; `cost_usd` on `finish()` is the training bill, a different number.
 
 ```python
+from whileai.platform import track
+
+run = track("refund-bot").open("run_7f3a")
 run.finish(
     record={
         "eval": {
