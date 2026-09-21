@@ -7,6 +7,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Docs: a subdomain of your own on the hosted endpoint (`PUT /domain`), `<slug>.models.withwhile.com`.
 - Docs: serve a registered model from `https://models.withwhile.com/v1` (a Bedrock import in
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
   no SDK change; how to register one and the cross-account role shape. The Bedrock import
