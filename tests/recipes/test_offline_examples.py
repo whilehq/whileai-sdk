@@ -33,6 +33,7 @@ CLI_EXAMPLES = [
     "03-select/character/measure.py",
     "03-select/character/run.py",
     "05-export/hugging-face/roundtrip.py",
+    "05-export/bedrock-import/compare.py",
     "04-train/identity/generate.py",
     "02-measure/pass-at-k/measure.py",
     "02-measure/public-benchmark/run.py",
@@ -73,6 +74,9 @@ CLI_EXAMPLES = [
 NEEDS_MODAL = {
     "04-train/dpo/train_modal.py",
     "04-train/grpo/train_modal.py",
+    "05-export/bedrock-import/merge_upload.py",
+    # boto3 is the ``whileai[bedrock]`` extra, not a dev dependency; compiled, not run
+    "05-export/bedrock-import/presign.py",
     "04-train/sft/train_modal.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",

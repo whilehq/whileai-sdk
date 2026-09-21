@@ -8,9 +8,13 @@ cross-region inference profile (``us.anthropic.claude-sonnet-5``) or the ARN
 of a model you imported yourself (``arn:aws:bedrock:...:imported-model/...``),
 which is how a trained adapter, merged into its base, is served on AWS.
 
-Every call goes to the Converse API, the one request shape Bedrock offers
-for every chat model it hosts. The translation happens at the boundary, so
-nothing downstream learns a second message format:
+A foundation model or inference profile is called through the Converse API,
+the one request shape Bedrock offers for every chat model it hosts. A model
+you imported (``...:imported-model/...``) refuses Converse and answers
+``InvokeModel`` with an OpenAI chat-completion body, so that ARN takes the
+second route: the engine's own OpenAI-shaped history goes out as is and the
+reply comes back as one. The Converse translation happens at the boundary,
+so nothing downstream learns a second message format:
 
 * the OpenAI history becomes a Converse ``system`` list plus ``user`` /
   ``assistant`` turns of ``text``, ``toolUse`` and ``toolResult`` blocks,
@@ -68,6 +72,21 @@ REGION_ENVS = ("AWS_REGION", "AWS_DEFAULT_REGION")
 # family on the same account tier; the ``us.`` profile is what on-demand
 # Anthropic models are invoked through in the US regions.
 DEFAULT_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+# IMPORTED_MARKER: the ARN fragment that says a model came through Custom
+# Model Import. Bedrock answers those through InvokeModel with the OpenAI
+# chat-completion schema (models imported after 2025-11-11) and refuses
+# Converse for them ("This action doesn't support the model that you
+# provided", measured on a Llama 3.1 8B import 2026-09-20).
+IMPORTED_MARKER = ":imported-model/"
+# IMPORTED_RESTORE_TRIES = 10: an idle import is unloaded and the first call
+# starts restoring it, answering ModelNotReadyException until it is back. AWS
+# documents configuring up to 10 retries for this; the restore of a 2-unit
+# Llama 3.1 8B import took 96 s on 2026-09-20.
+IMPORTED_RESTORE_TRIES = 10
+# IMPORTED_RESTORE_WAIT_S = 15: the sleep between those retries on the
+# bearer path, so ten tries cover the measured restore with margin
+# (convention, one measurement).
+IMPORTED_RESTORE_WAIT_S = 15.0
 KEY_ENV = "AWS_BEARER_TOKEN_BEDROCK"
 OVERRIDE_ENV = "WHILEAI_AWS_BEARER_TOKEN_BEDROCK"
 INSTALL_HINT = 'pip install "whileai[bedrock]"'
@@ -155,6 +174,11 @@ def region_of(url: str) -> str:
         raw = "https://" + raw
     host = (urlparse(raw).hostname or "").lower()
     return host[len(HOST_PREFIX) : -len(HOST_SUFFIX)] if is_bedrock_url(raw) else ""
+
+
+def is_imported_model(model: str) -> bool:
+    """True for the ARN of a model that came through Custom Model Import."""
+    return IMPORTED_MARKER in str(model or "")
 
 
 def resolve_key(api_key: str | None = None) -> str:
@@ -329,6 +353,83 @@ def reply_from_response(data: Mapping[str, Any]) -> dict:
     return reply
 
 
+# --- imported models: the OpenAI chat-completion body ------------------------
+
+
+def wire_openai_tools(tools: list[dict] | None) -> list[dict]:
+    """OpenAI-enveloped tool definitions from either shape the SDK accepts."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                k: v
+                for k, v in (
+                    ("name", t["name"]),
+                    ("description", t.get("description")),
+                    ("parameters", t["input_schema"]),
+                )
+                if v is not None
+            },
+        }
+        for t in wire_tools(tools)
+    ]
+
+
+def build_invoke_request(
+    messages: list[dict],
+    *,
+    tools: list[dict] | None,
+    temperature: float,
+    max_tokens: int,
+    extra: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """The InvokeModel body for an imported model: the OpenAI chat request the
+    engine already speaks, minus local-only keys. Tool calling is Bedrock's
+    to honor (GPT-OSS imports do; others ignore the field)."""
+    body: dict[str, Any] = {
+        "messages": [
+            {
+                k: v
+                for k, v in dict(m).items()
+                if k in ("role", "content", "tool_calls", "tool_call_id", "name")
+            }
+            for m in messages
+        ],
+        "max_tokens": max(1, int(max_tokens)),
+        "temperature": max(0.0, float(temperature)),
+    }
+    wired = wire_openai_tools(tools)
+    if wired:
+        body["tools"] = wired
+    if extra:
+        for key in ("top_p", "stop"):
+            if key in extra and extra[key] is not None:
+                body[key] = extra[key]
+    return body
+
+
+def reply_from_openai(data: Mapping[str, Any]) -> dict:
+    """An OpenAI-shaped assistant message from an InvokeModel chat completion."""
+    choices = data.get("choices") or []
+    if not choices:
+        raise RuntimeError(f"Bedrock returned no choices: {json.dumps(data)[:300]}")
+    message = dict(choices[0].get("message") or {})
+    reply: dict[str, Any] = {"role": "assistant", "content": message.get("content") or None}
+    calls = message.get("tool_calls")
+    if calls:
+        reply["tool_calls"] = calls
+    finish = choices[0].get("finish_reason")
+    if finish:
+        reply["_finish_reason"] = str(finish)
+    usage = data.get("usage")
+    if isinstance(usage, dict):
+        reply["_usage"] = {
+            "input_tokens": int(usage.get("prompt_tokens") or 0),
+            "output_tokens": int(usage.get("completion_tokens") or 0),
+        }
+    return reply
+
+
 # --- errors -----------------------------------------------------------------
 
 
@@ -434,11 +535,53 @@ def _one_bearer_call(
     )
 
 
-_clients: dict[tuple[str, float], Any] = {}
+def invoke_url(url: str, model: str) -> str:
+    """``POST /model/{modelId}/invoke``, the route an imported model answers on."""
+    root = str(url).rstrip("/")
+    if "://" not in root:
+        root = "https://" + root
+    return f"{root}/model/{quote(model, safe='')}/invoke"
+
+
+def _one_bearer_invoke(
+    url: str, body: dict[str, Any], token: str, *, model: str, timeout: float
+) -> dict:
+    """One InvokeModel call over HTTPS with a Bedrock API key. A model being
+    restored after idling is waited for, then the usual transient retries."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "content-type": "application/json",
+        "accept": "application/json",
+    }
+    transient = 0
+    restoring = 0
+    for _ in range(IMPORTED_RESTORE_TRIES + 8):
+        response = requests.post(url, headers=headers, json=body, timeout=timeout)
+        status = int(response.status_code)
+        if status < HTTPStatus.BAD_REQUEST:
+            return reply_from_openai(response.json())
+        name, detail = _error_parts(response.text or "")
+        if name == "ModelNotReadyException" and restoring < IMPORTED_RESTORE_TRIES:
+            time.sleep(IMPORTED_RESTORE_WAIT_S)
+            restoring += 1
+            continue
+        if (
+            name in _TRANSIENT_ERRORS
+            or status == HTTPStatus.TOO_MANY_REQUESTS
+            or status >= HTTPStatus.INTERNAL_SERVER_ERROR
+        ) and transient < TRANSIENT_TRIES:
+            time.sleep(_retry_after(response.headers, transient))
+            transient += 1
+            continue
+        _raise_for_status(status, name, detail, model, tries=restoring + transient + 1)
+    raise RuntimeError(f"Bedrock never accepted the request for {model}.")
+
+
+_clients: dict[tuple[str, float, int], Any] = {}
 _clients_lock = threading.Lock()
 
 
-def _make_client(region: str, timeout: float) -> Any:
+def _make_client(region: str, timeout: float, tries: int = TRANSIENT_TRIES + 1) -> Any:
     """A ``bedrock-runtime`` client that signs with the AWS credential chain.
     Tests replace this function; nothing else constructs a client."""
     try:
@@ -454,23 +597,50 @@ def _make_client(region: str, timeout: float) -> Any:
         "bedrock-runtime",
         region_name=region,
         config=Config(
-            # botocore's own retry loop covers throttling and ModelNotReady;
-            # one more attempt than the requests path's TRANSIENT_TRIES, so
-            # both paths give up after the same number of tries.
-            retries={"max_attempts": TRANSIENT_TRIES + 1, "mode": "adaptive"},
+            # botocore's own retry loop covers throttling and ModelNotReady:
+            # one more attempt than the requests path's TRANSIENT_TRIES for a
+            # hosted model, IMPORTED_RESTORE_TRIES for an import being restored.
+            retries={"max_attempts": tries, "mode": "adaptive"},
             read_timeout=timeout,
             connect_timeout=timeout,
         ),
     )
 
 
-def _client(region: str, timeout: float) -> Any:
-    key = (region, float(timeout))
+def _client(region: str, timeout: float, tries: int = TRANSIENT_TRIES + 1) -> Any:
+    key = (region, float(timeout), int(tries))
     with _clients_lock:
         client = _clients.get(key)
         if client is None:
-            client = _clients[key] = _make_client(region, timeout)
+            client = _clients[key] = _make_client(region, timeout, tries)
         return client
+
+
+def _one_signed_invoke(region: str, body: dict[str, Any], *, model: str, timeout: float) -> dict:
+    """One InvokeModel call through boto3, errors mapped to the same sentences."""
+    client = _client(region, timeout, IMPORTED_RESTORE_TRIES)
+    try:
+        response = client.invoke_model(
+            modelId=model,
+            body=json.dumps(body),
+            accept="application/json",
+            contentType="application/json",
+        )
+        raw = response["body"]
+        payload = raw.read() if hasattr(raw, "read") else raw
+        return reply_from_openai(json.loads(payload))
+    except Exception as exc:
+        response_meta = getattr(exc, "response", None)
+        if not isinstance(response_meta, dict):
+            raise
+        error = response_meta.get("Error") or {}
+        status = int((response_meta.get("ResponseMetadata") or {}).get("HTTPStatusCode") or 0)
+        name = str(error.get("Code") or type(exc).__name__)
+        detail = str(error.get("Message") or exc)[:300]
+        _raise_for_status(
+            status or HTTPStatus.BAD_REQUEST, name, detail, model, tries=IMPORTED_RESTORE_TRIES
+        )
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 def _one_signed_call(region: str, body: dict[str, Any], *, model: str, timeout: float) -> dict:
@@ -516,7 +686,9 @@ def complete(
 ) -> dict:
     """Converse with ``model`` and return the reply in the OpenAI message shape.
 
-    A bearer token (``api_key=`` or ``AWS_BEARER_TOKEN_BEDROCK``) goes over
+    The ARN of an imported model goes to InvokeModel with the OpenAI
+    chat-completion body instead, because Bedrock refuses Converse for it;
+    the reply is already in the engine's shape. A bearer token (``api_key=`` or ``AWS_BEARER_TOKEN_BEDROCK``) goes over
     ``requests``; without one the call is signed by boto3 from the AWS
     credential chain. ``n>1`` has no Converse equivalent, so it becomes that
     many calls; the first is the return value and the rest land on ``_all``,
@@ -525,14 +697,33 @@ def complete(
     auth_err = missing_key(api_key)
     if auth_err:
         raise RuntimeError(auth_err)
+    token = resolve_key(api_key)
+    region = region_of(base_url) or region_from_env()
+    samples = max(1, min(MAX_SAMPLES_PER_CALL, int(n)))
+    replies = []
+    if is_imported_model(model):
+        body = build_invoke_request(
+            messages, tools=tools, temperature=temperature, max_tokens=max_tokens, extra=extra
+        )
+        url = invoke_url(base_url, model)
+        for _ in range(samples):
+            request = json.loads(json.dumps(body))
+            if token:
+                replies.append(
+                    _one_bearer_invoke(url, request, token, model=model, timeout=timeout)
+                )
+            else:
+                replies.append(_one_signed_invoke(region, request, model=model, timeout=timeout))
+        first = replies[0]
+        if len(replies) > 1:
+            first["_all"] = [
+                {k: v for k, v in r.items() if not str(k).startswith("_")} for r in replies
+            ]
+        return first
     body = build_request(
         messages, tools=tools, temperature=temperature, max_tokens=max_tokens, extra=extra
     )
-    token = resolve_key(api_key)
-    region = region_of(base_url) or region_from_env()
     url = converse_url(base_url, model)
-    samples = max(1, min(MAX_SAMPLES_PER_CALL, int(n)))
-    replies = []
     for _ in range(samples):
         request = json.loads(json.dumps(body))  # each call walks its own maxTokens down
         if token:
@@ -550,20 +741,27 @@ def complete(
 __all__ = [
     "DEFAULT_MODEL",
     "DEFAULT_REGION",
+    "IMPORTED_RESTORE_TRIES",
+    "IMPORTED_RESTORE_WAIT_S",
     "KEY_ENV",
     "MISSING_BEDROCK_CREDENTIALS",
     "base_url",
+    "build_invoke_request",
     "build_request",
     "complete",
     "converse_url",
     "has_aws_credentials",
+    "invoke_url",
     "is_bedrock_url",
+    "is_imported_model",
     "missing_key",
     "parse_spec_rest",
     "region_from_env",
     "region_of",
+    "reply_from_openai",
     "reply_from_response",
     "resolve_key",
     "wire_messages",
+    "wire_openai_tools",
     "wire_tool_config",
 ]

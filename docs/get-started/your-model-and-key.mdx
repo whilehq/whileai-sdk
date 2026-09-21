@@ -114,13 +114,18 @@ served = "bedrock:arn:aws:bedrock:us-east-1:123456789012:imported-model/abc123de
 after = wai.simulate(served, tools=TOOLS, system_prompt=POLICY, seed=0)
 ```
 
-Two facts about imported models, from the AWS docs: the import takes
-merged weights in the Hugging Face layout (a LoRA adapter is merged into
-its base first, then uploaded to S3), and an idle import is unloaded, so
-the first call after a pause can take minutes and returns
-`ModelNotReadyException` until it is back; the SDK retries and then
-says so in one sentence. Converse returns no log-probabilities, so
-`logprobs=` has no effect on this route.
+Three facts about imported models, measured on 2026-09-20 with a Llama 3.1
+8B adapter: the import takes merged weights in the Hugging Face layout (a
+LoRA adapter is merged into its base first, then uploaded to S3; the
+[Bedrock import recipe](/recipes/05-export/bedrock-import) does it on
+Modal); Bedrock refuses Converse for an imported model and answers
+`InvokeModel` with the OpenAI chat body instead, so the SDK picks that
+route from the ARN and you change nothing; and an idle import is
+unloaded, so the first call after a pause took 96 s and returns
+`ModelNotReadyException` until it is back, which the SDK waits through
+(ten tries, fifteen seconds apart) before saying so in one sentence.
+Neither route returns log-probabilities, so `logprobs=` has no effect.
+Bedrock honors tool calling on imports only for GPT-OSS models.
 
 ## Tools are functions
 

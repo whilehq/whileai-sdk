@@ -119,6 +119,7 @@ platform.
 | Recipe | What you learn | Needs | Takes | Costs |
 |---|---|---|---|---|
 | [`hugging-face`](05-export/hugging-face) | rows to a Hub dataset repo (one split per purpose, commit tagged by dataset id), any Hub split onto the account with a profile, a run's adapter to a model repo | `WHILEAI_API_KEY` and a Hugging Face account connected on the platform | a minute | free; platform calls, no GPU |
+| [`bedrock-import`](05-export/bedrock-import) | merge a LoRA adapter on Modal, import the weights into your AWS account with Bedrock Custom Model Import, measure the served model on the same held-out tasks as the vLLM run; a paired interval says the weights survived the move | a Modal account and AWS credentials | twenty minutes | Modal CPU minutes; Bedrock bills per Custom Model Unit while serving |
 
 ## papers
 
