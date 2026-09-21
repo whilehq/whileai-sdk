@@ -1786,31 +1786,65 @@ FLASH_REINFORCE_TEMPERATURE = 1.0
 FLASH_REINFORCE_MAX_TOKENS = 8192
 
 # --- SAO, single-rollout asynchronous optimization (Hou et al. 2026) ---
+# Every number below is read off Hou, Li, Tang and Dong 2026,
+# arXiv:2607.07508, section 4.1 unless the comment says otherwise; the
+# paper releases no code, so the paper is the only source.
 
-# SAO_RATIO = (0.7, 6.0): the token band of direct double-sided importance
-# sampling, 1 - eps_low to 1 + eps_high. A token whose current/rollout
-# probability ratio leaves the band is masked, not clipped (Hou et al.
-# 2026, arXiv:2607.07508: eps_low 0.3 and eps_high 5.0 for reasoning;
-# 0.8 and 3.0, the band (0.2, 4.0), for coding).
+# SAO_RATIO = (0.7, 6.0) / SAO_RATIO_CODING = (0.2, 4.0): the token band
+# of direct double-sided importance sampling, (1 - eps_low, 1 + eps_high).
+# A token whose current/rollout probability ratio leaves the band is
+# masked to zero, not clipped, whichever sign its advantage has (Hou et
+# al. 2026, arXiv:2607.07508, section 3.1, eq. 3). The reasoning-with-
+# Python run trains at eps_low 0.3 and eps_high 5.0; the SWE-Bench coding
+# run at eps_low 0.8 and eps_high 3.0 with every other knob the same
+# (section 4.1).
 SAO_RATIO = (0.7, 6.0)
-# SAO_GAE_ALPHA = 1.5: length-adaptive GAE, lambda = 1 - 1/(alpha * L)
-# for a response of L tokens, so the weight on the terminal reward stays
-# about exp(-1/alpha) whatever the length (Hou et al. 2026,
-# arXiv:2607.07508).
+SAO_RATIO_CODING = (0.2, 4.0)
+# SAO_GAE_ALPHA = 1.5: length-adaptive GAE, lambda_policy = 1 - 1/(alpha *
+# L) for a response of L model-generated tokens (VAPO, Yue et al. 2025,
+# arXiv:2504.05118, which trains at 0.4; Hou et al. 2026,
+# arXiv:2607.07508, section 4.1, sets 1.5), so the weight of the terminal
+# reward on the first token, lambda ** (L - 1), stays about exp(-1/alpha)
+# whatever the length.
 SAO_GAE_ALPHA = 1.5
-# SAO_CRITIC_STEPS = 2: value-network updates per policy update (Hou et
-# al. 2026, arXiv:2607.07508, K = 2).
+# SAO_GAMMA = 1.0: the discount in the skip-observation TD residual delta =
+# r + gamma V(next action token) - V(token) (Hou et al. 2026,
+# arXiv:2607.07508, eq. 4 and 5). The paper writes gamma and gives it no
+# value; 1 is what the PPO and VAPO lines it builds on train language
+# models at, and the value that makes the lambda_critic = 1 target the
+# undiscounted return. (convention, untested)
+SAO_GAMMA = 1.0
+# SAO_CRITIC_STEPS = 2: value-network updates per policy update, the
+# "faster value update" K (Hou et al. 2026, arXiv:2607.07508, section
+# 3.2 and 4.1, K = 2; one update per batch loses 2.3 points on AIME2025
+# and 5 on BeyondAIME, Table 4).
 SAO_CRITIC_STEPS = 2
+# SAO_CRITIC_WARMUP = 10: the value model's warmup, "a 10-step warmup
+# period" (Hou et al. 2026, arXiv:2607.07508, section 4.1). The paper
+# does not say whether that is the critic optimizer's learning-rate
+# warmup or critic-only steps before the policy moves; a trainer reads
+# it as whichever it has.
+SAO_CRITIC_WARMUP = 10
 # SAO_LEARNING_RATE = 1e-6 / SAO_CRITIC_LEARNING_RATE = 5e-6: the policy
-# and critic optimizer steps (Hou et al. 2026, arXiv:2607.07508).
+# and value-model optimizer steps on full weights (Hou et al. 2026,
+# arXiv:2607.07508, section 4.1; no adapter run is reported).
 SAO_LEARNING_RATE = 1e-6
 SAO_CRITIC_LEARNING_RATE = 5e-6
-# SAO_TEMPERATURE = 1.0: sample at the temperature the ratio is taken at.
-# (convention, untested)
+# SAO_BATCH = 128: trajectories per policy update at a group size of 1,
+# the same 128 the GRPO arms get as 16 prompts by 8 rollouts (Hou et al.
+# 2026, arXiv:2607.07508, section 4.1).
+SAO_BATCH = 128
+# SAO_TEMPERATURE = 1.0: the sampler's temperature. The paper evaluates
+# at temperature 1.0 and top-p 1.0 (section 4.1) and does not say what
+# it samples training rollouts at; 1.0 keeps the rollout
+# log-probabilities the ones the band divides by. (convention, untested)
 SAO_TEMPERATURE = 1.0
-# SAO_MAX_TOKENS = 8192: the response cap. (convention, untested: to be
-# read off the paper)
-SAO_MAX_TOKENS = 8192
+# SAO_MAX_TOKENS = 131072: the trajectory's token budget, "a max-length
+# of 128k tokens" for both the reasoning and the coding run (Hou et al.
+# 2026, arXiv:2607.07508, section 4.1), the whole multi-turn context
+# including tool output (up to 50 turns for math, 300 OpenHands turns for
+# SWE-Bench Verified), not a per-response cap.
+SAO_MAX_TOKENS = 131072
 
 # --- BPCO, best practice critic optimization (Qi et al. 2026) ----------
 
@@ -2047,12 +2081,16 @@ __all__ = [
     "RULE_AXIS_CAP_GRID",
     "RULE_AXIS_CAP_REPORT",
     "SAMPLING_TEMPERATURE_MAX",
+    "SAO_BATCH",
     "SAO_CRITIC_LEARNING_RATE",
     "SAO_CRITIC_STEPS",
+    "SAO_CRITIC_WARMUP",
     "SAO_GAE_ALPHA",
+    "SAO_GAMMA",
     "SAO_LEARNING_RATE",
     "SAO_MAX_TOKENS",
     "SAO_RATIO",
+    "SAO_RATIO_CODING",
     "SAO_TEMPERATURE",
     "SATURATION_CAP",
     "SCENARIO_ID_CHARS",
