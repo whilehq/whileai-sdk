@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `Example.reference` (the gold answer a row was graded against) and `Example.detail` (expected
+  against got, for a failure): the platform's rows page shows both under the reply, so a
+  "wrong result" says what the right one was.
+
 - Docs: a subdomain of your own on the hosted endpoint (`PUT /domain`), `<slug>.models.withwhile.com`.
 - Docs: serve a registered model from `https://models.withwhile.com/v1` (a Bedrock import in
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
