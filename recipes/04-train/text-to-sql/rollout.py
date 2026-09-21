@@ -156,6 +156,11 @@ def main() -> int:
         help="simulator=False: no scene briefs or result shapes; the prompts are pinned",
     )
     ap.add_argument("--limit", type=int, default=0, help="first N tasks only (smoke)")
+    ap.add_argument(
+        "--task-ids",
+        default="",
+        help="a file of task ids, one per line: sample only these (e.g. the prompts a round trains on)",
+    )
     args = ap.parse_args()
 
     name = args.model
@@ -172,6 +177,13 @@ def main() -> int:
     tasks = load_tasks()
     if args.split != "all":
         tasks = [t for t in tasks if split_of(t["id"]) == args.split]
+    if args.task_ids:
+        keep = {
+            line.strip()
+            for line in Path(args.task_ids).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        }
+        tasks = [t for t in tasks if t["id"] in keep]
     if args.limit:
         tasks = tasks[: args.limit]
     out_path = RAW / f"{name}.jsonl"

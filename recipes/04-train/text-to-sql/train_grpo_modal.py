@@ -95,7 +95,8 @@ _base_new = (
         "datasets>=3.6.0",
         "accelerate>=1.8.1",
         "psycopg[binary]==3.2.9",
-        "whileai>=0.51",
+        # tracked.open(run_id) + TrainerCallback: the platform draws the run
+        "whileai>=0.110",
     )
     .env(
         {
@@ -244,6 +245,7 @@ def _train(
     mask_truncated: bool = True,
     save_every: int = 0,
     vllm_mem: float = 0.25,
+    platform_run: str = "",
 ) -> dict:
     import json
 
@@ -330,7 +332,13 @@ def _train(
         else "in-container",
     }
     run = None
-    if os.environ.get("WHILEAI_API_KEY"):
+    prun = None  # the platform run this training fills (tracked.run(...) opened on the laptop)
+    if platform_run and os.environ.get("WHILEAI_API_KEY"):
+        from whileai.platform import track
+
+        prun = track(R.AGENT, register=False).open(platform_run)
+        print(f"platform run {platform_run}: every trainer log lands on the page as it happens")
+    elif os.environ.get("WHILEAI_API_KEY") and hasattr(wai, "training_run"):
         run = wai.training_run(
             run_name,
             base_model=base_model,
@@ -482,16 +490,26 @@ def _train(
         processing_class=tokenizer,
         peft_config=None if from_run else lora,
     )
-    if run is not None:
+    if prun is not None:
+        from whileai.platform import TrainerCallback
+
+        # reward, kl, loss and completion length per step; the run is scored
+        # and finished from the laptop once the checkpoints are measured
+        trainer.add_callback(TrainerCallback(prun, finish=False))
+    elif run is not None:
         trainer.add_callback(wai.TrainerCallback(run, finish=False))
     if use_vllm and not _trl.__version__.startswith("0."):
         _guard_vllm_weight_sync(trainer)
     try:
         trainer.train()
     except Exception as exc:
+        if prun is not None:
+            prun.fail(f"{type(exc).__name__}: {exc}")
         if run is not None:
             run.fail(f"{type(exc).__name__}: {exc}")
         raise
+    if prun is not None:
+        prun.flush()
 
     policy = trainer.model
     after_rows: list[dict] = []
@@ -606,6 +624,7 @@ def main(
     task_ids: str = "",
     vllm_mem: float = 0.25,
     stack: str = "pinned",
+    platform_run: str = "",
 ):
     import hashlib
     import json
@@ -660,6 +679,9 @@ def main(
         mask_truncated=mask_truncated,
         save_every=save_every,
         vllm_mem=vllm_mem,
+        # --platform-run run_...: the run opened with tracked.run(...) on the
+        # laptop; the trainer's callback fills its curve (needs WHILEAI_API_KEY)
+        platform_run=platform_run,
     )
     if spawn:
         # Submit and return. With `modal run --detach` the call keeps running
