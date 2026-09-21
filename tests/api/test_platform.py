@@ -386,6 +386,39 @@ def test_eval_setup_carries_cost_per_1k_on_the_wire():
     assert back.eval is not None and back.eval.cost_per_1k == 3.01
 
 
+def test_eval_setup_carries_cost_facts_for_the_open_price_book():
+    """The agent posts facts (model + tokens + replies, or gpu + hours + replies);
+    the platform's price book turns them into dollars. camelCase on the wire."""
+    from whileai.platform import EvalSetup, RunRecord
+
+    api = RunRecord(
+        eval=EvalSetup(
+            model="claude-sonnet-5",
+            input_tokens=2_148_276,
+            output_tokens=120_552,
+            replies=1833,
+        )
+    ).wire()["eval"]
+    assert api == {
+        "model": "claude-sonnet-5",
+        "inputTokens": 2148276,
+        "outputTokens": 120552,
+        "replies": 1833,
+    }
+    gpu = RunRecord(eval=EvalSetup(gpu="L40S", gpu_hours=1.98, replies=1836)).wire()["eval"]
+    assert gpu == {"gpu": "L40S", "gpuHours": 1.98, "replies": 1836}
+    back = RunRecord.model_validate({"eval": api})
+    assert back.eval is not None and back.eval.input_tokens == 2_148_276
+    back = RunRecord.model_validate({"eval": gpu})
+    assert back.eval is not None and back.eval.gpu_hours == 1.98
+    with pytest.raises(ValidationError):
+        EvalSetup(replies=0)
+    with pytest.raises(ValidationError):
+        EvalSetup(input_tokens=-1)
+    with pytest.raises(ValidationError):
+        EvalSetup(gpu_hours=-0.5)
+
+
 def test_score_rows_post_the_full_set_in_chunks_and_make_the_sample():
     """rows= posts every graded row after the score, 500 a call, and the
     card's sample is the first 14 failures plus passes when examples= is not given."""
