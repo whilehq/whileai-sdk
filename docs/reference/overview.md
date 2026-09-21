@@ -4,7 +4,7 @@ sidebarTitle: "Overview"
 description: "What the whileai package is, how simulate() builds a row, and the three ways to run it: offline, on your own model, or on While-hosted models."
 ---
 
-The long form of the SDK, split over six pages in the order a post-training run happens: this overview, [the five calls](/reference/five-calls), [what to run](/reference/what-to-run), [the platform](/reference/platform), [parameters and output](/reference/parameters), and [package layout and development](/reference/development). The short version, with the loop and where each method comes from, is the [README](https://github.com/whilehq/whileai-sdk#readme).
+The long form of the SDK, split over seven pages in the order a post-training run happens: this overview, [the five calls](/reference/five-calls), [the harness](/reference/harness), [what to run](/reference/what-to-run), [the platform](/reference/platform), [parameters and output](/reference/parameters), and [package layout and development](/reference/development). The short version, with the loop and where each method comes from, is the [README](https://github.com/whilehq/whileai-sdk#readme).
 
 One package, two importable modules:
 
