@@ -530,10 +530,10 @@ for this check: nothing there could have moved with the weights.
 already passed every time: there is little room left for an
 improvement to show, whatever the training did.
 
-``python
+```python
 report = wai.delta_report(base.rows(), tuned.rows(), target="pass_at_1")
 print(wai.format_delta_report(report))
-``
+```
 
 ### format_delta_report
 
@@ -728,10 +728,10 @@ pool are left alone: there the ranking found two names for one
 behavior, and a genuinely inverted endorsed feature is still
 reported.
 
-``python
+```python
 scan = wai.hack_scan(data.rows(), endorsed=["tool:lookup_order"])
 print(scan["regime"], scan["top_feature"], scan["integrity"])
-``
+```
 
 ### hack_scan_diff
 
@@ -1217,10 +1217,10 @@ Each pair keeps what the trainer and the reviewer need to trust it:
 * `length_delta`: chosen reply chars minus rejected, and the report
   says how often chosen is still the longer side.
 
-``python
+```python
 pairs, report = wai.build_preference_pairs(data.rows(), min_margin=1.0)
 print(len(pairs), report)
-``
+```
 
 ### evaluate
 
@@ -1274,10 +1274,10 @@ when `eval_set` was given, and `traces`, which feeds
 * `concurrency` (8) and `timeout`: judge calls in flight and
   seconds per call.
 
-``python
+```python
 scored = wai.evaluate(traces, judge=my_judge, eval_set=asks)
 print(scored.warnings, wai.pass_at(scored.rows).pass_at_1)
-``
+```
 
 ### normalize_judge_result
 
@@ -1663,10 +1663,10 @@ overwrites the source file unless `output` names it explicitly.
   trims a capped reply to its last sentence and a re-grade overwrites
   the grader's reason (`hygiene.is_truncated`).
 
-``python
+```python
 rows, report = wai.optimize(data, mode="rl", endorsed=["tool:lookup_order"])
 print(report["mode"], len(rows))
-``
+```
 
 ### recommend
 
@@ -2128,11 +2128,11 @@ default `RULE_AXIS_CAP_REPORT`): a report over an existing suite
 has no grid to bound. A number keeps the first that many clauses in
 document order; `n_rules_total` and `rules_truncated` say what
 was left off and `notes` carries the count (#391).
-``python
+```python
 gap = wai.coverage_gap(["Where is order 4473?", "Cancel order 9911."],
                        tools=TOOLS, system_prompt=POLICY)
 print(gap["untested_rules"], gap["untested_tools"])
-``
+```
 
 ### dataset_report
 
@@ -2806,7 +2806,7 @@ cosine of the training batch and 5 of 133 byte-identical; the 8-gram
 rule flagged 4 of 101 prompts and the semantic pass 16. With
 sentence-transformers:
 
-``python
+```python
 from sentence_transformers import SentenceTransformer
 
 model = SentenceTransformer("BAAI/bge-small-en-v1.5")
@@ -2815,7 +2815,7 @@ clean, report = wai.decontaminate(
     against=[holdout],
     embedder=lambda texts: model.encode(texts, normalize_embeddings=True).tolist(),
 )
-``
+```
 
 A semantic flag means the two prompts read alike, not that they are
 the same task: "cancel one reservation" and "cancel three

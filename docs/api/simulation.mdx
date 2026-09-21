@@ -312,14 +312,14 @@ situations or played the user, the run's `degraded` list carries
 training on a model's own unfiltered output teaches it its own habits
 (Lambert 2025, chapter Synthetic Data and Distillation).
 
-``python
+```python
 import whileai.simulations as wai
 
-TOOLS = [\{"type": "function", "function": \{
+TOOLS = [{"type": "function", "function": {
     "name": "lookup_order",
-    "parameters": \{"type": "object",
-                   "properties": \{"order_id": \{"type": "string"\}\},
-                   "required": ["order_id"]\}\}\}]
+    "parameters": {"type": "object",
+                   "properties": {"order_id": {"type": "string"}},
+                   "required": ["order_id"]}}}]
 agent = wai.seeded_agent(TOOLS)  # an offline demo agent, no key
 base = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
                     mode="rl", repeats=4, budget=32)
@@ -329,4 +329,4 @@ rerun = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
                      on_progress=print)  # or watch the whileai.simulations logger
 print(base.stopped_because, len(base.rows()), base.warnings)
 print(rerun.search["rollouts"])  # landed, resumed, rerolled_by, lost_by
-``
+```
