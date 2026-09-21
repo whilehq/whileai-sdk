@@ -151,6 +151,10 @@ data = wai.simulate(
 )
 ```
 
+Any Claude model works here, including the reasoning models
+(`claude-sonnet-5`, `claude-opus-5`) that no longer take a sampling
+temperature: the backend drops the field and retries when the API asks it to.
+
 Omitting `agent=` runs the While-hosted model on your account key. One model
 in two roles is the regime to avoid: `data.degraded` then carries
 `same_model` and `warnings` names the call that separates them [4].
