@@ -1,0 +1,4 @@
+# Everything prep, training and eval generate. The recipe regenerates all of
+# it from the two commands in the README; results.json is tracked on purpose.
+out/
+__pycache__/
