@@ -67,7 +67,10 @@ def main() -> None:
             name=BEHAVIOR,
             test_version="v1",
             n=n,
-            noise_floor=round(floor["noise_band"] * 100, 2),
+            # the band the verdict was judged against. results.json has no
+            # "noise_band": it records noise_band_eval_variance (the 1.96
+            # form eval_variance returned before #616) beside this one.
+            noise_floor=round(floor["noise_band_applied"] * 100, 2),
             contamination=0,
             reward_is_judge=False,
             description=(
