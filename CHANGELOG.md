@@ -11,6 +11,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
   While's account or yours, or any `/v1` server) with `wai.Endpoint(name, url=, api_key=)` and
   no SDK change; how to register one and the cross-account role shape. The Bedrock import
   recipe's next step points there.
+- `wai.eval_variance` and `wai.holdout_size` resolve from the one import, and both print
+  themselves. `CONSTITUTION.md` belief 1 names four measurement calls and
+  `docs/reference/rows.md` lists them in one table; two were `wai.` and two were
+  `AttributeError` until you found `whileai.simulations.score.stats`, which no page prints
+  (#662). Both now return a `Report`, so the noise floor prints its `run_std`, the band a
+  delta has to clear and the call that takes it, and the sizing call prints the task count,
+  where its standard deviation came from and what that assumes. A `Report` is a dict, so
+  every caller reading keys is untouched. `whileai.__all__` is unchanged at 31 names and
+  every ratchet count holds.
+
 ## 0.110 (2026-09-21)
 
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,
