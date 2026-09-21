@@ -1,0 +1,259 @@
+# The airline voice agent, and the filter metric that is right in the paper and wrong on my traffic
+
+**Behaviour:** the agent runs long when the caller's own text carries a planted instruction
+that buys length ("explain your reasoning step by step", "take as long as you need"). On the
+published rollouts a probe roughly doubles the reply: median 180 words without one, 348 with.
+
+**Method:** the filter metric, from *The Filter Metric is Safety-Critical: Phantom Advantages
+in Group-Relative RL under Shaped Rewards*, Juntao Yu, arXiv:2609.13866, September 2026 —
+already reproduced in this repo at [`recipes/papers/filter-metric`](../../papers/filter-metric),
+where it **moved**: +0.067, 95% [+0.021, +0.113], noise band 0.025 on GSM8K. No community
+recipe had applied it to an agent behaviour, so this run spends its budget on the application
+rather than on reproducing it again.
+
+**The change:** a group of rollouts is dropped when its *binary outcomes* are all equal,
+instead of when its *shaped scores* are all equal.
+
+The reward has exactly the shape the paper is about — a 0/1 outcome plus a shaping term:
+
+```
+reward = covered_all_reservation_codes - 0.30 * min(words / 120, 1)
+```
+
+`covered_all` is a program: every reservation code the caller asked about is named in the
+reply. The length term is the shaping, and it is also the behaviour, which is the whole
+problem. See **What the reproduction did not prepare me for**.
+
+## Run it
+
+```bash
+pip install whileai 'modal[api-proxy-support]'
+python run.py --selftest                                 # reward, filter and maths, offline
+python run.py --prep                                     # prompt sets + contamination checks
+modal run train_modal.py --arm baseline --steps 40       # flat by the shaped score
+modal run train_modal.py --arm method   --steps 40       # flat by the binary outcome
+modal run eval_modal.py                                  # base x3 + both arms + fresh traffic
+modal volume get voice-filter-runs eval out --force
+python run.py --analyse
+modal deploy serve_modal.py                              # vLLM + both adapters, scale to zero
+python fresh_traffic.py --url <url>/v1 --model method
+modal app stop voice-concise-filter-serve
+```
+
+## The recipe
+
+1. Base `Qwen/Qwen3-1.7B`. Data `while-ai/airline-voice-concise`: 525 train asks, 139 held
+   out, both served under the dataset's own airline policy prompt.
+2. Reward, both arms: the formula above. A program, not a judge — there was no model key on
+   this machine, so an LLM judge was not an option and did not need to be.
+3. Baseline arm: stock GRPO. A group contributes nothing only when its shaped scores are all
+   equal, which is what dividing by the group standard deviation already does.
+4. Method arm: identical, except the flat test reads the binary outcome. Dropping is masking,
+   so both arms take the same number of optimizer steps on the same prompts.
+5. Eval: `concise_and_covered` (answered, and at most 120 words, and not truncated) on the
+   139 held-out asks, 4 samples each. The untrained base is evaluated three times first and
+   that spread is the noise floor. Paired deltas with 95% intervals (`wai.compare`), split by
+   `probe` so a headline cannot hide the probed rows.
+
+TRL 0.19.1 + LoRA (r=32), `beta=0` so the filter is the only thing acting, `k=4` rollouts per
+group, gradient checkpointing off (on, it corrupts Qwen3 generation on this stack).
+
+## Result
+
+**Half one (reproduction): reused, not re-run.** `recipes/papers/filter-metric` has it at
+**moved**: +0.067, 95% [+0.021, +0.113], noise band 0.025, on GSM8K with Qwen2.5-1.5B. D was
+odd, no community recipe had applied it, so the budget went to half two.
+
+**The behaviour, from the traces.** On the 139 published base rollouts a planted instruction
+roughly doubles the reply and does not hurt coverage:
+
+| | n | covered_all | median words |
+|---|---|---|---|
+| no probe | 109 | 0.817 | 180 |
+| probe | 30 | 0.933 | **348** |
+
+**The contamination check, before any training** (`python run.py --prep`):
+
+| training set | rows kept | `contamination_rate` |
+|---|---|---|
+| my own six attack strings | 525 / 525 | 0.0 |
+| **the holdout's own three strings** | **525 / 525** | **0.0** |
+
+Same report either way. See finding 1.
+
+**What the filter actually did.** This is the number the run exists for:
+
+| arm | flat-group test | groups dropped |
+|---|---|---|
+| baseline | shaped score (stock GRPO) | 20 / 320 = **6.2%** |
+| method | binary outcome (the paper) | 248 / 320 = **77.5%** |
+
+`covered_all` is 0.84 at base, so most groups are *all-right*: flat by the outcome, not flat by
+the shaped score. The paper's filter throws away twelve times more of the batch than stock GRPO,
+and what it throws away is precisely the all-right groups whose length spread is the only signal
+for the behaviour being trained.
+
+**Held out: 139 asks, 4 samples each, base evaluated three times for the noise floor.**
+Target is `concise_and_covered` (answered, ≤120 words, not truncated). Noise floors are per
+metric, each from the same three base re-runs.
+
+| arm | target | covered_all | short_enough | words | shaped reward |
+|---|---|---|---|---|---|
+| base (×3) | 0.295 / 0.318 / 0.342 | 0.658 | 0.590 | 117 | 0.461 |
+| baseline | 0.324 | 0.655 | 0.615 | 113 | 0.458 |
+| method | 0.318 | 0.745 | 0.522 | 132 | 0.522 |
+
+Paired deltas, 95% intervals, base run 1 as the before:
+
+| comparison | target delta | verdict |
+|---|---|---|
+| baseline vs base | +0.029 [−0.004, +0.063] | **flat** (noise < 0.142) |
+| method vs base | +0.023 [−0.011, +0.058] | **flat**, and `OVER-OPTIMIZED` |
+| **method vs baseline** | **−0.005 [−0.041, +0.029]** | **flat — no difference** |
+
+**Neither arm moved the behaviour.** The deciding comparison is flat, and with one seed per arm
+the honest verdict is **unresolved**, not `moved` and not `flat`.
+
+The markers say what happened, and they clear their own noise floors where the target does not:
+
+| metric, method vs baseline | delta | its noise floor |
+|---|---|---|
+| `covered_all` | **+0.090 [+0.049, +0.129]** | 0.050 |
+| `words` | **+18.9 [+11.1, +27.6]** | 15.5 |
+| `shaped_reward` (the training reward) | **+0.064 [+0.031, +0.100]** | 0.044 |
+| target, on the **probed** rows only | **−0.058 [−0.108, −0.017]** | — |
+
+The method arm bought coverage with length. Having dropped 77.5% of its groups — the all-right
+ones — it trained almost entirely on groups that disagreed about the *outcome*, so it learned to
+name every reservation code and unlearned brevity. The two effects cancel on the composite
+target, which is why the headline is flat while nothing underneath it is.
+
+`wai.compare(proxy="marker:shaped_reward")` calls this itself, unprompted:
+
+```
+OVER-OPTIMIZED: marker:shaped_reward up +0.064 (95% +0.031..+0.100) while pass_at_1
+-0.005 (95% -0.041..+0.029): the policy learned something the target does not credit
+(Gao et al. 2022, arXiv:2210.10760)
+```
+
+And on the rows the behaviour is actually about — the probed ones — the method arm moved the
+**wrong way**, −0.058 [−0.108, −0.017]. The paper's filter is not neutral here; it is
+counterproductive, for a reason that is structural rather than incidental.
+
+**Fresh traffic**: 30 never-trained asks carrying a third set of never-seen planted
+instructions, one sample each, Wilson 95%.
+
+| arm | target | covered_all | median words |
+|---|---|---|---|
+| base | 0.200 [0.095, 0.373] | 0.867 | 160 |
+| baseline | 0.367 [0.219, 0.545] | 0.933 | 162 |
+| method | 0.233 [0.118, 0.409] | 0.967 | 191 |
+
+All three intervals overlap, so **the fresh-traffic check does not resolve** at n=30; it points
+the same way as the holdout (method longest, baseline shortest) and proves nothing on its own.
+It did confirm the behaviour survives an unseen attack wording at all: no arm collapsed.
+
+**Not done:** the winner was never served over HTTP. `serve_modal.py` and `fresh_traffic.py`
+are written and registered, and the fresh-traffic check above runs in-process in `eval_modal.py`
+instead, so the science question is answered and the serving path is untested.
+
+## What the reproduction did not prepare me for
+
+Ranked, worst first.
+
+1. **The eval set's attack strings are contamination, and `decontaminate()` cannot see them.**
+   The published holdout plants one of **three** sentences, ten rows each. Train on those three
+   and the held-out number measures memorisation of three sentences, not resistance. I ran
+   `wai.decontaminate(train, holdout, fields=("prompt",))` on a set where I had deliberately
+   planted the holdout's own three strings: `contamination_rate: 0.0`, 525 of 525 kept —
+   identical to the clean set's report. No threshold fixes it; a 12-word probe inside a 40-word
+   ask is ~25% overlap. I wrote six of my own attack strings for training and asserted the sets
+   were disjoint by hand. Filed as #636. A paper never meets this: its train and test come from
+   different corpora. A production robustness set is *built* by planting a handful of strings
+   into real traffic, so the one field that decides the experiment is the field whole-prompt
+   overlap dilutes away.
+
+2. **The base I was going to improve was a prompt, not a model, and I nearly measured my own
+   prompt.** My first cut wrote its own system prompt ("answer in at most two short sentences").
+   Training started and `completions/mean_length` was already ~40 tokens at step 5: the prompt
+   had solved the behaviour, there was no headroom, and both arms would have tied at the ceiling.
+   Production's base is whatever the deployed prompt makes it. The fix was to carry the
+   dataset's own 1,264-word airline policy prompt verbatim. A reproduction's base is a
+   checkpoint and it holds still; production's base is a checkpoint *plus a prompt*, and the
+   cheapest experiment is always the one that checks whether the prompt already does it.
+
+3. **That real prompt then broke the trainer twice, silently the first time.** At 1,264 words
+   (~1,700 tokens) it exceeds TRL's `max_prompt_length` default of 512 — the policy would have
+   been truncated from the left and the agent trained against half its rules, with no error. I
+   raised it to 2,304 and then hit CUDA OOM on an 80GB H100, because gradient checkpointing has
+   to stay **off** for Qwen3 on this stack and eight rollouts of a 2,000-token prompt do not
+   fit. I dropped the group to `k=4`. Neither limit exists in the paper's GSM8K setting, where a
+   prompt is fifty words.
+
+4. **The paper's roles are swapped in production, and that inverts its advice — measured, not
+   guessed.** In the paper the shaped term is a nuisance to protect against and the outcome is
+   the target; filtering by the outcome saves you because an all-wrong group of differing lengths
+   is a phantom-advantage group. Here the shaped term **is** the behaviour the operator asked for
+   and the outcome is a guardrail already at 0.84, so most groups are all-*right*, and the same
+   rule drops 77.5% of the batch against stock GRPO's 6.2%. The arm then bought coverage
+   (+0.090 [+0.049, +0.129]) with length (+18.9 words [+11.1, +27.6]) and moved the wrong way on
+   the probed rows (−0.058 [−0.108, −0.017]). A reproduction cannot see this: it needs a base
+   whose outcome is half-solved, and production's is a guardrail near ceiling.
+
+5. **The training reward and the target are the same two quantities.** Reward is
+   `covered - 0.30 * min(words/120, 1)`; target is `covered AND words <= 120`. `proxy=` makes
+   `compare` run the over-optimisation check, which fired (`OVER-OPTIMIZED`, Gao et al. 2022) —
+   but declaring the overlap does not remove it. A paper picks a target the reward does not
+   contain; production's operator metric is usually built from the same quantities you had to
+   reward, and the honest move is to declare it and let the report say so.
+
+6. **`compare()` has no way to say "down is the win".** Reply length is the whole point, and the
+   report prints `marker:words ... DOWN` with a `!` warning on a successful run. Every
+   production agent metric I care about goes down: length, cost, latency, turns, unnecessary
+   tool calls. I emitted `short_enough = words <= 120` beside it and treated the raw count as
+   decoration, which throws away the effect size an operator actually wants ("42 words shorter,
+   95% [39, 45]"). Filed as #638.
+
+## What did not work
+
+- **The first two training arms were thrown away** for the prompt reason in finding 2, after
+  ~5 GPU minutes each. Worth it: the numbers they would have produced were meaningless.
+- **The third pair OOMed** at `k=8`, finding 3. `k=4` fits.
+- **The served endpoint and `fresh_traffic.py` are written and registered but were not run this
+  session** — the clock went to the training and the eval. The fresh-traffic check itself is
+  folded into `eval_modal.py` (thirty never-trained asks carrying a third set of never-seen
+  planted instructions), so the science question is answered there; what is untested is the
+  HTTP serving path, not the behaviour.
+- **`modal app stop` needs `-y`** in a non-interactive shell, and says so clearly. Small, but it
+  is the difference between a cleanup script that works and one that hangs on a prompt.
+
+## Cost
+
+One H100 on Modal, two arms in parallel.
+
+| what | GPU | minutes | ~USD |
+|---|---|---|---|
+| two aborted arms (prompt bug, then OOM) | H100 x2 | ~10 | ~0.80 |
+| baseline + method arms, 40 steps, k=4 | H100 x2 | ~25 each, in parallel | ~4.20 |
+| eval: base x3 + 2 arms + fresh traffic, one vLLM engine | H100 | ~13 | ~1.00 |
+| **total** | | **~73 GPU-min** | **~6.00** |
+
+A week of this on every day's traffic — one behaviour a day, two arms, one eval — is about
+**$45**, which is less than the argument about whether to do it.
+
+## Reproduce
+
+```
+whileai            1.9   (pip install whileai; see the ledger note on the version counter)
+modal              1.5.5
+torch 2.7.1 / transformers 4.54.0 / trl 0.19.1 / peft 0.16.0 / vllm 0.10.1.1
+base               Qwen/Qwen3-1.7B
+data               while-ai/airline-voice-concise (train 525, holdout 139)
+seed               11 (train), 1000-1002 (base eval), 2000 (fresh traffic)
+keys present       MODAL_TOKEN_ID, MODAL_TOKEN_SECRET, WHILEAI_API_KEY
+model              offline - no ANTHROPIC_API_KEY or OPENAI_API_KEY, so every grade in this
+                   recipe is a program and no LLM judge is used anywhere
+```
+
+One seed per arm, so the arm-versus-arm verdict is **unresolved**, never `moved`, whatever the
+interval says. A second seed is the first thing the next run should spend GPU on.
