@@ -373,6 +373,14 @@ def _sample_vllm(llm, prompts: list[str], *, n: int, max_tokens: int, seed: int)
     image=image,
     gpu=DEFAULT_GPU,
     timeout=6 * 60 * 60,
+    # One arm per container. Modal reuses a warm container between calls and
+    # nothing here tears the vLLM engine down, so a third arm started with
+    # 20.81 of 79.18 GiB free and vLLM refused at its 0.40 utilization
+    # (31.67 GiB). Two arms never reached it; three seeds an arm do. A fresh
+    # process also removes cross-arm state from the seed study, which is the
+    # same hazard the sibling adaptive-clip recipe hit when TRL built the LoRA
+    # adapter before the trainer applied its seed.
+    max_inputs=1,
     volumes={VOLUME_ROOT: runs_volume, "/root/.cache/huggingface": hf_cache},
     secrets=[dashboard_secret],
 )
@@ -780,9 +788,7 @@ def main() -> None:
     seed_rows: dict[str, list[list[dict]]] = {arm: [] for arm in arms}
     seed_scores: dict[str, list[float]] = {arm: [] for arm in arms}
     with modal.enable_output(), app.run():
-        for i, (arm, train_seed) in enumerate(
-            (a, s) for a in arms for s in train_seeds
-        ):
+        for i, (arm, train_seed) in enumerate((a, s) for a in arms for s in train_seeds):
             cached = cache / f"{arm}-s{train_seed}.json"
             if args.reuse and cached.exists():
                 out = json.loads(cached.read_text())
@@ -832,8 +838,7 @@ def main() -> None:
                 **summarize(arm_rows[arm]),
                 "steps": out["steps"],
                 "gpu_minutes": round(
-                    results["arms"].get(arm, {}).get("gpu_minutes", 0.0)
-                    + out["gpu_minutes"],
+                    results["arms"].get(arm, {}).get("gpu_minutes", 0.0) + out["gpu_minutes"],
                     1,
                 ),
             }
@@ -874,7 +879,9 @@ def main() -> None:
         # eval. This measures the trainer.
         checks["train_seed_scores"] = {arm: seed_scores[arm] for arm in arms}
         checks["train_seed_std"] = {
-            arm: (round(statistics.stdev(seed_scores[arm]), 4) if len(seed_scores[arm]) > 1 else None)
+            arm: (
+                round(statistics.stdev(seed_scores[arm]), 4) if len(seed_scores[arm]) > 1 else None
+            )
             for arm in arms
         }
         checks["over_optimized"] = bool(d.get("over_optimized"))
