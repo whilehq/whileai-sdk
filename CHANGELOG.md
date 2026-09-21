@@ -36,6 +36,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `reward_before_penalty`); rows with no engine stamp, a platform pull or a user file,
   still go by the reason and the text. Lambert 2025, chapter Reinforcement Learning: score
   only completions that ended on their own; chapter Reasoning: overlong filtering.
+- `recipes/papers/check.py` says which gates it did not reach. The interval, noise band and
+  proxy checks sit inside `if verdict == "moved"`, and every paper recipe is `unresolved`
+  because each has one training seed per arm, so none of the three has ever run while the
+  check printed a plain `ok`. Over-optimization is now reported at every verdict and still
+  enforced only on a claimed result, so `endpoint-sft`, which publishes its own
+  over-optimization, is visible without failing for being honest.
 
 ## 0.117 (2026-09-22)
 
