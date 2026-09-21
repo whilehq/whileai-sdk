@@ -11,6 +11,7 @@ All offline. ``docs/reference/style.md`` is the standard this enforces.
 from __future__ import annotations
 
 import inspect
+import json
 import subprocess
 import sys
 
@@ -45,6 +46,40 @@ def test_top_level_is_the_loop_and_under_the_cap():
     for name in ("simulate", "Judge", "select", "pass_at", "judge_trust", "configure", "platform"):
         assert name in wai.__all__
     # the platform client's old names still import, but are not the front door
+
+
+def test_belief_one_calls_resolve_from_the_one_import():
+    """CONSTITUTION.md belief 1 names four calls: a number is a result with
+    its interval, its noise floor and the size of the set behind it.
+    ``docs/reference/rows.md`` lists all four in one table with no
+    distinction, so a reader types ``wai.`` for each. Two of them used to
+    be ``AttributeError`` and lived at ``whileai.simulations`` only (#662).
+    They are reachable now; ``__all__`` is unchanged, so the front-door pin
+    does not move."""
+    for name in ("pass_at", "compare", "eval_variance", "holdout_size", "decontaminate", "select"):
+        assert callable(getattr(wai, name)), f"docs write wai.{name}; it has to resolve"
+        assert name in dir(wai)
+    assert "eval_variance" not in wai.__all__ and "holdout_size" not in wai.__all__
+
+
+def test_the_noise_floor_and_the_sizing_call_print_themselves():
+    """Rule 5: a measurement is an object that prints itself, and stays the
+    dict its keys were read from."""
+    size = wai.holdout_size(0.10, base=0.45, k=4)
+    assert str(size).startswith(f"holdout {size['n_tasks']} paired tasks for a +0.100 gain at k=4")
+    assert "note:" in str(size)
+
+    passes = [
+        [{"task_id": f"t{i}", "reward": 1.0 if (i + run) % 3 else 0.0} for i in range(6)]
+        for run in range(3)
+    ]
+    floor = wai.eval_variance(*passes)
+    text = str(floor)
+    assert text.startswith("eval_variance pass_at_1: run_std ")
+    assert "noise band" in text and "compare(run_std=, run_std_runs=)" in text
+    # a dict first, so every caller that reads keys is untouched
+    assert floor == dict(floor) and floor["run_std"] == floor.get("run_std")
+    assert json.dumps(floor) and json.dumps(size)
 
 
 def test_platform_is_one_namespace():
