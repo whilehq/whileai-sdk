@@ -36,6 +36,11 @@ from .anthropic_backend import DEFAULT_MODEL as ANTHROPIC_DEFAULT_MODEL
 from .anthropic_backend import complete as anthropic_complete
 from .anthropic_backend import missing_key as missing_anthropic_key
 from .anthropic_backend import resolve_key as anthropic_key
+from .bedrock_backend import complete as bedrock_complete
+from .bedrock_backend import is_bedrock_url
+from .bedrock_backend import missing_key as missing_bedrock_key
+from .bedrock_backend import parse_spec_rest as bedrock_spec_rest
+from .bedrock_backend import resolve_key as bedrock_key
 from .diversity import DEFAULT_AVG_TURNS, running_turn_mean, sample_turn_budget
 from .typesafe_backend import DEFAULT_MODEL as TYPESAFE_DEFAULT_MODEL
 from .typesafe_backend import base_url as typesafe_base_url
@@ -85,8 +90,8 @@ current_rollout = _CurrentRollout()
 
 
 def parse_backend_spec(spec: str) -> tuple[str, str]:
-    """Return (base_url, model) for ollama:/vllm:/openai:/anthropic:/fireworks:/typesafe:
-    specs. ``typesafe:`` is judge-only: ``complete()`` refuses it and says
+    """Return (base_url, model) for ollama:/vllm:/openai:/anthropic:/fireworks:/
+    bedrock:/typesafe: specs. ``typesafe:`` is judge-only: ``complete()`` refuses it and says
     where it goes."""
     kind, _, rest = str(spec).partition(":")
     if kind == "ollama":
@@ -112,6 +117,12 @@ def parse_backend_spec(spec: str) -> tuple[str, str]:
         # (``accounts/fireworks/models/<name>``) and the key is
         # FIREWORKS_API_KEY; OPENAI_API_KEY is never sent there.
         return FIREWORKS_BASE_URL, rest or FIREWORKS_DEFAULT_MODEL
+    if kind == "bedrock":
+        # Amazon Bedrock's Converse API, on a Bedrock API key or the AWS
+        # credential chain. ``<model-id>@<region>`` pins the region; the
+        # URL carries it, so the spec is otherwise just the model id (or
+        # the ARN of an imported model).
+        return bedrock_spec_rest(rest)
     if kind == "typesafe":
         # TypeSafe's Jev, on TYPESAFE_API_KEY: typed decisions with
         # probabilities, so a judge spec only. The URL is the API root
@@ -332,6 +343,8 @@ def _configured_key(base_url: str | None) -> str | None:
         return None
     if is_anthropic_url(base_url):
         return keys.get("anthropic")
+    if is_bedrock_url(base_url):
+        return keys.get("bedrock")
     if is_typesafe_url(base_url):
         return keys.get("typesafe")
     if is_fireworks_url(base_url):
@@ -358,6 +371,9 @@ def resolve_completion_key(base_url: str | None = None, api_key: str | None = No
         return configured
     if is_anthropic_url(base_url):
         return anthropic_key()
+    if is_bedrock_url(base_url):
+        # empty means "sign with AWS credentials"; missing_hosted_key decides
+        return bedrock_key()
     if is_typesafe_url(base_url):
         return typesafe_key()
     if is_fireworks_url(base_url):
@@ -401,6 +417,9 @@ def missing_hosted_key(base_url: str | None = None, api_key: str | None = None) 
     """
     if is_anthropic_url(base_url):
         return missing_anthropic_key(api_key)
+    if is_bedrock_url(base_url):
+        # a key given on wai.models.Bedrock(api_key=) counts as present
+        return missing_bedrock_key(api_key or _configured_key(base_url))
     if is_typesafe_url(base_url):
         return missing_typesafe_key(api_key)
     key = resolve_completion_key(base_url, api_key)
@@ -725,8 +744,10 @@ def complete(
     A server that rejects ``logprobs`` gets the request again without it.
 
     An ``anthropic:`` spec goes to the Messages API instead, translated to
-    and from this same shape by ``anthropic_backend``. That API returns no
-    log-probabilities, so ``logprobs`` yields no ``_logprobs`` there.
+    and from this same shape by ``anthropic_backend``; a ``bedrock:`` spec
+    goes to Amazon Bedrock's Converse API the same way (``bedrock_backend``).
+    Neither returns log-probabilities, so ``logprobs`` yields no
+    ``_logprobs`` there.
     """
     if is_typesafe_url(base_url):
         # A decision model has no chat completion. The judges route to
@@ -744,6 +765,22 @@ def complete(
             messages,
             tools=tools,
             api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            n=n,
+            extra=extra,
+        )
+        _trim_length_cut({"finish_reason": reply.get("_finish_reason"), "message": reply})
+        return reply
+    if is_bedrock_url(base_url):
+        # Converse, translated at the boundary; same reasons as above.
+        reply = bedrock_complete(
+            base_url,
+            model,
+            messages,
+            tools=tools,
+            api_key=api_key or _configured_key(base_url),
             temperature=temperature,
             max_tokens=max_tokens,
             timeout=timeout,

@@ -12,6 +12,18 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `OPENAI_API_KEY`), for the agent, the writer, the simulated person or the judge. It was
   already reachable as an `Endpoint` with the URL typed out; now the repr says where the
   call goes and which key it uses, like the other providers.
+- The `bedrock:<model-id>[@<region>]` spec and `wai.models.Bedrock(model_id, region=)`: Amazon
+  Bedrock's Converse API as a backend for every role (agent, writer, simulated user, judge),
+  on the user's own account (the object sits one dot down; the front door stays at 31 names).
+  A Bedrock API key (`api_key=` or `AWS_BEARER_TOKEN_BEDROCK`)
+  goes over `requests` with nothing installed; AWS credentials are signed by boto3 from the
+  new `whileai[bedrock]` extra. The model id is a foundation model, a cross-region inference
+  profile, or the ARN of a model imported with Custom Model Import, which is how a trained
+  adapter, merged into its base, is served on AWS and measured on the same held-out set. The
+  history and tools are translated at the boundary (the Anthropic backend's `split_system`
+  and `wire_tools`, then Converse blocks), `max_tokens` and `model_context_window_exceeded`
+  come back as `length`, guardrail stops as `content_filter`, and `ModelNotReadyException`
+  (an idle import being restored) is retried and then named in one sentence.
 - The platform API answers at `https://api.withwhile.com`, which is now the default for
   `whileai login`, `whileai.platform` and every skill; the raw API Gateway hostname it had
   since 0.72 still answers and a credentials file that pinned it moves over on its own. The

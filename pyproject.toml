@@ -55,6 +55,10 @@ rl = ["verifiers>=0.3; python_version >= '3.11' and python_version < '3.14'"]
 # wai.hub.push / export(push_to=): the Hub client that authenticates with the
 # user's own HF_TOKEN; imported lazily, so the base install stays two deps.
 hf = ["huggingface_hub>=0.20"]
+# wai.Bedrock on AWS credentials (aws configure, AWS_PROFILE, a role): boto3
+# signs the Converse calls. A Bedrock API key in AWS_BEARER_TOKEN_BEDROCK
+# needs nothing here; the calls then go over requests.
+bedrock = ["boto3>=1.35"]
 
 [tool.setuptools]
 include-package-data = false

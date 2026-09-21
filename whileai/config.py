@@ -44,6 +44,7 @@ SPEC_FORMS = {
     "openai": "openai:<model>",
     "anthropic": "anthropic:<model>",
     "fireworks": "fireworks:<model>",
+    "bedrock": "bedrock:<model-id>[@<region>]",
     "vllm": "vllm:<model>@<url>",
     "ollama": "ollama:<model>",
     "typesafe": "typesafe:<model> (judge only)",
@@ -124,7 +125,8 @@ class Settings:
     #: the While account key (hosted models, platform); ``whileai login`` sets it too
     api_key: str | None = None
     #: provider -> key, filled from backend objects: ``openai``, ``anthropic``,
-    #: ``vllm``, ``typesafe``. ``ollama`` never needs one.
+    #: ``bedrock`` (a Bedrock API key), ``vllm``, ``typesafe``. ``ollama``
+    #: never needs one.
     keys: dict[str, str] = field(default_factory=dict)
 
     def key_for(self, provider: str) -> str | None:

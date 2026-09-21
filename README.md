@@ -129,6 +129,7 @@ Unconfigured, every role uses the model While hosts on `whileai login`.
 wai.OpenAI("gpt-4.1-mini")  # key=OPENAI_API_KEY
 wai.Anthropic("claude-haiku-4-5")  # key=ANTHROPIC_API_KEY
 wai.Fireworks("accounts/fireworks/models/llama-v3p1-8b-instruct")  # key=FIREWORKS_API_KEY
+wai.models.Bedrock("us.anthropic.claude-haiku-4-5-20251001-v1:0")  # your AWS account
 wai.Endpoint("Qwen/Qwen3-4B", url="http://localhost:8000/v1")  # vLLM, SGLang, TGI
 wai.Ollama("llama3")
 wai.Hosted()  # the model While hosts
