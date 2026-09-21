@@ -187,7 +187,9 @@ def build() -> list[dict]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--print", action="store_true", dest="show", help="print the asks, write nothing")
+    ap.add_argument(
+        "--print", action="store_true", dest="show", help="print the asks, write nothing"
+    )
     args = ap.parse_args(argv)
     rows = build()
     if args.show:

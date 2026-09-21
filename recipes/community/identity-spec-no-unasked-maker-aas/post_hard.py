@@ -68,27 +68,33 @@ def main() -> None:
     args = ap.parse_args()
 
     evals = json.loads((OUT / "eval.json").read_text(encoding="utf-8"))
-    leak_holdout = [json.loads(x) for x in (OUT / "holdout_leak.jsonl").read_text(encoding="utf-8").splitlines()]
+    leak_holdout = [
+        json.loads(x) for x in (OUT / "holdout_leak.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
     cat = {r["task_id"]: r.get("category", "n/a") for r in leak_holdout}
-    TEST = "t-" + hashlib.sha256(
-        "\n".join(r["prompt"] for r in leak_holdout).encode()
-    ).hexdigest()[:8]
+    TEST = (
+        "t-" + hashlib.sha256("\n".join(r["prompt"] for r in leak_holdout).encode()).hexdigest()[:8]
+    )
 
     # base: pool the three base passes for the point, spread across the three
     # per-pass means for the noise floor.
     base_leak = [r for k in ("base_run1", "base_run2", "base_run3") for r in evals[k]["leak"]]
     base_ident = [r for k in ("base_run1", "base_run2", "base_run3") for r in evals[k]["identity"]]
-    per_pass = [mean([float(r["target"]) for r in evals[k]["leak"]]) for k in ("base_run1", "base_run2", "base_run3")]
-    noise = pts(
-        (sum((x - mean(per_pass)) ** 2 for x in per_pass) / (len(per_pass) - 1)) ** 0.5
-    )
+    per_pass = [
+        mean([float(r["target"]) for r in evals[k]["leak"]])
+        for k in ("base_run1", "base_run2", "base_run3")
+    ]
+    noise = pts((sum((x - mean(per_pass)) ** 2 for x in per_pass) / (len(per_pass) - 1)) ** 0.5)
 
     def arm_rows(label: str, split: str) -> list[dict]:
         return evals[label][split]
 
     # Report table (also the --dry output).
     table = {"noise_floor": noise, "test": TEST, "n_leak": len(leak_holdout)}
-    table["base"] = {"leak": score(base_leak, "target"), "identity": score(base_ident, "names_maker")}
+    table["base"] = {
+        "leak": score(base_leak, "target"),
+        "identity": score(base_ident, "names_maker"),
+    }
     for a in ARMS:
         table[a] = {
             "leak": score(arm_rows(a, "leak"), "target"),
@@ -115,15 +121,20 @@ def main() -> None:
         a few clean passes."""
         leaks = [r for r in rows if r["leak"] >= 1.0]
         clean = [r for r in rows if r["leak"] < 1.0]
-        pick = leaks[: k - 3] + clean[: 3]
+        pick = leaks[: k - 3] + clean[:3]
         out = []
         for r in pick:
             out.append(
                 Example(
-                    prompt=next((h["prompt"] for h in leak_holdout if h["task_id"] == r["task_id"]), r["task_id"]),
+                    prompt=next(
+                        (h["prompt"] for h in leak_holdout if h["task_id"] == r["task_id"]),
+                        r["task_id"],
+                    ),
                     reply=r["text"],
                     ok=r["leak"] < 1.0,
-                    why="volunteered its maker unprompted" if r["leak"] >= 1.0 else "said nothing about its maker",
+                    why="volunteered its maker unprompted"
+                    if r["leak"] >= 1.0
+                    else "said nothing about its maker",
                     tags={"category": cat.get(r["task_id"], "n/a"), "tier": r.get("tier", "n/a")},
                 )
             )
@@ -208,7 +219,11 @@ def main() -> None:
     base_pts, base_hw, base_n = score(base_leak, "target")
     bident, bident_hw, _ = score(base_ident, "names_maker")
     base = tracked.run(
-        "base", method="none", base=BASE_MODEL, targets=[], trained_on=[],
+        "base",
+        method="none",
+        base=BASE_MODEL,
+        targets=[],
+        trained_on=[],
         record=RunRecord(data=Data(holdout=TEST, n_holdout=len(leak_holdout))),
     )
     base.score("no_unasked_maker", base_pts, ci=base_hw, n=base_n, rows=examples(base_leak))
@@ -228,14 +243,24 @@ def main() -> None:
         sc, hw, n = score(arm_rows(a, "leak"), "target")
         idp, idhw, _ = score(arm_rows(a, "identity"), "names_maker")
         run = tracked.run(
-            label, method="SFT", base=BASE_MODEL, targets=["no_unasked_maker"],
+            label,
+            method="SFT",
+            base=BASE_MODEL,
+            targets=["no_unasked_maker"],
             trained_on=["while-ai/identity-behavior, spec-corrected"],
             record=RunRecord(
-                data=Data(train="while-ai/identity-behavior train, spec-corrected",
-                          holdout=TEST, n_holdout=len(leak_holdout), decontaminated_dropped=0),
+                data=Data(
+                    train="while-ai/identity-behavior train, spec-corrected",
+                    holdout=TEST,
+                    n_holdout=len(leak_holdout),
+                    decontaminated_dropped=0,
+                ),
                 optimizer=Optimizer(lr=1e-4, seed=0, lora_rank=16, temperature=0.7, top_p=0.9),
-                provenance=Provenance(pins={"trl": "0.19.1", "transformers": "4.54.0", "peft": "0.16.0"},
-                                      paper=PAPER, recipe="recipes/community/identity-spec-no-unasked-maker-aas"),
+                provenance=Provenance(
+                    pins={"trl": "0.19.1", "transformers": "4.54.0", "peft": "0.16.0"},
+                    paper=PAPER,
+                    recipe="recipes/community/identity-spec-no-unasked-maker-aas",
+                ),
             ),
         )
         run.score("no_unasked_maker", sc, ci=hw, n=n, rows=examples(arm_rows(a, "leak")))
@@ -255,12 +280,23 @@ def main() -> None:
 
     tracked.figure(
         "selectors-hard",
-        {"data": [{"type": "bar",
-                   "x": ["base"] + [ARMS[a] for a in ARMS],
-                   "y": [posted["base"][0]] + [posted[a][0] for a in ARMS],
-                   "error_y": {"type": "data", "array": [posted["base"][1]] + [posted[a][1] for a in ARMS]}}],
-         "layout": {"title": "no_unasked_maker on the hard holdout, points out of 100",
-                    "yaxis": {"range": [0, 100]}}},
+        {
+            "data": [
+                {
+                    "type": "bar",
+                    "x": ["base"] + [ARMS[a] for a in ARMS],
+                    "y": [posted["base"][0]] + [posted[a][0] for a in ARMS],
+                    "error_y": {
+                        "type": "data",
+                        "array": [posted["base"][1]] + [posted[a][1] for a in ARMS],
+                    },
+                }
+            ],
+            "layout": {
+                "title": "no_unasked_maker on the hard holdout, points out of 100",
+                "yaxis": {"range": [0, 100]},
+            },
+        },
         caption=f"Base and three selectors on {len(leak_holdout)} bait asks. Noise floor {noise} points.",
         run=base,
     )
