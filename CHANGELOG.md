@@ -7,10 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
-- while.ai is the platform domain: sign-in, run and dataset links, the README, the package
-  homepage and the cross-posted blog canonicals say `while.ai`; `withwhile.com` stays in
-  `PLATFORM_DOMAINS` because the API, docs and hosted models still answer under it.
-
+- `attach_labels` raises when a list (or JSONL) holds anything but label dicts, naming the item
+  and the three accepted shapes; a bare `[0, 1, 1, 0]` used to be filtered to nothing and
+  reported as zero labels, zero invalid (#685).
 - Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
   the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
   instead of zeroing them.
@@ -20,6 +19,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   test feedback, a ring swarm, a star swarm) and the share of tasks each one rescues,
   paired by task with `compare_runs`. The rescued programs land in `out/rescued.jsonl`
   as bare rows for a later SFT or distillation run.
+- while.ai is the platform domain: sign-in, run and dataset links, the README, the package
+  homepage and the cross-posted blog canonicals say `while.ai`; `withwhile.com` stays in
+  `PLATFORM_DOMAINS` because the API, docs and hosted models still answer under it.
 
 ## 0.116 (2026-09-22)
 
