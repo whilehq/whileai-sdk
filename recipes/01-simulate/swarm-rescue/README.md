@@ -209,6 +209,33 @@ samples spread over 0 to 5 (2, 2, 18, 29, 44, 33 of 128) and a program at
 | Noise | two resample re-runs (`--noise-runs 2`) |
 | Decision | a swarm arm that clears its interval and the band on one seed and repeats on the second is a working operator; anything less closes the line |
 
+**Result, seed 0 (2026-09-22).** 174 of 192 bundles all-fail at 8. The
+first run's arms were void (a Windows process-creation fault graded every
+arm sample as failing; see `GraderFault`); the independent arms were
+regraded from their saved text and the three swarm arms re-run live.
+
+| Primary: per-sample pass rate, 24 samples a task, paired | resample | solo | ring | star |
+|---|---|---|---|---|
+| Pass rate | 2.47% | 3.33% | 2.99% | 2.90% |
+| vs resample | | +0.86 [+0.24, +1.63], p 0.01 | +0.53 [-0.08, +1.28], p 0.17 | +0.43 [-0.12, +1.10], p 0.21 |
+| Rescued (secondary) | 8.0% | 8.6% | 8.0% | 8.6% |
+| Best-so-far fitness, rounds 0 / 1 / 2 | 3.27 / 3.47 / 3.56 | 3.28 / 3.42 / 3.41 | 3.27 / 3.53 / 3.60 | 3.27 / 3.63 / 3.70 |
+| Round-2 programs at 5 of 5 shown asserts | 8.4% | 8.5% | 13.2% | 17.7% |
+| Of those, passing every hidden assert | 32 of 117 | 4 of 110 | 2 of 171 | 4 of 230 |
+| Similarity to own round-0 program | 0.68 | 0.93 | 0.81 | 0.81 |
+
+The pre-registered margin was not met. Solo clears its interval by
+under a point; ring and star do not; rescue rate sits inside the
+5.3-point band (resample re-runs 8.1, 9.2, 9.8%). The mechanism check
+says why. The swarms climb the hill: star's round-2 programs pass all
+five shown asserts twice as often as resampling's. But those programs
+pass the hidden asserts almost never (4 of 230 against 32 of 117), and
+among programs at 5 of 5 the mean hidden asserts passed falls with the
+rounds for star (5.5, 4.5, 4.4 of 10) while resampling's stays flat
+(5.7, 6.1, 5.6). The LLM velocity update satisfies the test it is shown
+rather than the function it is asked for. On a hill the swarm climbs the
+proxy, and the proxy comes apart from the target as it climbs.
+
 Note on the earlier runs: their visible fitness was the index of the
 first failing visible test (the grader stopped there), not the count of
 passing tests; from this run on every visible test runs and the count is
@@ -237,6 +264,13 @@ the first test), and the calibration scripts always ran every test.
   configurations, three flat results: PSO over rollouts, as a way to
   rescue the prompts GRPO drops, is closed. What a hard prompt needs is
   more samples or a stronger model, not a smarter way to condition them.
+- The positive control closes the line. Given a hill, the swarm climbs
+  it, and what it climbs is the shown test, not the function. Fitness
+  from tests is either a cliff (a verifier's partial credit) or a proxy
+  the operator overfits (an additive family), and a judge is chance. A
+  population search over rollouts needs a fitness that is graded,
+  predictive and hard to satisfy by rewriting to the example; none of the
+  three we had is all three.
 - The dataset angle survives the flat result. On tasks the model gets
   right 1 time in 30 or less, how you structure the extra samples did not
   matter; that you spend them did. Six runs of 24 turned 43 zero-gradient
@@ -245,7 +279,7 @@ the first test), and the calibration scripts always ran every test.
   since the swarm rows are off-policy for it) against plain GRPO at
   matched rollouts.
 
-Verified 2026-09-21 (seed 0), 2026-09-22 (seed 1) and 2026-09-22 (27B). `results.json` and
+Verified 2026-09-21 (seed 0), 2026-09-22 (seed 1), 2026-09-22 (27B) and 2026-09-22 (MBPP bundles, `results-mbpp.json`, `rescued-mbpp.jsonl`). `results.json` and
 `results-seed1.json` in this directory are the two runs' reports;
 `rescued-seed1.jsonl` is seed 1's 127 passing programs on 42 tasks, the
 rows a training run starts from. `python run.py --reuse` reprints a report
