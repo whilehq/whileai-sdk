@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Docs: [One rollout per prompt, in symbols](https://docs.withwhile.com/reference/single-rollout),
+  the reference page for the three single-rollout updates. Each method is one block of
+  arithmetic, the per-token coefficient `update()` returns, with the paper's equation numbers,
+  the group update it replaces for contrast, and a table from every symbol to the `Update`
+  field that carries it. Lesson 9 links to it from the mechanism.
 - `wai.FlashReinforce`, `wai.SAO` and `wai.BPCO`: the single-rollout methods, one trajectory
   per prompt, the shape a production trace arrives in (one attempt per ask, scored after the
   fact, a world that cannot be replayed), so there is no group to take a baseline over and each
