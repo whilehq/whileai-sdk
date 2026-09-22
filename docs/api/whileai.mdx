@@ -1632,8 +1632,9 @@ whether the agent handles the situation, not one wording of it.
 and `group_signal` count tasks with the same key, so
 `pass_at(rows).n_groups` and `delta_report(...)["n_paired_tasks"]`
 agree on the same rows. Only binary `reward` (or `qwen_reward`)
-rows count; partial and unjudged rows are skipped, the same rule
-`group_signal` uses.
+rows count, the same rule `group_signal` uses; a row whose reward
+is between 0 and 1 is counted in `n_partial` and named in `note`,
+and an unjudged row is skipped.
 
 The intervals resample tasks, never rows (Miller 2024, arXiv:2411.00640),
 so they need at least `MIN_CI_TASKS` (3) tasks. Under that, `ci95` is

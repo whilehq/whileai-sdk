@@ -248,3 +248,28 @@ def test_a_partly_graded_set_still_says_grade_first():
     assert "grade first" in pass_at(rows).note
     # and rows nobody judged keep the original wording
     assert "grade first" in pass_at([{"prompt": "a", "reward": None}]).note
+
+
+def test_partial_rewards_are_counted_and_named_not_dropped_in_silence():
+    """10 tasks at k=4, 5 of them scoring 0.67: pass@1 is over the other 5,
+    and the result says the 20 rows it left out (#672)."""
+    rows = _rows({f"t{i}": [1, 1, 1, 1] for i in range(3)})
+    rows += _rows({f"t{i}": [0, 0, 0, 0] for i in range(3, 5)})
+    rows += [
+        {"prompt": f"t{i}", "reward": 0.67, "final_text": "x", "steps": []}
+        for i in range(5, 10)
+        for _ in range(4)
+    ]
+    out = pass_at(rows, k=4)
+    assert out.n_groups == 5 and out.n_rows == 20
+    assert out.n_partial == 20
+    assert out.to_dict()["n_partial"] == 20
+    assert "20 row(s) carried a reward that is not 0 or 1" in out.note
+    assert "kind='hard'" in out.note
+    assert "20 row(s)" in str(out)
+    # an all-binary run is untouched
+    clean = pass_at(_rows({"a": [1, 0, 1, 1], "b": [0, 0, 0, 0], "c": [1, 1, 1, 1]}), k=4)
+    assert clean.n_partial == 0 and "not 0 or 1" not in clean.note
+    # every row partial: still nothing to score, and the count says how many
+    every = pass_at([{"prompt": "a", "reward": 0.5, "judge_status": "ok"}] * 4)
+    assert every.n_groups == 0 and every.n_partial == 4

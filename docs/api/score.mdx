@@ -1944,6 +1944,7 @@ class PassAt(
     n_rows: int,
     n_groups_at_k: int = 0,
     n_groups_imputed: int = 0,
+    n_partial: int = 0,
     per_task: dict[str, float] = <factory>,
     note: str = '',
     config: dict[str, Any] = <factory>,
@@ -1976,6 +1977,7 @@ the attribute is readable off it.
 | `n_rows`           | not printed      | graded rows behind those tasks             |
 | `n_groups_at_k`    | not printed      | tasks the k-way numbers used               |
 | `n_groups_imputed` | not printed      | short unanimous tasks counted in           |
+| `n_partial`        | in the note      | rows whose reward is not 0 or 1, left out  |
 | `per_task`         | not printed      | `{task key: pass rate}`, a dict          |
 | `note`             | tail of the line | why a number is missing, and the fix       |
 | `config`           | token-cap share  | how the rows were made (`run_config`)    |
@@ -2018,8 +2020,9 @@ whether the agent handles the situation, not one wording of it.
 and `group_signal` count tasks with the same key, so
 `pass_at(rows).n_groups` and `delta_report(...)["n_paired_tasks"]`
 agree on the same rows. Only binary `reward` (or `qwen_reward`)
-rows count; partial and unjudged rows are skipped, the same rule
-`group_signal` uses.
+rows count, the same rule `group_signal` uses; a row whose reward
+is between 0 and 1 is counted in `n_partial` and named in `note`,
+and an unjudged row is skipped.
 
 The intervals resample tasks, never rows (Miller 2024, arXiv:2411.00640),
 so they need at least `MIN_CI_TASKS` (3) tasks. Under that, `ci95` is

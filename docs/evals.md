@@ -302,6 +302,7 @@ tools, so every model reads the same evidence. The floors are
 | `pass_pow_k_ci95`, `pass_at_k_ci95` | `[lo..hi]` | the same for the k-way numbers |
 | `k`, `n_groups`, `n_rows` | `(N groups, k=4)` | draw size, tasks, graded rows |
 | `n_groups_at_k`, `n_groups_imputed` | not printed | tasks the k-way numbers used |
+| `n_partial` | in the note | rows whose reward is not 0 or 1; pass@1 leaves them out and says so |
 | `per_task` | not printed | `{task key: pass rate}`, a dict |
 | `note` | tail of the line | why a number is missing, and the fix |
 | `config` | token-cap share | temperature, versions, prompt hash |
