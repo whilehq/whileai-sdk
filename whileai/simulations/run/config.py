@@ -672,6 +672,25 @@ def resolve_run_config(
             f"grade= is True (the rubric judge), False, or 'conduct' (the deterministic "
             f"conduct check); got {grade!r}. A callable goes in grader=."
         )
+    resolved_rubric = (str(rubric).strip() or None) if rubric else spec_rubric(spec)
+    if grade is True and grader is None:
+        # grade=True is the rubric judge, the same one data.grade(wai.Judge(
+        # rubric=...)) runs, applied through the grader path so every row
+        # carries reward, judge_status, judge_name and lineage. The advisory
+        # llm_grade pass writes llm_reward and never reward, so it is not
+        # this. The conduct check answers a different question (what the
+        # agent did, not whether it did the job) and is only reachable by
+        # name, because a reward nobody chose reads exactly like one they
+        # did (Lambert 2025, chapter Reward Models). With no key the judge
+        # stops here, before any budget is spent; it never substitutes.
+        from whileai.judge import Judge
+
+        from ..score.llm_judge import MISSING_JUDGE_KEY, resolve_judge_key
+
+        judge = Judge(resolved_rubric, policy=policy or "", tools=list(tools or []))
+        if not resolve_judge_key(None, judge.spec):
+            raise RuntimeError(MISSING_JUDGE_KEY)
+        grader = judge
     if grader is not None and not callable(grader):
         # A string here ran every rollout through run_judge as an error:
         # 150 rows "judged", none with a reward, and nothing said so.
@@ -878,14 +897,9 @@ def resolve_run_config(
         on_progress=on_progress,
         grade=grade,
         grader=grader,
-        # grade=True is the rubric judge. The conduct check answers a
-        # different question (what the agent did, not whether it did the
-        # job) and is only reachable by name, because a reward nobody chose
-        # reads exactly like one they did (Lambert 2025, chapter Reward
-        # Models). With no key the judge stops loudly; it never substitutes.
-        llm_grade=llm_grade or (grade is True and grader is None),
+        llm_grade=llm_grade,
         llm_spec=llm_spec,
-        rubric=(str(rubric).strip() or None) if rubric else spec_rubric(spec),
+        rubric=resolved_rubric,
         concurrency=concurrency,
         hard_share=hard_share,
         dimensions=dimensions,
