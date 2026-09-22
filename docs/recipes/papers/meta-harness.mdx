@@ -224,7 +224,7 @@ gain is the harness and no ranking flipped.
 Noise floor: the baseline harness was run three times on Haiku over the
 same 30 held-out asks (`out/tasks.jsonl` replayed, nothing redrawn). The
 three holdout means are 0.65, 0.69 and 0.61, `eval_variance` run_std 0.042, and the
-band a one-run-per-side delta has to clear is 0.25 (`noise_band(run_std,
+band a one-run-per-side delta has to clear is 0.25 (`wai.noise_band(run_std,
 df=2)` = 4.30 x sqrt(2) x run_std). +0.33 clears it; the +0.01 between the
 two winning candidates does not, and the recipe does not call it a
 difference.
