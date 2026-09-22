@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
+
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
   is the report rather than a dict literal: a line per marker with its interval, the phrases that
   fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and

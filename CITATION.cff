@@ -5,6 +5,7 @@ type: software
 authors:
   - family-names: Weiss
     given-names: Jacob
+    email: jacob@while.ai
     affiliation: While
 repository-code: "https://github.com/whilehq/whileai-sdk"
 url: "https://while.ai"
