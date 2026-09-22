@@ -18,7 +18,7 @@ What happens:
    that is pass@1 before.
 3. TRL's ``GRPOTrainer`` with a LoRA adapter, 8 generations per prompt.
    ``wai.TrainerCallback`` puts reward, KL and the progress bar on
-   withwhile.com/platform/training as it goes. ``wai.HackMonitor``
+   while.ai/platform/training as it goes. ``wai.HackMonitor``
    samples the holdout from the live policy every ``--monitor-every``
    steps, logs the proxy reward and completion length beside the training
    curve, and scans the batch for what the reward is paying for; an alarm

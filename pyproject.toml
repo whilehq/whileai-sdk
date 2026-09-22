@@ -34,7 +34,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://withwhile.com"
+Homepage = "https://while.ai"
 Documentation = "https://docs.withwhile.com"
 Repository = "https://github.com/whilehq/whileai-sdk"
 Issues = "https://github.com/whilehq/whileai-sdk/issues"

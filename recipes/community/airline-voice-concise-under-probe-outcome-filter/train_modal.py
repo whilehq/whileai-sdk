@@ -9,7 +9,7 @@ Each arm writes its adapter and a ``filter_trace.json`` (how many groups it
 dropped per step) to the ``voice-filter-runs`` volume.
 
 Needs ``MODAL_TOKEN_ID`` and ``MODAL_TOKEN_SECRET``. ``WHILEAI_API_KEY`` is
-optional: with it the run shows up on withwhile.com/platform, without it the
+optional: with it the run shows up on while.ai/platform, without it the
 arm trains and prints the same numbers.
 """
 

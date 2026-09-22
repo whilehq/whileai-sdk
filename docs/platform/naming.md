@@ -4,7 +4,7 @@ sidebarTitle: "Naming"
 description: "The platform shows the names your code sends. A coding agent names the agent, behaviors, versions and experiments in the team's own words, and the test by its content."
 ---
 
-Every name on [withwhile.com/platform/runs](https://withwhile.com/platform/runs) comes from your code, and the page marks it so. The coding agent that writes the `track(...)` calls decides what the team reads for months. One rule covers it: **read the repo, then use its words.** The package name, the prompt files, the policy doc, the existing test names, the deploy tags and the changelog already hold the vocabulary. The SDK's example names (`refund-agent`, `refund_policy`, `v1`) are for the playbooks, not for a real repo.
+Every name on [while.ai/platform/runs](https://while.ai/platform/runs) comes from your code, and the page marks it so. The coding agent that writes the `track(...)` calls decides what the team reads for months. One rule covers it: **read the repo, then use its words.** The package name, the prompt files, the policy doc, the existing test names, the deploy tags and the changelog already hold the vocabulary. The SDK's example names (`refund-agent`, `refund_policy`, `v1`) are for the playbooks, not for a real repo.
 
 | Thing | Rule | From the repo | Not this |
 |---|---|---|---|

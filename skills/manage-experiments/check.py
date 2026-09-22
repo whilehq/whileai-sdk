@@ -1,6 +1,6 @@
 """Offline check for skills/manage-experiments/SKILL.md: how a coding agent
 says what it did, why the number moved, and how to run it again, so the
-person opening withwhile.com/platform reads it in one look.
+person opening while.ai/platform reads it in one look.
 
 A scripted checkout bot, two prompts (harness), one short SFT run (training)
 with a reward curve and held-out checkpoints, posted to a recording fake

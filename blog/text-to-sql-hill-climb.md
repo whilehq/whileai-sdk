@@ -4,7 +4,7 @@ description: "Training a small open model to write correct SQL for one schema, s
 slug: text-to-sql-hill-climb
 date: 2026-09-17
 author: While
-canonical: https://withwhile.com/blog/rl-for-text-to-sql
+canonical: https://while.ai/blog/rl-for-text-to-sql
 keywords:
   - text-to-sql
   - reinforcement learning
@@ -195,7 +195,7 @@ sits just outside the band. It had been real all along; the test was too
 small to see it.
 
 <figure>
-  <img src="https://withwhile.com/blog/text-to-sql-holdout-curve.svg" alt="Line chart of first-try accuracy on held-out questions against training samples. Qwen3-4B moves from 53% at the base to 55% after round four, then 57%, 73%, 74% and 74% at round five steps 25, 50, 75 and 100, with 95% bands. Nemotron-Nano-8B moves from 26% to 35% in one round." />
+  <img src="https://while.ai/blog/text-to-sql-holdout-curve.svg" alt="Line chart of first-try accuracy on held-out questions against training samples. Qwen3-4B moves from 53% at the base to 55% after round four, then 57%, 73%, 74% and 74% at round five steps 25, 50, 75 and 100, with 95% bands. Nemotron-Nano-8B moves from 26% to 35% in one round." />
   <figcaption>First-try accuracy on the held-out questions as training goes on. The shaded band is the 95% uncertainty band on each point. Rounds one to four are left of the vertical line; round five is right of it.</figcaption>
 </figure>
 

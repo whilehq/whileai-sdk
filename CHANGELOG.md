@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- while.ai is the platform domain: sign-in, run and dataset links, the README, the package
+  homepage and the cross-posted blog canonicals say `while.ai`; `withwhile.com` stays in
+  `PLATFORM_DOMAINS` because the API, docs and hosted models still answer under it.
+
 - Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
   the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
   instead of zeroing them.
