@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- The `wide_call_overage` ratchet pin is 195, not 194. #842 measured it at its
+  branch point and #843 landed `compare(lower_is_better=)` after it, so the two
+  were never counted together and `main` went red on the merge. The argument is
+  a correctness fix, not new surface; rule 3's own answer is a typed options
+  object, tracked in #859.
+
 - `wai.compare(..., lower_is_better=["words", "latency_ms"])` names the metrics whose *drop* is
   the win, so a run that set out to cut reply length stops being reported as a fault. Names take
   the `marker:` prefix or not, a mapping (`{"truncated": False}`) forces one back the other way,

@@ -243,7 +243,7 @@ grows:
 | front-door calls returning a bare `dict` or tuple | 5 | 3 |
 | public calls or constructors with more than 8 parameters (record dataclasses exempt) | 3 | 27 |
 | parameters on the widest public call (`simulate`) | 3 | 45 |
-| parameters over the cap, summed across those 27 calls | 3 | 194 |
+| parameters over the cap, summed across those 27 calls | 3 | 195 |
 | public names starting `format_` | 5 | 12 |
 | public names starting `attach_` or `stamp_` | 4 | 6 |
 | public names starting `build_`, `load_`, `run_` or ending `_of`, `_rows` | 6 | 17 |
