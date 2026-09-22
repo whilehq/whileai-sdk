@@ -17,6 +17,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   endpoint boots the container. Its manifest of deployed apps comes from `modal app
   list`, never from the constants it checks, so it can fail; the failure is pinned in
   `tests/scripts/test_check_hosted_defaults.py`.
+- A stopped Modal app is named instead of retried. Modal answers a 404 with
+  `modal-http: invalid function call` for an app that is not deployed, which is
+  permanent, so the error now says which app is gone and how to point the call
+  somewhere else. It previously read as a stall: a run against a stopped app sat at
+  "0/1000 rollouts" for 7m14s with no error.
 - Judge and policy are the same family for now (Qwen3-8B grades Qwen3-4B), which is a
   weaker form of the self-preference bias in Panickssery et al. 2024 (arXiv:2404.13076).
   It is a floor, not a recommendation: bring your own judge and audit it.

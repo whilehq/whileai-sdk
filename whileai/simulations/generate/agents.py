@@ -594,9 +594,40 @@ def _wire_tools(tools: list[dict] | None) -> list[dict]:
     return out
 
 
+#: What Modal answers for an app that is not deployed. It is a 404 with this
+#: body, and it is permanent: the app was stopped or renamed. Retrying cannot
+#: help, and on 2026-09-21 a run against a stopped app sat at "0/1000
+#: rollouts" for 7m14s because nothing said so (#816).
+MODAL_NO_SUCH_APP = "modal-http: invalid function call"
+
+
+def _is_dead_modal_app(text: str) -> bool:
+    low = str(text or "").lower()
+    return MODAL_NO_SUCH_APP in low and "modal.run" in low
+
+
+def dead_app_error(url: str) -> str:
+    """Name the app that is gone, and the two ways out."""
+    raw = url if "://" in url else "https://" + url
+    host = (urlparse(raw).hostname or url).lower()
+    app = host.split("--", 1)[-1].removesuffix(".modal.run") if "--" in host else host
+    return (
+        f"{host} is not deployed: Modal has no app '{app}'. This is permanent, not a "
+        "cold start, so the run stops instead of retrying. Either the app was stopped "
+        "or renamed and a default still names it (upgrade whileai), or point the call "
+        "at an endpoint you run with agent='vllm:<model>@<your-url>'."
+    )
+
+
 def public_llm_error(exc: BaseException | str | None) -> str:
     """Studio/JSONL-safe message. Strip Modal internals from dropped requests."""
     text = str(exc or "").strip()
+    if _is_dead_modal_app(text):
+        url = next(
+            (w.strip("',\"()") for w in text.split() if ".modal.run" in w),
+            "the hosted endpoint",
+        )
+        return dead_app_error(url)
     if _is_lost_track(text) or str(exc) == _TRANSIENT_RETRY:
         return HOSTED_DROPPED
     return text
