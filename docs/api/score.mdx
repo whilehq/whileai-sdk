@@ -954,7 +954,11 @@ carries the counts).
 * `rows`: graded rows carrying the judge's `reward`. Rows that also
   carry `gold` (0/1, default column `gold_reward`, what
   `attach_labels` writes) feed the agreement, held-out and length
-  checks.
+  checks. Those checks read the `reward` already on the row, so when
+  `judge` is given and the rows' `judge_name` (what `run_judge`
+  and `data.grade` stamp) names another scorer, the report warns
+  and `ok` is false: the agreement would be that scorer's, not the
+  judge's (#683).
 * `judge`: the judge callable. With it the report re-judges up to
   `sample` rows twice more, as-is for consistency and with neutral
   filler appended; flips on the filler run mean the judge pays for
