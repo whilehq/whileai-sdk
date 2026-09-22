@@ -83,7 +83,7 @@ locally, so do them before the first push:
    uv run python scripts/gen_recipe_docs.py --check  # what CI runs
    ```
 
-[Development](https://docs.withwhile.com/reference/development#contributing-a-recipe)
+[Development](https://docs.while.ai/reference/development#contributing-a-recipe)
 says what each step fails with.
 
 Two rules on top of the conventions:

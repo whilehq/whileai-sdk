@@ -93,7 +93,7 @@ def gold_of(task: dict) -> str:
 
 def _equal(candidate_answer: str, gold: str) -> bool:
     """One equality rule for both rewards and the eval: sympy with a numeric
-    and normalised-string fallback (whileai's MathEqual), fed an answer span
+    (whileai's MathEqual, decided by Math-Verify), fed an answer span
     that has already been extracted, so the reader is the only difference."""
     from whileai.simulations.verify import MathEqual
 

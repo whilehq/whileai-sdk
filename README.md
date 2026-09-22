@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://docs.withwhile.com"><b>Docs</b></a> |
+  <a href="https://docs.while.ai"><b>Docs</b></a> |
   <a href="https://while.ai"><b>Platform</b></a> |
   <a href="recipes"><b>Recipes</b></a> |
   <a href="CONSTITUTION.md"><b>Constitution</b></a>
@@ -143,7 +143,7 @@ mock world answers its calls, faults first. No tools yet?
 **Evals only?** `wai init-evals` finds your agent, writes a judge and a
 runner around it, and gives you a pass rate with a 95% interval and a CI
 test that goes red on regression.
-[docs.withwhile.com/evals](https://docs.withwhile.com/evals).
+[docs.while.ai/evals](https://docs.while.ai/evals).
 
 ## The loop, call by call
 
@@ -159,7 +159,7 @@ test that goes red on regression.
 
 The first name in each row is `wai.<name>`; the rest are at
 `wai.simulations.<name>`. How each is computed:
-[docs.withwhile.com/concepts/engine](https://docs.withwhile.com/concepts/engine).
+[docs.while.ai/concepts/engine](https://docs.while.ai/concepts/engine).
 
 ## Why the numbers hold
 
@@ -219,14 +219,14 @@ model = wai.platform.serve("refunds-v2", run)  # OpenAI-compatible endpoint
 
 `wai login`, `agents`, `runs`, `verdict` and `promote` do the same from
 a terminal, all with `--json`. `push` refuses RL data with no mixed groups.
-[docs.withwhile.com/reference/platform](https://docs.withwhile.com/reference/platform).
+[docs.while.ai/reference/platform](https://docs.while.ai/reference/platform).
 
 ## Documentation
 
-- [Quickstart](https://docs.withwhile.com/get-started/quickstart) and [Connect your agent](https://docs.withwhile.com/get-started/connect-your-agent)
-- [The five calls](https://docs.withwhile.com/reference/five-calls): the run in order, the judge contract, verifiers
-- [The engine](https://docs.withwhile.com/concepts/engine): how a row is made, with references
-- [API](https://docs.withwhile.com/api/index): every public call, generated on each release
+- [Quickstart](https://docs.while.ai/get-started/quickstart) and [Connect your agent](https://docs.while.ai/get-started/connect-your-agent)
+- [The five calls](https://docs.while.ai/reference/five-calls): the run in order, the judge contract, verifiers
+- [The engine](https://docs.while.ai/concepts/engine): how a row is made, with references
+- [API](https://docs.while.ai/api/index): every public call, generated on each release
 - [CONSTITUTION.md](CONSTITUTION.md): what we believe and where each belief is enforced
 - [docs/reference/style.md](docs/reference/style.md): the coding standard, PyTorch and DSPy ergonomics
 - [CHANGELOG.md](CHANGELOG.md): one entry per release

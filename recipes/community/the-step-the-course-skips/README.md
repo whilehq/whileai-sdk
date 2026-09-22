@@ -133,3 +133,11 @@ and a per-message `loss_mask` that `SFTTrainer` does not read, so
 Re-run at `--holdout-tasks 50` to clear the platform's own `n` gate, and add a
 second metric that the training did not optimise — the check that the gain is
 not just the rule being memorised.
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| the adapter the run left on the volume, with `rows.json` | [`while-ai/community-step-the-course-skips-1.5b`](https://huggingface.co/while-ai/community-step-the-course-skips-1.5b) |
+
+Part of the [Course and community runs](https://huggingface.co/collections/while-ai/course-and-community-runs-6ab271de189fd0c363cfab92) collection in the while-ai org.

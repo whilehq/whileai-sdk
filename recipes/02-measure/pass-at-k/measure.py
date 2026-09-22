@@ -131,7 +131,7 @@ def simulate_rows(
         budget=asks * k,
         seed=seed,
         seeds=seeds,
-        grade=True,
+        grade="conduct",
         concurrency=concurrency,
         reproducible=True,
         simulator=False,

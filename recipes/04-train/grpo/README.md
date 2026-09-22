@@ -326,6 +326,14 @@ DPO the fix has to put contrast on the no-id prompts themselves, for
 example a constructed rejected reply (the invented call) against the
 policy's own ask, rather than more of the same prompts.
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| the 40-step run `usersim-grpo-40` with `holdout_before.jsonl` and `holdout_after.jsonl` | [`while-ai/course-refunds-grpo-1.5b`](https://huggingface.co/while-ai/course-refunds-grpo-1.5b) |
+
+Part of the [Course and community runs](https://huggingface.co/collections/while-ai/course-and-community-runs-6ab271de189fd0c363cfab92) collection in the while-ai org.
+
 ## References
 
 1. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

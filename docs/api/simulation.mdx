@@ -29,7 +29,7 @@ simulate(
     rollouts_per_request: int | None = None,
     unique_situations: bool = False,
     reproducible: bool | None = None,
-    grade: bool = False,
+    grade: bool | str = False,
     llm_grade: bool = False,
     traces: Any = None,
     grader: Any = None,
@@ -77,9 +77,14 @@ the tool calls, the final reply and its lineage), `warnings`
 (plain-words notes, each naming the call that changes it),
 `report()`, `search` (how the budget was spent), `pass_at`
 once graded, and `save(path)`. Nothing is graded unless you ask:
-pass `grade=True` for the deterministic conduct grade, a callable
-`grader=` to score inside the loop (the only in-simulate score
-hook), or grade later with `data.grade(...)` or `grade()`.
+pass `grade=True` to grade against the rubric with the judge, the
+same `wai.Judge(rubric=...)` that `data.grade` runs, so rows carry
+`reward`, `judge_status` and `judge_name` (no key stops before
+any budget is spent, nothing is substituted), `grade="conduct"` for the
+deterministic conduct check by name (what the agent did, not whether
+it did the job; rows carry `label_source="conduct"`), a callable
+`grader=` to score inside the loop, or grade later with
+`data.grade(...)` or `grade()`.
 
 The agent and the budget:
 
@@ -116,7 +121,9 @@ The agent and the budget:
   not spent.
 * `concurrency` (32 parallel rollouts), `seed`, `sampling`,
   `temperature`, `timeout`, `logprobs`, `fault_rate`,
-  `max_turns` / `avg_turns` (model-backed agents only): each is
+  `max_turns` / `avg_turns` (model-backed agents only;
+  `avg_turns=1` is one user line and one reply, the follow-up
+  branch never runs): each is
   `None` unless you set it, and a misspelled keyword is a
   `TypeError`, never silently ignored. Writer completions are
   `advanced["completions_per_request"]`; seed openers are
@@ -312,14 +319,14 @@ situations or played the user, the run's `degraded` list carries
 training on a model's own unfiltered output teaches it its own habits
 (Lambert 2025, chapter Synthetic Data and Distillation).
 
-``python
+```python
 import whileai.simulations as wai
 
-TOOLS = [\{"type": "function", "function": \{
+TOOLS = [{"type": "function", "function": {
     "name": "lookup_order",
-    "parameters": \{"type": "object",
-                   "properties": \{"order_id": \{"type": "string"\}\},
-                   "required": ["order_id"]\}\}\}]
+    "parameters": {"type": "object",
+                   "properties": {"order_id": {"type": "string"}},
+                   "required": ["order_id"]}}}]
 agent = wai.seeded_agent(TOOLS)  # an offline demo agent, no key
 base = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
                     mode="rl", repeats=4, budget=32)
@@ -329,4 +336,4 @@ rerun = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
                      on_progress=print)  # or watch the whileai.simulations logger
 print(base.stopped_because, len(base.rows()), base.warnings)
 print(rerun.search["rollouts"])  # landed, resumed, rerolled_by, lost_by
-``
+```

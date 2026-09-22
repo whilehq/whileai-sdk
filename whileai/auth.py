@@ -35,13 +35,17 @@ from whileai._env import env_name, getenv
 
 #: The While platform API (whilehq/website/backend): serves /device/code,
 #: /device/token, /signup and /me. ``WHILEAI_API_URL`` overrides.
-DEFAULT_API_URL = "https://api.withwhile.com"
+DEFAULT_API_URL = "https://api.while.ai"
 #: Hosts a credentials file may still pin: the token gate this API replaced
 #: for login (whileai before 0.5x) and the raw API Gateway hostname the
 #: platform API answered on before it had its own name (0.72 to 1.09). Both
 #: mean the default now; the key is the same key.
 _RETIRED_API_URL = "https://api.zeroproofai.com"
-_PREVIOUS_API_URLS = (_RETIRED_API_URL, "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com")
+_PREVIOUS_API_URLS = (
+    _RETIRED_API_URL,
+    "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com",
+    "https://api.withwhile.com",
+)
 #: The site that hosts /sign-in and the /device approval page.
 SITE_URL = "https://while.ai"
 SIGN_IN_URL = f"{SITE_URL}/sign-in"

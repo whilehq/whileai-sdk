@@ -615,6 +615,38 @@ def perturbation(
     }
 
 
+def _foreign_reward_note(rows: Sequence[dict], judge: Callable[[dict], Any]) -> str | None:
+    """The line for rows whose ``reward`` another scorer wrote.
+
+    Agreement, kappa, the held-out halves and length sensitivity read the
+    ``reward`` on the row; only the perturbation and probe passes call
+    ``judge``. ``run_judge`` and ``data.grade`` stamp ``judge_name`` on
+    every row they score, so when the stamp names a different scorer the
+    two halves of the report are about two judges, and the verdict is
+    about neither (Lambert 2025, chapter Reward Modeling: a judge's
+    agreement is measured on its own verdicts). Unstamped rows say
+    nothing either way. The judge's name is resolved the way ``run_judge``
+    would stamp it.
+    """
+    from .judging import _instance_name
+
+    name = getattr(judge, "__name__", "") or _instance_name(judge)
+    if not name:
+        return None
+    stamped = Counter(str(r["judge_name"]) for r in rows if r.get("judge_name"))
+    others = {k: n for k, n in stamped.items() if k != name}
+    if not others:
+        return None
+    who = ", ".join(f"{k} ({n})" for k, n in sorted(others.items()))
+    return (
+        f"Judge under audit is {name}, but the reward on {sum(others.values())} of "
+        f"{len(rows)} labeled rows was written by {who}: agreement, kappa, the held-out "
+        f"halves and length sensitivity measure that scorer, and only the perturbation "
+        f"and probe passes ran on {name}. Regrade the rows with {name} (run_judge or "
+        "data.grade), then run judge_trust again."
+    )
+
+
 def judge_trust(
     rows: Sequence[dict],
     judge: Callable[[dict], Any] | None = None,
@@ -663,7 +695,11 @@ def judge_trust(
     * ``rows``: graded rows carrying the judge's ``reward``. Rows that also
       carry ``gold`` (0/1, default column ``gold_reward``, what
       ``attach_labels`` writes) feed the agreement, held-out and length
-      checks.
+      checks. Those checks read the ``reward`` already on the row, so when
+      ``judge`` is given and the rows' ``judge_name`` (what ``run_judge``
+      and ``data.grade`` stamp) names another scorer, the report warns
+      and ``ok`` is false: the agreement would be that scorer's, not the
+      judge's (#683).
     * ``judge``: the judge callable. With it the report re-judges up to
       ``sample`` rows twice more, as-is for consistency and with neutral
       filler appended; flips on the filler run mean the judge pays for
@@ -743,6 +779,9 @@ def judge_trust(
     )
 
     warnings: list[str] = list(agree.get("warnings") or [])
+    foreign = _foreign_reward_note(labeled, judge) if judge else None
+    if foreign:
+        warnings.append(foreign)
     # Rows the judge scored between 0 and 1 never reach the agreement
     # count, and they are the rows it was least sure about, so the rows
     # that remain agree more than the sample would (#345). Over the floor
@@ -912,6 +951,7 @@ def _flagged(warnings: Sequence[str]) -> bool:
             (
                 "Judge agreement with",
                 "Judge agreement skipped",
+                "Judge under audit is",
                 "Judge kappa with",
                 "judge pass rate differs",
                 "judge passed",

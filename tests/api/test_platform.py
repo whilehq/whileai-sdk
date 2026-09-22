@@ -1114,3 +1114,64 @@ def test_brief_does_not_say_promote_one_after_a_promotion():
     )
     means = brief_of("a", [beh], runs, dash).means
     assert "promote one" not in means and "base is the served version" in means
+
+
+# ---------------------------------------------------------------- #734
+
+
+def test_a_reasoning_trace_posts_instead_of_raising(caplog):
+    """Example(reply=1300 chars) used to raise string_too_long at 1200; the
+    platform stores 2000 a row (evalrows.js ROW_TEXT_MAX), so it posts as
+    it is. Past 2000 the middle is cut, with a marker that counts the cut,
+    the head and the tail kept (the approach and the answer), and one
+    warning names the cap."""
+    from whileai import platform as pf
+
+    pf._trim_warned.clear()
+    ok = Example(prompt="x", reply="y" * 1300, ok=True)
+    assert ok.reply == "y" * 1300
+    trace = "H" * 4000 + "T" * 3877  # the issue's longest MATH-500 reply
+    with caplog.at_level(logging.WARNING, logger="whileai.platform"):
+        row = Example(prompt="p", reply=trace, ok=False, why="w" * 500, detail="d" * 2500)
+        Example(prompt="p", reply=trace, ok=False)  # the second cut of the same field is quiet
+    assert row.reply is not None and len(row.reply) == pf.ROW_TEXT_MAX
+    assert row.reply.startswith("HHHH") and row.reply.endswith("TTTT")
+    assert "[... 5903 chars cut ...]" in row.reply  # 7877 - 2000 + the marker's own 26
+    assert row.why is not None and len(row.why) == pf.EXAMPLE_WHY_MAX
+    assert row.detail is not None and len(row.detail) == pf.ROW_TEXT_MAX
+    assert caplog.text.count("Example.reply over 2000 chars") == 1
+    assert (
+        "the platform stores 2000" in caplog.text and "shorten it before Example()" in caplog.text
+    )
+
+
+def test_the_card_sample_is_cut_again_at_its_own_cap():
+    """examples= on a Score is the card's 20-row sample, stored at 1200
+    (evalrows.js TEXT_MAX); the row behind it keeps 2000. The second cut's
+    marker counts the whole cut, not only its own."""
+    from whileai import platform as pf
+
+    trace = "H" * 4000 + "T" * 3877
+    fake = Fake()
+    run = track("a", transport=fake).run("v4", flush_every=100)
+    run.score("math", 41.0, ci=4.0, n=500, rows=[Example(prompt="p", reply=trace, ok=False)])
+    card = [b for m, p, b in fake.calls if m == "POST" and p.endswith("/evals")][-1][0]
+    posted = [b for m, p, b in fake.calls if m == "POST" and p.endswith("/rows")][-1]["rows"]
+    assert len(card["examples"][0]["reply"]) == pf.EXAMPLE_TEXT_MAX
+    assert len(posted[0]["reply"]) == pf.ROW_TEXT_MAX
+    assert "[... 6729 chars cut ...]" in card["examples"][0]["reply"]
+    assert card["examples"][0]["reply"].startswith("HHHH")
+    assert card["examples"][0]["reply"].endswith("TTTT")
+    # within the cap nothing is touched, on the card or on the row
+    short = Example(prompt="p", reply="r" * pf.EXAMPLE_TEXT_MAX, ok=True)
+    assert Score(behavior="b", score=1.0, examples=[short]).examples == [short]
+
+
+def test_trim_text_holds_the_cap_at_every_length():
+    from whileai.platform import ROW_TEXT_MAX, trim_text
+
+    for n in (2001, 2026, 2027, 9999, 10_000, 100_001):
+        out = trim_text("x" * n, ROW_TEXT_MAX, field="t")
+        assert len(out) == ROW_TEXT_MAX, n
+        assert f"[... {n - out.count('x')} chars cut ...]" in out  # the x's that vanished
+    assert trim_text("x" * ROW_TEXT_MAX, ROW_TEXT_MAX, field="t") == "x" * ROW_TEXT_MAX

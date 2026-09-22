@@ -180,6 +180,10 @@ from .score.stats import (
     metric_summary,
     task_key,
 )
+
+# `noise_band` resolves here and on `whileai` beside `eval_variance` (#735);
+# it stays off __all__ so the exports pin in tests/api/test_style_ratchet.py holds.
+from .score.stats import noise_band as noise_band
 from .score.style import refusal_report, style_markers, style_report
 from .score.trace import trace_flag_report, trace_flags, trace_markers
 from .simulation import resolve_topology, simulate

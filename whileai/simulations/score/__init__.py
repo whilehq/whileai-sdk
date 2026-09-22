@@ -1,3 +1,3 @@
-from .stats import eval_power
+from .stats import eval_power, noise_band
 
-__all__ = ["eval_power"]
+__all__ = ["eval_power", "noise_band"]

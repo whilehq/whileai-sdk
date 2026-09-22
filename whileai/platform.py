@@ -83,7 +83,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator
 from pydantic.alias_generators import to_camel
 
 from whileai._env import getenv
@@ -92,7 +92,7 @@ from whileai.hosted import HostedModel, HostedModels, Subdomain, UsageDay, hoste
 
 log = logging.getLogger("whileai.platform")
 
-DEFAULT_PLATFORM_URL = "https://api.withwhile.com"
+DEFAULT_PLATFORM_URL = "https://api.while.ai"
 PLATFORM_URL_ENV = "WHILEAI_PLATFORM_URL"
 
 FLUSH_EVERY = 25
@@ -108,9 +108,21 @@ EXPERIMENT_FIELD_MAX = 4096  # chars per experiment field, markdown allowed
 RUBRIC_MAX = 4000
 EXAMPLES_MAX = 20
 ROWS_PER_CALL = 500  # graded rows a call; run.score(rows=) chunks for you
-EXAMPLE_TEXT_MAX = 1200
-EXAMPLE_WHY_MAX = 400
+# What the platform stores per graded row, one number each, read off the
+# API (whilehq/website backend/lambda/api/evalrows.js: TEXT_MAX, WHY_MAX,
+# ROW_TEXT_MAX). The server trims past these with a trailing ellipsis; the
+# client trims first, keeps the head and the tail with a marker in the
+# middle, and warns once naming the cap, so a reasoning trace posts
+# instead of raising (#734).
+EXAMPLE_TEXT_MAX = 1200  # prompt and reply on the card's 20-row sample (examples=)
+EXAMPLE_WHY_MAX = 400  # why, on the sample and on every row
+ROW_TEXT_MAX = 2000  # prompt, reply, reference and detail on every row (rows=)
+TRIM_MARKER = "\n[... {cut} chars cut ...]\n"  # what the cut leaves behind, in the middle
+TRIM_HEAD_SHARE = 0.5  # of the kept text goes to the head; the answer is at the tail
+TRIM_PASSES = 4  # the marker count settles in two passes, three after a prior cut, one to check
 
+BEHAVIOR_NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"  # a behavior or marker name on the wire
+BEHAVIOR_NAME_MAX = 64  # chars; ``Behavior.name`` and every marker a sweep posts
 FIGURE_NAME_PATTERN = r"^[a-z0-9][a-z0-9-]{0,39}$"  # one figure per name per agent
 FIGURE_MAX_BYTES = 200_000  # JSON bytes of {data, layout}; the API says 413 past it
 FIGURE_MAX_TRACES = 50  # traces per figure; the API says 422 past it
@@ -272,7 +284,7 @@ class Behavior(_Wire):
     reward; a program-graded eval can still train on a judge's reward.
     """
 
-    name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    name: str = Field(min_length=1, max_length=BEHAVIOR_NAME_MAX, pattern=BEHAVIOR_NAME_PATTERN)
     test_version: str | None = None
     n: int | None = Field(default=None, ge=1)
     judge: Judge | None = None
@@ -495,24 +507,88 @@ class TrainPoint(_Wire):
     loss: float | None = None
 
 
+_trim_warned: set[str] = set()
+_TRIM_COUNT = re.compile(r"\[\.\.\. (\d+) chars cut \.\.\.\]")
+
+
+def trim_text(text: str, cap: int, *, field: str = "text") -> str:
+    """``text`` at most ``cap`` characters: the head and the tail kept, the
+    cut counted in a marker between them. A reasoning trace shows its
+    approach first and its answer last, so a middle cut keeps both; the
+    platform stores at most ``cap`` and would cut the tail. Warns once per
+    field naming the cap."""
+    if len(text) <= cap:
+        return text
+    cut = len(text) - cap
+    head = tail = 0
+    for _ in range(TRIM_PASSES):
+        marker = TRIM_MARKER.format(cut=cut)
+        keep = cap - len(marker)
+        head = int(keep * TRIM_HEAD_SHARE)
+        tail = keep - head
+        # a second cut (the card sample after the row) counts what the first one cut
+        prior = sum(int(n) for n in _TRIM_COUNT.findall(text[head : len(text) - tail]))
+        if len(text) - keep + prior == cut:
+            break
+        cut = len(text) - keep + prior
+    if field not in _trim_warned:
+        _trim_warned.add(field)
+        log.warning(
+            "Example.%s over %d chars: the platform stores %d, so the middle is cut and "
+            "marked '[... N chars cut ...]', head and tail kept. To choose what is kept, "
+            "shorten it before Example(); the full text stays where the SDK wrote it.",
+            field,
+            cap,
+            cap,
+        )
+    return text[:head] + marker + text[len(text) - tail :]
+
+
 class Example(_Wire):
     """One graded row from a held-out test: the prompt, the reply, whether
     the judge passed it, and why. A sample of these rides with a
     :class:`Score` so the platform can show what passed and what failed;
     the full set stays where the SDK wrote it.
+
+    Text past what the platform stores is cut in the middle with a
+    ``[... N chars cut ...]`` marker, never refused: ``prompt``, ``reply``,
+    ``reference`` and ``detail`` at 2000 characters (``ROW_TEXT_MAX``),
+    ``why`` at 400 (``EXAMPLE_WHY_MAX``); on a :class:`Score`'s 20-row
+    sample ``prompt`` and ``reply`` are cut again at 1200
+    (``EXAMPLE_TEXT_MAX``). The numbers are the API's, one source.
     """
 
-    prompt: str | None = Field(default=None, max_length=EXAMPLE_TEXT_MAX)
-    reply: str | None = Field(default=None, max_length=EXAMPLE_TEXT_MAX)
+    prompt: str | None = None
+    reply: str | None = None
     ok: bool
-    why: str | None = Field(default=None, max_length=EXAMPLE_WHY_MAX)
+    why: str | None = None
     score: float | None = Field(default=None, allow_inf_nan=False)
     tags: dict[str, str] | None = None
     """Short strings a page groups by: {"difficulty": "hard", "archetype": "date and time"}."""
-    reference: str | None = Field(default=None, max_length=2000)
+    reference: str | None = None
     """The gold answer the row was graded against (a query, a number, a sentence)."""
-    detail: str | None = Field(default=None, max_length=2000)
+    detail: str | None = None
     """The longer story of a failure: what was expected against what came back."""
+
+    @field_validator("prompt", "reply", "reference", "detail", mode="after")
+    @classmethod
+    def _row_text(cls, v: str | None, info: ValidationInfo) -> str | None:
+        return None if v is None else trim_text(v, ROW_TEXT_MAX, field=str(info.field_name))
+
+    @field_validator("why", mode="after")
+    @classmethod
+    def _why_text(cls, v: str | None) -> str | None:
+        return None if v is None else trim_text(v, EXAMPLE_WHY_MAX, field="why")
+
+    def for_card(self) -> Example:
+        """This row as the card's sample stores it: ``prompt`` and ``reply``
+        at :data:`EXAMPLE_TEXT_MAX`."""
+        cut = {
+            k: trim_text(v, EXAMPLE_TEXT_MAX, field=f"{k} (examples=)")
+            for k in ("prompt", "reply")
+            if (v := getattr(self, k)) is not None and len(v) > EXAMPLE_TEXT_MAX
+        }
+        return self.model_copy(update=cut) if cut else self
 
 
 class Score(_Wire):
@@ -533,6 +609,12 @@ class Score(_Wire):
     test_version: str | None = None
     version: str | None = None
     examples: list[Example] | None = Field(default=None, max_length=EXAMPLES_MAX)
+
+    @field_validator("examples", mode="after")
+    @classmethod
+    def _card_sample(cls, v: list[Example] | None) -> list[Example] | None:
+        return None if v is None else [e.for_card() for e in v]
+
     """Up to 20 graded rows, the worst and the best: what the number was made of."""
 
 
@@ -953,17 +1035,6 @@ def _one(x: float) -> str:
     return f"{x:.1f}".rstrip("0").rstrip(".")
 
 
-def _points(versions: list[VersionScore]) -> tuple[list[VersionScore], bool]:
-    """Scores are points out of 100; fractions (every score and interval at
-    most 1) are read as points so the rules see one scale."""
-    if not versions or not all(0 <= v.score <= 1 and (v.ci or 0) <= 1 for v in versions):
-        return versions, False
-    return [
-        v.model_copy(update={"score": v.score * 100, "ci": None if v.ci is None else v.ci * 100})
-        for v in versions
-    ], True
-
-
 def _newest_scores(
     runs: Sequence[Mapping[str, Any]], behavior: str
 ) -> dict[str, tuple[str, VersionScore]]:
@@ -1067,8 +1138,7 @@ def _resolve_verdict(
         out.delta = None if cand is None or served is None else 0.0
         out.excludes_zero = None
         return out
-    points = any(v.score > 1 or (v.ci or 0) > 1 for v in versions)
-    delta = round(cand.score - served.score, 1 if points else 3)
+    delta = round(cand.score - served.score, 1)
     out.delta = delta
     out.excludes_zero = (
         None
@@ -1445,15 +1515,12 @@ def brief_of(
     ]
     saturated: tuple[str, int | None] | None = None
     single = True
-    fraction = False
     smallest: int | None = None
     steps: list[tuple[str, str, str]] = []
     for b in behaviors:
-        raw = _scores_for(live, b.name)
-        if not raw:
+        versions = _scores_for(live, b.name)
+        if not versions:
             continue
-        versions, scaled = _points(raw)
-        fraction = fraction or scaled
         if len(versions) > 1:
             single = False
         for v in versions:
@@ -1480,8 +1547,6 @@ def brief_of(
         if saturated is None and all(v.score >= _SATURATED for v in versions):
             saturated = (b.name, top.n if top.n is not None else b.n)
         steps += _eval_steps(b, versions)
-    if fraction:
-        happened.append("Scores arrived as fractions (0 to 1); read here as points out of 100.")
 
     vd = dash.verdict if dash is not None else None
     if vd is not None and vd.delta is not None and vd.candidate and vd.candidate != vd.serving:
@@ -1787,13 +1852,18 @@ class Run:
         score: float | None = None,
         *,
         rows: Sequence[Example | Mapping[str, Any]] | None = None,
+        fraction: bool = False,
         **fields: Any,
     ) -> Score:
         """Record this version's score on one behavior's held-out test.
 
-        ``ci`` is the half-width of the 95% interval, ``n`` the number of
-        held-out items. Score every behavior, not only the ones this run
-        trained: the ones you did not train are the check.
+        ``score`` is points out of 100, the one scale the platform reads;
+        nothing downstream rescales it. ``fraction=True`` says the number
+        is a rate out of 1 (a pass rate, ``pass_at().value``) and converts
+        it, and ``ci``, to points before posting. ``ci`` is the half-width
+        of the 95% interval, ``n`` the number of held-out items. Score every
+        behavior, not only the ones this run trained: the ones you did not
+        train are the check.
 
         ``rows`` is every graded row (prompt, reply, ok, why, tags), posted
         after the score in chunks of 500; the platform's rows page groups
@@ -1814,6 +1884,18 @@ class Run:
             if score is None:
                 raise TypeError("score(behavior, score, ci=..., n=...) needs the score")
             item = Score(behavior=behavior, score=score, **fields)
+        if fraction:
+            if not 0 <= item.score <= 1:
+                raise ValueError(
+                    f"score(fraction=True) takes a rate in 0..1; got {item.score:g}. "
+                    "Drop fraction=True when the score is already points out of 100."
+                )
+            item = item.model_copy(
+                update={
+                    "score": round(item.score * 100, 1),
+                    "ci": None if item.ci is None else round(item.ci * 100, 1),
+                }
+            )
         if item.ci is None and ("ci", item.behavior) not in self._ci_warned:
             self._ci_warned.add(("ci", item.behavior))
             log.warning(
@@ -1837,16 +1919,13 @@ class Run:
                     item.behavior,
                     item.n,
                 )
-        if (
-            0 <= item.score <= 1
-            and (item.ci is None or item.ci <= 1)
-            and ("scale", item.behavior) not in self._ci_warned
-        ):
+        if 0 < item.score < 1 and ("scale", item.behavior) not in self._ci_warned:
             self._ci_warned.add(("scale", item.behavior))
             log.warning(
-                "score(%r)=%g reads as a fraction; the platform counts points out of 100, "
-                "so pass score * 100 (and ci * 100).",
+                "score(%r)=%g reads as a fraction and was posted as %g points; the platform "
+                "counts points out of 100, so pass fraction=True (or score * 100 and ci * 100).",
                 item.behavior,
+                item.score,
                 item.score,
             )
         out = self.tracked._call("POST", f"/runs/{self.id}/evals", [item.wire()])
@@ -2351,8 +2430,7 @@ class Tracked:
         runs = self.runs()
         out = []
         for b in self.behaviors():
-            versions, _ = _points(_scores_for(runs, b.name))
-            out.append(eval_checks(b, versions))
+            out.append(eval_checks(b, _scores_for(runs, b.name)))
         return out
 
     def delete(self) -> dict[str, Any]:

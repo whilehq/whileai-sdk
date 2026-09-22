@@ -81,7 +81,7 @@ into `results.json`. These are today's numbers.
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [3] | **run_std 0.0091** from 3 re-runs (0.40, 0.38, 0.40); a delta under **0.055** is noise (`noise_band(run_std, df=2)` = 4.30 x 0.0091 x sqrt(2), one run per side, t at n - 1 because run_std is an estimate; `compare(run_std=, run_std_runs=3)`). This is the eval's re-run noise, not the training's |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [3] | **run_std 0.0091** from 3 re-runs (0.40, 0.38, 0.40); a delta under **0.055** is noise (`wai.noise_band(run_std, df=2)` = 4.30 x 0.0091 x sqrt(2), one run per side, t at n - 1 because run_std is an estimate; `compare(run_std=, run_std_runs=3)`). This is the eval's re-run noise, not the training's |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [4] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits; measured, not assumed |
 | Reward is a program, not a judge | [4] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
 | Proxy vs target: `compare(proxy=)` | [5] | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize; `over_optimized` false |
@@ -113,6 +113,14 @@ minute, the current setting needs a second training seed per arm.
 - A correction can only be tested where there is something to correct. At 1e-5 on a rank-16 adapter the four-update lag left the ratio within a tenth of a percent of 1 and the gate touching one trajectory in five steps, so the paper's stability claim was not exercised, and what the delta measured instead is the paper's `1/T_i` against the token mean, which at this scale kept long truncated failures alive that the baseline learned to cut. Check the KL the log prints on the first refreshed step before reading the delta.
 
 Verified 2026-09-22, whileai 0.114 (this branch's source tree, mounted into the container: the wheel on the index does not carry `FlashReinforce` yet), HF transformers 4.54.0 + PEFT 0.16.0 on torch 2.7.1. 44.3 GPU minutes, $1.48 on one L40S. Run page: none (no `WHILEAI_API_KEY` in the environment; the Modal app is `ap-xW5lCwuwsVAis7rgzAypL6`).
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) with `history.json`; the baseline adapter was not kept | [`while-ai/paper-flash-reinforce-1.5b`](https://huggingface.co/while-ai/paper-flash-reinforce-1.5b) |
+
+Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
 
 ## References
 

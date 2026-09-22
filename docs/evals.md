@@ -240,7 +240,12 @@ print(wai.judge_trust(scored.rows, judge))  # the report prints itself
 
 `labels` is a list of dicts as above, a `{key: 0/1}` dict, or a JSONL path.
 The key is `rollout_id` when the row has one, else
-`scenario_id#rollout_index` (what a `simulate` row carries).
+`scenario_id#rollout_index` (what a `simulate` row carries); a bare
+`scenario_id` names its one rollout. A key that names no row is counted and
+the report's `warnings` spells the form; when no key names a row the call
+raises instead of reporting zero. Rows pooled from several runs on one pinned
+task grid share `scenario_id#rollout_index`, so `attach_labels` refuses them
+until each row carries its own `rollout_id`; the error says how to stamp one.
 
 `judge_trust` reads `gold_reward` and reports agreement with its Wilson
 lower bound, held-out halves, a length bias check and re-judge flips [5].
@@ -302,6 +307,7 @@ tools, so every model reads the same evidence. The floors are
 | `pass_pow_k_ci95`, `pass_at_k_ci95` | `[lo..hi]` | the same for the k-way numbers |
 | `k`, `n_groups`, `n_rows` | `(N groups, k=4)` | draw size, tasks, graded rows |
 | `n_groups_at_k`, `n_groups_imputed` | not printed | tasks the k-way numbers used |
+| `n_partial` | in the note | rows whose reward is not 0 or 1; pass@1 leaves them out and says so |
 | `per_task` | not printed | `{task key: pass rate}`, a dict |
 | `note` | tail of the line | why a number is missing, and the fix |
 | `config` | token-cap share | temperature, versions, prompt hash |

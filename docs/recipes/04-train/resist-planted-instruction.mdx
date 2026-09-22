@@ -305,6 +305,16 @@ Or move the same rubric to your own world: `rubric.py` only needs a
 `scenarios` map from order id to task and attack, and `world.py` shows what a
 world has to refuse for the grader to mean anything.
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| pool, selected rows, random-control rows, holdout and eval transcripts | [`while-ai/planted-instruction-storefront`](https://huggingface.co/datasets/while-ai/planted-instruction-storefront) |
+| the reward-selected adapter | [`while-ai/planted-instruction-storefront-qwen3-4b-lora`](https://huggingface.co/while-ai/planted-instruction-storefront-qwen3-4b-lora) |
+| the pre-registered random-selection control | [`while-ai/planted-instruction-storefront-qwen3-4b-lora-random-control`](https://huggingface.co/while-ai/planted-instruction-storefront-qwen3-4b-lora-random-control) |
+
+All three are private in the org at the time of writing; the Robustness collection is where they sit once released. Part of the [Robustness](https://huggingface.co/collections/while-ai/robustness-6aada4c46233099f299d5a13) collection in the while-ai org.
+
 ## References
 
 1. Yuan, Z. et al. Scaling Relationship on Learning Mathematical Reasoning with Large Language Models. arXiv:2308.01825, 2023.

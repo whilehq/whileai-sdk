@@ -61,6 +61,9 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     # whileai.simulations.score.stats and __all__ below is unchanged.
     "eval_variance": ("whileai.simulations.score.stats", "eval_variance"),
     "holdout_size": ("whileai.simulations.score.stats", "holdout_size"),
+    # the band a delta has to clear, from a run_std you already hold; the
+    # papers contract cites it as a call, so it resolves the same way (#735)
+    "noise_band": ("whileai.simulations.score.stats", "noise_band"),
     "select": ("whileai.selection", "select"),
     # `Selection` is the type `select` returns; reachable for isinstance,
     # off the advertised list since `Harness` took its slot (#712).
@@ -147,7 +150,7 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .simulations.score.judging import ScoredData
     from .simulations.score.passat import pass_at
     from .simulations.score.preflight import preflight
-    from .simulations.score.stats import decontaminate, eval_variance, holdout_size
+    from .simulations.score.stats import decontaminate, eval_variance, holdout_size, noise_band
     from .simulations.simulation import simulate
     from .simulations.tools import Tool, tool
     from .simulations.verify import Verifier, verifier

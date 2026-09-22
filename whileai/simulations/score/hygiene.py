@@ -108,10 +108,27 @@ def assistant_turns(row: dict) -> int:
 
 
 def is_truncated(row: dict) -> bool:
-    """A reply that stops without reaching its end (``looks_finished``:
-    terminal punctuation or a sign-off), or one the grader already called
-    truncated. Short replies are given the benefit of the doubt: a
-    one-line answer often ends on a number or a name."""
+    """A reply that did not end on its own.
+
+    Three signs, read in this order. The engine's stamp first:
+    ``finish_reason == "length"`` (the backend said the token cap cut a
+    turn) or any step marked ``truncated``. Then the grader's verdict: a
+    ``reason`` that says truncated or cut off. Then the text's shape: a
+    reply of ``TRUNCATION_MIN_CHARS`` or more that stops without terminal
+    punctuation or a sign-off (``looks_finished``). The stamp is read
+    first because neither of the other two survives a normal run: the
+    backend trims a capped reply back to its last sentence, so the text
+    reads as finished, and any judge that re-grades the row overwrites
+    ``reason``, so the engine's own "hit the length cap" verdict is gone
+    (Lambert 2025, chapter Reinforcement Learning: score only completions
+    that ended on their own; chapter Reasoning: overlong filtering). The
+    two heuristics stay for rows that carry no stamp, a platform pull or
+    a user-supplied file. Short replies are given the benefit of the
+    doubt: a one-line answer often ends on a number or a name."""
+    if row.get("finish_reason") == "length":
+        return True
+    if any(isinstance(s, dict) and s.get("truncated") for s in row.get("steps") or []):
+        return True
     reason = _norm_text(row.get("reason") or row.get("grader_reason"))
     if "truncat" in reason or "cut off" in reason:
         return True

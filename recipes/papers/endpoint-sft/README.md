@@ -69,7 +69,7 @@ Nothing here is ticked by hand: every cell is written by `recipe.py` into `resul
 | Eval noise: the base evaluated 3 times, `eval_variance` run_std | [2] | **run_std 0.0135**, so a delta under 0.027 is noise. The measured delta, 0.012, is inside that band twice over |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [3] | **run today, CPU: 0 of 600 train rows dropped** (also 0 against all 500 MATH-500 problems). OpenR1-Math-220k comes from NuminaMath and MATH-500 is a slice of the MATH test set, so this was worth measuring rather than assuming |
 | Reward is a program, not a judge | [3] | `MathEqual` against the public MATH-500 gold answer. No judge, no model in the loop |
-| Proxy vs target: `delta_report(proxy=)` | [4] | `proxy="marker:trace_form"`: SFT optimizes the *shape* of the trace (a closed `<think>` block ending in `\boxed{}`) whether or not the answer is right. If that rises and pass@1 does not, the report says over-optimized and the verdict cannot be "moved" |
+| Proxy vs target: `wai.compare(proxy=)` | [4] | `proxy="marker:trace_form"`: SFT optimizes the *shape* of the trace (a closed `<think>` block ending in `\boxed{}`) whether or not the answer is right. If that rises and pass@1 does not, the report says over-optimized and the verdict cannot be "moved" |
 | Length: mean completion length before -> after, per arm | [4] | **1,619 chars base -> 5,473 baseline, 5,245 recipe.** Both arms more than tripled their output. The recipe arm is trained on shorter targets and still writes nearly as much, so the cut did not buy the brevity it looks like it should |
 | Hack scan on the last training batch: `hack_scan` | [4] | SFT has no per-rollout training reward, so this scans the arm's graded holdout rollouts. Round 1's baseline named **`truncated`** as its top feature — the scan found the eval cap before I did. At 2048 tokens it names ordinary prose (`contains:approach AND contains:two`), which is the scan saying it has nothing |
 | Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | seed 17 in the trainer, `--seed 0` for the holdout draw; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
@@ -105,6 +105,14 @@ already move backwards.
 - Gradient checkpointing is on here, unlike the GRPO recipes next door. Their rule is about trainers that generate while they train, where checkpointing corrupts Qwen generation on these pins. `SFTTrainer` is teacher-forced and never generates, so the rule does not reach it, and 4096-token sequences want the memory back.
 
 Verified 2026-09-17, whileai 0.53, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 69.4 GPU minutes, $2.31 on one L40S (round 1: 43.1 minutes, $1.42). Run page: https://while.ai/platform/training/run_aca24d9fdb020c5b
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) and `baseline/` | [`while-ai/paper-endpoint-sft-1.5b`](https://huggingface.co/while-ai/paper-endpoint-sft-1.5b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
 
 ## References
 

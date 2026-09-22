@@ -21,7 +21,7 @@ then `cd recipes/papers/sao-single-rollout` before running the commands below. [
 3. The critic, both arms: one linear layer on the policy trunk's last hidden state at each generated token, on the same forward pass, with the hidden states detached so the critic never trains the trunk. Its own AdamW at 1e-4 (the paper's 5e-6 is a full separate 30B value model, so this is an override: a one-layer head at 5e-6 does not leave its zero init in 50 steps), `critic_steps = 2` squared-error updates per policy update toward `update.value_targets`, and `critic_warmup = 10` critic-only steps first. Both are read off `wai.SAO()`.
 4. The policy, both arms: LoRA rank 16, alpha 32 (`TRAINING_LORA_RANK`, `TRAINING_LORA_ALPHA`), AdamW at 1e-5 on the adapter (the paper's 1e-6 is full weights of a 30B MoE; 1e-5 is the adapter rate the FlashReinforce and BPCO recipes share, so the three compare), gradient clip 1.0, one step per batch, 40 steps after the warmup, seed 17 set right before the adapter is built. The reward is the binary outcome, `MathEqual` against the GSM8K gold: a program, not a judge.
 5. Baseline arm: `wai.SAO().update(batch)` for the length-adaptive GAE advantages over the critic, then `update.advantages` times the unmasked ratio, over the same `1/N` token mean: plain importance-weighted policy gradient, the paper's "no DIS" case. Recipe arm: `update.coefficients` as they come, the ratio inside `(0.7, 6.0)` and zero outside. The loss on both sides is `-(coefficients * logprobs).sum()` with the coefficients held constant. Same `update` call, same advantages, same critic: the arms differ in the mask and nothing else (`--selftest` checks both on a hand-made batch).
-6. Eval: pass@1 on the same 120 held-out tasks, 4 samples per task at temperature 0.7, the untrained base three times first for the noise floor, each arm once after training; paired delta with a 95% interval (`wai.delta_report` with `run_std`, `run_std_runs`; `proxy=` left unset because the training reward is the target).
+6. Eval: pass@1 on the same 120 held-out tasks, 4 samples per task at temperature 0.7, the untrained base three times first for the noise floor, each arm once after training; paired delta with a 95% interval (`wai.compare` with `run_std`, `run_std_runs`; `proxy=` left unset because the training reward is the target).
 
 ## Run
 
@@ -70,10 +70,10 @@ into `results.json`. These are round 1's numbers.
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [2] | **run_std 0.0199** from 3 re-runs (0.36, 0.40, 0.38); a delta under **0.121** is noise (`noise_band(run_std, df=2)` = 4.30 x sqrt(2) x 0.0199, t at n - 1 because run_std is an estimate from 3 runs; `delta_report(run_std=, run_std_runs=3)`) |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [2] | **run_std 0.0199** from 3 re-runs (0.36, 0.40, 0.38); a delta under **0.121** is noise (`wai.noise_band(run_std, df=2)` = 4.30 x sqrt(2) x 0.0199, t at n - 1 because run_std is an estimate from 3 runs; `wai.compare(run_std=, run_std_runs=3)`) |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [3] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits; measured, not assumed |
 | Reward is a program, not a judge | [3] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
-| Proxy vs target: `delta_report(proxy=)` | [4] | `proxy=None`, over_optimized **false**: the training reward is the target metric, the same binary check |
+| Proxy vs target: `wai.compare(proxy=)` | [4] | `proxy=None`, over_optimized **false**: the training reward is the target metric, the same binary check |
 | Length: mean completion length before -> after, per arm | [4] | **730 chars base -> 330 baseline, 362 recipe.** Training tokens per rollout 187 -> 137 (baseline) and 148 (recipe); the share of rollouts cut at 256 tokens fell from 0.39 to 0.19 and 0.23 |
 | Hack scan on the last training batch: `hack_scan` | [4] | The last batch has one rollout per prompt, so the within-ask scan has nothing to contrast: regime `unknown`, no top feature, on both arms. Over all 3200 training rollouts (each prompt about six times, one rollout per visit) the regime is `train` and the top feature is `truncated` on both arms, endorsed **no**: a rollout cut at 256 tokens has no final number, which is the reward reading the answer, not a surface the policy found |
 | Pinned: seed, torch, transformers, peft | [the contract](/recipes/papers#the-contract) | seed 17 for the adapter and the sampler, `--seed 0` for the data split; torch 2.7.1, transformers 4.54.0, peft 0.16.0 |
@@ -132,6 +132,14 @@ updates at 1e-4 on a 1.5B model is not, and the baseline here is the evidence.
 - **One rollout per prompt trains, with a one-layer critic.** Both arms went 0.36 -> 0.46 at 1e-5 and 0.38 -> 0.66 at 1e-4 with no group baseline, on rollouts 1 to 4 updates stale, with a value head whose explained variance never passed 0.21. A batch-mean-quality baseline was enough here; a second seed per arm would say whether the delta between masked and unmasked is anything at all.
 
 Verified 2026-09-22, whileai 0.114 (the checkout's `whileai/` package, mounted into the container: `wai.SAO` is newer than the wheel), transformers 4.54.0 + PEFT 0.16.0 on torch 2.7.1, a plain PyTorch loop, no TRL. Round 1: 45.8 GPU minutes, $1.53 on two L40S in parallel (baseline 25.7 with the three base evals, recipe 20.1); round 2: 42.0 minutes, $1.40; smoke: 14.1 minutes, $0.47. Run page: none (no `WHILEAI_API_KEY` in the run).
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) with `value_head.pt` and `train_log.json` | [`while-ai/paper-sao-single-rollout-1.5b`](https://huggingface.co/while-ai/paper-sao-single-rollout-1.5b) |
+
+Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
 
 ## References
 

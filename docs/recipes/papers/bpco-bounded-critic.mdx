@@ -88,7 +88,7 @@ Nothing in this table is ticked by hand: every cell is written by `recipe.py` in
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [7] | **run_std 0.0042** from 3 re-runs (0.39, 0.39, 0.39); a delta under **0.026** is noise (`noise_band(run_std, df=2)` = 4.30 x sqrt(2) x run_std, one run per side; `compare(run_std=, run_std_runs=3)`). Round 1's three re-runs read 0.41, 0.39, 0.39, run_std 0.0103 |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [7] | **run_std 0.0042** from 3 re-runs (0.39, 0.39, 0.39); a delta under **0.026** is noise (`wai.noise_band(run_std, df=2)` = 4.30 x sqrt(2) x run_std, one run per side; `compare(run_std=, run_std_runs=3)`). Round 1's three re-runs read 0.41, 0.39, 0.39, run_std 0.0103 |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [8] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits; measured, not assumed |
 | Reward is a program, not a judge | [8] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
 | Proxy vs target: `compare(proxy=)` | [9] | **over_optimized false.** `proxy="marker:gsm8k_outcome"` is the training reward carried on the eval rows; it is the same binary program as the target at a different temperature, so its delta (-0.017 [-0.071, +0.033], no change) cannot part from pass@1's. Recorded, not a real over-optimization test |
@@ -125,6 +125,14 @@ explained variance -0.36 to -0.27 then -0.36 to -0.24; lengths 187 -> 135 and
 - **Length is what moved, in both arms, with the reward flat.** Rollouts shortened by a quarter in the baseline and by nearly half in the recipe, eval answers from 729 to 592 and 284 characters, and pass@4 rose while pass^4 fell in the recipe arm. With a critic near 0.5 and a binary reward, every token of a wrong answer carries a negative residual and a short answer carries fewer of them; the unnormalized LA-GAE advantage does not subtract that off the way whitening does, which is one reading of why the recipe arm shortened faster. That is a hypothesis this run cannot separate from the learning rate, and a second seed per arm (`train_runs=`) comes before any of it: at one seed the verdict is unresolved and stays so.
 
 Verified 2026-09-22, whileai 0.114 with this branch's `wai.BPCO`, plain torch 2.7.1 + PEFT 0.16.0 + transformers 4.54.0, no TRL. 51.4 GPU minutes, $1.71 on one L40S, two containers in parallel (baseline 25.1 minutes with the three base re-runs, recipe 26.3; round 1 about the same, its wall clock lost with its delta). Run page: none, no `WHILEAI_API_KEY` in this run; Modal apps `ap-q7nevqT6teeeDdUFFY6Gym` (round 1) and `ap-p3GjfFWYK6355Fg5OKP6HT` (round 2), adapters and per-step curves under `whileai-recipe-runs:/bpco-bounded-critic-<arm>-2026-09-21/`.
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) and `baseline/`, each with its `value_head.pt` and `curves.json` | [`while-ai/paper-bpco-bounded-critic-1.5b`](https://huggingface.co/while-ai/paper-bpco-bounded-critic-1.5b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
 
 ## References
 

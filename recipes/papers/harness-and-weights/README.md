@@ -283,7 +283,7 @@ Runs on the platform: https://while.ai/platform/runs?agent=harness-and-weights (
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times under the baseline harness, `eval_variance` run_std | [4] | **run_std 0.0032 from 3 re-runs**; a delta under 0.019 (`noise_band(run_std, df=2)` = 4.30 x sqrt(2) x run_std) is noise. `both` vs `weights` +0.060 clears it; `both` vs `harness` +0.00 does not |
+| Eval noise: the base evaluated 3 times under the baseline harness, `eval_variance` run_std | [4] | **run_std 0.0032 from 3 re-runs**; a delta under 0.019 (`wai.noise_band(run_std, df=2)` = 4.30 x sqrt(2) x run_std) is noise. `both` vs `weights` +0.060 clears it; `both` vs `harness` +0.00 does not |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [7] | **0 of 64 train rows dropped** with the family split (71 of 71 with `--split task`, which is why family is the default) |
 | Reward is a program, not a judge | [7] | `CodeExec` on the hidden asserts, the table builder prepended; no model in the reward path, in training or in eval |
 | Proxy vs target: `compare(proxy=)` | [8] | the training reward is the target metric (the same tests on the train families), so there is no proxy gap to declare; `over_optimized` false |
@@ -322,6 +322,14 @@ the text alone.
 - A skills file in the harness is a prompt edit with a fingerprint: `wai.Harness` makes the version without anyone naming it, so the proposer can edit SKILLS.md between rounds and every row still says which text it ran under.
 
 Verified 2026-09-21, whileai 0.114, TRL 1.13.0 + PEFT 0.21.0 on torch 2.13.0, vLLM 0.29.0. 36.1 GPU minutes, $2.38 on one H100 by the recipe's clock (function bodies; Modal bills the three cold starts too). Runs: https://while.ai/platform/runs?agent=harness-and-weights
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| `both` (root, trained under `01_skills`) and `weights/` (trained under `00_baseline`) | [`while-ai/paper-harness-and-weights-1.5b`](https://huggingface.co/while-ai/paper-harness-and-weights-1.5b) |
+
+Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
 
 ## References
 

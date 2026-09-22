@@ -139,3 +139,11 @@ Modal app `ap-W5HWyHhAx9Sy435whg9R2x`, stopped.
 - The ~20 lines in `run.py:tokenize` that turn a per-message `loss_mask`
   into per-token labels are the only thing here the SDK should arguably own
   (issue #507).
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| `mask_honored` (root) and `as_exported/`, with `results.json` | [`while-ai/community-loss-mask-1.5b`](https://huggingface.co/while-ai/community-loss-mask-1.5b) |
+
+Part of the [Course and community runs](https://huggingface.co/collections/while-ai/course-and-community-runs-6ab271de189fd0c363cfab92) collection in the while-ai org.

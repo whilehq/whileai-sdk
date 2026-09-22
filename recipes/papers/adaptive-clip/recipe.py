@@ -82,7 +82,7 @@ def gold_of(answer: str) -> str:
 
 def outcome_of(text: str, gold: str) -> float:
     """1.0 when the final number matches the gold, else 0.0. A program, not a
-    judge: `MathEqual` is sympy with a numeric and string fallback."""
+    judge: `MathEqual` is Math-Verify."""
     from whileai.simulations.verify import MathEqual
 
     row = {
@@ -629,7 +629,7 @@ def selftest() -> None:
     # The grader is a program, not a judge.
     assert outcome_of("so the answer is \\boxed{18}", "18") == 1.0
     assert outcome_of("the answer is 5", "18") == 0.0
-    print("grader: MathEqual reads \\boxed{} and the last number")
+    print("grader: MathEqual, decided by Math-Verify")
 
     _selftest_loss()
     print("selftest ok")

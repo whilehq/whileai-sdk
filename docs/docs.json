@@ -309,15 +309,15 @@
         "items": [
           {
             "label": "Quickstart",
-            "href": "https://docs.withwhile.com/get-started/quickstart"
+            "href": "https://docs.while.ai/get-started/quickstart"
           },
           {
             "label": "Evals",
-            "href": "https://docs.withwhile.com/evals"
+            "href": "https://docs.while.ai/evals"
           },
           {
             "label": "The five calls",
-            "href": "https://docs.withwhile.com/reference/five-calls"
+            "href": "https://docs.while.ai/reference/five-calls"
           },
           {
             "label": "Recipes",
@@ -330,19 +330,19 @@
         "items": [
           {
             "label": "API",
-            "href": "https://docs.withwhile.com/api/index"
+            "href": "https://docs.while.ai/api/index"
           },
           {
             "label": "Parameters",
-            "href": "https://docs.withwhile.com/reference/parameters"
+            "href": "https://docs.while.ai/reference/parameters"
           },
           {
             "label": "Style",
-            "href": "https://docs.withwhile.com/reference/style"
+            "href": "https://docs.while.ai/reference/style"
           },
           {
             "label": "Design",
-            "href": "https://docs.withwhile.com/reference/design"
+            "href": "https://docs.while.ai/reference/design"
           }
         ]
       },
@@ -374,7 +374,7 @@
     "metatags": {
       "og:site_name": "While",
       "og:description": "The whileai SDK, import whileai as wai: a scientific post-training library for language models.",
-      "og:image": "https://docs.withwhile.com/assets/hero-light.png",
+      "og:image": "https://docs.while.ai/assets/hero-light.png",
       "og:image:alt": "wai, the While whale",
       "twitter:card": "summary_large_image"
     }

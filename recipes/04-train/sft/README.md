@@ -1,6 +1,6 @@
 # SFT on your own GPU, from the course's own export
 
-Lesson 7 of [the course](https://docs.withwhile.com/learn/train-and-prove)
+Lesson 7 of [the course](https://docs.while.ai/learn/train-and-prove)
 writes `train.jsonl` with `select(mode="sft").export(...)`. This recipe is
 the step that used to be a comment: a LoRA SFT run on one A10G on your Modal
 account from that file, three base passes on the held-out set for the noise
@@ -136,6 +136,14 @@ on them in the docs check.
 demonstrations, on the tasks in the 20 to 80 band lesson 6 selects. The
 adapter here is on the `whileai-sft-runs` volume: `modal volume get
 whileai-sft-runs lesson7-sft/adapter` brings it down to serve.
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| the `lesson7-sft` adapter the run above quotes | [`while-ai/course-refunds-sft-1.5b`](https://huggingface.co/while-ai/course-refunds-sft-1.5b) |
+
+Part of the [Course and community runs](https://huggingface.co/collections/while-ai/course-and-community-runs-6ab271de189fd0c363cfab92) collection in the while-ai org.
 
 ## References
 

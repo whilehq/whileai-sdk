@@ -20,7 +20,7 @@ then `cd recipes/papers/filter-metric` before running the commands below. [Brows
 2. Reward, both arms: `outcome - 0.30 * min(len/512, 1)`. The outcome is `MathEqual` against the GSM8K gold number, so the reward is a program. The length term is the shaping the paper attacks: among wrong answers, the shortest one scores best.
 3. Baseline arm: drop a group when its **shaped scores** are all equal (`--filter-metric score`). A group of four wrong answers of different lengths is not all-equal, so it survives, and GRPO's divide-by-group-std turns those length crumbs into full-size advantages. Those are the phantom advantages — gradient that looks like signal but only encodes "be shorter".
 4. Recipe arm: drop a group when its **binary outcomes** are all equal (`--filter-metric outcome`). All-wrong is now flat, so the group is dropped and teaches nothing. This is what DAPO's dynamic sampling means [3].
-5. Eval: pass@1 on the same 120 held-out tasks, 4 samples per task. The untrained base is evaluated several times, not once (`--base-runs`, 3 by default, 10 for the numbers below), so the spread between those runs is the noise floor the delta has to clear; then each arm once, paired delta with a 95% interval (`wai.pass_at`, `wai.eval_variance`, `wai.delta_report(run_std=, run_std_runs=)`). The band uses the t quantile at `run_std_runs - 1` because the floor is an estimate.
+5. Eval: pass@1 on the same 120 held-out tasks, 4 samples per task. The untrained base is evaluated several times, not once (`--base-runs`, 3 by default, 10 for the numbers below), so the spread between those runs is the noise floor the delta has to clear; then each arm once, paired delta with a 95% interval (`wai.pass_at`, `wai.eval_variance`, `wai.compare(run_std=, run_std_runs=)`). The band uses the t quantile at `run_std_runs - 1` because the floor is an estimate.
 
 Dropping is done by masking: a group whose rewards are all equal gets a zero advantage, so it contributes nothing. The paper's DAPO arm deletes the group and refills the batch with fresh prompts. Masking reproduces the advantage-level effect on a fixed batch; it does not reproduce the refill, so this recipe cannot say anything about the paper's refill-rate numbers.
 
@@ -90,10 +90,10 @@ Every cell is written by `recipe.py` into `results.json`. These are the round 2 
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 10 times, `eval_variance` run_std | [4] | **run_std 0.0078 from 10 re-runs**: a delta under 0.025 (`noise_band(run_std, df=9)` = 2.26 x sqrt(2) x run_std, the band on a difference of two re-run draws, t because run_std is an estimate) is noise. The measured +0.067 clears it. On the original 3 re-runs (run_std 0.0169) the honest band was 0.103 and it did not |
+| Eval noise: the base evaluated 10 times, `eval_variance` run_std | [4] | **run_std 0.0078 from 10 re-runs**: a delta under 0.025 (`wai.noise_band(run_std, df=9)` = 2.26 x sqrt(2) x run_std, the band on a difference of two re-run draws, t because run_std is an estimate) is noise. The measured +0.067 clears it. On the original 3 re-runs (run_std 0.0169) the honest band was 0.103 and it did not |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [5] | **0 of 512 train rows dropped**, prompt-keyed against the holdout as the note below requires |
 | Reward is a program, not a judge | [5] | `MathEqual` against the GSM8K gold number, plus a length term. No model in the reward path |
-| Proxy vs target: `delta_report(proxy=)` | [1] | **not over-optimized.** `marker:shaped_reward` -0.035 [-0.080, +0.009] while pass@1 +0.067: the target moved and the proxy did not follow it up |
+| Proxy vs target: `wai.compare(proxy=)` | [1] | **not over-optimized.** `marker:shaped_reward` -0.035 [-0.080, +0.009] while pass@1 +0.067: the target moved and the proxy did not follow it up |
 | Length: mean completion length before -> after, per arm | [1] | **728 chars base -> 234 baseline, 496 recipe.** The score-filtered arm halved its output twice over; this is the phantom advantage leaving its fingerprint |
 | Hack scan on the last training batch: `hack_scan` | [1] | top feature **`marker:shaped_reward`** in both arms, which is the scan correctly naming the shaped term as the thing the training reward tracks. Nothing is endorsed |
 | Pinned: seed, torch, transformers, trl, peft | [the contract](/recipes/papers#the-contract) | seed 0; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
@@ -132,10 +132,18 @@ rescue.
 - The filter metric is a separate choice from the reward, and a trainer will let you set it to the shaped score without complaining. Nothing in the loss curve says which one you picked.
 - Shaping and group-std normalization interact: a shaping term too small to matter on its own becomes a full-size advantage once every rollout in the group is wrong and the std collapses to the shaping noise.
 - **The batch was the difference between flat and moved, and neither round changed the idea being tested.** 8 prompts per step gave +0.050 [-0.006, +0.106]; 16 gave +0.067 [+0.021, +0.113]. A recipe cut down to fit a GPU hour can report "flat" about an effect that is really there, which is why the Climb table exists and why round 1 shipped with its numbers instead of being retried until it looked good.
-- **A run_std from three draws is not the eval's spread, and 1.96 around it is not a 95% band.** The same +0.067 was moved under z, flat under t at df=2, and moved again once ten re-runs shrank the estimate from 0.0169 to 0.0078. The verdict did not change because the effect changed; it changed because the floor was measured properly. `delta_report(run_std=, run_std_runs=)` and `check.py` now carry the degrees of freedom so this cannot happen silently.
+- **A run_std from three draws is not the eval's spread, and 1.96 around it is not a 95% band.** The same +0.067 was moved under z, flat under t at df=2, and moved again once ten re-runs shrank the estimate from 0.0169 to 0.0078. The verdict did not change because the effect changed; it changed because the floor was measured properly. `wai.compare(run_std=, run_std_runs=)` and `check.py` now carry the degrees of freedom so this cannot happen silently.
 - **The length column is the evidence, not the pass@1 column.** Score-filtering ended at 234 characters against outcome-filtering's 496 from the same base. The paper says a wrong group survives the filter and teaches the model that the shortest wrong answer is the good one; a 2x length collapse in exactly the arm that keeps those groups is what that looks like from outside.
 
 Verified 2026-09-17, whileai 0.53, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 51.8 GPU minutes, $1.73 on one L40S (round 1: 42.8 minutes, $1.43). Noise floor re-measured 2026-09-18 with `--arm base --base-runs 10` on whileai 0.75: 26.8 GPU minutes, $0.89, no training. Run page: https://while.ai/platform/training/run_396d8b162199da3d
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) and `baseline/` | [`while-ai/paper-filter-metric-1.5b`](https://huggingface.co/while-ai/paper-filter-metric-1.5b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
 
 ## References
 

@@ -296,3 +296,39 @@ def test_trust_after_grade_is_the_one_helper():
     assert out["note"] is None and out["trust"]["ok"] is True
     assert trust_after_grade(rows, mode="off") == {"trust": None, "note": None}
     assert trust_after_grade(_rows(3))["note"] == NO_HUMAN_GOLD_NOTE
+
+
+# ------------------------------------------------ 5. the agreement is the audited judge's
+
+
+def test_judge_trust_names_the_scorer_when_the_reward_is_not_the_judges():
+    """Agreement reads the row's ``reward``; the probes call ``judge``. When
+    the two are different scorers the report says so and ``ok`` is false,
+    instead of certifying one judge on the other's verdicts (#683)."""
+    rows = _rows(60)
+    attach_labels(rows, _labels(rows), annotator="ana")
+
+    def grader_a(row):
+        return {"reward": row["reward"]}
+
+    def judge_b(row):
+        return {"reward": 1}
+
+    graded = run_judge(rows, grader_a).rows
+    assert all(r["judge_name"] == "grader_a" for r in graded)
+    report = judge_trust(graded, judge_b, sample=5)
+    assert report["agreement"]["agreement"] == 1.0
+    assert report["ok"] is False
+    (line,) = [w for w in report["warnings"] if w.startswith("Judge under audit is judge_b")]
+    assert "60 of 60 labeled rows was written by grader_a (60)" in line
+    assert "run judge_trust again" in line
+    assert format_judge_trust(report).startswith("FAIL")
+    # the same judge that wrote the reward: nothing to say
+    assert not any(
+        w.startswith("Judge under audit")
+        for w in judge_trust(graded, grader_a, sample=5)["warnings"]
+    )
+    # rows no grading run stamped: nothing to compare against
+    assert not any(
+        w.startswith("Judge under audit") for w in judge_trust(rows, judge_b, sample=5)["warnings"]
+    )

@@ -34,7 +34,7 @@ A situation is drawn across the world axes (from the agent's tools) and the huma
 3. **Write users.** A separate writer (same hosted model, different prompt, no agent policy) samples situations across tools, stance, history, and so on.
 4. **Pick the diverse ones.** Embeddings plus a bit of noise, so the batch is not 200 copies of the same prompt.
 5. **Play the agent.** It talks, calls tools, gets results, talks again. All of that is stored: user text, agent text, tool calls, tool results, `final_text`.
-6. **Grade.** Rows come back ungraded. Grade after with `data.grade()` (the hosted judge, against the spec's `rubric.md` or `rubric=`; with neither it grades the conduct floor only and the report says so), `data.grade(judge=...)` (your own callable), or `wai.grade(path)`. The legacy `grade=True` flag writes the deterministic conduct score at simulation time; avoid it for the rubric workflow.
+6. **Grade.** Rows come back ungraded. Grade after with `data.grade()` (the hosted judge, against the spec's `rubric.md` or `rubric=`; with neither it grades the conduct floor only and the report says so), `data.grade(judge=...)` (your own callable), or `wai.grade(path)`. `grade=True` grades in-loop with the judge against the rubric. `grade="conduct"` writes the deterministic conduct score instead, by name; it is not a rubric grade and its rows carry `label_source="conduct"`.
 
 Stop when the row cap or the clock hits.
 

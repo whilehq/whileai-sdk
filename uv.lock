@@ -4094,7 +4094,7 @@ wheels = [
 
 [[package]]
 name = "whileai"
-version = "0.117"
+version = "0.120"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -4106,6 +4106,7 @@ bedrock = [
     { name = "boto3" },
 ]
 dev = [
+    { name = "math-verify" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -4117,6 +4118,9 @@ dev = [
 hf = [
     { name = "huggingface-hub" },
 ]
+math = [
+    { name = "math-verify" },
+]
 rl = [
     { name = "verifiers", marker = "python_full_version >= '3.11' and python_full_version < '3.14'" },
 ]
@@ -4125,6 +4129,8 @@ rl = [
 requires-dist = [
     { name = "boto3", marker = "extra == 'bedrock'", specifier = ">=1.35" },
     { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.20" },
+    { name = "math-verify", marker = "extra == 'dev'", specifier = ">=0.8" },
+    { name = "math-verify", marker = "extra == 'math'", specifier = ">=0.8" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.16" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
@@ -4136,7 +4142,7 @@ requires-dist = [
     { name = "types-requests", marker = "extra == 'dev'" },
     { name = "verifiers", marker = "python_full_version >= '3.11' and python_full_version < '3.14' and extra == 'rl'", specifier = ">=0.3" },
 ]
-provides-extras = ["dev", "rl", "hf", "bedrock"]
+provides-extras = ["dev", "rl", "math", "hf", "bedrock"]
 
 [[package]]
 name = "win32-setctime"

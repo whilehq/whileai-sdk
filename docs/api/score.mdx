@@ -412,7 +412,11 @@ Arguments that matter:
   Each interval is at `1 - alpha` (`ci95` at the default), the
   re-run band uses the same quantile, and `family_error` is
   `1 - (1 - alpha) ** n_metrics`. `power` (0.8) feeds the sizing
-  line (`detectable_effect`, `holdout_size`).
+  line (`detectable_effect`, `holdout_size`). `tasks_needed`
+  is sized from the task sd measured on the paired rows in hand
+  (`holdout_size(before=, after=)`), and `tasks_needed_source`
+  says so (`"rows"`); the binomial model, which cannot see the
+  covariance pairing buys, asked for about twice the tasks (#733).
 * `balance_rollouts` (off): trim every paired task to the rows both
   sides have, chosen by `seed`, so pass^k and pass@k share one k;
   `balanced` says how many rows each side gave up.
@@ -479,7 +483,11 @@ sides, and uses the t quantile at `df = sum(runs - 1)` (three runs
 per side: 2.78 x floor x sqrt(2/3)); `run_std` is then the headline
 metric's floor, `run_std_by_metric` has them all, `noise_band` is
 the headline band, `noise_rule` spells it out, and `eval_runs`
-says how many runs each side had.
+says how many runs each side had. An arm handed in through
+`train_runs` as N row sets averages N eval draws, so `eval_runs`
+counts those too (three seeds a side: `sqrt(1/3 + 1/3)`); the
+band used to read only the lineage and came out 1.73x too wide
+for three seeds (#750).
 
 Training seeds. The noise floor measures the eval; a delta between
 two separately trained models also carries training variance, which
@@ -530,10 +538,10 @@ for this check: nothing there could have moved with the weights.
 already passed every time: there is little room left for an
 improvement to show, whatever the training did.
 
-``python
+```python
 report = wai.delta_report(base.rows(), tuned.rows(), target="pass_at_1")
 print(wai.format_delta_report(report))
-``
+```
 
 ### format_delta_report
 
@@ -728,10 +736,10 @@ pool are left alone: there the ranking found two names for one
 behavior, and a genuinely inverted endorsed feature is still
 reported.
 
-``python
+```python
 scan = wai.hack_scan(data.rows(), endorsed=["tool:lookup_order"])
 print(scan["regime"], scan["top_feature"], scan["integrity"])
-``
+```
 
 ### hack_scan_diff
 
@@ -954,7 +962,11 @@ carries the counts).
 * `rows`: graded rows carrying the judge's `reward`. Rows that also
   carry `gold` (0/1, default column `gold_reward`, what
   `attach_labels` writes) feed the agreement, held-out and length
-  checks.
+  checks. Those checks read the `reward` already on the row, so when
+  `judge` is given and the rows' `judge_name` (what `run_judge`
+  and `data.grade` stamp) names another scorer, the report warns
+  and `ok` is false: the agreement would be that scorer's, not the
+  judge's (#683).
 * `judge`: the judge callable. With it the report re-judges up to
   `sample` rows twice more, as-is for consistency and with neutral
   filler appended; flips on the filler run mean the judge pays for
@@ -1213,10 +1225,10 @@ Each pair keeps what the trainer and the reviewer need to trust it:
 * `length_delta`: chosen reply chars minus rejected, and the report
   says how often chosen is still the longer side.
 
-``python
+```python
 pairs, report = wai.build_preference_pairs(data.rows(), min_margin=1.0)
 print(len(pairs), report)
-``
+```
 
 ### evaluate
 
@@ -1270,10 +1282,10 @@ when `eval_set` was given, and `traces`, which feeds
 * `concurrency` (8) and `timeout`: judge calls in flight and
   seconds per call.
 
-``python
+```python
 scored = wai.evaluate(traces, judge=my_judge, eval_set=asks)
 print(scored.warnings, wai.pass_at(scored.rows).pass_at_1)
-``
+```
 
 ### normalize_judge_result
 
@@ -1388,11 +1400,25 @@ Each row gains `gold_labels` (every label, appended unless
 program gold as a measurement of the judge: a deterministic rule is
 at least as strong a gold as a rater, since it cannot be argued into
 a pass and agrees with itself on every run (Lambert 2025, chapter
-Evaluation, verifiable rewards). A tie leaves both unset. Labels that
-name no row, or carry no 0/1 value, are counted and listed. A list or
-file holding anything but dicts (a bare `[0, 1, 1, 0]`) raises
-naming the item and the accepted shapes, since a label with no row
-identity cannot be attached (#685).
+Evaluation, verifiable rewards). A tie leaves both unset.
+
+A key (the mapping's key, or a dict's `key`) is spelled the way the
+row is: its `rollout_id` when it has one, else
+`'<scenario_id>#<rollout_index>'` (what a `simulate` row
+carries), and a bare `scenario_id` names its one rollout (#751).
+Labels that name no row, or carry no 0/1 value, are counted and
+listed, and `warnings` names the key form; when no label at all
+names a row the call raises, naming the first keys and the keys the
+rows carry, since a judge check over zero gold reads as "not labeled
+yet" and not as "wrong key". A key that names several rows (rows
+pooled from several runs on one pinned task grid share
+`scenario_id` and `rollout_index`; a bare `scenario_id` on a
+scenario with several rollouts) raises before any row is changed,
+naming the fix: a unique `rollout_id` per row, or the composite
+key (#759); it used to land every label on the first such row and
+report a clean match. A list or file holding anything but dicts (a
+bare `[0, 1, 1, 0]`) raises naming the item and the accepted
+shapes, since a label with no row identity cannot be attached (#685).
 
 ## logprobs
 
@@ -1651,12 +1677,18 @@ overwrites the source file unless `output` names it explicitly.
   (DAPO's overlong handling, Yu et al. 2025, arXiv:2503.14476): `"drop"`
   removes it (the default), `"keep"` leaves it in with `overlong=True`
   and its own reward, `"penalize"` keeps it as a failure that counts
-  (reward 0, the judged score under `reward_before_penalty`).
+  (reward 0, the judged score under `reward_before_penalty`). A row
+  counts as truncated when the engine stamped it so (`finish_reason`
+  `"length"`, or a step marked `truncated`), when the grader's
+  `reason` says truncated or cut off, or when the reply text stops
+  without reaching its end; the stamp is read first, since the backend
+  trims a capped reply to its last sentence and a re-grade overwrites
+  the grader's reason (`hygiene.is_truncated`).
 
-``python
+```python
 rows, report = wai.optimize(data, mode="rl", endorsed=["tool:lookup_order"])
 print(report["mode"], len(rows))
-``
+```
 
 ### recommend
 
@@ -1934,6 +1966,7 @@ class PassAt(
     n_rows: int,
     n_groups_at_k: int = 0,
     n_groups_imputed: int = 0,
+    n_partial: int = 0,
     per_task: dict[str, float] = <factory>,
     note: str = '',
     config: dict[str, Any] = <factory>,
@@ -1966,6 +1999,7 @@ the attribute is readable off it.
 | `n_rows`           | not printed      | graded rows behind those tasks             |
 | `n_groups_at_k`    | not printed      | tasks the k-way numbers used               |
 | `n_groups_imputed` | not printed      | short unanimous tasks counted in           |
+| `n_partial`        | in the note      | rows whose reward is not 0 or 1, left out  |
 | `per_task`         | not printed      | `{task key: pass rate}`, a dict          |
 | `note`             | tail of the line | why a number is missing, and the fix       |
 | `config`           | token-cap share  | how the rows were made (`run_config`)    |
@@ -2008,8 +2042,9 @@ whether the agent handles the situation, not one wording of it.
 and `group_signal` count tasks with the same key, so
 `pass_at(rows).n_groups` and `delta_report(...)["n_paired_tasks"]`
 agree on the same rows. Only binary `reward` (or `qwen_reward`)
-rows count; partial and unjudged rows are skipped, the same rule
-`group_signal` uses.
+rows count, the same rule `group_signal` uses; a row whose reward
+is between 0 and 1 is counted in `n_partial` and named in `note`,
+and an unjudged row is skipped.
 
 The intervals resample tasks, never rows (Miller 2024, arXiv:2411.00640),
 so they need at least `MIN_CI_TASKS` (3) tasks. Under that, `ci95` is
@@ -2118,11 +2153,11 @@ default `RULE_AXIS_CAP_REPORT`): a report over an existing suite
 has no grid to bound. A number keeps the first that many clauses in
 document order; `n_rules_total` and `rules_truncated` say what
 was left off and `notes` carries the count (#391).
-``python
+```python
 gap = wai.coverage_gap(["Where is order 4473?", "Cancel order 9911."],
                        tools=TOOLS, system_prompt=POLICY)
 print(gap["untested_rules"], gap["untested_tools"])
-``
+```
 
 ### dataset_report
 
@@ -2796,7 +2831,7 @@ cosine of the training batch and 5 of 133 byte-identical; the 8-gram
 rule flagged 4 of 101 prompts and the semantic pass 16. With
 sentence-transformers:
 
-``python
+```python
 from sentence_transformers import SentenceTransformer
 
 model = SentenceTransformer("BAAI/bge-small-en-v1.5")
@@ -2805,7 +2840,7 @@ clean, report = wai.decontaminate(
     against=[holdout],
     embedder=lambda texts: model.encode(texts, normalize_embeddings=True).tolist(),
 )
-``
+```
 
 A semantic flag means the two prompts read alike, not that they are
 the same task: "cancel one reservation" and "cancel three
