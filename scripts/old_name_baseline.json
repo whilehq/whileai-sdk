@@ -29,6 +29,7 @@
   "tests/api/test_tester_issues_0917.py": 1,
   "tests/connect/test_adapters.py": 1,
   "tests/generate/test_behavior_state.py": 3,
+  "tests/generate/test_dead_modal_app.py": 8,
   "tests/generate/test_prompt_and_bfs.py": 2,
   "tests/grade/test_reference_logprobs.py": 3,
   "tests/scripts/test_check_hosted_defaults.py": 12,
