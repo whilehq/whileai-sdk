@@ -40,10 +40,26 @@ def _load(labels: Any) -> list[dict]:
     if isinstance(labels, (str, Path)):
         from .quality import load_jsonl
 
-        return [r for r in load_jsonl(labels) if isinstance(r, dict)]
+        return _records(load_jsonl(labels), f"attach_labels(labels={str(labels)!r})")
     if isinstance(labels, Mapping):
         return [{"key": str(k), "label": v} for k, v in labels.items()]
-    return [r for r in labels if isinstance(r, dict)]
+    return _records(list(labels), "attach_labels(labels=[...])")
+
+
+def _records(items: list, where: str) -> list[dict]:
+    """The label records, or a ``ValueError`` naming the first item that is
+    not one. A plain ``[0, 1, 1, 0]`` used to be filtered to nothing and
+    reported as zero labels, zero invalid (#685): a label with no row
+    identity cannot be attached, and the loss should be loud."""
+    stray = [x for x in items if not isinstance(x, dict)]
+    if stray:
+        raise ValueError(
+            f"{where}: {type(stray[0]).__name__} {stray[0]!r} is not a label record; "
+            "labels is a JSONL path, a list of dicts (each with 'label' and a row identity: "
+            "'key', 'rollout_id', 'scenario_id' + 'rollout_index', or 'prompt'), or a "
+            "{key: label} mapping. A bare 0/1 list cannot say which row each label belongs to."
+        )
+    return items
 
 
 def _label_key(item: Mapping[str, Any]) -> str | None:
@@ -91,7 +107,10 @@ def attach_labels(
     at least as strong a gold as a rater, since it cannot be argued into
     a pass and agrees with itself on every run (Lambert 2025, chapter
     Evaluation, verifiable rewards). A tie leaves both unset. Labels that
-    name no row, or carry no 0/1 value, are counted and listed.
+    name no row, or carry no 0/1 value, are counted and listed. A list or
+    file holding anything but dicts (a bare ``[0, 1, 1, 0]``) raises
+    naming the item and the accepted shapes, since a label with no row
+    identity cannot be attached (#685).
     """
     kind = GOLD_KIND_ALIASES.get(kind, kind)
     if kind not in GOLD_KINDS:

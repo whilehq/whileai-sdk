@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `attach_labels` raises when a list (or JSONL) holds anything but label dicts, naming the item
+  and the three accepted shapes; a bare `[0, 1, 1, 0]` used to be filtered to nothing and
+  reported as zero labels, zero invalid (#685).
 - `wai.FlashReinforce`, `wai.SAO` and `wai.BPCO`: the single-rollout methods, one trajectory
   per prompt, the shape a production trace arrives in (one attempt per ask, scored after the
   fact, a world that cannot be replayed), so there is no group to take a baseline over and each
