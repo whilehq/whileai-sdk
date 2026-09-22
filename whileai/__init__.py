@@ -68,6 +68,12 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     # `Selection` is the type `select` returns; reachable for isinstance,
     # off the advertised list since `Harness` took its slot (#712).
     "Selection": ("whileai.selection", "Selection"),
+    # `Rejection` is the rejection-sampling rule `select(mode="sft")`
+    # applies, three knobs on one parameter so the call stays inside the
+    # eight-parameter cap; it carries the `random_*` chance control and
+    # its seed (#747). Reachable as `wai.Rejection` because the docs spell
+    # it that way; off `__all__`, which is pinned.
+    "Rejection": ("whileai.selection", "Rejection"),
     # the harness: the program around the model, run like an agent and
     # versioned like weights; `wai.harness.attribute` says which lever moved
     "Harness": ("whileai.harness", "Harness"),
@@ -138,7 +144,7 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .groupwise import GroupwiseGrading
     from .judge import Judge
     from .methods import BPCO, OPD, OPSD, SAO, Async, FlashReinforce, prime_rl_config
-    from .selection import Selection, select
+    from .selection import Rejection, Selection, select
     from .simulations import methods, platform, simulations, verify  # type: ignore[attr-defined]
     from .simulations.data import SimulationData
     from .simulations.export import export_dataset as export
