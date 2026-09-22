@@ -7,6 +7,26 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.compare(..., lower_is_better=["words", "latency_ms"])` names the metrics whose *drop* is
+  the win, so a run that set out to cut reply length stops being reported as a fault. Names take
+  the `marker:` prefix or not, a mapping (`{"truncated": False}`) forces one back the other way,
+  and a name no metric matches raises instead of being ignored. The direction is an
+  interpretation, never an edit to the number: `delta`, `ci95`, `mean_a` and `mean_b` stay the
+  raw signed change ("47.5 words shorter, 95% -50.169..-44.919"), while each metric gains
+  `gain_verdict` and that is what `target_verdict`, `headline_verdict`, `ok`, `improved`,
+  `slipped`, `regressions`, `must_not_regress`, the `by=` groups, the proxy-vs-target
+  over-optimization check and every warning read. The printed line keeps the raw delta, shouts
+  the alarm direction (`down` is the win, `UP` is the slip) and says `lower is better` beside it;
+  `report["lower_is_better"]` lists the metrics read that way. Before this, 198.119 -> 150.619
+  words read `-47.500 ... DOWN`, warned `marker:words dropped`, and under `must_not_regress`
+  returned `moved_the_wrong_way` with `ok: False` (#638).
+- `delta_report` reads six markers as lower-is-better by default (`LOWER_IS_BETTER_MARKERS`): the
+  five stock presence markers `score.markers` stamps at 1.0-means-the-tic-appeared
+  (`boilerplate`, `self_reference`, `hedging`, `refusal`, `sycophancy`; Lambert 2025, chapter
+  Over-optimization) and `truncated`, a completion the token cap cut. A rise in one of those was
+  scored as an improvement and could pass a `must_not_regress` guard; it is now the regression.
+  Rows that carry one of those names at the other polarity pass `lower_is_better={"name": False}`.
+
 ## 0.124 (2026-09-22)
 
 - The hosted defaults name Modal apps that exist, and CI now proves it. `stressd-vllm`
