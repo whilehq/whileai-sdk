@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import pytest
 
+from whileai.simulations.ingest import traces as ingest_traces
 from whileai.simulations.ingest.traces import (
     _binary_reward,
     format_trace_report,
@@ -118,9 +119,12 @@ def test_binary_reward_reads_the_issues_table():
     assert _binary_reward({"reward": 0.25}, threshold=0.5) == 0
 
 
-def test_a_model_specific_key_keeps_working_for_one_release_and_says_the_new_name():
+def test_a_model_specific_key_keeps_working_for_one_release_and_says_the_new_name(monkeypatch):
     """CONSTITUTION belief 8: never big-bang. qwen_reward still steers, and
     now it is disclosed instead of being the only answer."""
+    # The warning is said once per run (style rule 10), so this test owns
+    # the flag rather than depending on being the first to trip it.
+    monkeypatch.setattr(ingest_traces, "_legacy_key_warned", False)
     rows = _rows(5, qwen_reward=0)
     with pytest.warns(DeprecationWarning, match="reward_key='qwen_reward'"):
         report = trace_report(rows)
