@@ -122,6 +122,8 @@ def judge(row: dict[str, Any]) -> dict[str, Any]:
             reasons.append(f"{name} in the reply")
     faulted = False
     for step in steps:
+        if not step.get("tool"):
+            continue  # a text-only turn has no tool result to fail
         result = step.get("result") if isinstance(step.get("result"), dict) else {}
         status = str(result.get("status") or "")
         if status not in SUCCESS or result.get("stale"):

@@ -17,6 +17,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `trim_out_of_band` also take one row per task carrying `pass_rate` and `n` (top level or under
   `calibration`, the stamp they write), and `next_round` warns instead of returning an empty plan
   when the prior carries neither shape (#800).
+
+- The Meta-Harness recipe has a live result: Claude Haiku 4.5 as the search model and gpt-4.1-mini held out, both through OpenRouter (`vllm:<model>@<url>`), the gate passed at +0.38 [+0.27, +0.47] on 30 held-out asks at 0.40x the baseline's tokens, held on the second model, and cleared a four-draw noise floor. Its program judge now skips text-only turns when it checks a success claim against tool results (it used to count them as failed tools), and `run.py` takes `--concurrency` for live models.
+
 - Bedrock: a model that refuses `temperature` (Claude Sonnet 5 answers 400 "`temperature` is
   deprecated for this model") is called once more without the field, on both the API-key and the
   boto3 path, instead of failing every rollout. `recipes/papers/meta-harness`: the gate's row

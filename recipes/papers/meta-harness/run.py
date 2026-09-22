@@ -97,6 +97,7 @@ JUDGE = "program"  # common.judge; a provider:model string builds wai.Judge(RUBR
 SEED = 0  # the draw of the frozen set and of the split
 WORST = 5  # rows per candidate in proposal.md, the paper's trace window
 COST_MARGIN = 0.0  # how much more per rollout than the baseline a pick may cost; 0 = matched
+CONCURRENCY = 8  # rollouts in flight on a live model; scripted models run one at a time
 COST_EPS = 1e-9  # float slack so a pick at exactly the baseline's cost passes margin 0
 NANOS_PER_SECOND = 1e9  # an OTLP span's start_time_unix_nano is in nanoseconds
 NEXT_NOTE = "Then write candidates/{next}.py and run: python run.py{flags} --propose --select"
@@ -215,6 +216,7 @@ def simulate(
     budget: int,
     seed: int,
     production: list[dict] | None = None,
+    concurrency: int = 1,
 ) -> Any:
     """One candidate on one model. The first call draws the frozen set from
     the seeds with the offline writer, or takes the production tasks; every
@@ -231,9 +233,9 @@ def simulate(
         simulator=False,  # the template writer: offline, deterministic, no key
         repeats=k,
         repeat_policy="fixed",
-        reproducible=True,
+        reproducible=True,  # round-synchronous: the same rows at any concurrency
         seed=seed,
-        concurrency=1,
+        concurrency=concurrency,
         **kw,
     )
 
@@ -307,6 +309,7 @@ def evaluate(
     holdout: float,
     seed: int,
     production: list[dict] | None = None,
+    concurrency: int = CONCURRENCY,
 ) -> list[dict[str, Any]]:
     """Every candidate on every model over the same frozen tasks. Returns the
     ledger, one entry per candidate, and writes the traces. With
@@ -328,7 +331,13 @@ def evaluate(
         for model in models:
             harness = module.harness(model)
             data = simulate(
-                harness, tasks=tasks, k=k, budget=budget, seed=seed, production=production
+                harness,
+                tasks=tasks,
+                k=k,
+                budget=budget,
+                seed=seed,
+                production=production,
+                concurrency=concurrency if not model.startswith("scripted") else 1,
             )
             if not tasks.exists():
                 data.save(str(tasks))
@@ -641,6 +650,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--judge", default=JUDGE, help="'program' or a provider:model for wai.Judge")
     p.add_argument("--seed", type=int, default=SEED, help="the draw of the tasks and the split")
     p.add_argument(
+        "--concurrency",
+        type=int,
+        default=CONCURRENCY,
+        help="rollouts in flight on a live model (scripted models run one at a time)",
+    )
+    p.add_argument(
         "--traces",
         default=None,
         help="production traffic as the frozen set: a JSONL of traces or an OTLP JSON batch",
@@ -699,6 +714,7 @@ def main(argv: list[str] | None = None) -> int:
         holdout=args.holdout,
         seed=args.seed,
         production=production,
+        concurrency=args.concurrency,
     )
     flags = (" --dry-run" if args.dry_run else "") + (
         f" --traces {args.traces}" if args.traces else ""
