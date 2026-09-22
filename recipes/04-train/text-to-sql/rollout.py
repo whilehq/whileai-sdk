@@ -45,7 +45,7 @@ from sql_verifier import (
 import whileai.simulations as wai
 from whileai.config import provenance
 
-SERVE_URL = "https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
+SERVE_URL = "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
 
 # name -> agent spec. "vllm:<model>@<url>" and "openai:<model>" are SDK specs;
 # a callable is the SDK's bring-your-own-agent contract.

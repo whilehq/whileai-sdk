@@ -60,16 +60,16 @@ DEFAULT_SIMULATOR = DEFAULT_AGENT
 # judge grading its own writing prefers it (self-preference bias,
 # Panickssery et al. 2024, arXiv:2404.13076). Phi-4
 # on its own vLLM app in the same Modal workspace, same VLLM_API_KEY.
-DEFAULT_JUDGE = "vllm:microsoft/phi-4@https://zeroproofai--zeroproof-judge-serve.modal.run/v1"
-# The account route. These two endpoints sit behind the zeroproof-serve
+DEFAULT_JUDGE = "vllm:microsoft/phi-4@https://zeroproofai--whileai-judge-serve.modal.run/v1"
+# The account route. These two endpoints sit behind the whileai-serve
 # proxy (backend/modal/serve.py on the platform), which takes the account's
 # own zp_ key, refuses an exhausted daily allowance with 429, and records
 # every token on the account's usage. No VLLM_API_KEY: a signup or a login
 # is enough. VLLM_API_KEY, when set, still wins and goes to the shared pool
 # above, which is faster (warm, Instruct model) but shared and unmetered.
-ACCOUNT_AGENT = "vllm:Qwen/Qwen3-4B@https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
-ACCOUNT_JUDGE = "vllm:microsoft/phi-4@https://zeroproofai--zeroproof-serve-phi-4.modal.run/v1"
-_ACCOUNT_HOST_PREFIX = "zeroproofai--zeroproof-serve-"
+ACCOUNT_AGENT = "vllm:Qwen/Qwen3-4B@https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
+ACCOUNT_JUDGE = "vllm:microsoft/phi-4@https://zeroproofai--whileai-serve-phi-4.modal.run/v1"
+_ACCOUNT_HOST_PREFIXES = ("zeroproofai--whileai-serve-", "zeroproofai--whileai-serve-")
 _tls = threading.local()
 
 
@@ -167,12 +167,12 @@ def is_fireworks_url(base_url: str | None) -> bool:
 
 
 def _account_url(base_url: str | None) -> bool:
-    """True for the zeroproof-serve endpoints, which take the account key."""
+    """True for the whileai-serve endpoints (and the pre-rename hosts, for one release), which take the account key."""
     if not base_url:
         return False
     raw = base_url if "://" in str(base_url) else "https://" + str(base_url)
     host = (urlparse(raw).hostname or "").lower()
-    return host.startswith(_ACCOUNT_HOST_PREFIX)
+    return host.startswith(_ACCOUNT_HOST_PREFIXES)
 
 
 def _account_route() -> bool:

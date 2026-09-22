@@ -120,7 +120,7 @@
    },
    {
     "name": "qwen3-4b",
-    "spec": "vllm:Qwen/Qwen3-4B@https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1",
+    "spec": "vllm:Qwen/Qwen3-4B@https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1",
     "n": 300,
     "agreement": 0.53,
     "ci95": [

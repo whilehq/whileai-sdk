@@ -11,7 +11,7 @@ def test_default_judge_is_a_different_model_family_from_the_policy(monkeypatch):
     judge_url, judge = agents.parse_backend_spec(agents.default_judge_spec())
     assert judge != policy
     assert judge.split("/")[0].lower() != policy.split("/")[0].lower()
-    assert "zeroproof-judge" in judge_url
+    assert "whileai-judge" in judge_url
     assert grade_llm.judge_spec() == agents.default_judge_spec()
     assert grade_llm.hosted_judge_endpoint()["model"] == judge
     monkeypatch.setenv("WHILEAI_JUDGE", "openai:gpt-4o-mini")

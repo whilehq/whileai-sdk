@@ -46,7 +46,7 @@ JUDGES: dict[str, tuple[str, str]] = {
     # the policy that wrote the rows, judging itself: the self-preference control
     "qwen3-4b": (
         "wai login",
-        "vllm:Qwen/Qwen3-4B@https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1",
+        "vllm:Qwen/Qwen3-4B@https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1",
     ),
     "haiku-4.5": ("ANTHROPIC_API_KEY", "anthropic:claude-haiku-4-5"),
     "sonnet-5": ("ANTHROPIC_API_KEY", "anthropic:claude-sonnet-5"),

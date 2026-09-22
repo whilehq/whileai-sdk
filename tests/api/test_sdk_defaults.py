@@ -700,7 +700,7 @@ def test_is_platform_host_matches_both_domains_and_the_served_models():
         "while.ai",
         "https://api.zeroproofai.com/v1/traces",
         "https://serve.zeroproofai.com/v1",
-        "https://zeroproofai--zeroproof-serve-qwen.modal.run/v1",
+        "https://zeroproofai--whileai-serve-qwen.modal.run/v1",
         "HTTPS://API.WITHWHILE.COM",
     ):
         assert is_platform_host(url), url
