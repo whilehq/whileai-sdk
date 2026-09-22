@@ -21,6 +21,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   reported their skipped rows; `pass_at` was the one that stayed quiet, and it is the one
   read first. `docs/reference/five-calls.md` no longer comments that grading returns 0/1 on
   every row.
+- `compare` sizes `tasks_needed` from the paired task sd measured on the rows it already holds
+  (`holdout_size(before=, after=)`), reports `tasks_needed_source`, and the sizing line says where
+  the sd came from; the binomial model asked for about twice the tasks (525 against 270 on 160
+  MATH-500 tasks at k=12) (#733).
 - `simulate(grade=True)` grades against the rubric with the judge: the same
   `wai.Judge(rubric=...)` that `data.grade` runs, on the grader path, so every row carries
   `reward`, `judge_status`, `judge_name` and lineage (#670). It used to write the
