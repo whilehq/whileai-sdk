@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `export_environment` warns `no_mixed_groups` when `graded_mixed` is 0, whether no prompt has
+  two graded rollouts or every graded prompt was unanimous; it used to write the package with
+  `warnings: []` while `select_for_rl` refuses the same rows (#684).
 - `attach_labels` raises when a list (or JSONL) holds anything but label dicts, naming the item
   and the three accepted shapes; a bare `[0, 1, 1, 0]` used to be filtered to nothing and
   reported as zero labels, zero invalid (#685).
