@@ -1,0 +1,334 @@
+# The support agent that would not look it up, and which lever fixed it
+
+**Seat:** a post-training engineer on a team that ships one customer support
+agent, trying to make it stop answering account questions out of its own head.
+
+**Behaviour:** *looks it up before answering* — when a customer asks about
+their own account, order, reservation or bill, call the right tool first
+instead of answering, or asking again for something the customer already gave.
+
+**Capability twin, reported beside it every time:** *stays in scope* — on the
+asks the reference agent correctly refused (another customer's data, a policy
+the tools do not carry, a list of everyone's lines), still do not call a tool.
+Neither number means anything alone: an agent that always calls a tool scores
+1.00 on the behaviour and 0.00 on the twin, and an agent that never calls one
+does the reverse.
+
+**Method:** the harness-and-weights grid, reused rather than reproduced —
+[`recipes/papers/harness-and-weights`](../../papers/harness-and-weights)
+(HASE, Luo et al., [arXiv:2607.03935](https://arxiv.org/abs/2607.03935); SIA,
+Hebbar et al., [arXiv:2605.27276](https://arxiv.org/abs/2605.27276); Prime
+Agent, Karten et al., [arXiv:2608.23552](https://arxiv.org/abs/2608.23552)).
+That recipe put `both` six points over `weights` (+0.060 [+0.028, +0.095]) on
+quant coding tasks and found the harness explained 95% of the spread. No
+community recipe had applied it to an agent behaviour, so the budget went to
+the application instead of a second reproduction.
+
+**The change:** four cells on one frozen holdout. `neither` is the base weights
+under the deployed policy prompt. `harness` is the base weights under a
+searched harness — a skills text, no GPU at all. `weights` is the busy
+engineer's default, LoRA SFT on the good rows under the deployed prompt.
+`both` is the same SFT under the searched harness. `wai.harness.attribute`
+reads the 2x2 and says which lever moved it.
+
+## The agent and its traffic
+
+`while-ai/tau2-simulated` (telecom, retail, airline: 1,057 conversations,
+every one graded `reward = 1` by the published grader). The traffic is the
+environment — the policy, the 13 to 16 tools, the customer's turns. The agent
+is mine: `Qwen/Qwen3-4B`, offline, on my own Modal.
+
+`prep.py` cuts each conversation at the moment the reference agent acted and
+keeps what it did: 927 decision points where it called a tool (30 distinct
+tools) and 130 where it correctly answered without one. `split.py` splits by
+scenario, not by row — 400 of 654 scenario ids repeat across rows, so a row
+split would put near-copies on both sides.
+
+## Run it
+
+```bash
+pip install whileai 'modal[api-proxy-support]'
+cd recipes/community/support-lookup-before-answer-both-levers
+
+python run.py --dry-run              # offline: fixture tasks, scripted agent, no key, no GPU
+python prep.py && python split.py    # published traces -> decision points, split, decontaminate
+modal run --detach support_modal.py  # search, two arms, the grid
+modal volume get support-lookup-runs / out
+python run.py --analyse              # compare, attribute, results.json
+
+modal deploy serve_modal.py          # vLLM, --enable-lora, scale to zero
+python fresh_traffic.py --url <printed url> --arm both
+modal app stop support-lookup-serve
+```
+
+| flag | default | what it does |
+|---|---|---|
+| `--dry-run` | off | offline: 6 fixture decision points, a scripted agent, no network |
+| `--analyse` | off | read `out/` and write `results.json` |
+| `SUPPORT_HOLDOUT` | 320 | held-out decision points played per cell |
+| `SUPPORT_GATE` | 160 | train-split tasks the harness search runs on |
+| `SUPPORT_K` | 2 | rollouts per task; the interval is over tasks |
+| `SUPPORT_BASE` | `Qwen/Qwen3-4B` | the base model |
+| `SUPPORT_GPU` | `L40S` | the GPU |
+
+## Result
+
+`modal run --detach support_modal.py`, one L40S, 2026-09-22, 320 held-out
+decision points never trained on, 2 rollouts each, `Qwen/Qwen3-4B`.
+
+### The search found nothing to pick
+
+| candidate | right_first_action | looks_up | stays_in_scope | called_a_tool | gate vs deployed |
+|---|---:|---:|---:|---:|---|
+| `00_deployed` (the served policy) | **0.831** | 0.828 | **0.841** | 0.750 | — |
+| `01_skills` (+ when to look up) | 0.825 | 0.836 | 0.795 | 0.775 | −0.006 [−0.038, +0.019] no difference |
+| `02_skills_toolnames` (+ tool names by the turn) | 0.781 | 0.836 | 0.636 | 0.819 | −0.050 [−0.100, 0.000] no difference |
+
+No candidate cleared the deployed prompt, so the gate's answer was **keep what
+you serve**. That is the first result of the day and it is not a null one: in
+the reproduction the same search found a skills text worth +0.08 on base
+weights for no GPU at all. Here the baseline harness is not a bare instruction,
+it is 1,200 words of policy that someone already tuned against this exact
+traffic.
+
+Look down the columns and the reason is visible. Every candidate raises
+`called_a_tool` (0.750 → 0.775 → 0.819) and buys almost no `looks_up`
+(0.828 → 0.836 → 0.836) while spending `stays_in_scope` (0.841 → 0.795 →
+0.636). The harness is not a gain here, it is a **dial between the behaviour
+and its twin**. A search on the behaviour alone would have shipped `02`.
+
+Because a 2x2 needs two harness levels, `01_skills` is the second level, and
+every row below says the gate did not pass.
+
+### The four cells
+
+Base evaluated three times under the deployed harness: 0.7906 / 0.7937 /
+0.7906. `run_std` 0.0018, noise band 0.011, `very_stable`.
+
+| cell | harness | weights | right_first_action | looks_up (CALL) | stays_in_scope (NO_CALL) |
+|---|---|---|---:|---:|---:|
+| `neither` | deployed | base | 0.791 | 0.798 | 0.761 |
+| `harness` | `01_skills` | base | 0.784 | 0.806 | 0.701 |
+| `weights` (baseline) | deployed | trained | **0.816** | 0.877 | 0.582 |
+| `both` (method) | `01_skills` | trained | 0.802 | 0.875 | **0.522** |
+
+| comparison | target delta | 95% CI | verdict |
+|---|---:|---|---|
+| `harness` vs `neither` | −0.006 | [−0.031, +0.019] | NO DIFFERENCE |
+| `weights` vs `neither` | +0.025 | [−0.025, +0.075] | **FAIL** (twin −0.179) |
+| `both` vs `neither` | +0.011 | [−0.044, +0.062] | **FAIL** (twin −0.239) |
+| **`both` vs `weights` (method vs baseline)** | **−0.014** | **[−0.047, +0.020]** | **FAIL** (twin −0.060 [−0.119, −0.015]) |
+| `both` vs `harness` | +0.017 | [−0.033, +0.067] | **FAIL** (twin −0.179) |
+
+**Verdict: unresolved**, one training seed per arm — and flat on the target
+either way. The method does not beat the baseline: the interval on
+`both` − `weights` covers zero, and `both` is *worse* on the guardrail by
+−0.060 [−0.119, −0.015]. The papers' claim, that combining the levers beats
+either alone, does not hold on this agent.
+
+### The composite target was the wrong metric, and the pair says why
+
+`right_first_action` averages two row types that moved in opposite
+directions, which is why every headline above is flat:
+
+| | `neither` | `weights` | delta | 95% CI |
+|---|---:|---:|---:|---|
+| **looks_up** (506 CALL rows) | 0.798 | 0.877 | **+0.079** | [+0.020, +0.138] up |
+| **stays_in_scope** (134 NO_CALL rows) | 0.761 | 0.582 | **−0.179** | [−0.269, −0.090] DOWN |
+
+Training taught the behaviour. It also taught the agent to reach for a tool
+on asks it should refuse, and the second effect is more than twice the first.
+`+0.025` on the composite is the average of a real gain and a larger real
+loss, and `holdout_size` says proving that `+0.025` would take about 2,827
+tasks. The pair needs 320. `compare(by="target")` split it on the first run
+and `must_not_regress=["stays_in_scope"]` turned every trained arm **FAIL**
+without being asked twice.
+
+### Which lever
+
+```text
+attribution on marker:right_first_action: 2 harnesses x 2 models, 320 tasks each cell
+  harness            base   trained
+  00_deployed        79.1      81.6
+  01_skills          78.4      80.2
+  spread explained: harness 18% [0..91], model 79% [0..99], interaction 3%
+  harness moves the score by up to 1.0 points, the model by up to 2.1
+  the same model leads under every harness
+  which lever moved the score more could be chance: the interval on the difference in shares covers zero
+```
+
+The reproduction found the harness explained 95% [71..99] and the model 2%
+[0..24]. Here the point estimates reverse — model 79%, harness 18% — and the
+intervals are too wide to call it. So the honest claim is not "the model lever
+wins on agents"; it is that **the lever ordering is a property of the task, not
+of the method, and one reproduction does not transfer it.** On four re-runs of
+the same cell the same call correctly returns "could be chance", which is the
+control that makes the wide interval readable rather than suspicious.
+
+### Fresh traffic
+
+Served on my own Modal: vLLM, `--enable-lora`, scale to zero. Thirty held-out
+decision points the eval never played, over HTTP, same render and same grader
+as the eval.
+
+| | |
+|---|---|
+| arm | `weights` (the better trained arm; by this recipe's own rule **neither should ship**) |
+| result | **28 / 30**, pass@1 **0.93 [0.83, 1.00]** |
+| composition | `CALL/ordinary` x30 |
+| what it can see | the behaviour only |
+| what it cannot | the twin — no `NO_CALL` rows were left in the unplayed pool |
+
+The gain held on fresh traffic, and the check is weaker than it looks: the
+frozen holdout was built to discriminate, so its stratified sample had already
+taken every boundary, ambiguous, adversarial and `NO_CALL` row. What it left
+behind for a fresh-traffic check was the easy distribution. Those two
+requirements fight, and nothing warned me.
+
+`wai.select` on those 30 rows kept **0**, reporting them "incomplete". They are
+complete tool calls; filed as [#854](https://github.com/whilehq/whileai-sdk/issues/854).
+So the loop closes everywhere except the last step, and that step is a bug.
+
+### Cost
+
+| | |
+|---|---|
+| GPU | one L40S at a time, ~63 billed minutes |
+| spend | **~$2.10** |
+| breakdown | 8 min search · 32 min two arms in parallel · 6 min grid eval · 11 min serving · ~6 min on runs that died |
+| a week of this | ~$15 of GPU for seven behaviours, if every day goes as well as this one |
+
+The wasted six minutes were three self-inflicted failures worth naming: a
+helper module the image did not ship, `SFTConfig` rejecting `warmup_ratio` on
+TRL 1.13, and an OOM from leaving gradient checkpointing off.
+
+
+## Checks
+
+| Check | Result |
+|---|---|
+| Eval noise: base ×3 under the deployed harness | run_std **0.0018**, band **0.011**, `very_stable`. Per-metric floors from `eval_variance(...)["run_std_by_metric"]`, passed to `compare(run_std=)` — one scalar would print a band against whatever scale happened to be there |
+| Paired on one frozen holdout | 320 decision points, same tasks in every cell, `k=2`, same seed |
+| Holdout clean | split by **scenario** (400 of 654 scenario ids repeat across rows, so a row split straddles near-copies); `decontaminate` dropped **10** of 518 |
+| Decontamination sanity | same rows with the deployed policy in the `prompt` field: **515 of 518** flagged. The constant every production prompt shares swamps whole-prompt overlap — [#636](https://github.com/whilehq/whileai-sdk/issues/636) |
+| Reward is a program | tool-name match against what the reference agent called; no model in the reward path, in training or eval. There is no model key in this environment at all (`model: offline`) |
+| Guardrail declared up front | `must_not_regress=["stays_in_scope"]`; it is what turns every trained arm FAIL |
+| Target split by row type | `by="target"`, so a headline that moved cannot hide a row type that moved the other way. It is the whole result here |
+| Power stated | `holdout_size`: 320 tasks at k=2 prove about **+0.06** at 80% power. The composite's +0.025 is under that; the pair's +0.079 and −0.179 are over it |
+| Proxy vs target | the training target *is* the eval metric (the reference's first action, scored the same way on different rows). Declared, not hidden: this measures generalisation across scenarios, not an independent quantity |
+| Hack scan | **not usable at k=2**: `POOL EXHAUSTED` / `DEGENERATE`, 82% of asks all-pass, one distinct rollout per ask. Reported as not run rather than as a clean bill |
+| Seeds | **one training seed per arm**, so every trained verdict is `unresolved` |
+| Same entry point | one `render()` shared by search, training, eval and the served HTTP path; `enable_thinking=False` everywhere |
+| Pins | vLLM 0.29.0, TRL 1.13.0, PEFT 0.21.0, whileai 0.121 |
+
+
+## From paper to production
+
+Ranked by how much time each cost me, and how invisible each is from the
+reproduction.
+
+1. **The production baseline harness is not a baseline, it is an artifact.** A
+   paper's control harness is a bare instruction, so harness search has room by
+   construction; the reproduction found +0.08 from a skills text for zero GPU.
+   My control was the deployed 1,200-word policy, already tuned against this
+   traffic by whoever came before me, and nothing I wrote beat it. The harness
+   lever's headroom is the cheapest thing to measure and the first thing that
+   differs.
+2. **A production behaviour comes with a twin, and every lever here was a dial
+   between them, not a gain.** "Looks it up before answering" and "stays in
+   scope" are the same decision seen from two row types. Training bought +0.079
+   of one and paid −0.179 of the other; the skills candidates did the same in
+   miniature. A paper reports one axis because its task has one. Report a
+   guardrail alone and ignorance reads as restraint; report the behaviour alone
+   and you ship an agent that calls a tool on everything.
+3. **The composite metric that made the pair a single number hid the whole
+   result.** My target averaged the two and came out +0.025, flat, underpowered
+   at 2,827 tasks. Both components clear their floors comfortably at 320.
+   Whatever an operator names as one behaviour often is not one metric, and
+   `by=` is the difference between a flat run and a finding.
+4. **Whole-prompt contamination rules invert on production prompts.** 10 of 518
+   flagged on the customer's own words; **515 of 518** on the same rows with the
+   deployed policy prepended. A paper's prompts are all different; production's
+   are one large constant plus thirty words that vary, and the field you put in
+   `prompt` decides whether you get 1.9% or 99.4%.
+5. **The deployed prompt sets the trainer's limits, and gets them wrong
+   quietly.** 5,100 tokens per prompt: TRL's `max_length` default truncates
+   from the left in silence, and a 4B model OOMs a 48GB card without gradient
+   checkpointing. The recipes' "checkpointing OFF" rule is scoped to trainers
+   that *generate* during training; I applied it to SFT and lost a container to
+   it. GSM8K prompts are fifty tokens and none of this exists there.
+6. **Building the holdout to discriminate starves the fresh-traffic check.** The
+   frozen sample was stratified so it could fail, which took every boundary,
+   ambiguous, adversarial and `NO_CALL` row. The 219 rows left for fresh traffic
+   were ordinary lookups only, so the last check in the loop could not see the
+   regression the holdout had just found. Nothing warns that the two sampling
+   goals are in tension.
+7. **The loop's last step is where it breaks.** Serving, grading and comparing
+   all worked; `select` on the fresh rows kept 0 of 30 and blamed a reward range
+   and a cut-off reply, neither of which was true ([#854](https://github.com/whilehq/whileai-sdk/issues/854)).
+   A tool-calling agent's `final_text` *is* a tool call, which is the normal
+   case for the agents this library is for.
+8. **Two harnesses can share one fingerprint.** A candidate that injects a line
+   above the customer's turn is not in `instructions` or `tools`, so the
+   content-addressed version cannot see it and a grid keyed on `hash` silently
+   becomes a 2x1 ([#837](https://github.com/whilehq/whileai-sdk/issues/837)).
+
+
+## Learned
+
+- **The lever ordering did not transfer, and that is the transferable finding.**
+  The reproduction: harness 95%, model 2%. Here: model 79%, harness 18%, on
+  intervals too wide to call. Which lever to pull is a property of the task and
+  its baseline, so the grid is worth running per agent and the reproduction's
+  answer is not worth importing. That is an argument *for* the method and
+  against its headline.
+- **A guardrail is not a side effect, it is half the behaviour.** The one design
+  choice that made this run readable was writing `stays_in_scope` down as a
+  metric before training and naming it in `must_not_regress`. Everything
+  interesting is in that column, and the target column alone says "flat" four
+  times.
+- **A skills text can move the dial without moving the score.** `02` raised
+  tool-calling by seven points and lost twenty on scope. On a behaviour with a
+  twin, harness search needs the twin in its gate or it optimises into the
+  regression.
+- **Search the harness first is still right, and cost nothing to learn.** The
+  whole search was one vLLM session and no training, and it answered "there is
+  nothing here" before either arm was trained. Even a null search is the
+  cheapest hour in the loop.
+- **`compare` earned the run.** Per-metric noise floors, the guardrail as a
+  gate, `by=` on row type, a family-error line for seven metrics, and
+  `holdout_size` telling me the composite was underpowered — all from one call,
+  and all of it printed before I knew I needed it.
+
+
+## What did not work
+
+- The harness gate refused every candidate, so the "searched harness" in every
+  table is the best of the two on the train split, not a gate winner. Said in
+  each table rather than in a footnote.
+- One training seed per arm. `both` vs `weights` is `unresolved` and stays that
+  way until each arm has a second seed (`--train-seed`).
+- `hack_scan` at k=2 has nothing to work with (82% of asks all-pass, one
+  distinct rollout per ask) and says so. Re-scan at repeats ≥ 8 before reading
+  anything into it.
+- The fresh-traffic check covers the behaviour only; the twin is unmeasured on
+  fresh rows.
+- Three containers died to my own mistakes before the arms ran: a helper module
+  the image did not ship, `SFTConfig` rejecting `warmup_ratio` on TRL 1.13, and
+  gradient checkpointing left off. The published `support_modal.py` filters
+  unknown `SFTConfig` keys and turns checkpointing on.
+
+## Next
+
+1. A second training seed per arm; it is the only thing between `unresolved`
+   and a verdict on the −0.014.
+2. Put the twin in the harness gate and search again. Every candidate here
+   optimised into the regression because the gate could not see it.
+3. Train on a mix that carries the refusals. All 508 training rows teach a first
+   action; 63 of them are refusals against 455 lookups, and the −0.179 is
+   probably that ratio rather than anything about the method.
+4. Hold out a whole domain (airline) rather than half the scenarios, so
+   "generalises" means a policy and tool set the training never saw.
+
+Verified 2026-09-22, whileai 0.121, vLLM 0.29.0, TRL 1.13.0, PEFT 0.21.0 on one
+L40S. 63 GPU minutes, ~$2.10. Nothing left running.

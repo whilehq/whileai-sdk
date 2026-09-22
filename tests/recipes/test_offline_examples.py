@@ -77,6 +77,7 @@ CLI_EXAMPLES = [
     "community/grpo-group-size-at-fixed-budget/run.py",
     "community/can-the-markers-be-trusted/run.py",
     "community/which-half-can-a-small-model-take/run.py",
+    "community/support-lookup-before-answer-both-levers/run.py",
     # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)
     "papers/meta-harness/run.py",
     "papers/harness-and-weights/recipe.py",
@@ -110,6 +111,8 @@ NEEDS_MODAL = {
     "community/identity-spec-no-unasked-maker-aas/serve_modal.py",
     "community/grpo-group-size-at-fixed-budget/sweep_modal.py",
     "community/can-the-markers-be-trusted/markers_modal.py",
+    "community/support-lookup-before-answer-both-levers/support_modal.py",
+    "community/support-lookup-before-answer-both-levers/serve_modal.py",
     "papers/harness-and-weights/modal_run.py",
 }
 
