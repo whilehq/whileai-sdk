@@ -236,6 +236,19 @@ rounds for star (5.5, 4.5, 4.4 of 10) while resampling's stays flat
 rather than the function it is asked for. On a hill the swarm climbs the
 proxy, and the proxy comes apart from the target as it climbs.
 
+**Seed 1 (2026-09-22) replicates the flat result.** 154 of 192 bundles
+all-fail. Per-sample pass rate: resample 0.35%; solo +0.18 [-0.24, +0.69];
+ring +0.04 [-0.28, +0.41]; star +0.42 [-0.07, +1.04]. Rescued 3.9 / 2.6 /
+2.6 / 5.2%, resample re-runs 3.2 and 5.2%, band 6.0. The climb replicates:
+round-2 programs at 5 of 5 shown asserts, resample 5.9%, solo 7.5%, ring
+11.8%, star 14.9%; of those, hidden all-pass 1, 0, 1, 3. What did not
+replicate is the seed-0 drop in hidden asserts passed among 5-of-5
+programs across rounds; on seed 1 that number rises for the swarms (star
+2.5, 4.0, 4.2 of 10). The claim that stands on both seeds is the narrower
+one: the swarm roughly doubles the share of programs that satisfy the shown
+tests, and that gain does not carry to the hidden tests.
+`results-mbpp-s1.json`, `rescued-mbpp-s1.jsonl`.
+
 Note on the earlier runs: their visible fitness was the index of the
 first failing visible test (the grader stopped there), not the count of
 passing tests; from this run on every visible test runs and the count is
@@ -265,7 +278,7 @@ the first test), and the calibration scripts always ran every test.
   rescue the prompts GRPO drops, is closed. What a hard prompt needs is
   more samples or a stronger model, not a smarter way to condition them.
 - The positive control closes the line. Given a hill, the swarm climbs
-  it, and what it climbs is the shown test, not the function. Fitness
+  it, and what it climbs is the shown test, not the function (two seeds). Fitness
   from tests is either a cliff (a verifier's partial credit) or a proxy
   the operator overfits (an additive family), and a judge is chance. A
   population search over rollouts needs a fitness that is graded,

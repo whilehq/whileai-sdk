@@ -140,3 +140,4 @@ recipes/01-simulate/swarm-rescue/out-dry/
 recipes/01-simulate/swarm-rescue/out-*/
 !recipes/01-simulate/swarm-rescue/rescued-27b.jsonl
 !recipes/01-simulate/swarm-rescue/rescued-mbpp.jsonl
+!recipes/01-simulate/swarm-rescue/rescued-mbpp-s1.jsonl
