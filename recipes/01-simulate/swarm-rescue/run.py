@@ -47,7 +47,9 @@ from pathlib import Path
 from typing import Any
 
 import whileai as wai
+from whileai.auth import resolve_api_key
 from whileai.config import provenance
+from whileai.simulations.generate.agents import ACCOUNT_AGENT
 
 HERE = Path(__file__).resolve().parent
 RAW = HERE / "raw"
@@ -72,9 +74,10 @@ TEST_TIMEOUT = 6.0  # seconds per test; the contest limit is 1-2 s for C++
 FEEDBACK_CHARS = 300
 
 # --- the model ---------------------------------------------------------------
-# The model While hosts on the account key (the SDK's default agent route).
-HOSTED_URL = "https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
-HOSTED_MODEL = "Qwen/Qwen3-4B"
+# The model While hosts on the account key: the SDK's default agent route,
+# read from the SDK so the recipe follows it when it moves (whileai-sdk #721
+# asks for a public spelling of this).
+HOSTED_MODEL, HOSTED_URL = ACCOUNT_AGENT.split(":", 1)[1].split("@", 1)
 MAX_TOKENS = 2048
 TEMPERATURE = 1.0
 CONCURRENCY = 48
@@ -869,7 +872,7 @@ def main(argv: list[str] | None = None) -> int:
         model: Model = FakeModel()
     else:
         tasks = load_tasks(args.limit, args.seed)
-        key = os.environ.get("WHILEAI_API_KEY") or os.environ.get("ZEROPROOF_API_KEY")
+        key = resolve_api_key()  # WHILEAI_API_KEY, else the `wai login` credentials
         if args.base_url == HOSTED_URL and not key:
             sys.exit(
                 "the hosted model needs WHILEAI_API_KEY (wai login), or pass --base-url for your own endpoint"
