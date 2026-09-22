@@ -17,6 +17,7 @@ what it claims, the steps, one command, what happened.
 | [endpoint-sft](endpoint-sft) | [2609.07103](https://arxiv.org/abs/2609.07103) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.29 -> 0.28 (-0.01 [-0.07, +0.05], unresolved, 1 seed per arm) | 2026-09-17 |
 | [filter-metric](filter-metric) | [2609.13866](https://arxiv.org/abs/2609.13866) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.39 -> 0.46 (+0.07 [+0.02, +0.11], unresolved, 1 seed per arm) | 2026-09-17 |
 | [gmts-token-select](gmts-token-select) | [2608.30632](https://arxiv.org/abs/2608.30632) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.49 -> 0.18 (-0.31 [-0.38, -0.24], unresolved, 1 seed per arm) | 2026-09-18 |
+| [harness-and-weights](harness-and-weights) | [2607.03935](https://arxiv.org/abs/2607.03935) | Qwen/Qwen2.5-Coder-1.5B-Instruct | pass@1 | 0.03 -> 0.09 (+0.06 [+0.03, +0.09], unresolved, 1 seed per arm) | 2026-09-21 |
 | [zero-rl-format-reward](zero-rl-format-reward) | [2503.18892](https://arxiv.org/abs/2503.18892) | Qwen/Qwen3.5-4B-Base | pass@1 | 0.63 -> 0.72 (+0.09 [+0.05, +0.14], unresolved, 1 seed per arm) | 2026-09-18 |
 <!-- table:end -->
 
@@ -31,6 +32,13 @@ shape (`run.py --dry-run`, `smoke.sh`, a flags table), runs offline with
 scripted candidates, and `check.py` leaves it out of the table above
 because it has no `results.json`: the live run is the replication and no
 number from it is claimed until one is measured.
+[`harness-and-weights`](harness-and-weights) (Luo et al. 2026,
+arXiv:2607.03935; Hebbar et al. 2026, arXiv:2605.27276; Karten et al. 2026,
+arXiv:2608.23552) puts that loop and a GRPO arm under one optimizer: four
+arms (`neither`, `harness`, `weights`, `both`) on one holdout of seeded quant
+coding tasks. It is in the same step-recipe shape (`recipe.py --dry-run`,
+`smoke.sh`, a flags table) and writes a `results.json` only when the full
+live run has been measured; its README says what ran.
 
 ## Run one
 

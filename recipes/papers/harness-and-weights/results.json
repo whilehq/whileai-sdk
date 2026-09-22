@@ -1,0 +1,198 @@
+{
+  "recipe": "harness-and-weights",
+  "title": "Harness and weights: both levers against either alone",
+  "paper": "https://arxiv.org/abs/2607.03935",
+  "book": "Tool Use",
+  "base_model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+  "metric": "pass@1",
+  "n_holdout": 79,
+  "k": 4,
+  "arms": {
+    "base": {
+      "score": 0.0031645569620253164,
+      "ci": [
+        0.0,
+        0.00949367088607595
+      ],
+      "pass_at_k": 0.012658227848101266,
+      "n": 79,
+      "steps": 0,
+      "gpu_minutes": 0
+    },
+    "baseline": {
+      "score": 0.02531645569620253,
+      "ci": [
+        0.00949367088607595,
+        0.04430379746835443
+      ],
+      "pass_at_k": 0.08860759493670886,
+      "n": 79,
+      "steps": 40,
+      "gpu_minutes": 15.9
+    },
+    "recipe": {
+      "score": 0.08544303797468354,
+      "ci": [
+        0.056962025316455694,
+        0.11708860759493671
+      ],
+      "pass_at_k": 0.3037974683544304,
+      "n": 79,
+      "steps": 40,
+      "gpu_minutes": 11.0
+    }
+  },
+  "delta": {
+    "recipe_vs_baseline": 0.060126582278481014,
+    "ci": [
+      0.028481012658227847,
+      0.0949367088607595
+    ],
+    "verdict": "unresolved",
+    "noise_band": 0.019473155068452572
+  },
+  "checks": {
+    "run_std": 0.0032,
+    "run_std_runs": 3,
+    "train_seeds": {
+      "baseline": 1,
+      "recipe": 1
+    },
+    "decontaminated_dropped": 0,
+    "over_optimized": false,
+    "length_before": 820.8512658227849,
+    "length_after": {
+      "baseline": 1623.3227848101267,
+      "recipe": 1129.642405063291
+    },
+    "hack_scan_top": "contains:) / AND contains:calculate the",
+    "seed": 0,
+    "train_seed": 17,
+    "pins": "torch 2.13.0, transformers 5.17.0, trl 1.13.0, peft 0.21.0, vllm 0.29.0",
+    "split": "family"
+  },
+  "grid": {
+    "neither": {
+      "score": 0.0031645569620253164,
+      "ci": [
+        0.0,
+        0.00949367088607595
+      ],
+      "pass_at_k": 0.012658227848101266,
+      "n": 79,
+      "harness": "00_baseline",
+      "model": "base",
+      "length_chars": 820.8512658227849,
+      "gpu_minutes": 0.0,
+      "steps": 0
+    },
+    "harness": {
+      "score": 0.08544303797468354,
+      "ci": [
+        0.05063291139240506,
+        0.12658227848101267
+      ],
+      "pass_at_k": 0.25316455696202533,
+      "n": 79,
+      "harness": "01_skills",
+      "model": "base",
+      "length_chars": 800.2056962025316,
+      "gpu_minutes": 0.0,
+      "steps": 0
+    },
+    "weights": {
+      "score": 0.02531645569620253,
+      "ci": [
+        0.00949367088607595,
+        0.04430379746835443
+      ],
+      "pass_at_k": 0.08860759493670886,
+      "n": 79,
+      "harness": "00_baseline",
+      "model": "trained",
+      "length_chars": 1623.3227848101267,
+      "gpu_minutes": 15.924771412213643,
+      "steps": 40
+    },
+    "both": {
+      "score": 0.08544303797468354,
+      "ci": [
+        0.056962025316455694,
+        0.11708860759493671
+      ],
+      "pass_at_k": 0.3037974683544304,
+      "n": 79,
+      "harness": "01_skills",
+      "model": "trained",
+      "length_chars": 1129.642405063291,
+      "gpu_minutes": 11.004947010676066,
+      "steps": 40
+    }
+  },
+  "pairs": {
+    "harness_vs_neither": {
+      "delta": 0.08227848101265822,
+      "ci95": [
+        0.04746835443037975,
+        0.12341772151898735
+      ],
+      "n_paired": 79,
+      "clears_zero": true
+    },
+    "weights_vs_neither": {
+      "delta": 0.022151898734177215,
+      "ci95": [
+        0.00949367088607595,
+        0.0379746835443038
+      ],
+      "n_paired": 79,
+      "clears_zero": true
+    },
+    "both_vs_harness": {
+      "delta": 0.0,
+      "ci95": [
+        -0.0379746835443038,
+        0.0379746835443038
+      ],
+      "n_paired": 79,
+      "clears_zero": false
+    },
+    "both_vs_weights": {
+      "delta": 0.060126582278481014,
+      "ci95": [
+        0.028481012658227847,
+        0.0949367088607595
+      ],
+      "n_paired": 79,
+      "clears_zero": true
+    }
+  },
+  "attribution": {
+    "verdict": "harness",
+    "sentence": "the harness moved the score more than the model did; the leading model changes with the harness, so a model ranking from one harness does not carry",
+    "share_harness": 0.9538,
+    "share_model": 0.0231,
+    "ci_share_harness": [
+      0.7098344693281403,
+      0.9897013388259527
+    ],
+    "ci_share_model": [
+      1.1543557054425679e-32,
+      0.24032697547683937
+    ],
+    "cells": {
+      "00_baseline@base": 0.3,
+      "00_baseline@trained": 2.5,
+      "01_skills@base": 8.5,
+      "01_skills@trained": 8.5
+    }
+  },
+  "searched_harness": "01_skills",
+  "gate_passed": true,
+  "gpu": "H100",
+  "usd": 2.38,
+  "gpu_minutes": 36.1,
+  "verified": "2026-09-21",
+  "whileai": "0.114",
+  "run_url": "https://withwhile.com/platform/runs?agent=harness-and-weights"
+}

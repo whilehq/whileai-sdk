@@ -7,6 +7,21 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/harness-and-weights`: the harness and the weights of a small open coding
+  model under the same optimizer, and whether both levers together beat either alone (#712).
+  The question is the one HASE (Luo et al. 2026, arXiv:2607.03935) and SIA (Hebbar et al.
+  2026, arXiv:2605.27276) ask, with the skills-file-in-the-harness idea of Prime Agent
+  (Karten et al. 2026, arXiv:2608.23552). `tasks.py` builds 143 seeded quant coding tasks
+  (drawdown, rolling Sharpe, RSI, realized volatility, momentum rank IC, top-k long-short,
+  golden crosses, beta, ATR, VWAP, up streaks) over one standard-library price table, each with
+  `privileged.tests` graded by `wai.verify.CodeExec`; `candidates/*.py` are harnesses with a
+  SKILLS.md text and an optional `run_python` tool, searched with the Meta-Harness ledger, proposal
+  and gate imported from `../meta-harness/run.py`; `modal_run.py` trains GRPO on
+  `Qwen/Qwen2.5-1.5B-Instruct` with TRL and vLLM colocate on one H100 under the current harness.
+  Four arms on one holdout (`neither`, `harness`, `weights`, `both`), paired by task with
+  `compare_runs`, attributed with `wai.harness.attribute`; one training seed per arm is
+  unresolved. `--dry-run` is offline (`smoke.sh`, CI); `--smoke` proves the Modal path.
+
 ## 0.114 (2026-09-21)
 
 - `recipes/papers/meta-harness`: the Meta-Harness outer loop (Lee, Nair, Zhang, Lee, Khattab,

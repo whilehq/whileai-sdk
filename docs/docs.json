@@ -176,6 +176,7 @@
                   "recipes/papers/endpoint-sft",
                   "recipes/papers/filter-metric",
                   "recipes/papers/gmts-token-select",
+                  "recipes/papers/harness-and-weights",
                   "recipes/papers/meta-harness",
                   "recipes/papers/zero-rl-format-reward"
                 ]
