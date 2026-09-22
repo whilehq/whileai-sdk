@@ -609,7 +609,10 @@ def export_environment(
     ``prompts``, ``tasks``, ``train`` and ``holdout`` counts,
     ``graded_prompts``, ``band``, ``band_dropped``, ``graded_mixed``
     (prompts the policy both solved and failed, the ones with an
-    advantage) and ``decontamination``.
+    advantage) and ``decontamination``. ``warnings`` carries a line when
+    ``graded_mixed`` is 0, whether because no prompt has two graded
+    rollouts or because every graded prompt was unanimous: a grouped
+    update on such tasks has zero advantage everywhere (#684).
 
     * ``source``: a ``SimulationData`` (system prompt and tools come from
       its profile), a row list, or a JSONL path; graded rows get the
@@ -706,6 +709,24 @@ def export_environment(
             warnings.append(
                 f"only {checkable} of {len(train + held)} tasks carry a checkable "
                 "outcome; the rest are scored on conduct alone."
+            )
+    # select_for_rl refuses these rows with no_mixed_groups; an export that
+    # said nothing would be the one path that ships them (Lambert 2025,
+    # chapter Policy Gradients: a unanimous group has zero advantage).
+    if not report["graded_mixed"]:
+        if report["graded_prompts"]:
+            warnings.append(
+                f"no_mixed_groups: every one of the {report['graded_prompts']} graded prompts "
+                "was solved or failed on every rollout, so group-relative advantages are zero "
+                "everywhere and a run on these tasks trains nothing. Regrade with a stricter "
+                "rubric or raise difficulty (fault_rate, harder asks) before training on this."
+            )
+        else:
+            warnings.append(
+                "no_mixed_groups: no prompt has two graded rollouts, so no solve rate is known, "
+                "the difficulty band could not be applied, and the trainer starts blind to "
+                "which tasks carry an advantage. Grade rows from a run with repeats= (or "
+                "k>=2 rollouts per prompt) and export again."
             )
     if not train:
         raise ValueError("no train tasks: every prompt fell outside the band or into the holdout")

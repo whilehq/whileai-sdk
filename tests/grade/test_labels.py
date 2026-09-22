@@ -132,3 +132,24 @@ def test_program_gold_measures_the_judge():
     model = [{**_row(i), "reward": i % 2} for i in range(60)]
     attach_labels(model, labels, kind="model")
     assert judge_agreement(model)["ok"] is False
+
+
+# ------------------------------------------------ #685: a bare list is refused, not emptied
+
+
+def test_attach_labels_refuses_a_list_that_names_no_row(tmp_path):
+    import pytest
+
+    rows = [_row(i) for i in range(4)]
+    with pytest.raises(ValueError, match=r"int 0 is not a label record.*\{key: label\}"):
+        attach_labels(rows, [0, 1, 1, 0], kind="human")
+    assert not any("gold_reward" in r or "gold_labels" in r for r in rows)
+    with pytest.raises(ValueError, match="NoneType None is not"):
+        attach_labels(rows, [{"key": "s0#0", "label": 1}, None])
+    path = tmp_path / "labels.jsonl"
+    path.write_text("1\n0\n")
+    with pytest.raises(ValueError, match=r"labels\.jsonl.*int 1 is not"):
+        attach_labels(rows, path)
+    # the documented shapes still land
+    _, report = attach_labels(rows, [{"key": "s0#0", "label": 1}, {"key": "s1#0", "label": 0}])
+    assert report["matched"] == 2 and rows[0]["gold_reward"] == 1

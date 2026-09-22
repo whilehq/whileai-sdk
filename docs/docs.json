@@ -11,7 +11,7 @@
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://withwhile.com"
+    "href": "https://while.ai"
   },
   "favicon": "/favicon.png",
   "appearance": {
@@ -75,7 +75,7 @@
     "primary": {
       "type": "button",
       "label": "Platform",
-      "href": "https://withwhile.com"
+      "href": "https://while.ai"
     }
   },
   "navigation": {

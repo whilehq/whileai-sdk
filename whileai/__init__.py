@@ -17,7 +17,7 @@ Two domains, kept apart:
   It runs on your machine against your models and needs no account.
 * ``whileai.platform`` is the While platform: sign in, push datasets,
   train and serve on our GPUs, track versions. Everything that talks to
-  withwhile.com lives there and nowhere else.
+  while.ai lives there and nowhere else.
 
 Every name here is loaded on first use, so ``import whileai`` stays cheap.
 The full engine is one dot down at ``whileai.simulations``.

@@ -279,7 +279,7 @@ If you have already collected rows under an inverted name, flip the value (`1 - 
 
 ## Train, and watch it
 
-Two ways to train, one record. The platform trains a pushed dataset (SFT, GRPO, DPO or a reward model, as a LoRA adapter) and serves the result; or your own trainer runs on Modal, a GPU box, or a notebook and reports into the same run. Either way the loss curve and the progress bar are on the training page of the platform ([withwhile.com](https://withwhile.com)).
+Two ways to train, one record. The platform trains a pushed dataset (SFT, GRPO, DPO or a reward model, as a LoRA adapter) and serves the result; or your own trainer runs on Modal, a GPU box, or a notebook and reports into the same run. Either way the loss curve and the progress bar are on the training page of the platform ([while.ai](https://while.ai)).
 
 ```python
 run = wai.train(
@@ -347,7 +347,7 @@ Plain HTTP, for a stack that is not Python: `POST /runs` with `name`, `dataset_i
 
 ## Report a run so a person can decide
 
-The platform draws one screen per tracked agent at [withwhile.com/platform/runs](https://withwhile.com/platform/runs): the held-out score by version with the frontier model as the line to beat, the training curve, what moved on the behaviors you did not train, the judge checks, live traffic on the served version, and cost. A coding agent fills it with `whileai.platform`; the person reads it and presses Promote. Your agent framework stays yours: `track` takes the agent object you already have (OpenAI Agents SDK, Pydantic AI, LangGraph, Claude Agent SDK) and reads the model, the instructions and the tools off it, or you describe it by hand.
+The platform draws one screen per tracked agent at [while.ai/platform/runs](https://while.ai/platform/runs): the held-out score by version with the frontier model as the line to beat, the training curve, what moved on the behaviors you did not train, the judge checks, live traffic on the served version, and cost. A coding agent fills it with `whileai.platform`; the person reads it and presses Promote. Your agent framework stays yours: `track` takes the agent object you already have (OpenAI Agents SDK, Pydantic AI, LangGraph, Claude Agent SDK) and reads the model, the instructions and the tools off it, or you describe it by hand.
 
 ```python
 from whileai.platform import Behavior, Frontier, Harness, Judge, track
@@ -406,7 +406,7 @@ run = tracked.open("run_7f3a")  # GET /runs/run_7f3a, no POST
 run.finish(hours=2.1, cost_usd=31, record={"optimizer": {"loss_type": "dapo", "lr": 5e-5}})
 ```
 
-**What it costs to run.** Post facts, not dollars. For an API model, the eval block carries `model`, the `input_tokens` and `output_tokens` the provider reported summed over the run, and the `replies` that produced them; for a served open model, the `gpu` and the `gpu_hours` it was up, and the `replies`. The platform prices the facts from its open price book at list price, no caching, and draws held-out score against the result in USD per 1,000 tasks. Every price, its source, the day it was read and the formula are public at [withwhile.com/pricing-book](https://withwhile.com/pricing-book), so two versions on one chart are always priced the same way. `cost_usd` on `finish()` is the training bill, a different number.
+**What it costs to run.** Post facts, not dollars. For an API model, the eval block carries `model`, the `input_tokens` and `output_tokens` the provider reported summed over the run, and the `replies` that produced them; for a served open model, the `gpu` and the `gpu_hours` it was up, and the `replies`. The platform prices the facts from its open price book at list price, no caching, and draws held-out score against the result in USD per 1,000 tasks. Every price, its source, the day it was read and the formula are public at [while.ai/pricing-book](https://while.ai/pricing-book), so two versions on one chart are always priced the same way. `cost_usd` on `finish()` is the training bill, a different number.
 
 ```python
 from whileai.platform import track
@@ -547,7 +547,7 @@ unit is a Bedrock Custom Model Unit, 2 for an 8B. A model in your own
 account or a server you run is routed for free. Without a card on file,
 `publish` and calls to a hosted model raise `PlatformError` with status
 402 and `code: billing_required`; the card is added once under Account on
-withwhile.com.
+while.ai.
 
 The Bedrock import path from a LoRA adapter to a registered ARN is the
 [Bedrock import recipe](/recipes/05-export/bedrock-import).
@@ -567,7 +567,7 @@ rows = wai.pull("ds_...")  # public sets need no key
 wai.unpublish("ds_...")
 ```
 
-Cards live on the public catalog of the platform ([withwhile.com](https://withwhile.com)), grouped by agent, with rows, size and the analyzer's numbers on each. A dataset must be finalized and hold rows to publish.
+Cards live on the public catalog of the platform ([while.ai](https://while.ai)), grouped by agent, with rows, size and the analyzer's numbers on each. A dataset must be finalized and hold rows to publish.
 
 Hugging Face, both directions. With your own token, no platform call (`HF_TOKEN` or `hf auth login`, `pip install 'whileai[hf]'`, private unless `private=False`):
 
