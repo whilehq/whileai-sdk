@@ -8,7 +8,7 @@
     python run.py models           # what the account hosts
 
 Needs a key: ``wai login`` or WHILEAI_API_KEY
-(https://docs.withwhile.com/get-started/quickstart). The
+(https://docs.while.ai/get-started/quickstart). The
 rows come from the offline template writer and a scripted agent, so no model
 key is needed to build them. Training runs on the platform's A10G (about a
 minute for SFT); serving wakes a GPU that bills by the hour and the first
@@ -33,7 +33,7 @@ from whileai.config import provenance
 from whileai.simulations.score.judging import run_judge
 
 STATE = Path(__file__).with_name("hosted-loop.json")
-DOCS = "https://docs.withwhile.com/api/training"
+DOCS = "https://docs.while.ai/api/training"
 
 # CALL_WINDOW_S = 900: the README's "call waits up to fifteen" minutes; one
 # ceiling for a slow first reply and for gateway errors while the container wakes.

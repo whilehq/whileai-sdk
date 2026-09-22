@@ -1,6 +1,6 @@
 # SFT on your own GPU, from the course's own export
 
-Lesson 7 of [the course](https://docs.withwhile.com/learn/train-and-prove)
+Lesson 7 of [the course](https://docs.while.ai/learn/train-and-prove)
 writes `train.jsonl` with `select(mode="sft").export(...)`. This recipe is
 the step that used to be a comment: a LoRA SFT run on one A10G on your Modal
 account from that file, three base passes on the held-out set for the noise

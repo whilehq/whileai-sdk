@@ -1,7 +1,7 @@
 ---
 title: "Design: how the docs look"
 sidebarTitle: "Design"
-description: "The page templates, type, color and number rules that make docs.withwhile.com read as a scientific library, with the docs.json keys that carry them."
+description: "The page templates, type, color and number rules that make docs.while.ai read as a scientific library, with the docs.json keys that carry them."
 ---
 
 Researchers, engineers and the coding agents they send ahead of them read these pages. They should

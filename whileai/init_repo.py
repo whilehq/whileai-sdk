@@ -45,7 +45,7 @@ def agents_block(version: str = __version__) -> str:
     return f"""{MARK_START} v{version} -->
 ## Evals and post-training with whileai
 
-whileai (`pip install whileai`, `import whileai.simulations as wai`, command `wai`) builds evals that can fail and proves every change on a held-out set with a 95% interval. Docs: https://docs.withwhile.com. Runs: https://while.ai/platform/runs.
+whileai (`pip install whileai`, `import whileai.simulations as wai`, command `wai`) builds evals that can fail and proves every change on a held-out set with a 95% interval. Docs: https://docs.while.ai. Runs: https://while.ai/platform/runs.
 
 When asked to build, improve or check evals for an agent, follow `.claude/skills/strengthen-your-evals/SKILL.md` top to bottom. Its `check.py` is the tested copy of every code block; run it first (`python .claude/skills/strengthen-your-evals/check.py`).
 
@@ -53,7 +53,7 @@ Rules:
 - The agent is a callable `message -> {{"steps": [...], "final_text": ...}}` that runs its own tools. `wai init-evals` writes that wrapper for a Python bot.
 - Write the held-out asks once, then replay them with `tasks=` for every version. Never hand-pick the asks the agent failed.
 - Hand labels come from a person. Ask before labelling; never invent `gold_reward`.
-- You know this repo best: name the agent after the product, behaviors as the policy doc phrases them, versions as the team ships them (tag, PR, date, prompt label), the test by its content hash. https://docs.withwhile.com/platform/naming
+- You know this repo best: name the agent after the product, behaviors as the policy doc phrases them, versions as the team ships them (tag, PR, date, prompt label), the test by its content hash. https://docs.while.ai/platform/naming
 - Before a second version, a sweep or a training run, follow `.claude/skills/manage-experiments/SKILL.md`: the question first, then per run five lines (Changed, Moved, Why, Learned, Reproduce), one chart, the rows that failed, points not fractions; then `readback(tracked)` reads the page the way the person will.
 - Score every behavior and report: `track(...)`, `tracked.behavior(...)`, `tracked.run(version, method="eval", harness=Harness(...))`, `run.score(...)`, `run.finish(...)`, `print(tracked.verdict())`.
 - A difference is a result only when its interval excludes zero and clears the noise floor. Otherwise say "about the same".
