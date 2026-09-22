@@ -73,8 +73,9 @@ CLI_EXAMPLES = [
     "community/process-vs-outcome-reward/run.py",
     "community/identity-spec-no-unasked-maker-aas/run.py",
     "community/grpo-group-size-at-fixed-budget/run.py",
-    # papers/: the one step-shaped paper recipe (a search loop, not a trained arm)
+    # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)
     "papers/meta-harness/run.py",
+    "papers/harness-and-weights/recipe.py",
 ]
 
 # Need the ``modal`` client, which is not a dev dependency. Compiled, not run.
@@ -103,6 +104,7 @@ NEEDS_MODAL = {
     "community/identity-spec-no-unasked-maker-aas/eval_modal.py",
     "community/identity-spec-no-unasked-maker-aas/serve_modal.py",
     "community/grpo-group-size-at-fixed-budget/sweep_modal.py",
+    "papers/harness-and-weights/modal_run.py",
 }
 
 

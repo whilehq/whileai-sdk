@@ -275,6 +275,12 @@ run = tracked.run("careful@scripted", method="eval", targets=["refund_policy"], 
   source, score and worst rows, and a gate on held-out tasks and a
   held-out model. Its dry run shows the loop with scripted candidates; the
   live replication has not been run and the recipe claims no number.
+- The harness and the weights under one optimizer is
+  [`recipes/papers/harness-and-weights`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/harness-and-weights):
+  candidates carry a skills text and a `run_python` tool, GRPO trains
+  under the current harness, and `attribute` runs on the 2x2 grid of base
+  and trained weights under the baseline and the searched harness. Its
+  README says which cells were measured and which were not.
 - Not here yet, tracked in
   [#712](https://github.com/whilehq/whileai-sdk/issues/712): a harness
   from the Prime Intellect Environments Hub by id [5].

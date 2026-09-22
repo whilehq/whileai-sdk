@@ -1,0 +1,1 @@
+Harness or weights, 1.5B coder, 79 held-out tasks: a skills text alone +0.08 [+0.05, +0.12] pass@1; 40 GRPO steps alone +0.02 [+0.01, +0.04]; both +0.00 [-0.04, +0.04] over the text. One seed, unresolved. arxiv.org/abs/2607.03935 whileai-sdk/recipes/papers/harness-and-weights
