@@ -31,7 +31,7 @@ Shape of the run:
                   wai.SAO().update() turns that into coefficients, and the loss is
                   -(coefficients * logprobs).sum()
   3. evaluate():  same holdout, k samples per task, graded by MathEqual
-  4. results.json + the paired delta (wai.delta_report)
+  4. results.json + the paired delta (wai.compare)
 """
 
 from __future__ import annotations
@@ -494,14 +494,14 @@ def run_arm(
         training_rows,
     )
 
-    import whileai as wai_root
-    import whileai.simulations as wai
+    import whileai as wai
     from whileai.simulations.defaults import TRAINING_LORA_ALPHA, TRAINING_LORA_RANK
+    from whileai.simulations.training import training_run
 
     print(provenance(), file=sys.stderr)
     if arm not in ("baseline", "recipe"):
         raise ValueError(f"arm must be 'baseline' or 'recipe'; got {arm!r}")
-    method = wai_root.SAO()
+    method = wai.SAO()
     warmup = method.critic_warmup if warmup is None else int(warmup)
     critic_steps = method.critic_steps
     print(f"{arm}: {method}; critic warmup {warmup}, lag {lag}, {prompts_per_step} prompts/step")
@@ -543,7 +543,7 @@ def run_arm(
     }
     run = None
     if os.environ.get("WHILEAI_API_KEY"):
-        run = wai.training_run(
+        run = training_run(
             run_name,
             base_model=base_model,
             trainer="sao-lora",
@@ -886,7 +886,7 @@ def data(seed: int, n_train: int, n_holdout: int) -> tuple[list[dict], list[dict
 
 
 def summarize(rows: list[dict]) -> dict:
-    import whileai.simulations as wai
+    import whileai as wai
 
     p = wai.pass_at(rows)
     return {
@@ -1050,7 +1050,7 @@ def main() -> None:
         selftest()
         return
 
-    import whileai.simulations as wai
+    import whileai as wai
 
     train_tasks, holdout = data(args.seed, args.n_train, args.n_holdout)
     # GSM8K's train and test splits are already disjoint, so this should drop
@@ -1161,7 +1161,7 @@ def main() -> None:
         # run_std makes "moved" mean bigger than the eval's own re-run noise,
         # and proxy names the training reward when it differs from the target.
         # Here it does not, so there is nothing for PROXY to point at.
-        d = wai.delta_report(
+        d = wai.compare(
             arm_rows["baseline"],
             arm_rows["recipe"],
             target="pass_at_1",
@@ -1186,7 +1186,7 @@ def main() -> None:
         checks["over_optimized"] = bool(d.get("over_optimized"))
         results["verified"] = date.today().isoformat()
         results.pop("partial_run", None)
-        print(wai.format_delta_report(d))
+        print(d)
     else:
         results["partial_run"] = f"{date.today().isoformat()}: {', '.join(arms)} only"
         print(f"one arm only ({', '.join(arms)}): delta and verified left as they were")
