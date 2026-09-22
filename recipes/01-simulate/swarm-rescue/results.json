@@ -115,12 +115,13 @@
  },
  "model": "Qwen/Qwen3-4B",
  "seed": 0,
- "calls": 0,
- "truncated": 0,
+ "calls": 15368,
+ "truncated": 1192,
  "tokens": {
-  "prompt": 0,
-  "completion": 0
+  "prompt": 15750198,
+  "completion": 9773446
  },
- "seconds": 2,
- "rescued_rows": 112
+ "seconds": 5705,
+ "rescued_rows": 112,
+ "note": "calls/tokens/seconds are the first process (base pass, resample, solo, ring); the star arm and two noise re-runs ran in a second process after a Windows spawn error"
 }

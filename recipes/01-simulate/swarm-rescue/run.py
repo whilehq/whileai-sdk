@@ -925,10 +925,17 @@ def main(argv: list[str] | None = None) -> int:
     rep = measure(base, arms, noise)
     rep["model"] = model.model
     rep["seed"] = args.seed
-    rep["calls"] = model.calls
-    rep["truncated"] = model.truncated
-    rep["tokens"] = {"prompt": model.prompt_tokens, "completion": model.completion_tokens}
-    rep["seconds"] = round(time.time() - t0)
+    cost = {
+        "calls": model.calls,
+        "truncated": model.truncated,
+        "tokens": {"prompt": model.prompt_tokens, "completion": model.completion_tokens},
+        "seconds": round(time.time() - t0),
+    }
+    if args.reuse and (OUT / "results.json").exists():
+        # A re-read costs nothing; keep the cost of the run that made the files.
+        prior = load(OUT / "results.json")
+        cost = {k: prior.get(k, v) for k, v in cost.items()}
+    rep.update(cost)
     rep["rescued_rows"] = export_rescued(by_id, arms)
     dump(OUT / "results.json", rep)
     print_report(rep)

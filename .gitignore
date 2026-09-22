@@ -132,3 +132,4 @@ recipes/01-simulate/swarm-rescue/raw/
 recipes/01-simulate/swarm-rescue/out/
 recipes/01-simulate/swarm-rescue/*.log
 recipes/01-simulate/swarm-rescue/out-dry/
+!recipes/01-simulate/swarm-rescue/rescued-seed1.jsonl

@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
+  the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
+  instead of zeroing them.
+
 - Recipe `01-simulate/swarm-rescue`: on the tasks where all 8 rollouts fail, the ones GRPO
   drops, four ways to spend 24 more samples (independent resampling, solo refinement on
   test feedback, a ring swarm, a star swarm) and the share of tasks each one rescues,
