@@ -152,6 +152,14 @@ measure is a few points.
 
 Verified 2026-09-18, whileai 0.64, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 20.4 GPU minutes, $0.68 on one L40S (round 2: 32.6 minutes, $1.09; round 1: 43.1 minutes, $1.44). Run page: https://while.ai/platform/training/run_000dac972e53b532
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) and `baseline/` | [`while-ai/paper-adaptive-clip-1.5b`](https://huggingface.co/while-ai/paper-adaptive-clip-1.5b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
+
 ## References
 
 1. Schulman, J. et al. Proximal Policy Optimization Algorithms. arXiv:1707.06347, 2017.

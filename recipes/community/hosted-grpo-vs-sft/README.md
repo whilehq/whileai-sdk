@@ -246,11 +246,3 @@ judge calls on the serving endpoint are not priced.
 
 The three datasets were deleted after the run (scratch); the runs and the two served
 models are kept, and the serving endpoint scales to zero on its own.
-
-## Artifacts on Hugging Face
-
-| what | repo |
-|---|---|
-| org mirror of `jaweiss2305/refund-lookup-grpo-qwen3-4b`, the GRPO arm | [`while-ai/community-hosted-grpo-vs-sft-4b`](https://huggingface.co/while-ai/community-hosted-grpo-vs-sft-4b) |
-
-Part of the [Course and community runs](https://huggingface.co/collections/while-ai/course-and-community-runs-6ab271de189fd0c363cfab92) collection in the while-ai org.
