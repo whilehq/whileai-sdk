@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.115 (2026-09-22)
+
 - `recipes/papers/harness-and-weights`: the harness and the weights of a small open coding
   model under the same optimizer, and whether both levers together beat either alone (#712).
   The question is the one HASE (Luo et al. 2026, arXiv:2607.03935) and SIA (Hebbar et al.
