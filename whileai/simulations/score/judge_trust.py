@@ -615,7 +615,9 @@ def perturbation(
     }
 
 
-def _foreign_reward_note(rows: Sequence[dict], judge: Callable[[dict], Any]) -> str | None:
+def _foreign_reward_note(
+    rows: Sequence[dict], judge: Callable[[dict], Any], judge_name: str | None = None
+) -> str | None:
     """The line for rows whose ``reward`` another scorer wrote.
 
     Agreement, kappa, the held-out halves and length sensitivity read the
@@ -625,14 +627,13 @@ def _foreign_reward_note(rows: Sequence[dict], judge: Callable[[dict], Any]) -> 
     two halves of the report are about two judges, and the verdict is
     about neither (Lambert 2025, chapter Reward Modeling: a judge's
     agreement is measured on its own verdicts). Unstamped rows say
-    nothing either way. The judge's name is resolved the way ``run_judge``
-    would stamp it.
+    nothing either way. The judge's name is resolved by the same helper
+    ``run_judge`` stamps with, so a lambda reads as ``lambda_judge`` and an
+    explicit ``judge_name=`` given to both calls matches itself.
     """
-    from .judging import _instance_name
+    from .judging import stamp_name
 
-    name = getattr(judge, "__name__", "") or _instance_name(judge)
-    if not name:
-        return None
+    name = stamp_name(judge, judge_name)
     stamped = Counter(str(r["judge_name"]) for r in rows if r.get("judge_name"))
     others = {k: n for k, n in stamped.items() if k != name}
     if not others:
@@ -663,6 +664,7 @@ def judge_trust(
     length_gap_flag: float = LENGTH_GAP_FLAG,
     flip_flag: float = FLIP_FLAG,
     max_skipped_share: float = MAX_SKIPPED_SHARE,
+    judge_name: str | None = None,
 ) -> JudgeTrustReport:
     """Measure whether the judge can be trusted, against human labels and under attack.
 
@@ -699,7 +701,9 @@ def judge_trust(
       ``judge`` is given and the rows' ``judge_name`` (what ``run_judge``
       and ``data.grade`` stamp) names another scorer, the report warns
       and ``ok`` is false: the agreement would be that scorer's, not the
-      judge's (#683).
+      judge's (#683). The judge's own name is resolved the way
+      ``run_judge`` stamps it (a lambda is ``lambda_judge``); pass the
+      same ``judge_name=`` you gave ``run_judge`` when you gave one.
     * ``judge``: the judge callable. With it the report re-judges up to
       ``sample`` rows twice more, as-is for consistency and with neutral
       filler appended; flips on the filler run mean the judge pays for
@@ -779,7 +783,7 @@ def judge_trust(
     )
 
     warnings: list[str] = list(agree.get("warnings") or [])
-    foreign = _foreign_reward_note(labeled, judge) if judge else None
+    foreign = _foreign_reward_note(labeled, judge, judge_name) if judge else None
     if foreign:
         warnings.append(foreign)
     # Rows the judge scored between 0 and 1 never reach the agreement

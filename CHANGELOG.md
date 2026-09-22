@@ -7,6 +7,20 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `simulate(grade=True)` checks for a judge key with `require_judge_key`, the resolver
+  `Judge.__call__` and `data.grade()` use, so a key given on `wai.configure(judge=...)`, the
+  account key on the hosted route, and a keyless loopback or plain-http endpoint all pass.
+  0.118 to 0.121 read environment variables only and raised "set OPENAI_API_KEY" for a judge
+  that `data.grade()` then ran on the same rows.
+- `judge_trust` resolves the judge's name with the helper `run_judge` stamps with
+  (`judging.stamp_name`), and takes `judge_name=` to match a stamp given to `run_judge`. A lambda
+  judge stamped `lambda_judge` and then read back as `<lambda>`, so it failed the audit on its
+  own verdicts.
+- `local_model(..., avg_turns=None)` is accepted again; the `avg_turns<=1` guard floated it.
+- `pass_at` counts a row as partial only when no reward key on it reads as 0/1, the same rule
+  `_group_label_lists` uses, so a row with `reward=0.5` beside a binary legacy `qwen_reward` is
+  in the number and not also reported as left out.
+
 ## 0.122 (2026-09-22)
 
 - `export_environment(..., runtime="openenv")` writes the environment for Meta PyTorch's
@@ -159,6 +173,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## 0.118 (2026-09-22)
 
+- `MathEqual` decides with Math-Verify (Kydlicek et al. 2025): `pip install "whileai[math]"`, and
+  the constructor says so when it is missing instead of falling back to a weaker rule. The
+  string-and-number rule it replaced, measured on 3,840 held-out MATH-500 completions, failed 199
+  correct answers (`\frac 59` vs `\frac{5}{9}`, `\text{(C)}` vs `C`, set order, matrices) and
+  passed 64 wrong ones whose last digit matched the gold: 6.8% of verdicts. Its sympy branch
+  never ran (it needed antlr4). `extract_answer` reads `\boxed{}` with braces balanced to any depth.
+  Two things it no longer does: a bare word (`Paris` vs `Paris`) is "no answer found" and
+  scores 0, because Math-Verify reads `$..$` and `\boxed{}`, so a words-or-numbers gold
+  belongs to `ExactMatch`; and an empty reference returns `None` (unjudged) instead of 0.
 - `export_preference(..., format="trl")` (and `to_trl(rows, "preference")`) carry one assistant
   turn per side. The file used to put everything after the first assistant turn on each side,
   tool results and later user turns included, and a DPO trainer masks only the prompt and
@@ -451,13 +474,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
   where its standard deviation came from and what that assumes. A `Report` is a dict, so
   every caller reading keys is untouched. `whileai.__all__` is unchanged at 31 names and
   every ratchet count holds.
-- `MathEqual` decides with Math-Verify (Kydlicek et al. 2025): `pip install "whileai[math]"`, and
-  the constructor says so when it is missing instead of falling back to a weaker rule. The
-  string-and-number rule it replaced, measured on 3,840 held-out MATH-500 completions, failed 199
-  correct answers (`\frac 59` vs `\frac{5}{9}`, `\text{(C)}` vs `C`, set order, matrices) and
-  passed 64 wrong ones whose last digit matched the gold: 6.8% of verdicts. Its sympy branch
-  never ran (it needed antlr4). `extract_answer` reads `\boxed{}` with braces balanced to any depth.
-
 ## 0.110 (2026-09-21)
 
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,

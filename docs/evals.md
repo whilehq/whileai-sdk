@@ -252,7 +252,10 @@ lower bound, held-out halves, a length bias check and re-judge flips [5].
 **FAIL on eight labels means label more:** at perfect agreement the lower
 bound needs sixteen labels to clear 0.8, and the report says how many.
 Labels attached any other way count as model-made and keep `ok` false
-unless `allow_model_gold=True`.
+unless `allow_model_gold=True`. Audit the judge that wrote the rows'
+`reward`: the report names the scorer on the rows' `judge_name` when it is
+another one, and `ok` is false, because the agreement would be that
+scorer's. If you gave `run_judge` a `judge_name=`, pass the same one here.
 
 Two or more judges in the running? Compare them on the same labeled rows in
 one call. Each model judge needs its provider's key (`TYPESAFE_API_KEY`,

@@ -685,11 +685,16 @@ def resolve_run_config(
         # stops here, before any budget is spent; it never substitutes.
         from whileai.judge import Judge
 
-        from ..score.llm_judge import MISSING_JUDGE_KEY, resolve_judge_key
+        from ..score.grade_llm import require_judge_key
 
         judge = Judge(resolved_rubric, policy=policy or "", tools=list(tools or []))
-        if not resolve_judge_key(None, judge.spec):
-            raise RuntimeError(MISSING_JUDGE_KEY)
+        # The same resolver Judge.__call__ and data.grade() use: it honours
+        # a key on wai.configure(judge=...), the account key on the hosted
+        # route, and a keyless loopback or plain-http endpoint. The
+        # advisory llm_grade resolver read env vars only, so a configured
+        # judge raised "set OPENAI_API_KEY" here and then graded fine from
+        # data.grade() on the same rows.
+        require_judge_key(judge.api_key, spec=judge.spec)
         grader = judge
     if grader is not None and not callable(grader):
         # A string here ran every rollout through run_judge as an error:

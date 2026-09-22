@@ -487,6 +487,21 @@ def _instance_name(judge: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def stamp_name(judge: Any, judge_name: str | None = None) -> str:
+    """The ``judge_name`` ``run_judge`` stamps on every row it scores.
+
+    One resolver, so anything that compares a judge against the stamp on a
+    row (``judge_trust``'s foreign-reward line) reads the same name
+    ``run_judge`` wrote: an explicit ``judge_name=`` first, then a function's
+    ``__name__``, then a callable instance's ``name``, and ``"judge"`` when
+    none of those exist. A lambda stamps as ``lambda_judge``.
+    """
+    name = judge_name or getattr(judge, "__name__", "") or _instance_name(judge) or "judge"
+    if name == "<lambda>":
+        name = "lambda_judge"
+    return name
+
+
 def _score_one(
     judge: Callable, row: dict, scale: tuple[float, float] | None = None
 ) -> dict[str, Any]:
@@ -544,9 +559,7 @@ def run_judge(
     # carries .name instead, so without the second fallback every verifier
     # -graded row records the same "judge" and the scored rows no longer say
     # what checked them.
-    name = judge_name or getattr(judge, "__name__", "") or _instance_name(judge) or "judge"
-    if name == "<lambda>":
-        name = "lambda_judge"
+    name = stamp_name(judge, judge_name)
     # A Verifier says what it is (``kind="rule"``); a function judge does
     # not, and the schema then infers "judge" from the name. Stamp the
     # declared kind so a verifier does not read back as a model judge (#250).
