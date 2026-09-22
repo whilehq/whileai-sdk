@@ -285,6 +285,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
   where its standard deviation came from and what that assumes. A `Report` is a dict, so
   every caller reading keys is untouched. `whileai.__all__` is unchanged at 31 names and
   every ratchet count holds.
+- `MathEqual` decides with Math-Verify (Kydlicek et al. 2025): `pip install "whileai[math]"`, and
+  the constructor says so when it is missing instead of falling back to a weaker rule. The
+  string-and-number rule it replaced, measured on 3,840 held-out MATH-500 completions, failed 199
+  correct answers (`\frac 59` vs `\frac{5}{9}`, `\text{(C)}` vs `C`, set order, matrices) and
+  passed 64 wrong ones whose last digit matched the gold: 6.8% of verdicts. Its sympy branch
+  never ran (it needed antlr4). `extract_answer` reads `\boxed{}` with braces balanced to any depth.
 
 ## 0.110 (2026-09-21)
 
