@@ -175,7 +175,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - Recipe `01-simulate/swarm-rescue` gains the pre-flight that explains its flat results:
   `calibrate.py` and `sql_calibrate.py` regrade saved rollouts and print P(pass | fitness
   bucket). On code_contests (4B and 27B) and text-to-SQL (4B) partial credit is a cliff, zero
-  below three quarters of the tests, so a swarm had nothing to climb.
+  below three quarters of the tests, so a swarm had nothing to climb; `judge_calibrate.py` shows a 27B judge's pass probability
+  ranks real passes at chance (AUC 0.52).
 - Recipe `01-simulate/swarm-rescue` raises the floor and stays flat: Qwen3.8-27B on the
   near-miss band (`results-27b.json`, `rescued-27b.jsonl`) ties resampling with a real
   fitness gradient. The client streams replies (a hosted request closes at 150 s), reaches

@@ -44,7 +44,12 @@ def judge_messages(task: R.Task, code: str) -> list[dict]:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--out", default="out-27b")
-    p.add_argument("--limit", type=int, default=900, help="samples to judge")
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=900,
+        help="failing samples to judge (every passing one is kept)",
+    )
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--workers", type=int, default=24)
     p.add_argument("--base-url", default=os.environ.get("JUDGE_BASE_URL") or R.HOSTED_URL)
@@ -67,8 +72,13 @@ def main(argv: list[str] | None = None) -> int:
                     res = json.loads(arm_path.read_text(encoding="utf-8"))
                     for s in res.get(t, {}).get("samples", []):
                         items.append((t, s))
+        # Passes are rare on all-fail tasks (they come from the arms' rescues):
+        # keep every pass and sample the fails, so the curve has both ends.
         random.Random(args.seed).shuffle(items)
-        items = items[: args.limit]
+        passes = [x for x in items if x[1]["grade"]["correct"]]
+        fails = [x for x in items if not x[1]["grade"]["correct"]][: args.limit]
+        items = passes + fails
+        random.Random(args.seed).shuffle(items)
         # Every sample carries its hidden-test verdict already: the judge
         # is scored against that, never shown it.
         model = R.Model(

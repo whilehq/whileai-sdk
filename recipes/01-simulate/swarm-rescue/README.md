@@ -169,6 +169,13 @@ result. No model calls beyond the samples already made.
 | code_contests, 27B, 816 samples | 0.000 | 0.000 | 0.000 | 0.000 | 0.111 | 0.333 | 0.375 |
 | text-to-SQL, 4B, 4,800 samples | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.928 |
 
+A model judge is not a hill either. `judge_calibrate.py` showed the 27B
+the problem and a saved program, blind to every test, and asked for the
+probability of a hidden pass. Over 1,608 samples from the all-fail tasks
+(108 passes, all from the arms' rescues, and 1,500 fails) the score ranks
+passes above fails with an AUC of 0.523, chance. Programs scored 0 to 9
+passed 6.5% of the time; programs scored 90 to 100 passed 8.8%.
+
 The landscape is a cliff on both task families and both models: partial
 credit below three quarters of the tests carries no information about
 closeness, and on SQL a near miss is a sign of a hard question, not of a
@@ -176,7 +183,9 @@ model about to get it (tasks whose wrong attempts score higher are solved
 less often; correlation -0.19 over 371 tasks). The swarm's whole climb in
 the runs above (best-so-far fitness 0.09 to 0.24 on the 27B) lived in the
 dead zone. Run this check before any population search on a verifier;
-it would have ended this experiment on day one.
+it would have ended this experiment on day one. What is left for a swarm
+over rollouts is a task family where partial credit is additive by
+construction, which tests the mechanism rather than the task.
 
 ## Learned
 
