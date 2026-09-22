@@ -33,21 +33,25 @@ def one_seed(seed: int, budget: int, phrasings: int) -> dict:
     grid = recipe.task_grid(budget=budget, phrasings=phrasings)
     before = recipe.build(rate=0.50, seed=seed, tasks=grid)
     after = recipe.build(rate=0.15, seed=seed, tasks=grid)
-    green = recipe.green_dashboard(before)
-    gold = sum(r["gold_clean"] for r in after) / len(after) - sum(
-        r["gold_clean"] for r in before
-    ) / len(before)
-    marker = sum(r["marker_clean"] for r in after) / len(after) - sum(
-        r["marker_clean"] for r in before
-    ) / len(before)
+
+    def rate(rows: list[dict], field: str) -> float:
+        return sum(row[field] for row in rows) / len(rows)
+
+    gold = rate(after, "gold_clean") - rate(before, "gold_clean")
+    marker = rate(after, "marker_clean") - rate(before, "marker_clean")
+    every = rate(after, "all_markers_clean") - rate(before, "all_markers_clean")
     return {
         "seed": seed,
         "n_rows": len(before),
         "detection": recipe.detection(before),
-        "green_dashboard": green,
+        "best_detector_anywhere": recipe.best_detector(before),
+        "green_dashboard": recipe.green_dashboard(before),
+        "green_dashboard_all_markers": recipe.green_dashboard(before, field="all_markers_clean"),
         "gold_delta": round(gold, 4),
         "marker_delta": round(marker, 4),
+        "all_markers_delta": round(every, 4),
         "recovered": round(marker / gold, 4) if gold else None,
+        "recovered_all_markers": round(every / gold, 4) if gold else None,
     }
 
 
@@ -64,14 +68,18 @@ def main(seeds: int = 12, budget: int = 600, phrasings: int = 6, out: str = "see
         r["green_dashboard"]["share_of_green_rows_carrying_a_planted_failure"] for r in results
     ]
     recovered = [r["recovered"] for r in results if r["recovered"] is not None]
+    every = [r["recovered_all_markers"] for r in results if r["recovered_all_markers"]]
     print(f"\n{len(results)} seeds, {sum(r['n_rows'] for r in results)} rows")
     print(
         "share of marker-clean rows carrying a planted failure: "
         f"{min(green):.4f} to {max(green):.4f}"
     )
     print(
-        "share of the real improvement the marker dashboard recovers: "
+        "share of the real improvement style_report recovers: "
         f"{min(recovered):.4f} to {max(recovered):.4f}"
+    )
+    print(
+        f"                     every marker family recovers: {min(every):.4f} to {max(every):.4f}"
     )
     with open(out, "w") as handle:
         json.dump(results, handle, indent=2, sort_keys=True)
