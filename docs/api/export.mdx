@@ -105,10 +105,10 @@ written today breaks.
 * `strip_think`, `mask_mode`, `unroll`, `max_tool_output_chars`:
   passed through to `training_rows`, which explains each.
 
-``python
+```python
 report = wai.export_dataset(data, "train.jsonl", format="trl")
 print(report["n"], report["mask_mode"], report["tool_call_roundtrip"])
-``
+```
 
 ### export_preference
 
@@ -249,10 +249,10 @@ written today breaks.
 * `strip_think`, `mask_mode`, `unroll`, `max_tool_output_chars`:
   passed through to `training_rows`, which explains each.
 
-``python
+```python
 report = wai.export_dataset(data, "train.jsonl", format="trl")
 print(report["n"], report["mask_mode"], report["tool_call_roundtrip"])
-``
+```
 
 ### loss_mask
 
@@ -387,7 +387,7 @@ grade and lineage. The module docstring has the two wire shapes.
   context, and the cut is explicit rather than silent (Lambert 2025,
   chapter Tool Use).
 
-``python
+```python
 rows = wai.training_rows(data, unroll=True)
 print(rows[0]["messages"][0]["role"], rows[0]["loss_mask"])
-``
+```

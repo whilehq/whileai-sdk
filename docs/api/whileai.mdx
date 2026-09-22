@@ -631,11 +631,11 @@ Arguments that matter:
   keyword `grade_llm`, `pairwise_judge` and `rubric_judge`
   take. `llm_spec` is its older name and still works.
 
-``python
+```python
 data = wai.simulate(agent, tools=TOOLS, simulator=False, budget=16)
 data.grade(lambda row: 1.0 if row.get("final_text") else 0.0)
 print(data.pass_at)
-``
+```
 
 #### SimulationData.grade_llm
 
@@ -782,11 +782,11 @@ Requires graded rows — grade in-loop (`grade=True`, `grader=`)
 or afterwards with `grade()`. The report lands in
 `search["selection"]` and on the result's `.report`.
 
-``python
+```python
 rows = data.select(mode="rl")
 print(rows)              # what each gate dropped and why
 rows.export("train.jsonl")
-``
+```
 
 #### SimulationData.training_set
 
@@ -899,10 +899,10 @@ written today breaks.
 * `strip_think`, `mask_mode`, `unroll`, `max_tool_output_chars`:
   passed through to `training_rows`, which explains each.
 
-``python
+```python
 report = wai.export_dataset(data, "train.jsonl", format="trl")
 print(report["n"], report["mask_mode"], report["tool_call_roundtrip"])
-``
+```
 
 ## simulations.generate.offline_agent
 
@@ -947,11 +947,11 @@ it behaved.
 * `behaviors` (`SEEDED_BEHAVIORS`): the subset of mistakes to draw
   from.
 
-``python
+```python
 agent = wai.seeded_agent(TOOLS, rate=0.4, seed=3)
 data = wai.simulate(agent, tools=TOOLS, simulator=False, budget=20)
 print(sum(1 for row in data.trajectories if row["seeded"]), "planted")
-``
+```
 
 ## simulations.schema
 
@@ -1016,7 +1016,7 @@ them (`judge_name`, `lineage`) exactly as `data.grade()` writes.
 Reference: Lambert 2025 (rlhfbook), chapters Evaluation and Reasoning;
 Miller 2024, arXiv:2411.00640, for the task-level intervals.
 
-``python
+```python
 import whileai as wai
 
 questions = ["What is 2 + 3?", "What is 7 * 6?", "What is 10 - 4?", "What is 9 / 3?"]
@@ -1028,7 +1028,7 @@ tuned = wai.rows(questions, after, wai.verify.MathEqual(), references=gold)
 print(wai.pass_at(base))                         # pass@1 with its interval
 print(wai.select(base, mode="rl", band=(0.2, 0.8)))  # drops the unanimous groups
 print(wai.compare(base, tuned))                  # is the change real
-``
+```
 
 ## simulations.score.delta
 
@@ -1230,10 +1230,10 @@ for this check: nothing there could have moved with the weights.
 already passed every time: there is little room left for an
 improvement to show, whatever the training did.
 
-``python
+```python
 report = wai.delta_report(base.rows(), tuned.rows(), target="pass_at_1")
 print(wai.format_delta_report(report))
-``
+```
 
 ## simulations.score.hack_scan
 
@@ -1313,10 +1313,10 @@ pool are left alone: there the ranking found two names for one
 behavior, and a genuinely inverted endorsed feature is still
 reported.
 
-``python
+```python
 scan = wai.hack_scan(data.rows(), endorsed=["tool:lookup_order"])
 print(scan["regime"], scan["top_feature"], scan["integrity"])
-``
+```
 
 ## simulations.score.judge_trust
 
@@ -1786,7 +1786,7 @@ cosine of the training batch and 5 of 133 byte-identical; the 8-gram
 rule flagged 4 of 101 prompts and the semantic pass 16. With
 sentence-transformers:
 
-``python
+```python
 from sentence_transformers import SentenceTransformer
 
 model = SentenceTransformer("BAAI/bge-small-en-v1.5")
@@ -1795,7 +1795,7 @@ clean, report = wai.decontaminate(
     against=[holdout],
     embedder=lambda texts: model.encode(texts, normalize_embeddings=True).tolist(),
 )
-``
+```
 
 A semantic flag means the two prompts read alike, not that they are
 the same task: "cancel one reservation" and "cancel three
@@ -2124,14 +2124,14 @@ situations or played the user, the run's `degraded` list carries
 training on a model's own unfiltered output teaches it its own habits
 (Lambert 2025, chapter Synthetic Data and Distillation).
 
-``python
+```python
 import whileai.simulations as wai
 
-TOOLS = [\{"type": "function", "function": \{
+TOOLS = [{"type": "function", "function": {
     "name": "lookup_order",
-    "parameters": \{"type": "object",
-                   "properties": \{"order_id": \{"type": "string"\}\},
-                   "required": ["order_id"]\}\}\}]
+    "parameters": {"type": "object",
+                   "properties": {"order_id": {"type": "string"}},
+                   "required": ["order_id"]}}}]
 agent = wai.seeded_agent(TOOLS)  # an offline demo agent, no key
 base = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
                     mode="rl", repeats=4, budget=32)
@@ -2141,7 +2141,7 @@ rerun = wai.simulate(agent, tools=TOOLS, simulator=False, seed=0,
                      on_progress=print)  # or watch the whileai.simulations logger
 print(base.stopped_because, len(base.rows()), base.warnings)
 print(rerun.search["rollouts"])  # landed, resumed, rerolled_by, lost_by
-``
+```
 
 ## simulations.tools
 

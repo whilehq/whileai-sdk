@@ -222,11 +222,11 @@ user, faults) against `model` at `base_url` with `tools` and the
   the conversation length; `temperature` (0.8), `max_tokens` and
   `logprobs` are the agent's own sampling, recorded on every row.
 
-``python
+```python
 agent = wai.local_model("http://localhost:8000/v1", "my-adapter",
                         tools=TOOLS, system=POLICY, thinking=False)
 data = wai.simulate(agent, tools=TOOLS, system_prompt=POLICY, budget=100)
-``
+```
 
 ## diversity
 
@@ -381,11 +381,11 @@ it behaved.
 * `behaviors` (`SEEDED_BEHAVIORS`): the subset of mistakes to draw
   from.
 
-``python
+```python
 agent = wai.seeded_agent(TOOLS, rate=0.4, seed=3)
 data = wai.simulate(agent, tools=TOOLS, simulator=False, budget=20)
 print(sum(1 for row in data.trajectories if row["seeded"]), "planted")
-``
+```
 
 ### world
 

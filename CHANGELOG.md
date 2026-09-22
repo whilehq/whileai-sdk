@@ -21,6 +21,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   counted under `no_completion_dropped`. The same one-turn preference `format="fireworks"`
   already wrote. An existing trl DPO file re-exported under this release changes shape.
 - Docs: `purge_agent` and `delete_empty_datasets` delete by default; the CLI and Platform pages said both came with `dry_run=True`, so a copied call deleted what it read as a preview. The pages now say to pass `dry_run=True` first.
+- Docs: the API pages' fenced examples rendered as inline text (25 blocks on 7 pages,
+  `wai.export_dataset` among them) since the generator's ``name`` collapse ate the fence's
+  backticks. Fixed in `scripts/gen_api_docs.py`; the collapse now runs over prose only.
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
 - `judge_trust(rows, judge=)` warns, and `ok` is false, when the rows' `judge_name` names a
   scorer other than the judge passed: agreement and kappa read the reward on the row, so
