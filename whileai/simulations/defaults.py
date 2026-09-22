@@ -1202,6 +1202,15 @@ ENV_MAX_TURNS_FALLBACK = 10
 # (convention, untested)
 ENV_EVAL_EXAMPLES = 5
 ENV_EVAL_ROLLOUTS = 3
+# RL_EXTRA_PYTHON_MIN = (3, 11) / RL_EXTRA_PYTHON_MAX = (3, 14): the
+# interpreter range the ``whileai[rl]`` extra is marked for in pyproject.toml,
+# because that is the range ``verifiers`` declares. A marker that does not
+# match resolves the extra to nothing and reports nothing, so on Python 3.14
+# ``pip install 'whileai[rl]'`` installs zero packages and exits 0; naming the
+# range is what stops a reader running that line again. ``tests/api/
+# test_environment.py`` pins both against the marker so the two cannot drift.
+RL_EXTRA_PYTHON_MIN = (3, 11)
+RL_EXTRA_PYTHON_MAX = (3, 14)
 # ENV_HARNESS_MIX = "uniform": how load_environment spreads a spec's
 # harnesses over its tasks; each task draws one with equal weight, or with
 # the weights an explicit list gives. Kim et al. 2026 (arXiv:2606.25447)
@@ -2207,6 +2216,8 @@ __all__ = [
     "PROVE_EFFECT",
     "REJECTION_SAMPLING_MIN_K",
     "REPORT_LIST_ITEMS",
+    "RL_EXTRA_PYTHON_MAX",
+    "RL_EXTRA_PYTHON_MIN",
     "RL_FAULT_RATE",
     "RL_ROLLOUTS_PER_ASK",
     "RL_ROLLOUTS_PER_PROMPT",

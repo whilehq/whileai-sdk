@@ -65,6 +65,8 @@ from .defaults import (
     ENV_MAX_TURNS_FALLBACK,
     ENV_RUNTIME,
     ENV_RUNTIMES,
+    RL_EXTRA_PYTHON_MAX,
+    RL_EXTRA_PYTHON_MIN,
 )
 from .export import _resolve
 from .score.checklist import _task_has_outcome_rule
@@ -111,6 +113,28 @@ __all__ = [
 # --------------------------------------------------------------------------
 # References: a reward or a world is code, and the package names it
 # --------------------------------------------------------------------------
+
+
+def _rl_extra_install() -> str:
+    """The line that installs ``verifiers``, or why that line would do nothing here.
+
+    ``whileai[rl]`` is marked for the interpreters ``verifiers`` supports.
+    A pip or uv resolve outside that range drops the extra and exits 0, so a
+    reader told to run it again runs it again. Say the range instead.
+    """
+    running = tuple(sys.version_info)[:2]
+    if RL_EXTRA_PYTHON_MIN <= running < RL_EXTRA_PYTHON_MAX:
+        return "pip install 'whileai[rl]'"
+    here = ".".join(str(p) for p in running)
+    lo = ".".join(str(p) for p in RL_EXTRA_PYTHON_MIN)
+    hi = ".".join(str(p) for p in RL_EXTRA_PYTHON_MAX)
+    return (
+        f"this is Python {here}, and the whileai[rl] extra is marked "
+        f"python_version >= '{lo}' and python_version < '{hi}' because verifiers is, so "
+        f"`pip install 'whileai[rl]'` here resolves to nothing and says nothing. "
+        f"Use a Python {lo} to {hi} interpreter (uv venv -p {lo}), then "
+        f"pip install 'whileai[rl]'"
+    )
 
 
 def _ref_of(obj: Any) -> str:
@@ -563,16 +587,26 @@ def _readme(name: str, spec: dict, report: dict) -> str:
             "under one fixed harness collapses when the tool environment shifts, and one",
             "trained across harnesses holds up out of distribution.",
         ]
+    # The split the quickstart names has to be one the package actually
+    # carries: a README that says `--split holdout` on an export with no
+    # holdout hands the reader a command that raises on their trainer.
+    split = "holdout" if report.get("holdout") else "train"
     lines += [
         "",
         "### Quickstart",
         "",
         "```bash",
         f"prime eval run {dist}",
-        f'vf-eval {name} -a \'{{"split": "holdout"}}\' -m <policy> -b <base url> -k <key var>',
+        f'vf-eval {name} -a \'{{"split": "{split}"}}\' -m <policy> -b <base url> -k <key var>',
         "```",
         "",
     ]
+    if split == "train":
+        lines += [
+            "This package has no holdout split, so the line above evaluates the tasks it",
+            "trains on. That number is not a held-out result.",
+            "",
+        ]
     for warning in report.get("warnings") or []:
         lines.append(f"**Warning.** {warning}")
         lines.append("")
@@ -707,6 +741,7 @@ def export_environment(
     reward_ref = DEFAULT_REWARD if reward is None else _ref_of(reward)
     execute_ref = _ref_of(execute) if execute is not None else None
 
+    held_wanted = float(holdout) > 0 if isinstance(holdout, (int, float)) else bool(holdout)
     train, held, report = build_tasks(rows, holdout=holdout, band=band, ngram=ngram)
     if reward is None:
         checkable = sum(1 for t in train + held if _task_has_outcome_rule(t["info"]))
@@ -742,6 +777,19 @@ def export_environment(
                 "which tasks carry an advantage. Grade rows from a run with repeats= (or "
                 "k>=2 rollouts per prompt) and export again."
             )
+    # A package with no holdout trains and cannot be measured, and nothing
+    # downstream says so until the trainer machine calls
+    # load_environment(split="holdout") and it raises. The band drops most
+    # prompts on a small run, so this is the first thing a first export hits.
+    if held_wanted and not held:
+        warnings.append(
+            f"empty_holdout: a holdout was asked for and 0 of the {len(train)} exported tasks "
+            "landed in it, so this package can be trained on but cannot be measured. "
+            "load_environment(split='holdout') raises, vf-eval on the holdout has nothing to "
+            "run, and the train-versus-holdout decontamination check did not run either "
+            "(Lambert 2025, chapter Evaluation). Export more prompts, raise holdout=, or pass "
+            "an explicit list of holdout prompts."
+        )
     if not train:
         raise ValueError("no train tasks: every prompt fell outside the band or into the holdout")
     if max_turns is None:
@@ -1077,7 +1125,7 @@ def load_environment(
     try:
         from datasets import Dataset
     except ImportError as exc:  # pragma: no cover - verifiers brings datasets
-        raise ImportError("load_environment needs verifiers: pip install 'whileai[rl]'") from exc
+        raise ImportError(f"load_environment needs verifiers: {_rl_extra_install()}") from exc
 
     if isinstance(spec, dict):
         spec_dict = dict(spec)
