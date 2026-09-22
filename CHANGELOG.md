@@ -29,7 +29,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   opened `import whileai as wai` and then called `wai.delta_report` and re-imported the
   engine under the same alias. `tests/api/test_docs_paths_resolve.py` pins the count of
   hand-written docs citations of a `wai.<path>` that does not resolve; like every ratchet
-  here it may fall and never rise (#780, #735).
+  here it may fall and never rise (#780, #735). `docs/reference/what-to-run.md` is written
+  to the one import throughout, and its snippet fixture binds the alias the page shows
+  rather than `whileai.simulations`, so `scripts/check_doc_snippets.py` runs the blocks the
+  way a reader would.
 - The READMEs that tell a reader to run a recipe's smoke test say `uv run sh`, which is
   what CI runs. All 42 `recipes/**/smoke.sh` call bare `python`, so `sh smoke.sh` outside
   an activated venv failed (#786).

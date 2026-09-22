@@ -37,7 +37,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # Hand-written docs pages citing a ``wai.<path>`` that does not resolve.
 # A ceiling, never a target. See the module docstring.
-PIN = 220
+PIN = 214
 
 # ``wai.<name>`` inside an illustrative signature, not a real call.
 PLACEHOLDERS = {"name", "X", "data"}
@@ -90,6 +90,7 @@ def test_the_four_paths_from_735_and_780_resolve() -> None:
     for page, forbidden in (
         ("docs/reference/what-to-run.md", ("wai.score.eval_power", "wai.recommend(")),
         ("docs/reference/five-calls.md", ("import whileai.simulations as wai",)),
+        ("docs/reference/what-to-run.md", ("import whileai.simulations as wai",)),
     ):
         text = (ROOT / page).read_text(encoding="utf-8")
         for bad in forbidden:
