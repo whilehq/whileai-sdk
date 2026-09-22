@@ -70,6 +70,47 @@ repo id does: `"vllm:Qwen/Qwen3-4B@http://localhost:8000/v1"`. A bare model
 name (`"gpt-4.1-mini"`) and a provider that is not in the table above are
 refused the same way, naming the seven forms.
 
+## The window, and the key a reasoning model renames
+
+A prompt is cut to fit a context window only where whileai knows the
+window: a While-hosted endpoint, or one you name yourself with
+`ZP_CONTEXT_TOKENS`. Everywhere else the prompt goes out as you wrote it,
+and the server's own 400 is what shrinks it. Before this the `openai:`
+path inherited the hosted pool's 4,096 tokens, so a 15,000-character user
+turn to a 272k-context model arrived as 7,500 characters with `max_tokens`
+lowered from 4096 to 1522, and nothing in the return value said so (#755).
+
+Where the squeeze does run, it is on the record rather than in the margin:
+
+- the reply carries `_prompt_truncated`: the window, the characters asked
+  and sent, the reply budget asked and sent;
+- the rollout step carries `prompt_truncated` with the same numbers;
+- `data.degraded` gains `prompt_truncated`, and `data.warnings` the line
+  that names the fix, once per endpoint.
+
+It is reported rather than quietly done because a prompt cut in half moves
+an estimate instead of widening its interval: long prompts are not a
+random subset, so the rows that lose text are the hard ones.
+
+Every GPT-5 class model, and `o3` and `o4-mini`, rejects `max_tokens` and
+asks for `max_completion_tokens`. whileai sends `max_tokens` first, since
+every vLLM, Ollama and pre-GPT-5 endpoint takes it, and renames the key
+once on a 400 that names the other spelling. There is no table of model
+ids to keep current, so the model released next month works too.
+
+## A host that is gone
+
+A 404 is not a slow server. An endpoint that was stopped or renamed
+answers the same way forever, so the run counts permanent failures (404,
+405, 410, 501) per host and stops after three against one host with
+nothing succeeding in between, naming the host and the way out. Three
+rather than one because a host swapping its route mid-deploy answers a
+single 404 and then serves (`DEAD_HOST_STRIKES`: convention, untested). A
+5xx, a 429 and a timeout are not counted: those are cold containers and
+rate limits, and they keep every retry they had. Before this a run against
+a stopped app sat at `0/1000 rollouts` for 7m14s with no error and no
+mention of a 404 anywhere (#816).
+
 Set the key the way you already do for that provider:
 
 ```bash
