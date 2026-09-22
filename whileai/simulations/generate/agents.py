@@ -2119,7 +2119,9 @@ def local_model(
       defaults in ``defaults.py``.
     * ``execute``: your own world ``(tool, arguments) -> result`` in place
       of the mock one. ``max_turns`` / ``avg_turns`` (12.0) cap and shape
-      the conversation length; ``temperature`` (0.8), ``max_tokens`` and
+      the conversation length; ``avg_turns=1`` is one user line and one
+      reply, and the follow-up branch never runs; ``temperature`` (0.8),
+      ``max_tokens`` and
       ``logprobs`` are the agent's own sampling, recorded on every row.
 
     ```python
@@ -2152,6 +2154,13 @@ def local_model(
     user_extras = extras if str(user_url).rstrip("/") == str(base_url).rstrip("/") else None
     shapes = result_shapes if result_shapes is not None else {}
     cap = default_max_turns(n_tools=len(tools)) if max_turns is None else max(1, int(max_turns))
+    if float(avg_turns) <= 1:
+        # ``avg_turns=1`` is one user line and one reply: the same path
+        # ``max_turns=1`` takes, so the sampler's 1 is not lifted back to
+        # 2 by the ``min_user_turns`` floor below (#587 guarded the
+        # follow-up on ``max_turns`` only; ``avg_turns=1`` still ran two
+        # turns on every prompt of a model-backed agent).
+        cap = 1
     min_users = max(1, min(int(min_user_turns), max(1, cap // 2)))
     human_names = set(human_tools or set()) | human_tool_names(tools)
     policy_text = str(system or "").strip()
