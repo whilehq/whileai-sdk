@@ -106,6 +106,14 @@ already move backwards.
 
 Verified 2026-09-17, whileai 0.53, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 69.4 GPU minutes, $2.31 on one L40S (round 1: 43.1 minutes, $1.42). Run page: https://while.ai/platform/training/run_aca24d9fdb020c5b
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) and `baseline/` | [`while-ai/paper-endpoint-sft-1.5b`](https://huggingface.co/while-ai/paper-endpoint-sft-1.5b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
+
 ## References
 
 1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Instruction Tuning*.

@@ -117,6 +117,14 @@ explained variance -0.36 to -0.27 then -0.36 to -0.24; lengths 187 -> 135 and
 
 Verified 2026-09-22, whileai 0.114 with this branch's `wai.BPCO`, plain torch 2.7.1 + PEFT 0.16.0 + transformers 4.54.0, no TRL. 51.4 GPU minutes, $1.71 on one L40S, two containers in parallel (baseline 25.1 minutes with the three base re-runs, recipe 26.3; round 1 about the same, its wall clock lost with its delta). Run page: none, no `WHILEAI_API_KEY` in this run; Modal apps `ap-q7nevqT6teeeDdUFFY6Gym` (round 1) and `ap-p3GjfFWYK6355Fg5OKP6HT` (round 2), adapters and per-step curves under `whileai-recipe-runs:/bpco-bounded-critic-<arm>-2026-09-21/`.
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) and `baseline/`, each with its `value_head.pt` and `curves.json` | [`while-ai/paper-bpco-bounded-critic-1.5b`](https://huggingface.co/while-ai/paper-bpco-bounded-critic-1.5b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
+
 ## References
 
 1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Policy Gradient Algorithms*.

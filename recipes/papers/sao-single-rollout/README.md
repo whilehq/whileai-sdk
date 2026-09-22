@@ -124,6 +124,14 @@ updates at 1e-4 on a 1.5B model is not, and the baseline here is the evidence.
 
 Verified 2026-09-22, whileai 0.114 (the checkout's `whileai/` package, mounted into the container: `wai.SAO` is newer than the wheel), transformers 4.54.0 + PEFT 0.16.0 on torch 2.7.1, a plain PyTorch loop, no TRL. Round 1: 45.8 GPU minutes, $1.53 on two L40S in parallel (baseline 25.7 with the three base evals, recipe 20.1); round 2: 42.0 minutes, $1.40; smoke: 14.1 minutes, $0.47. Run page: none (no `WHILEAI_API_KEY` in the run).
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) with `value_head.pt` and `train_log.json` | [`while-ai/paper-sao-single-rollout-1.5b`](https://huggingface.co/while-ai/paper-sao-single-rollout-1.5b) |
+
+Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
+
 ## References
 
 1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Policy Gradient Algorithms*.

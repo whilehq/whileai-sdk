@@ -137,6 +137,14 @@ demonstrations, on the tasks in the 20 to 80 band lesson 6 selects. The
 adapter here is on the `whileai-sft-runs` volume: `modal volume get
 whileai-sft-runs lesson7-sft/adapter` brings it down to serve.
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| the `lesson7-sft` adapter the run above quotes | [`while-ai/course-refunds-sft-1.5b`](https://huggingface.co/while-ai/course-refunds-sft-1.5b) |
+
+Part of the [Course and community runs](https://huggingface.co/collections/while-ai/course-and-community-runs-6ab271de189fd0c363cfab92) collection in the while-ai org.
+
 ## References
 
 1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Instruction Finetuning*.

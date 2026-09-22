@@ -128,6 +128,14 @@ rescue.
 
 Verified 2026-09-17, whileai 0.53, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 51.8 GPU minutes, $1.73 on one L40S (round 1: 42.8 minutes, $1.43). Noise floor re-measured 2026-09-18 with `--arm base --base-runs 10` on whileai 0.75: 26.8 GPU minutes, $0.89, no training. Run page: https://while.ai/platform/training/run_396d8b162199da3d
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) and `baseline/` | [`while-ai/paper-filter-metric-1.5b`](https://huggingface.co/while-ai/paper-filter-metric-1.5b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
+
 ## References
 
 1. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
