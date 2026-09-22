@@ -1,0 +1,1 @@
+Reproduced Hou et al. (2607.07508), 1 L40S, 46 min: pass@1 0.46 -> 0.46 (-0.004 [-0.040, +0.031], unresolved), 120 held-out tasks, Qwen2.5-1.5B. Recipe: https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/sao-single-rollout Paper: https://arxiv.org/abs/2607.07508
