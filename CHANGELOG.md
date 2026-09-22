@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.120 (2026-09-22)
+
 - `compare` counts the row sets `train_runs` names as eval draws when it sets the re-run band, so
   three seeds a side get `sqrt(1/3 + 1/3)` from the one `noise_band`; reading only
   `lineage.eval_run` gave the one-run band, 1.73x too wide, and a `moved_unreplicated` verdict with
