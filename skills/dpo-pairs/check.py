@@ -327,7 +327,7 @@ style = wai.style_report(sides)
 length = wai.length_report(sides)
 assert not style["warnings"], style["warnings"]
 assert length["n_truncated"] == 0, length
-print("style: " + ", ".join(f"{m} clean {v['clean']:.2f}" for m, v in style["markers"].items()))
+print(style)  # the report prints itself: every marker, and the ones it did not stamp
 
 assert set(style["markers"]) >= {"no_boilerplate", "no_hedging", "no_apology", "no_sycophancy"}
 assert all(abs(v["reward_corr"] or 0) < style["threshold"] for v in style["markers"].values())

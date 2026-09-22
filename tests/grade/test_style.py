@@ -3,6 +3,8 @@ Over-optimization and Model Character and Products)."""
 
 from __future__ import annotations
 
+import json
+
 import whileai.simulations as wai
 from whileai.simulations.score.hygiene import reward_correlations
 from whileai.simulations.score.style import (
@@ -77,6 +79,46 @@ def test_style_report_flags_a_reward_that_pays_for_hedging():
     assert report["markers"]["no_boilerplate"]["hits"] == 0
     assert "flagged" not in report["markers"]["no_boilerplate"]
     assert report["n_graded"] == 12
+
+
+def test_style_report_prints_itself_and_stays_a_dict():
+    rows = [_row(f"p{i}", "It depends." if i % 2 else "Shipped.", reward=i % 2) for i in range(10)]
+    report = style_report(rows, n_boot=50)
+    text = str(report)
+    assert text.startswith("style 10 rows, 10 graded")
+    assert "no_hedging" in text and "clean 0.500" in text
+    assert report["markers"]["no_hedging"]["hits"] == 5  # every key still reads
+    assert json.loads(json.dumps(report))["n"] == 10
+    assert report == dict(report)
+    assert repr(report) == "StyleReport(n=10, n_graded=10)"
+    assert "<pre>" in report._repr_html_()
+
+
+def test_style_report_names_the_markers_it_did_not_stamp():
+    """A row clean on every style marker can still have faked the work:
+    both markers for that live in other families (#760)."""
+    report = style_report([_row("a", "Shipped.")], n_boot=20)
+    trace = report["not_stamped"]["trace_markers"]
+    assert "no_secrets" in trace and "reported_failure" in trace
+    assert report["not_stamped"]["mark_grounding"] == ["argument_grounding"]
+    line = next(ln for ln in str(report).splitlines() if ln.startswith("not stamped here"))
+    assert "trace_markers(rows)" in line and "argument_grounding" in line
+    # a marker the caller stamps here is not listed as missing
+    mine = style_report(
+        [_row("a", "Shipped.")], phrases={"no_secrets": ["hidden state"]}, n_boot=20
+    )
+    assert "no_secrets" not in mine["not_stamped"]["trace_markers"]
+
+
+def test_a_marker_that_never_fires_has_no_interval_and_says_why():
+    rows = [_row(f"p{i}", "Shipped.", reward=1) for i in range(6)]
+    report = style_report(rows, n_boot=20)
+    entry = report["markers"]["no_hedging"]
+    assert entry["clean"] == 1.0 and entry["ci95"] is None and entry["degenerate"] is True
+    assert "no interval" in str(report)
+    note = next(n for n in report["notes"] if "came out the same" in n)
+    assert "no_hedging" in note and "must_not_regress" in note
+    assert report["warnings"] == []  # warnings stays the reward-pays-for-a-tic list
 
 
 def test_refusal_report_on_a_benign_set():

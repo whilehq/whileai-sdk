@@ -3106,7 +3106,7 @@ style_report(
     threshold: float = 0.3,
     n_boot: int = 2000,
     seed: int = 0,
-) -> dict[str, Any]
+) -> StyleReport
 ```
 
 Defined in [`whileai/simulations/score/style.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/style.py).
@@ -3121,7 +3121,28 @@ that fired, most common first) and `reward_corr` (Pearson between
 correlation at or above `threshold` is flagged: the judge is rewarding
 the tic, and a policy trained on these rewards will produce more of it
 (Gao et al. 2022, arXiv:2210.10760). `warnings` says so in one line per
-flag.
+flag. `print` the report; it is a dict, so every key still reads.
+
+A marker that came out the same on every row is `degenerate`: it has
+no interval, the line says so next to the mean, and one `notes` entry
+names every such marker and the fix. A phrase list that matches nothing
+looks exactly like a behavior that never happened, and either one in
+`must_not_regress=` is a guard that cannot fail (#270). `warnings`
+stays what it was, the reward-pays-for-a-tic flags and nothing else.
+
+This report stamps the phrase signatures and nothing else, so it says
+what it did not stamp: `not_stamped` is `{call: [marker, ...]}` for
+the markers `trace_markers` and `mark_grounding` write, and the
+printed report ends with that line. A row clean on every marker here
+can still have faked a tool call or invented an argument, which #760
+measured at 24.2% [22.6%, 25.9%] of the rows this report passed.
+
+    print(wai.style_report(rows))
+    # style 10 rows, 10 graded
+    # no_boilerplate  clean 1.000  hits 0  no interval: constant, see the warning below
+    # no_hedging      clean 0.500  [0.200..0.700]  hits 5  corr +1.00  flagged  "it depends" 5
+    # ...
+    # not stamped here: 8 markers in other families. trace_markers(rows) stamps ...
 
 ## trace
 
