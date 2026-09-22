@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "whileai"
-version = "0.117"
+version = "0.118"
 description = "whileai (import whileai as wai): post-training data and evaluation for tool-using LLM agents. Simulate, grade, measure, select, train, export, with the checks from rlhfbook.com."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -50,8 +50,13 @@ whileai-simulations = "whileai.simulations.score.quality:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "pytest-xdist>=3.6", "ruff>=0.12",
-       "mypy>=1.16", "types-requests", "ty>=0.0.82"]
+       "mypy>=1.16", "types-requests", "ty>=0.0.82", "math-verify>=0.8"]
 rl = ["verifiers>=0.3; python_version >= '3.11' and python_version < '3.14'"]
+# verify.MathEqual decides with Math-Verify (Kydlicek et al. 2025); imported
+# in the constructor, which names this extra when it is missing. No fallback:
+# a weaker rule is a reward the policy learns to game. Optional so the base
+# install stays two deps; dev carries it so the tests run.
+math = ["math-verify>=0.8"]
 # wai.hub.push / export(push_to=): the Hub client that authenticates with the
 # user's own HF_TOKEN; imported lazily, so the base install stays two deps.
 hf = ["huggingface_hub>=0.20"]

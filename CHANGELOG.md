@@ -11,8 +11,54 @@ to 0.109 releases under the wrong numbers; they are yanked.
   (`<slug>.models.while.ai` for a claimed subdomain). A saved `api.withwhile.com` login is
   read as the default; the former hosts keep answering.
 
-- Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
+## 0.118 (2026-09-22)
 
+- `export_preference(..., format="trl")` (and `to_trl(rows, "preference")`) carry one assistant
+  turn per side. The file used to put everything after the first assistant turn on each side,
+  tool results and later user turns included, and a DPO trainer masks only the prompt and
+  scores every completion token, so those tokens carried gradient as if the policy had written
+  them (Lambert 2025, chapter Tool Use: mask tool output from the loss; chapter Direct
+  Alignment). Now `prompt` is the prefix both sides share, tool turns and later asks
+  included, `chosen` and `rejected` are each the one assistant turn where the sides diverge,
+  later turns are cut and the pairs that lost some are counted as `trl_turns_cut`; pairs with
+  no one-turn contrast (the sides never differ, or diverge on a tool result) are dropped and
+  counted under `no_completion_dropped`. The same one-turn preference `format="fireworks"`
+  already wrote. An existing trl DPO file re-exported under this release changes shape.
+- Docs: `purge_agent` and `delete_empty_datasets` delete by default; the CLI and Platform pages said both came with `dry_run=True`, so a copied call deleted what it read as a preview. The pages now say to pass `dry_run=True` first.
+- Docs: the API pages' fenced examples rendered as inline text (25 blocks on 7 pages,
+  `wai.export_dataset` among them) since the generator's ``name`` collapse ate the fence's
+  backticks. Fixed in `scripts/gen_api_docs.py`; the collapse now runs over prose only.
+- Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
+- `HarnessSweep`: the noise floor is the platform's rule, not the raw difference. The sweep
+  posted `max(|first - again|)` over its re-runs as `Behavior.noise_floor` and as
+  `EvalSetup.run_std`, whose docstring says a standard deviation; `Tracked.noise_floor` reads the
+  same pair as t(df=runs-1) x run_std x sqrt(2) in points, about 12.7x the difference from two
+  runs, so the sweep's "clears the noise floor" was roughly 13x easier than the platform's on the
+  same rows. It now computes the floor through `eval_variance` (the function behind `noise_band`),
+  posts `run_std` as the standard deviation with `run_std_runs`, and the report prints the rule,
+  the run count and, at two runs, that the band is wide (Lambert 2025, chapter Evaluation: a
+  held-constant eval moves 0.25 to 1.5 points between runs; the floor is a distribution, not one
+  draw). Arms are also held to the same denominator: `evaluate` marks a judge error
+  `reward=None` and the engine drops an agent-error rollout, and the old check compared prompt
+  sets only, so an arm could lose rows inside an ask and still be ranked. `sweep.run` now refuses
+  an arm whose graded rows per ask differ from the first, naming the arm and both counts; the
+  report prints asks and graded rows per arm; `clears()` is False across different ask counts.
+  `behavior=` and marker names are checked against `Behavior(name=)`'s pattern before any
+  rollout (`BEHAVIOR_NAME_PATTERN`), and the sweep no longer stamps `contamination=0,
+  reward_is_judge=False` on a behavior with nothing measured.
+- `judge_trust(rows, judge=)` warns, and `ok` is false, when the rows' `judge_name` names a
+  scorer other than the judge passed: agreement and kappa read the reward on the row, so
+  they were that scorer's number under this judge's name (#683).
+- `simulate(avg_turns=1)` with a model-backed agent ran two turns: the person spoke, the agent
+  replied, and when the reply held a "?" the agent model wrote a second user line and answered it
+  too (12 of 12 prompts, two agent calls each), and the row said nothing. #587 made `max_turns=1`
+  single-turn; `avg_turns` drew its budget through `sample_turn_budget`, which never went under 2.
+  A target at or under 1 is now a budget of 1 on every rollout, the path `max_turns=1` takes, and
+  the `avg_turns` docstrings say so. The distribution above 1 is unchanged. A callable agent always
+  got one message, which is why `strengthen-your-evals` and `HarnessSweep` looked right. A fixed
+  task set pins less than you think: everything after the opening prompt was still generated, and
+  the reply the grader scored was the second one (Lambert 2025, ch. Evaluation: with the setup
+  held constant run-to-run spread is 0.25 to 1.5 points, and prompt changes move scores more).
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
   is the report rather than a dict literal: a line per marker with its interval, the phrases that
   fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and
@@ -24,6 +70,19 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
   `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
   the part it does not cover.
+- `is_truncated` (so `optimize(mode="rl")`, `select(mode="rl")`, `length_report` and the
+  hack scan) reads the `finish_reason` the engine stamps and the step's `truncated` flag
+  before it reads the grader's `reason` or the text. It read only the last two, and neither
+  survives a normal run: the backend trims a token-capped reply back to its last sentence,
+  so the text ends on a period, and any judge that re-grades the row (`data.grade`, a
+  `Verifier`) overwrites the engine's "truncated: hit the length cap" reason with its own.
+  So a capped rollout re-graded "matched" went into the RL set under the default
+  `truncated="drop"`, the report said `truncated_dropped: 0`, and `pass_at` on the same
+  rows, which reads `finish_reason`, reported a non-zero `truncated_share`. Now the row is
+  dropped (or, under `"penalize"`, kept at reward 0 with the judged score under
+  `reward_before_penalty`); rows with no engine stamp, a platform pull or a user file,
+  still go by the reason and the text. Lambert 2025, chapter Reinforcement Learning: score
+  only completions that ended on their own; chapter Reasoning: overlong filtering.
 
 ## 0.117 (2026-09-22)
 
@@ -273,6 +332,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
   where its standard deviation came from and what that assumes. A `Report` is a dict, so
   every caller reading keys is untouched. `whileai.__all__` is unchanged at 31 names and
   every ratchet count holds.
+- `MathEqual` decides with Math-Verify (Kydlicek et al. 2025): `pip install "whileai[math]"`, and
+  the constructor says so when it is missing instead of falling back to a weaker rule. The
+  string-and-number rule it replaced, measured on 3,840 held-out MATH-500 completions, failed 199
+  correct answers (`\frac 59` vs `\frac{5}{9}`, `\text{(C)}` vs `C`, set order, matrices) and
+  passed 64 wrong ones whose last digit matched the gold: 6.8% of verdicts. Its sympy branch
+  never ran (it needed antlr4). `extract_answer` reads `\boxed{}` with braces balanced to any depth.
 
 ## 0.110 (2026-09-21)
 

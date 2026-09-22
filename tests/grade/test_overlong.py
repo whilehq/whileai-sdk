@@ -147,3 +147,60 @@ def test_keep_and_penalize_carry_a_long_cut_reply_the_junk_gate_used_to_eat():
     assert [r["reward"] for r in penalized if r.get("overlong")] == [0]
     dropped, d_report = select_for_rl(rows, target=100)
     assert d_report["truncated_selected"] == 0 and len(dropped) == 2
+
+
+# ------------------------------------------------ the engine's stamp, after a re-grade
+
+
+def _math_row(reward, final, *, finish_reason="stop", steps=()):
+    return {
+        "task_id": "t1",
+        "prompt": "what is 6*7",
+        "final_text": final,
+        "finish_reason": finish_reason,
+        "steps": list(steps),
+        "reward": reward,
+        "reason": "matched" if reward else "did not match",
+        "judge_name": "MathEqual",
+        "messages": [
+            {"role": "user", "content": "what is 6*7"},
+            {"role": "assistant", "content": final},
+        ],
+    }
+
+
+def _math_group():
+    """One ask, five rollouts. The first was cut at the token cap and trimmed
+    back to its last sentence by the backend, then re-graded by a user
+    judge: ``reason`` says "matched", the text ends on a period, and only
+    the engine's ``finish_reason`` and the step's ``truncated`` say cut."""
+    return [
+        _math_row(
+            1.0,
+            "The answer is 42.",
+            finish_reason="length",
+            steps=[{"text": "The answer is 42. And also", "truncated": True}],
+        ),
+        _math_row(1, "6 times 7 is 42."),
+        _math_row(1, "It comes to 42."),
+        _math_row(0, "It is 41."),
+        _math_row(0, "The answer is 48."),
+    ]
+
+
+def test_optimize_drops_a_capped_row_the_judge_re_graded_as_finished():
+    picked, report = optimize(_math_group(), mode="rl")
+    assert report["truncated_policy"] == "drop"
+    assert report["truncated_dropped"] == 1
+    assert report["truncated_selected"] == 0
+    assert not any(r.get("finish_reason") == "length" for r in picked)
+    assert len(picked) == 4  # the ask stays mixed without the cut row
+
+
+def test_optimize_penalizes_a_capped_row_the_judge_re_graded_as_finished():
+    picked, report = optimize(_math_group(), mode="rl", truncated="penalize")
+    assert report["truncated_penalized"] == 1 and report["truncated_dropped"] == 0
+    cut = [r for r in picked if r.get("overlong")]
+    assert len(cut) == 1 and cut[0]["final_text"] == "The answer is 42."
+    assert cut[0]["reward"] == 0 and cut[0]["reward_before_penalty"] == 1.0
+    assert len(picked) == 5

@@ -111,6 +111,8 @@ ROWS_PER_CALL = 500  # graded rows a call; run.score(rows=) chunks for you
 EXAMPLE_TEXT_MAX = 1200
 EXAMPLE_WHY_MAX = 400
 
+BEHAVIOR_NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"  # a behavior or marker name on the wire
+BEHAVIOR_NAME_MAX = 64  # chars; ``Behavior.name`` and every marker a sweep posts
 FIGURE_NAME_PATTERN = r"^[a-z0-9][a-z0-9-]{0,39}$"  # one figure per name per agent
 FIGURE_MAX_BYTES = 200_000  # JSON bytes of {data, layout}; the API says 413 past it
 FIGURE_MAX_TRACES = 50  # traces per figure; the API says 422 past it
@@ -272,7 +274,7 @@ class Behavior(_Wire):
     reward; a program-graded eval can still train on a judge's reward.
     """
 
-    name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    name: str = Field(min_length=1, max_length=BEHAVIOR_NAME_MAX, pattern=BEHAVIOR_NAME_PATTERN)
     test_version: str | None = None
     n: int | None = Field(default=None, ge=1)
     judge: Judge | None = None

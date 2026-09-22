@@ -428,6 +428,8 @@ class RunConfig:
     backend: Any
     fault_rate: float
     max_turns: Any
+    # target thread length; at or under 1 it is one user line and one
+    # reply for every rollout, and the follow-up branch never runs
     avg_turns: float
     # the generation knobs the caller named (``fault_rate`` or ``risk``,
     # ``avg_turns``). The two above always carry a value, so this is the

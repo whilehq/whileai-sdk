@@ -394,12 +394,11 @@ def test_a_short_gold_is_a_whole_token_not_a_substring():
 
 
 def test_a_gold_the_verifier_transformed_is_still_redacted():
-    """``MathEqual`` prints the float it parsed the gold to; ``ExactMatch``
+    """``MathEqual`` names no spelling of the gold at all; ``ExactMatch``
     prints the first 60 characters; ``!r`` escapes a newline. Each is the
     gold in another spelling."""
     assert (
-        MathEqual()(_priv("The answer is 3", "\\frac{1}{2}"))["reason"]
-        == "numeric 3.0 vs <reference>"
+        MathEqual()(_priv("The answer is 3", "\\frac{1}{2}"))["reason"] == "math-verify: not equal"
     )
     long_gold = "the quick brown fox jumps over the lazy dog " * 2 + SECRET
     assert SECRET not in _dump(ExactMatch()(_priv("nope", long_gold)))

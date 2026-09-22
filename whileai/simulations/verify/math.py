@@ -2,15 +2,16 @@
 
 The canonical verifiable reward (Lambert et al. 2024, arXiv:2411.15124;
 Lambert 2025, chapters Reasoning and Tool Use).
-Handles the common answer envelopes: ``\\boxed{...}``, "the answer is X",
-trailing number. Symbolic equality uses sympy when installed and falls back
-to normalized-string plus numeric comparison so the verifier still runs with
-no extra dependency.
+``MathEqual`` decides with Math-Verify (Kydlicek et al. 2025), the verifier
+behind Open R1 and lighteval; ``Numeric`` and ``extract_answer`` read the
+common answer envelopes: ``\\boxed{...}``, "the answer is X", trailing number.
 """
 
 from __future__ import annotations
 
+import os
 import re
+import threading
 from typing import Any
 
 from .base import Verifier
@@ -19,7 +20,13 @@ from .base import Verifier
 #: answer, not a wrong answer. (convention, untested)
 NUMERIC_TOLERANCE = 1e-6
 
-_BOXED = re.compile(r"\\boxed\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}")
+#: Seconds Math-Verify may spend parsing one expression or deciding one
+#: comparison before the row counts as unparsed: Math-Verify's own default,
+#: kept so its published agreement numbers hold. Its clock is signal.alarm,
+#: which only the main thread on POSIX may set; worker threads and Windows
+#: run with no clock (Windows would otherwise spawn a process per call).
+MATH_VERIFY_TIMEOUT_S = 5
+
 _ANSWER_IS = re.compile(r"(?:answer|result|solution)\s*(?:is|=|:)\s*\$?([^\n.]+)", re.I)
 _NUMBER = re.compile(r"-?\d[\d,]*\.?\d*(?:[eE][-+]?\d+)?")
 
@@ -27,7 +34,7 @@ _NUMBER = re.compile(r"-?\d[\d,]*\.?\d*(?:[eE][-+]?\d+)?")
 def extract_answer(text: str) -> str | None:
     """Pull the answer span from a chatty solution."""
     text = str(text or "").strip()
-    boxes = _BOXED.findall(text)
+    boxes = _boxed(text)
     if boxes:
         return boxes[-1].strip()
     m = _ANSWER_IS.search(text)
@@ -35,6 +42,20 @@ def extract_answer(text: str) -> str | None:
         return m.group(1).strip().rstrip("$").strip()
     line = (text.splitlines() or [""])[-1].strip()
     return line or None
+
+
+def _boxed(text: str) -> list[str]:
+    """Every ``\\boxed{...}`` body, braces balanced to any depth."""
+    out, i = [], text.find("\\boxed{")
+    while i != -1:
+        j, depth = i + len("\\boxed"), 0
+        for k in range(j, len(text)):
+            depth += (text[k] == "{") - (text[k] == "}")
+            if depth == 0:
+                out.append(text[j + 1 : k])
+                break
+        i = text.find("\\boxed{", j)
+    return out
 
 
 _FRACTION = re.compile(r"(-?\d+)\s*/\s*(\d+)")
@@ -58,47 +79,6 @@ def _to_float(s: str) -> float | None:
         return float(nums[-1].replace(",", ""))
     except ValueError:
         return None
-
-
-def _clean_expr(s: str) -> str:
-    s = str(s).strip().strip("$").replace("\\!", "").replace("\\,", "")
-    s = s.replace("\\left", "").replace("\\right", "").replace("\\dfrac", "\\frac")
-    s = re.sub(r"\\text\{[^}]*\}", "", s)
-    return s.strip()
-
-
-def _sympy_equal(a: str, b: str) -> bool | None:
-    try:
-        from sympy.parsing.latex import parse_latex  # noqa: F401
-    except Exception:
-        return None
-    from sympy import simplify
-    from sympy.parsing.sympy_parser import parse_expr
-
-    def parse(x: str):
-        x = _clean_expr(x)
-        for parser in (lambda t: parse_expr(t.replace("^", "**"), evaluate=True),):
-            try:
-                return parser(x)
-            except Exception:
-                pass
-        try:
-            from sympy.parsing.latex import parse_latex as pl
-
-            return pl(x)
-        except Exception:
-            return None
-
-    ea, eb = parse(a), parse(b)
-    if ea is None or eb is None:
-        return None
-    try:
-        return bool(simplify(ea - eb) == 0)
-    except Exception:
-        try:
-            return bool(ea.equals(eb))
-        except Exception:
-            return None
 
 
 class Numeric(Verifier):
@@ -130,27 +110,43 @@ class Numeric(Verifier):
 
 
 class MathEqual(Verifier):
-    """Symbolic equality (sympy) with a numeric and normalized-string
-    fallback. Reads \\boxed{}/'answer is'/last-line from the candidate."""
+    """The candidate's final answer equals the reference, decided by
+    Math-Verify: LaTeX and expression parsing, symbolic and numeric equality,
+    sets, intervals, matrices. ``pip install "whileai[math]"``. Without it the
+    constructor says so instead of falling back to a weaker rule, because a
+    verifiable reward has to verify (Lambert 2025, chapter Reasoning and
+    Inference-Time Scaling): the string-and-number rule this replaced failed
+    199 correct answers and passed 64 wrong ones in 3,840 MATH-500
+    completions, a false-positive shape a policy can learn (chapter
+    Over-Optimization)."""
 
     def __init__(self, *, field: str | None = None, name: str | None = None):
         super().__init__(field=field, name=name)
+        try:
+            from math_verify import parse, verify
+        except ImportError as exc:
+            raise ImportError('MathEqual needs Math-Verify: pip install "whileai[math]"') from exc
+        self._parse, self._verify = parse, verify
 
     def check(self, candidate: str, reference: Any, row: dict) -> Any:
         if reference is None:
             return None
-        got = extract_answer(candidate)
-        want = str(reference).strip()
-        if got is None:
+        timeout = _timeout()
+        kw: dict[str, Any] = {"parsing_timeout": timeout}
+        gold = self._parse(f"${reference}$", **kw)
+        if not gold:
+            return None, f"reference {reference!r} is not a math expression"
+        got = self._parse(str(candidate or ""), **kw)
+        if not got:
             return 0, "no answer found"
-        if _clean_expr(got).replace(" ", "") == _clean_expr(want).replace(" ", ""):
-            return 1, f"exact: {got!r}"
-        sym = _sympy_equal(got, want)
-        if sym is True:
-            return 1, f"symbolically equal: {got!r} == {want!r}"
-        if sym is False:
-            return 0, f"not equal: {got!r} vs {want!r}"
-        gf, wf = _to_float(got), _to_float(want)
-        if gf is not None and wf is not None:
-            return (1 if abs(gf - wf) <= NUMERIC_TOLERANCE else 0), f"numeric {gf} vs {wf}"
-        return 0, f"cannot compare {got!r} to {want!r}"
+        ok = bool(self._verify(gold, got, timeout_seconds=timeout))
+        return (1 if ok else 0), f"math-verify: {'equal' if ok else 'not equal'}"
+
+
+def _timeout() -> int | None:
+    """``MATH_VERIFY_TIMEOUT_S`` where Math-Verify can set its alarm (the main
+    thread on POSIX), else ``None``: the graders run in worker threads, and
+    Windows has no ``signal.alarm``."""
+    if os.name != "posix" or threading.current_thread() is not threading.main_thread():
+        return None
+    return MATH_VERIFY_TIMEOUT_S
