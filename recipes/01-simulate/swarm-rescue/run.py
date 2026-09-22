@@ -930,7 +930,7 @@ def main(argv: list[str] | None = None) -> int:
     dump(OUT / "results.json", rep)
     print_report(rep)
     print(
-        f"\n{rep['rescued_rows']} rescued answers written to out/rescued.jsonl (bare prompt -> passing program)"
+        f"\n{rep['rescued_rows']} rescued answers written to {OUT.name}/rescued.jsonl (bare prompt -> passing program)"
     )
     if args.post and not args.dry_run:
         post(rep, by_id, arms, model.model)
