@@ -1,17 +1,83 @@
 ---
 title: "FAQ"
 sidebarTitle: "FAQ"
-description: "What people ask before they start."
+description: "What people ask before they start: what wai is, what you own at the end, whether you need a key, and how you know training helped. Every answer checked against the released package."
 ---
 
-**Who is it for?** Heads of AI, ML and data science, their teams, and the
-data teams that own the training data. You do not need a research team to
-run a training loop.
+**What you get:** the questions people ask before their first run, each
+answered against the released package rather than against the roadmap.
+**Who it is for:** AI researchers, ML engineers and applied-AI developers.
+**Needs:** nothing, including for the program below.
 
-**Mid-training or post-training?** Both, though `wai.train` runs the
-post-training methods. Mid-training continues training on your domain data
-so the model knows your world. Post-training with SFT, DPO or GRPO teaches
-it how to behave. Most teams start with post-training.
+**Who is it for?** AI researchers, ML engineers and applied-AI developers,
+and the data teams that own the training data. You do not need a research
+team to run a training loop.
+
+**What is wai?** wai is While's whale and the alias of the whileai SDK:
+`import whileai as wai`. The company is While, the package on PyPI is
+`whileai`, and the command is `wai`. See
+[install](/get-started/install) for the line that brings all three.
+
+**Do I own the model and the data?** You own the model, the data and the
+weights: the datasets are built from your production traces, the model is
+an open model post-trained with SFT and RL, and the trained weights are
+yours to download and serve anywhere. Bring your own keys. Your model keys
+never leave your machine. A While key adds hosting: we store your
+datasets, run the hosted judge, train and serve. On hosted GPUs
+`wai.platform.train(dataset_id, method="sft")` returns a run whose
+`run.adapter` names where the trained weights landed, and
+[train and prove](/learn/train-and-prove) runs the same step on your own
+GPU, writing the adapter to a path you pick.
+
+**Do I need a key?** Not to start. `simulator=False` writes the situations
+from templates instead of from a model, `seeded_agent` stands in for an
+agent, and a lambda can be the judge. That is the whole loop with no
+account and no network:
+
+```python
+import whileai as wai
+
+
+@wai.tool  # the function is the tool; its signature is the schema
+def get_order(order_id: str) -> dict:
+    """Look up an order by id."""
+    ...
+
+
+data = wai.simulate(
+    wai.seeded_agent([get_order]),  # stand-in agent, fails a labeled share
+    tools=[get_order],
+    system_prompt="Help customers with orders.",
+    simulator=False,  # template situation writer: no model, no network
+    mode="rl",
+    repeats=4,
+    repeat_policy="fixed",
+    budget=32,
+    seed=0,
+)
+scored = data.grade(judge=lambda row: {"reward": int(not row["seeded"])})
+print(scored.pass_at)
+```
+
+```text
+pass@1 0.69 [0.50..0.84] | pass^4 (pass_pow_k) 0.25 [0.00..0.50] | pass@4 1.00 [1.00..1.00] | headroom 0.31 (8 groups, k=4)
+```
+
+The number to read is **pass@1 0.69, 95 percent interval 0.50 to 0.84,
+over 8 task groups at k=4**. pass@k is the share of tasks solved within k
+tries, from Chen et al. [1]. The interval is wide because 8 groups is a
+small set, which is the point: one run of a small set proves little, and
+the page that sizes the set is
+[how much to run](/reference/what-to-run).
+
+A key adds the hosted situation writer, the hosted judge, dataset storage,
+training and serving. See [install](/get-started/install).
+
+**Mid-training or post-training?** Both, though the post-training methods
+are the ones this package runs. Mid-training continues training on your
+domain data so the model knows your world. Post-training with SFT, DPO
+[2] or GRPO [3] teaches it how to behave. Most teams start with
+post-training. `wai.methods` lists what ships.
 
 **Do I have to change my agent?** No. The SDK reads what the agent does,
 from its traces or from its tools and policy. The agent keeps running
@@ -22,21 +88,25 @@ want in a sentence. That sentence is the policy. The SDK drafts the tools
 such an agent would have and runs the conversations against them, so there
 is training data before there is traffic.
 
-**Do I need a key?** Not to start. `simulator=False` writes situations
-from templates, `seeded_agent` stands in for an agent, and a lambda can
-be the judge, all offline. A key adds the hosted situation writer, the
-hosted judge, dataset storage, training and serving. See
-[install](/get-started/install).
-
 **How do I know it got better?** Every run ends with pass@1 per task
-category, before and after, on a held-out set with a 95% confidence
+category, before and after, on a held-out set with a 95 percent confidence
 interval. If the interval includes zero, nothing ships.
 
+| Default | Value | Where it comes from |
+|---|---|---|
+| `CI_LEVEL` | 0.95 | `1 - ALPHA`, so the interval and the verdict agree: a delta whose interval excludes zero at `CI_LEVEL` is the one a test at `ALPHA` rejects |
+| `BOOTSTRAP_DRAWS` | 2000 | resamples behind a percentile interval. Efron and Tibshirani put the floor at 1000; convention above the floor, untested against 1000 |
+
+Both are in `whileai/simulations/defaults.py`. Measurement is the
+[Evaluation chapter](https://rlhfbook.com/c/16-evaluation) of the RLHF
+book [4].
+
 **Which models can it train?** Open models you own at the end. Training
-runs SFT, DPO, GRPO or a reward model on hosted GPUs. Serving is narrower
-than training: an adapter reaches an endpoint only on a served base, today
-`Qwen/Qwen3-4B` and `microsoft/phi-4`, and `train` warns when a run will
-not. See [the platform reference](/reference/platform).
+runs SFT, DPO, GRPO or a reward model on hosted GPUs, as a LoRA adapter
+[5]. Serving is narrower than training: an adapter reaches an endpoint
+only on a served base, today `Qwen/Qwen3-4B` and `microsoft/phi-4`, and
+`wai.platform.train` warns when a run will not be servable. See
+[the platform reference](/reference/platform).
 
 **Where do the rollouts come from?** From your agent's own tools and
 policy. A separate model plays the customer, a mock world answers the tool
@@ -53,3 +123,21 @@ and the company's name before September 2026. Both are retired. The last
 `zeroproof` upload on PyPI installs `whileai`; every release since ships
 only as `whileai`, reads only `WHILEAI_*` variables and `~/.whileai`, and
 talks to while.ai.
+
+## Next
+
+Run the [quickstart](/get-started/quickstart). It is the program above
+with your own agent in place of the stand-in.
+
+## References
+
+1. Chen, M. et al. Evaluating Large Language Models Trained on Code.
+   arXiv:2107.03374, 2021. pass@k.
+2. Rafailov, R. et al. Direct Preference Optimization: Your Language Model
+   is Secretly a Reward Model. arXiv:2305.18290, 2023. DPO.
+3. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical
+   Reasoning in Open Language Models. arXiv:2402.03300, 2024. GRPO.
+4. Lambert, N. Reinforcement Learning from Human Feedback, Evaluation.
+   [rlhfbook.com/c/16-evaluation](https://rlhfbook.com/c/16-evaluation).
+5. Hu, E. J. et al. LoRA: Low-Rank Adaptation of Large Language Models.
+   arXiv:2106.09685, 2021. The adapter the hosted trainer writes.
