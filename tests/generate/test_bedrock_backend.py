@@ -453,6 +453,30 @@ def test_a_max_tokens_400_walks_the_budget_down(monkeypatch, bearer):
     assert sent[1]["body"]["inferenceConfig"]["maxTokens"] == 1024
 
 
+def test_a_temperature_400_retries_without_the_field(monkeypatch, bearer):
+    """Claude Sonnet 5 on Bedrock answers 400 "`temperature` is deprecated for
+    this model"; the call goes again without the field and the reply lands."""
+    sent = _record(
+        monkeypatch,
+        [
+            _Response(
+                _error("ValidationException", "`temperature` is deprecated for this model."),
+                status=400,
+            ),
+            _Response(_converse(text="sampled at the default")),
+        ],
+    )
+    url, model = agents.parse_backend_spec("bedrock:m")
+    reply = agents.complete(url, model, [{"role": "user", "content": "hi"}], temperature=0.7)
+    assert reply["content"] == "sampled at the default"
+    assert sent[0]["body"]["inferenceConfig"]["temperature"] == 0.7
+    assert "temperature" not in sent[1]["body"]["inferenceConfig"]
+    assert (
+        sent[1]["body"]["inferenceConfig"]["maxTokens"]
+        == sent[0]["body"]["inferenceConfig"]["maxTokens"]
+    )
+
+
 # --- the signed transport ---------------------------------------------------
 
 
