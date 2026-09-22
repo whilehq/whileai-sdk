@@ -10,6 +10,31 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `attach_labels` raises when a list (or JSONL) holds anything but label dicts, naming the item
   and the three accepted shapes; a bare `[0, 1, 1, 0]` used to be filtered to nothing and
   reported as zero labels, zero invalid (#685).
+- Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
+  the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
+  instead of zeroing them.
+
+- Recipe `01-simulate/swarm-rescue`: on the tasks where all 8 rollouts fail, the ones GRPO
+  drops, four ways to spend 24 more samples (independent resampling, solo refinement on
+  test feedback, a ring swarm, a star swarm) and the share of tasks each one rescues,
+  paired by task with `compare_runs`. The rescued programs land in `out/rescued.jsonl`
+  as bare rows for a later SFT or distillation run.
+
+## 0.116 (2026-09-22)
+
+- `recipes/papers/harness-and-weights` posts the grid the platform can read (#712): every arm pins
+  `model` as `base` or `trained` beside its `harness` fingerprint (before, all four said `base`,
+  so the page saw one model and wrote a two-arm question), the test is declared `graded_by="program"`
+  with the CodeExec rubric (the page called it an unchecked model judge), every graded row goes up
+  with `run.score(rows=)` tagged by harness, weights and task family, each iteration carries a
+  Changed line, and `--reuse` with every stage cached never opens Modal.
+- Docs: [The methods, in symbols](https://docs.withwhile.com/reference/methods), one block of
+  arithmetic per method the library names: the hosted four (SFT, GRPO with its `loss_type`
+  variants, DPO, RM), the distillation pair (OPD, OPSD with its anchor), the three `Async`
+  corrections, the group baselines prime-rl runs (`grpo`, `max_rl`, `rae`) and the three
+  single-rollout updates as the per-token coefficient `update()` returns, with the papers'
+  equation numbers and a table from every symbol to the field or knob that carries it. Lesson 9
+  links to it from the mechanism.
 - `wai.FlashReinforce`, `wai.SAO` and `wai.BPCO`: the single-rollout methods, one trajectory
   per prompt, the shape a production trace arrives in (one attempt per ask, scored after the
   fact, a world that cannot be replayed), so there is no group to take a baseline over and each
@@ -51,6 +76,21 @@ to 0.109 releases under the wrong numbers; they are yanked.
   the rollouts barely stale, so the corrections had nothing to correct) and what reaches the
   papers' regime. `tests/recipes` scrubs `MODAL_TOKEN_*` from the example subprocesses: with a
   token set, the prime-rl example launched real GPU jobs instead of stopping for a credential.
+- `wai.GroupwiseGrading` (`whileai.groupwise`, re-exported from `whileai.methods`): a grader that
+  tells passing rollouts apart, from the MiMo-V2.6 technical report (Xiaomi 2026-09-21, section
+  4.3). `mode="advantage"` (GAR, 4.3.2, the default) hands the grader one whole mixed-outcome
+  group, turns its ranking into quality factors, zeroes a confirmed hack and moves positive
+  advantage from lower- to higher-quality passes with the total conserved (`redistribute`,
+  equation 3; lambda capped at `GROUPWISE_CAP` 3.0, then re-centred). `mode="reward"` (GRS,
+  4.3.1) multiplies a passing reward by the rubric scores, `R_test * S_sol * S_beh`, floor 0 as
+  in equation 2, with `rubrics=` a mapping or a writer called on the first group of a task.
+  `trl_reward(base, num_generations)` is the TRL `GRPOTrainer` reward function whose group mean
+  subtraction reproduces the redistributed advantages (exact under `scale_rewards="none"`, the
+  documented limit). `check_spread(rows)` grades a sample of passes first and refuses a grader
+  whose scores do not vary (`SPREAD_MIN_STD` 0.05, `SPREAD_CLUSTER_SHARE` 0.9), the lesson of the
+  2026-09-21 text-to-SQL null result where a constant 0.93 multiplier was erased by group
+  normalization. Unusable grader output falls back to the original rewards and is counted in
+  `stats`. Docs: `docs/groupwise-grading.md`.
 
 ## 0.115 (2026-09-22)
 

@@ -23,6 +23,7 @@ EXAMPLES = REPO / "recipes"
 # the parser, so it catches import-time breakage without a real run.
 CLI_EXAMPLES = [
     "01-simulate/bring-your-own-agent/run.py",
+    "01-simulate/swarm-rescue/run.py",
     "04-train/hosted-loop/run.py",
     "04-train/prime-rl/run.py",
     "04-train/report-run/run.py",
@@ -71,6 +72,7 @@ CLI_EXAMPLES = [
     "community/what-trl-does-with-the-loss-mask/run.py",
     "community/airline-voice-concise-under-probe-outcome-filter/run.py",
     "community/process-vs-outcome-reward/run.py",
+    "community/process-vs-outcome-reward/report_platform.py",
     "community/identity-spec-no-unasked-maker-aas/run.py",
     "community/grpo-group-size-at-fixed-budget/run.py",
     # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)

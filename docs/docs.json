@@ -101,7 +101,8 @@
               "reward-hacking",
               "safety-evals",
               "character-training",
-              "distillation"
+              "distillation",
+              "groupwise-grading"
             ]
           },
           {
@@ -121,6 +122,7 @@
                 "group": "Simulate",
                 "pages": [
                   "recipes/01-simulate/bring-your-own-agent",
+                  "recipes/01-simulate/swarm-rescue",
                   "recipes/01-simulate/verifiers"
                 ]
               },
@@ -212,6 +214,7 @@
               "reference/five-calls",
               "reference/rows",
               "reference/harness",
+              "reference/methods",
               "reference/style",
               "reference/design",
               "reference/what-to-run",

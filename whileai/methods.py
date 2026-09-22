@@ -47,6 +47,11 @@ trainer's own words.
   a group of one) or an EMA baseline (``rae``), it hosts no value model,
   and its losses mask per token (``ipo``, ``icepop``) with no sequence
   trust region and no clip. The nearest thing it runs is ``"rae"``.
+* ``GroupwiseGrading``, a grader that tells passing rollouts apart, in
+  the reward (GRS) or in the advantage (GAR) (MiMo-V2.6, Xiaomi 2026,
+  technical report section 4.3). It lives in ``whileai.groupwise`` and
+  is re-exported here; it shapes a TRL reward function rather than
+  writing a prime-rl config.
 * ``prime_rl_config``, the TOML prime-rl reads, from a method object
   and a taskset.
 """
@@ -61,6 +66,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, NoReturn
 
+from .groupwise import (
+    GroupwiseGrading,
+    GroupwiseStats,
+    SpreadReport,
+    factors_from_ranking,
+    redistribute,
+    spread,
+)
 from .models import Backend
 from .simulations.defaults import (
     ASYNC_CORRECTION,
@@ -1868,9 +1881,15 @@ __all__ = [
     "SAO",
     "Async",
     "FlashReinforce",
+    "GroupwiseGrading",
+    "GroupwiseStats",
     "Method",
     "PrimeRLConfig",
     "SingleRollout",
+    "SpreadReport",
     "Update",
+    "factors_from_ranking",
     "prime_rl_config",
+    "redistribute",
+    "spread",
 ]

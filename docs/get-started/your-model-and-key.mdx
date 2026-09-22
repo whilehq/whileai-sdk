@@ -162,10 +162,19 @@ what you registered, `DELETE /models/{name}` removes one. Streaming works. An im
 first call; until it is back the endpoint answers 503 with
 `code: model_starting` and a `Retry-After`, which the OpenAI SDKs honor.
 What While keeps: per model per day, the count of calls, errors and tokens,
-and nothing else. Never a prompt, a completion or a request log; Bedrock
-invocation logging is off and the endpoint logs errors without content.
-Each account gets 600 requests a minute across its keys, answered with a
-429 and a `Retry-After` past that.
+and which five-minute windows the model answered in, and nothing else.
+Never a prompt, a completion or a request log; Bedrock invocation logging
+is off and the endpoint logs errors without content. Each account gets 600
+requests a minute across its keys, answered with a 429 and a `Retry-After`
+past that.
+
+What it costs, for a model While hosts (one you handed over with
+`publish`): $0.12 per unit-minute while it answers, counted in the same
+five-minute windows Bedrock bills, $5 per unit per month while it is kept,
+and $10 per import. A unit is a Bedrock Custom Model Unit; an 8B model is
+2. A model in your own AWS account, or a server you run, is routed for
+free. Add a card once under Account on withwhile.com; without one, `publish`
+and calls to a hosted model answer 402 with `code: billing_required`.
 
 ## Tools are functions
 

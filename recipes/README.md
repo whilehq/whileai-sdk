@@ -80,6 +80,7 @@ platform.
 |---|---|---|---|---|
 | [`bring-your-own-agent`](01-simulate/bring-your-own-agent) | the `agent(message) -> {steps, final_text}` contract, what a run says when the agent raises, why an `evaluate()` score must not become the reward | nothing | seconds | free |
 | [`verifiers`](01-simulate/verifiers) | rewards that are programs: `MathEqual`, `All` (answer and format), `CodeExec` against hidden tests, `JSONSchema`, each honoring the judge contract | nothing | seconds | free |
+| [`swarm-rescue`](01-simulate/swarm-rescue) | on the tasks where all 8 rollouts fail, whether a particle swarm of rollouts that share their best attempts finds a passing answer that resampling does not; rescue rate paired by task, four arms at one budget | `WHILEAI_API_KEY` (offline with `--dry-run`) | ~2 hours on the hosted model | hosted |
 
 ## 02-measure
 
