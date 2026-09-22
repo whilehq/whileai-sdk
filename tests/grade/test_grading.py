@@ -935,11 +935,41 @@ def test_grade_true_with_no_key_stops_instead_of_substituting(monkeypatch):
     """grade=True means the judge. With no key it stops; it never falls back to
     the conduct check and hands back a reward nobody chose (Lambert 2025,
     chapter Reward Models)."""
-    import whileai.simulations.data as data_mod
+    import whileai.simulations.score.llm_judge as llm_judge
 
-    monkeypatch.setattr(data_mod, "resolve_judge_key", lambda *a, **k: None)
+    monkeypatch.setattr(llm_judge, "resolve_judge_key", lambda *a, **k: None)
     with pytest.raises(RuntimeError, match="needs an API key"):
         simulate_offline(grade=True, repeats=1, budget=4, per_round=6)
+
+
+def test_grade_true_writes_the_judges_reward_not_the_conduct_score(monkeypatch):
+    """grade=True is the rubric judge on the grader path: reward, judge_status
+    and judge_name land on every row, the way data.grade(wai.Judge(...)) writes
+    them, and no row carries label_source="conduct". The advisory llm_grade
+    pass writes llm_reward only, which select_for_sft cannot read."""
+    import whileai.simulations.score.llm_judge as llm_judge
+    from whileai.judge import Judge
+
+    seen: list[dict] = []
+
+    def fake_call(self, row):
+        seen.append({"rubric": self.rubric, "policy": self.policy, "tools": list(self.tools)})
+        return {"reward": 1, "reason": "judged against the rubric"}
+
+    monkeypatch.setattr(llm_judge, "resolve_judge_key", lambda *a, **k: "k")
+    monkeypatch.setattr(Judge, "__call__", fake_call)
+    data = simulate_offline(
+        grade=True, rubric="Confirm before cancelling.", repeats=1, budget=4, per_round=6
+    )
+    rows = data.trajectories
+    assert rows and seen
+    assert all(r.get("reward") == 1 and r.get("judge_status") == "ok" for r in rows)
+    assert all(str(r.get("judge_name", "")).startswith("judge:") for r in rows)
+    assert not any(r.get("label_source") == "conduct" for r in rows)
+    assert not any("llm_reward" in r for r in rows)
+    assert seen[0]["rubric"] == "Confirm before cancelling."
+    assert seen[0]["policy"] and seen[0]["tools"]
+    assert data.search["grader"]["judge"].startswith("judge:")
 
 
 def test_grade_rejects_anything_but_the_three_named_modes():

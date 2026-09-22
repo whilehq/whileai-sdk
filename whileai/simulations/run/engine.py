@@ -482,6 +482,14 @@ class Run:
         self.profile.rubric = str(c.rubric or "")
         self.tools: list[dict] = list(self.profile.tools or [])
         self.policy: str = str(self.profile.policy or "")
+        # grade=True built its Judge before the profile existed (tools may
+        # be drafted here); give it the policy and tools the agent ran under,
+        # as data.grade(judge=) does, and never override what the caller set.
+        from whileai.judge import Judge
+
+        if isinstance(c.grader, Judge):
+            c.grader.policy = c.grader.policy or self.policy
+            c.grader.tools = c.grader.tools or list(self.tools)
         # Generation-only teacher guidance. profile.policy and export stay plain.
         self.gen_policy = f"{self.policy}\n\n{c.scaffold_text}" if c.scaffold_text else self.policy
         # The deploy prompt the rows are generated under, as a short hash
