@@ -346,6 +346,10 @@ class Model:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        # A Modal endpoint behind proxy auth takes its token as two headers.
+        if os.environ.get("MODAL_PROXY_TOKEN_ID") and os.environ.get("MODAL_PROXY_TOKEN_SECRET"):
+            headers["Modal-Key"] = os.environ["MODAL_PROXY_TOKEN_ID"]
+            headers["Modal-Secret"] = os.environ["MODAL_PROXY_TOKEN_SECRET"]
         req = urllib.request.Request(
             f"{self.base_url}/chat/completions", data=json.dumps(body).encode(), headers=headers
         )
