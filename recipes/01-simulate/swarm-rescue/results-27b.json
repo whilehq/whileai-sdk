@@ -1,0 +1,129 @@
+{
+ "tasks": 275,
+ "all_fail": 107,
+ "p0_histogram": [
+  107,
+  33,
+  30,
+  26,
+  21,
+  14,
+  20,
+  13,
+  11
+ ],
+ "budget": {
+  "G": 8,
+  "N": 8,
+  "R": 3,
+  "B": 24
+ },
+ "arms": {
+  "resample": {
+   "rescue_rate": 31.6,
+   "ci": 11.4,
+   "n": 57,
+   "by_round": [
+    19.3,
+    26.3,
+    31.6
+   ],
+   "samples": 1160,
+   "samples_per_task": 20.4
+  },
+  "solo": {
+   "rescue_rate": 28.1,
+   "ci": 12.3,
+   "n": 57,
+   "by_round": [
+    14.0,
+    26.3,
+    28.1
+   ],
+   "samples": 1184,
+   "samples_per_task": 20.8
+  },
+  "ring": {
+   "rescue_rate": 29.8,
+   "ci": 11.4,
+   "n": 57,
+   "by_round": [
+    22.8,
+    28.1,
+    29.8
+   ],
+   "samples": 1136,
+   "samples_per_task": 19.9
+  },
+  "star": {
+   "rescue_rate": 33.3,
+   "ci": 12.3,
+   "n": 57,
+   "by_round": [
+    21.1,
+    29.8,
+    33.3
+   ],
+   "samples": 1136,
+   "samples_per_task": 19.9
+  }
+ },
+ "deltas": {
+  "solo": {
+   "vs": "resample",
+   "delta": -3.5,
+   "ci95": [
+    -14.0,
+    7.0
+   ],
+   "p_value": 0.7726136931534233,
+   "verdict": "no_difference_detected",
+   "n_paired": 57
+  },
+  "ring": {
+   "vs": "resample",
+   "delta": -1.8,
+   "ci95": [
+    -10.5,
+    7.0
+   ],
+   "p_value": 1.0,
+   "verdict": "no_difference_detected",
+   "n_paired": 57
+  },
+  "star": {
+   "vs": "resample",
+   "delta": 1.8,
+   "ci95": [
+    -12.3,
+    15.8
+   ],
+   "p_value": 1.0,
+   "verdict": "no_difference_detected",
+   "n_paired": 57
+  }
+ },
+ "noise": {
+  "runs": 2,
+  "means": [
+   31.6,
+   29.8
+  ],
+  "run_std": 1.24,
+  "band": 22.3
+ },
+ "model": "Qwen/Qwen3.8-27B",
+ "seed": 0,
+ "thinking": false,
+ "max_tokens": 8192,
+ "no_comments": true,
+ "band": "near-miss",
+ "calls": 5824,
+ "truncated": 1266,
+ "tokens": {
+  "prompt": 16074042,
+  "completion": 22426487
+ },
+ "seconds": 7231,
+ "rescued_rows": 108
+}

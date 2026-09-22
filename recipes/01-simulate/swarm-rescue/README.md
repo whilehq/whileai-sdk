@@ -122,6 +122,37 @@ distinct passing programs on 37 tasks into `out/rescued.jsonl`.
 | Replies cut at 2,048 tokens | 1,192 of 15,368 (7.8%) |
 | Wall clock | about 3.5 hours at 64 concurrent requests, one L40S |
 
+## Raising the floor
+
+The flat result had one candidate cause: fitness was zero almost
+everywhere, so a neighbour's best program carried no information. Two
+more configurations tested that, same recipe, same measurement.
+
+Thinking mode on the 4B is out. On a hard task 32 of 40 replies ran past
+6,144 tokens still thinking and never wrote a program.
+
+Qwen3.8-27B, thinking off, is in (`--base-url`, `--max-tokens 8192`,
+`--no-comments`: with thinking off it reasons inside the code block as
+comments without end, so the prompt gains one line and the cap doubles,
+both recorded in `results-27b.json`). It fails all 8 rollouts on 107 of
+275 tasks. On 57 of those at least one base rollout passes a visible test,
+the near-miss band where fitness is graded (`--band near-miss`): the best
+base attempt passes a third of the visible tests on average, and half of
+them on one task in five.
+
+| 27B, near-miss band, 57 tasks | resample | solo | ring | star |
+|---|---|---|---|---|
+| Rescued | 31.6% | 28.1% | 29.8% | 33.3% |
+| 95% band | 20.2 to 43.0 | 15.8 to 40.4 | 18.4 to 41.2 | 21.0 to 45.6 |
+| vs resample | | -3.5 [-14.0, +7.0] | -1.8 [-10.5, +7.0] | +1.8 [-12.3, +15.8] |
+| By round 0 / 1 / 2 | 11 / 4 / 3 | 8 / 7 / 1 | 13 / 3 / 1 | 12 / 5 / 2 |
+
+Flat again. The resample re-run landed at 29.8%, and 29 of the 57 tasks
+were rescued by at least one of the five runs; `rescued-27b.jsonl` holds
+108 passing programs on 28 tasks. Cost: about 8,000 calls and 40M tokens
+over four hours on the SGLang endpoint, with 22% of arm replies still
+at the 8,192 cap.
+
 ## Learned
 
 - Feedback alone did nothing here. Solo refinement, the swarm with the
@@ -137,6 +168,12 @@ distinct passing programs on 37 tasks into `out/rescued.jsonl`.
   the size that is missing: `wai.holdout_size` says a +5 point gap at a
   7% base needs 547 paired tasks and a +3 point gap needs 1,382. 223 was
   never going to resolve a gap this small.
+- A real gradient did not change the answer. On the 27B's near-miss band
+  the swarm had a third of the visible tests to climb and still tied 24
+  independent draws, with most rescues in round 0 for every arm. Three
+  configurations, three flat results: PSO over rollouts, as a way to
+  rescue the prompts GRPO drops, is closed. What a hard prompt needs is
+  more samples or a stronger model, not a smarter way to condition them.
 - The dataset angle survives the flat result. On tasks the model gets
   right 1 time in 30 or less, how you structure the extra samples did not
   matter; that you spend them did. Six runs of 24 turned 43 zero-gradient
@@ -145,7 +182,7 @@ distinct passing programs on 37 tasks into `out/rescued.jsonl`.
   since the swarm rows are off-policy for it) against plain GRPO at
   matched rollouts.
 
-Verified 2026-09-21 (seed 0) and 2026-09-22 (seed 1). `results.json` and
+Verified 2026-09-21 (seed 0), 2026-09-22 (seed 1) and 2026-09-22 (27B). `results.json` and
 `results-seed1.json` in this directory are the two runs' reports;
 `rescued-seed1.jsonl` is seed 1's 127 passing programs on 42 tasks, the
 rows a training run starts from. `python run.py --reuse` reprints a report
