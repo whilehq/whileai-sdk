@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/check.py` says which gates it did not reach. The interval, noise band and
+  proxy checks sit inside `if verdict == "moved"`, and every paper recipe is `unresolved`
+  because each has one training seed per arm, so none of the three has ever run while the
+  check printed a plain `ok`. Over-optimization is now reported at every verdict and still
+  enforced only on a claimed result, so `endpoint-sft`, which publishes its own
+  over-optimization, is visible without failing for being honest.
 - `pass_at` counts the rows it could not read and names them in `note`, with a new `n_partial`.
   A reward that is not 0 or 1 was dropped silently, and `Criterion` defaults to
   `kind="principle"`, which scores the mean of its criteria, so the documented rubric path
