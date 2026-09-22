@@ -121,14 +121,30 @@ tool calls* is the same fact and would have stopped us. Filed as
 **Check your own set before you train.** Five lines, offline:
 
 ```python
+# one row of a mask_mode="assistant" export: call, result, summary
+rows = [
+    {
+        "messages": [
+            {"role": "user", "content": "where is ORD-1?"},
+            {"role": "assistant", "tool_calls": [{"function": {"name": "lookup_order"}}]},
+            {"role": "tool", "content": "{}"},
+            {"role": "assistant", "content": "It shipped on Tuesday."},
+        ]
+    }
+]
+
 total = final = 0
-for row in rows:                      # a mask_mode="assistant" export
+for row in rows:
     turns = [m for m in row["messages"] if m.get("role") == "assistant"]
     for i, m in enumerate(turns):
         if m.get("tool_calls"):
             total += 1
             final += i == len(turns) - 1
 print(f"{final} of {total} tool calls survive mask_mode='final'")
+```
+
+```text
+0 of 1 tool calls survive mask_mode='final'
 ```
 
 If that prints `0 of N`, `mask_mode="final"` is the wrong export for your
