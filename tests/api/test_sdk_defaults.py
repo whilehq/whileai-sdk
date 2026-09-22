@@ -695,7 +695,7 @@ def test_is_platform_host_matches_both_domains_and_the_served_models():
     from whileai._env import is_platform_host
 
     for url in (
-        "https://api.withwhile.com",
+        "https://api.while.ai",
         "https://while.ai/platform/traces",
         "while.ai",
         "https://api.zeroproofai.com/v1/traces",

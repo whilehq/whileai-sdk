@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- The platform API is `https://api.while.ai` and hosted models answer at `models.while.ai`
+  (`<slug>.models.while.ai` for a claimed subdomain). A saved `api.withwhile.com` login is
+  read as the default; the former hosts keep answering.
+
 ## 0.118 (2026-09-22)
 
 - `export_preference(..., format="trl")` (and `to_trl(rows, "preference")`) carry one assistant

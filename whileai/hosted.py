@@ -1,4 +1,4 @@
-"""Hosted models: the models an account serves at ``models.withwhile.com``.
+"""Hosted models: the models an account serves at ``models.while.ai``.
 
 ``wai.platform.hosted`` is the namespace. Register a model once, from
 wherever it runs, and it answers at one OpenAI-compatible endpoint under
@@ -18,7 +18,7 @@ Two kinds of model: a Bedrock import, custom deployment, provisioned
 model or inference profile (``arn=``, in While's AWS account or in yours
 through ``role_arn=``), and any OpenAI-compatible ``/v1`` server
 (``url=`` and ``model=``). A subdomain of your own,
-``<slug>.models.withwhile.com``, is claimed with ``subdomain()``.
+``<slug>.models.while.ai``, is claimed with ``subdomain()``.
 
 What the endpoint keeps about a model: per day, the count of calls, errors
 and tokens (``usage()``), and nothing else. Never a prompt, a completion or
@@ -37,7 +37,7 @@ from pydantic.alias_generators import to_camel
 from whileai._env import getenv
 
 #: Overridable with ``WHILEAI_MODELS_URL`` for a staging endpoint.
-DEFAULT_MODELS_URL = "https://models.withwhile.com"
+DEFAULT_MODELS_URL = "https://models.while.ai"
 # USAGE_DAYS = 7: the default window ``usage()`` reads; a week shows a
 # weekday pattern and stays one screen of rows (convention).
 USAGE_DAYS = 7
@@ -94,7 +94,7 @@ class HostedModel(_Wire):
 
 
 class Subdomain(_Wire):
-    """The account's own host under models.withwhile.com, or none yet."""
+    """The account's own host under models.while.ai, or none yet."""
 
     subdomain: str | None = None
     host: str | None = None
@@ -251,7 +251,7 @@ class HostedModels:
     # ---- the account's own host
 
     def subdomain(self, slug: str | None = None) -> Subdomain:
-        """Claim ``<slug>.models.withwhile.com`` for the account, or with no
+        """Claim ``<slug>.models.while.ai`` for the account, or with no
         argument read the current one. Only the account's keys work there."""
         if slug is None:
             return Subdomain.model_validate(self._call("GET", "/domain"))

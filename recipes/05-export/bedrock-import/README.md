@@ -124,12 +124,12 @@ Three facts the AWS documentation states in scattered places, checked here:
 ## Next
 
 - Serve it to your users from While: register the ARN once and it answers at
-  `https://models.withwhile.com/v1` under your While key, from any OpenAI client
+  `https://models.while.ai/v1` under your While key, from any OpenAI client
   or `wai.Endpoint(name, url=..., api_key=...)`. The role it assumes is the
   `WhileModelsInvoke` shape in [Your model and your key](../../../docs/get-started/your-model-and-key.mdx):
 
   ```bash
-  curl -X POST https://models.withwhile.com/models \
+  curl -X POST https://models.while.ai/models \
     -H "Authorization: Bearer $WHILEAI_API_KEY" -H "Content-Type: application/json" \
     -d '{"name": "nemotron-8b-t2s-r1", "arn": "<imported-model-arn>", "roleArn": "arn:aws:iam::<account>:role/WhileModelsInvoke"}'
   ```

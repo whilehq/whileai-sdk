@@ -129,7 +129,7 @@ Bedrock honors tool calling on imports only for GPT-OSS models.
 
 ## Serve it on While
 
-`https://models.withwhile.com/v1` is one OpenAI-compatible endpoint in
+`https://models.while.ai/v1` is one OpenAI-compatible endpoint in
 front of every model your account registers, wherever it runs: a Bedrock
 import in While's account or in yours, or any `/v1` server you host. Your
 While key picks the account, `model` picks the row, and any OpenAI client
@@ -138,13 +138,13 @@ works, so a served model needs no SDK change at all:
 ```python
 import whileai as wai
 
-served = wai.Endpoint("nemotron-8b-t2s-r1", url="https://models.withwhile.com/v1", api_key="zp_...")
+served = wai.Endpoint("nemotron-8b-t2s-r1", url="https://models.while.ai/v1", api_key="zp_...")
 ```
 
 Register a model once, with the same key:
 
 ```bash
-curl -X POST https://models.withwhile.com/models \
+curl -X POST https://models.while.ai/models \
   -H "Authorization: Bearer $WHILEAI_API_KEY" -H "Content-Type: application/json" \
   -d '{"name": "nemotron-8b-t2s-r1", "arn": "arn:aws:bedrock:us-east-1:<account>:imported-model/<id>",
        "roleArn": "arn:aws:iam::<account>:role/WhileModelsInvoke"}'
@@ -156,7 +156,7 @@ curl -X POST https://models.withwhile.com/models \
 | `{name, url, model, auth?}` | any OpenAI-compatible `/v1` server | `auth: "caller"` forwards your While key to it, `"none"` sends nothing |
 
 A subdomain of your own: `PUT /domain {"subdomain": "acme"}` makes
-`https://acme.models.withwhile.com/v1` answer for your account and no other;
+`https://acme.models.while.ai/v1` answer for your account and no other;
 a call there with another account's key is refused. `GET /v1/models` lists
 what you registered, `DELETE /models/{name}` removes one. Streaming works. An import that sat idle is restored on the
 first call; until it is back the endpoint answers 503 with
