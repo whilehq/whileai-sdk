@@ -32,6 +32,14 @@ build me better evals for my agent" lands on the playbook with no URL to
 remember. Run it again after an upgrade; `wai status` says when the
 block is stale.
 
+`--skill <name>` installs one more skill beside the three defaults. Every
+installed `check.py` runs from where `wai init` puts it, with no key and no
+network, except `harness-search`: it runs
+[`recipes/papers/meta-harness`](/recipes/papers/meta-harness), which is not in
+the wheel, so outside a checkout of the SDK it prints the clone command and
+exits 2 instead of running (exit 1 stays "a step did not do what the playbook
+claims").
+
 ## Extras
 
 | Install | When |

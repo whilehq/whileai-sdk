@@ -14,6 +14,10 @@ recording fake platform, then score the next day and post one LiveDay. No
 key, no network, no GPU.
 
     uv run python skills/harness-search/check.py
+
+It runs the recipe, so it needs a checkout of whilehq/whileai-sdk. Installed
+under ``.claude/skills/`` by ``wai init`` there is no ``recipes/`` beside it,
+and the check says so and exits 2 rather than crashing (#806).
 """
 
 from __future__ import annotations
@@ -37,11 +41,45 @@ from whileai.simulations import evaluate, load_traces
 
 T0 = time.monotonic()
 TIME_LIMIT = 60  # seconds; the bar every skill check meets (skills/BRIEF.md)
+NEEDS_CHECKOUT = 2  # exit code: this check cannot run here, and the message says where it can
 
 # ---------------------------------------------------------------- the recipe copy
 
-REPO = Path(__file__).resolve().parents[2]
-SOURCE = REPO / "recipes" / "papers" / "meta-harness"
+RECIPE_PATH = Path("recipes") / "papers" / "meta-harness"
+NO_RECIPE = f"""skills/harness-search/check.py runs the recipe it documents, and
+{RECIPE_PATH} is not in this tree.
+
+`wai init --skill harness-search` installs this file at
+.claude/skills/harness-search/check.py, and recipes/ is not in the whileai
+wheel, so the recipe is not beside it and never will be (whileai-sdk #806).
+The fix is a checkout of the SDK:
+
+    git clone https://github.com/whilehq/whileai-sdk
+    cd whileai-sdk && uv sync
+    uv run python skills/harness-search/check.py
+
+SKILL.md needs the same checkout: every step runs {RECIPE_PATH}/run.py."""
+
+
+def find_recipe() -> Path:
+    """The meta-harness recipe, searched for upward from this file and from
+    the working directory.
+
+    A source checkout has it two levels up (``<repo>/skills/harness-search/``);
+    the installed copy has it nowhere. Exit with the clone command rather than
+    a ``copytree`` traceback (``docs/reference/style.md``, rule 10: errors name
+    the fix)."""
+    starts = (Path(__file__).resolve().parent, Path.cwd().resolve())
+    for start in starts:
+        for parent in (start, *start.parents):
+            if (parent / RECIPE_PATH / "run.py").exists():
+                return parent / RECIPE_PATH
+    print(NO_RECIPE, file=sys.stderr)
+    print(f"\nsearched upward from {starts[0]} and from {starts[1]}", file=sys.stderr)
+    raise SystemExit(NEEDS_CHECKOUT)
+
+
+SOURCE = find_recipe()
 TMP = Path(tempfile.mkdtemp(prefix="harness-search-"))
 RECIPE = TMP / "meta-harness"
 shutil.copytree(SOURCE, RECIPE, ignore=shutil.ignore_patterns("out", "__pycache__"))

@@ -36,6 +36,12 @@ SKILL_FILES: tuple[str, ...] = ("SKILL.md", "check.py")
 RAW_URL = "https://raw.githubusercontent.com/whilehq/whileai-sdk/main/skills/{name}/{file}"
 CHECK_SKILL = "strengthen-your-evals"
 HTTP_OK = 200
+#: A skill check exits 2 for "this check cannot run here, and the message says
+#: where it can": ``skills/harness-search/check.py`` runs
+#: ``recipes/papers/meta-harness``, which is not in the wheel and so is never
+#: beside the installed copy (#806). It is not 1, which means a check ran and a
+#: step did not do what the playbook claims.
+NEEDS_CHECKOUT = 2
 
 Fetch = Callable[[str], str | None]
 
@@ -137,7 +143,12 @@ def install_skills(
 
 
 def run_check(root: Path, name: str = CHECK_SKILL, timeout: float = 180) -> tuple[int, str]:
-    """Run a skill's ``check.py`` offline and return (exit code, last lines)."""
+    """Run a skill's ``check.py`` offline and return (exit code, last lines).
+
+    0 is the playbook doing what it says, 1 is a step that did not, and
+    ``NEEDS_CHECKOUT`` is a check that cannot run from ``.claude/skills/`` at
+    all; its message names the command that fixes it, so the tail is read from
+    stderr as well as stdout."""
     script = (Path(root) / ".claude" / "skills" / name / "check.py").resolve()
     if not script.exists():
         return 1, f"{script} not found"
@@ -152,7 +163,8 @@ def run_check(root: Path, name: str = CHECK_SKILL, timeout: float = 180) -> tupl
         )
     except subprocess.TimeoutExpired:
         return 1, f"check.py did not finish in {timeout:.0f}s"
-    lines = [line for line in (proc.stdout or "").splitlines() if line.strip()]
+    said = proc.stdout if proc.returncode != NEEDS_CHECKOUT else proc.stderr
+    lines = [line for line in (said or "").splitlines() if line.strip()]
     tail = "\n".join(lines[-3:]) if lines else (proc.stderr or "")[-400:]
     return proc.returncode, tail
 
@@ -214,10 +226,11 @@ def init(
             )
     if check and landed.get(CHECK_SKILL):
         rc, tail = run_check(root, CHECK_SKILL)
-        print(
-            f"check .claude/skills/{CHECK_SKILL}/check.py: {'ok' if rc == 0 else f'exit {rc}'}",
-            file=out,
-        )
+        if rc == NEEDS_CHECKOUT:
+            verdict, rc = "needs a checkout of the SDK; the message below says why", 0
+        else:
+            verdict = "ok" if rc == 0 else f"exit {rc}"
+        print(f"check .claude/skills/{CHECK_SKILL}/check.py: {verdict}", file=out)
         if tail:
             print("  " + tail.replace("\n", "\n  "), file=out)
         code = code or rc

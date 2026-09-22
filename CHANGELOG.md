@@ -7,6 +7,31 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `skills/harness-search/check.py` finds `recipes/papers/meta-harness` by searching upward
+  instead of assuming `Path(__file__).parents[2]`, and when there is no checkout it prints the
+  clone command and exits 2. `wai init --skill harness-search` installs the file at
+  `.claude/skills/harness-search/check.py`, where `recipes/` is not present and never will be
+  (it is not in the wheel), so the first thing the skill told a coding agent to run was a bare
+  `FileNotFoundError` from `copytree` (#806). `init_repo.NEEDS_CHECKOUT` is that exit code, and
+  `wai init` reads it as "cannot run here" rather than as a failed check.
+- `tests/skills/test_installed_location.py` runs every skill's `check.py` from where
+  `wai init` installs it, not only from this checkout. That path is the one a user takes and it
+  was the one path nothing tested; a check there either passes or names the command that fixes
+  it, and a traceback is neither.
+- `recipes/papers/check.py` enforces all four criteria `CONSTITUTION.md` credits it with. It
+  already refused a `moved` verdict whose interval covers zero, whose delta is inside the re-run
+  band, or whose proxy came back over-optimized. It now also refuses one with fewer than three
+  base re-runs (the bar read 2), with no holdout decontamination count, and with
+  `checks.over_optimized: null`, which is the absence of a proxy-vs-target verdict rather than a
+  clean one. `tests/recipes/test_papers_science_gate.py` drives each criterion red: until now no
+  recipe had ever reached that branch, so nothing had shown the gate works (#809).
+- `recipes/papers/meta-harness` has a `results.json` and a row in the table. `recipe_dirs()`
+  selects on the claim (a `results.json`) rather than the shape (no `run.py`), which had left the
+  recipe carrying the harness-optimization headline as the one recipe the science gate never saw.
+  `checks.train_seeds: null` says a recipe trains nothing and skips the training-seed rule only;
+  the science half applies in full, and meta-harness reads `unresolved` because it does not
+  measure a proxy-vs-target verdict.
+
 - The `wide_call_overage` ratchet pin is 195, not 194. #842 measured it at its
   branch point and #843 landed `compare(lower_is_better=)` after it, so the two
   were never counted together and `main` went red on the merge. The argument is
