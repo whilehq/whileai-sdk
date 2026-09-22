@@ -6,11 +6,18 @@ the two sets share (pass@1 and each marker) is compared as paired task
 differences with a bootstrap interval (``stats.compare_runs``), so the
 answer is "moved by X, interval Y" and not a pair of means.
 
-Markers are read as higher-is-better. A metric named in ``must_not_regress``
-whose interval sits entirely below zero is a regression and fails the report;
-any other metric that drops significantly is a warning (Lambert 2025, chapter
-Regularization: post-training on one thing forgets others, and on-policy data
-forgets less, which is only visible if you measure the others).
+Markers are read as higher-is-better unless ``lower_is_better`` says otherwise
+(``lower_is_better=["words"]``, or ``{"truncated": False}`` to force a name the
+other way); ``LOWER_IS_BETTER_MARKERS`` is the built-in set. On a metric where
+down is the win the whole reading flips and the number does not: the delta,
+the interval and the means stay the raw signed change ("47.5 words shorter"),
+while the verdict, the printed tag, the warnings, ``must_not_regress``, the
+proxy-vs-target check, the ``by=`` groups and ``ok`` all read a drop as the
+gain. A metric named in ``must_not_regress`` whose interval sits entirely on
+its bad side is a regression and fails the report; any other metric that moves
+significantly the bad way is a warning (Lambert 2025, chapter Regularization:
+post-training on one thing forgets others, and on-policy data forgets less,
+which is only visible if you measure the others).
 
 ``proxy`` names the metric the run was trained on (the training reward, kept
 on the rows as a marker) when it is not the target. Over-optimization is the
@@ -30,6 +37,7 @@ from typing import Any
 
 from ...report import Report
 from ..defaults import ALPHA, BASE_PASS_RATE, CI_LEVEL, MIN_RERUNS, MIN_TRAIN_SEEDS, POWER
+from .markers import STOCK_MARKERS
 from .passat import answer_counts, pass_at
 from .stats import (
     DEFAULT_BOOT,
@@ -51,6 +59,82 @@ from .stats import (
 )
 
 GROUP_KEYS = ("delta", "ci95", "verdict", "mean_a", "mean_b", "n_used", "n_paired", "paired")
+
+# LOWER_IS_BETTER_MARKERS: the markers this library reads as down-is-the-win
+# when the caller names no direction for them. The five stock behavioral
+# markers are *presence* values -- 1.0 means the over-optimization tic showed
+# up in the reply -- so a rise in one is the regression (Lambert 2025, chapter
+# Over-optimization, the signatures RL against a judge drifts toward;
+# ``score.markers`` stamps them at that polarity and its docstring says so).
+# ``truncated`` is a completion the token cap cut, and a cut reply is a failed
+# reply on any run, whichever way that run meant to go: convention, untested,
+# and the same reading ``TRUNCATED_SHARE_GAP`` below already takes. The set
+# applies only to a marker both row sets carry, and any name in it can be
+# turned back the other way from the call
+# (``lower_is_better={"refusal": False}``).
+LOWER_IS_BETTER_MARKERS: tuple[str, ...] = (*STOCK_MARKERS, "truncated")
+
+# ``compare_runs`` says which arm scored higher; these two words are the only
+# ones that carry a direction, so reading a metric as lower-is-better is
+# exactly swapping them. Nothing else about the metric changes: the delta, the
+# interval and the means stay the raw signed change, so "47.5 words shorter,
+# 95% [-50.169, -44.919]" is still the sentence the report prints (#638).
+_FLIPPED_VERDICTS = {"b_better": "a_better", "a_better": "b_better"}
+
+
+def _gain_verdict(verdict: str, lower_is_better: bool) -> str:
+    """One ``compare_runs`` verdict read in goodness terms: ``b_better``
+    means the after arm is better, whichever way its metric points."""
+    return _FLIPPED_VERDICTS.get(verdict, verdict) if lower_is_better else verdict
+
+
+def _gain_ci(result: Mapping[str, Any]) -> tuple[float, float] | None:
+    """One metric's interval oriented so positive is better, for the one
+    check that compares two metrics' intervals against each other
+    (proxy against target). The reported ``ci95`` is never this."""
+    ci = result.get("ci95")
+    if not ci:
+        return None
+    lo, hi = float(ci[0]), float(ci[1])
+    return (-hi, -lo) if result.get("lower_is_better") else (lo, hi)
+
+
+def _directions(
+    lower_is_better: Sequence[str] | Mapping[str, bool] | None,
+    metrics: Sequence[str],
+    key: Callable[[str], str],
+) -> dict[str, bool]:
+    """Which of ``metrics`` are read as down-is-the-win.
+
+    A sequence names the metrics where lower is better; a mapping says it
+    per name and can force one back to higher-is-better. Names come with
+    or without the ``marker:`` prefix. ``LOWER_IS_BETTER_MARKERS`` fills in
+    the rest. A name that is not one of the metrics measured here raises:
+    a silently ignored direction is a report that reads backwards.
+    """
+    measured = set(metrics)
+    asked: dict[str, bool] = {}
+    if lower_is_better is not None:
+        items = (
+            [(str(n), bool(v)) for n, v in lower_is_better.items()]
+            if isinstance(lower_is_better, Mapping)
+            else [(str(n), True) for n in lower_is_better]
+        )
+        missing = sorted({n for n, _ in items if key(n) not in measured})
+        if missing:
+            raise ValueError(
+                f"lower_is_better names {', '.join(repr(n) for n in missing)}, which "
+                f"{'is' if len(missing) == 1 else 'are'} not measured here. It takes metric "
+                'names with or without the "marker:" prefix ("words" and "marker:words" both '
+                'work) and "pass_at_1". Measured on both row sets: '
+                f"{', '.join(sorted(measured))}. A marker counts only when both sides carry "
+                "it, so stamp it on both arms (mark_rows / style_markers / the markers= your "
+                "run writes) or drop the name."
+            )
+        asked = {key(n): value for n, value in items}
+    default = {key(n) for n in LOWER_IS_BETTER_MARKERS}
+    return {m: asked.get(m, m in default) for m in metrics}
+
 
 # CEILING_PASS_RATE = 0.9: a before side passing this share of its tasks
 # has at most 10 points of room, under the noise band of most agent evals
@@ -136,8 +220,9 @@ def _verdict_word(result: dict[str, Any], replicated: bool) -> str:
     """One metric's verdict as the report says it: ``moved`` only when
     the eval was run more than once per side (or a ``run_std`` was
     given), else ``moved_unreplicated``; inside the re-run band,
-    ``within_eval_noise``."""
-    word = _VERDICT_WORDS[result["verdict"]]
+    ``within_eval_noise``. Read off ``gain_verdict``, so a metric where
+    down is the win reads ``moved`` for a drop."""
+    word = _VERDICT_WORDS[result.get("gain_verdict") or result["verdict"]]
     if result.get("within_noise") and word in {"moved", "moved_the_wrong_way"}:
         return "within_eval_noise"
     if word == "moved" and not replicated:
@@ -324,9 +409,12 @@ def _by_group(
     n_boot: int,
     seed: int,
     level: float = CI_LEVEL,
+    lower_is_better: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """The target metric compared within each group of rows. A group needs
-    rows on both sides; rows with no group value are left out."""
+    rows on both sides; rows with no group value are left out. Each group
+    carries the metric's direction, so a split of a down-is-the-win target
+    reads the same way its headline does."""
     groups_a: dict[str, list[dict]] = {}
     groups_b: dict[str, list[dict]] = {}
     for row in before:
@@ -347,9 +435,11 @@ def _by_group(
             seed=seed + GROUP_SEED_OFFSET + i,
             level=level,
         )
-        slim = {k: r.get(k) for k in GROUP_KEYS}
+        slim: dict[str, Any] = {k: r.get(k) for k in GROUP_KEYS}
         slim["rows_a"] = len(groups_a[name])
         slim["rows_b"] = len(groups_b[name])
+        slim["lower_is_better"] = lower_is_better
+        slim["gain_verdict"] = _gain_verdict(str(r.get("verdict")), lower_is_better)
         out[name] = slim
     return out
 
@@ -433,6 +523,7 @@ def delta_report(
     *,
     target: str | None = None,
     must_not_regress: Sequence[str] = (),
+    lower_is_better: Sequence[str] | Mapping[str, bool] | None = None,
     markers: Sequence[str] | None = None,
     by: str | Callable[[dict], Any] | None = None,
     run_std: float | Mapping[str, float | None] | None = None,
@@ -476,8 +567,17 @@ def delta_report(
       entirely above the target's, the report is ``over_optimized`` and
       fails: the policy learned something the target does not credit
       (Gao et al. 2022, arXiv:2210.10760).
-    * ``must_not_regress``: metrics whose significant drop fails the
-      report. Marker metrics go by marker name; pass@1 is ``"pass_at_1"``.
+    * ``must_not_regress``: metrics whose significant move the bad way
+      fails the report. Marker metrics go by marker name; pass@1 is
+      ``"pass_at_1"``.
+    * ``lower_is_better``: the metrics whose *drop* is the win -- reply
+      length, tokens, cost, latency, turns, retries, escalations. Names go
+      with or without the ``marker:`` prefix
+      (``lower_is_better=["words", "latency_ms"]``), or as a mapping when
+      one has to be forced back the other way
+      (``{"words": True, "truncated": False}``). A name that is not
+      measured on both row sets raises rather than being ignored. See the
+      direction paragraph below.
     * ``by``: split the target by a group on each row (a top-level row
       key, a marker name, or a callable ``row -> group``). The report
       gains ``groups``, the target compared within each, so a headline
@@ -510,6 +610,27 @@ def delta_report(
       ``answered_gap_points`` (``ANSWERED_GAP_POINTS``, 0.1) and
       ``answered_alpha`` (``ANSWERED_P_MAX``, 0.01): the thresholds of the
       ``ceiling`` and ``answered`` flags below.
+
+    Direction. A metric is higher-is-better unless ``lower_is_better``
+    or ``LOWER_IS_BETTER_MARKERS`` says otherwise, and the direction is
+    an *interpretation*, never an edit to the number: ``delta``, ``ci95``,
+    ``mean_a`` and ``mean_b`` stay the raw signed change, so a run that cut
+    replies from 198.1 words to 150.6 still reports ``-47.500`` with
+    ``95% -50.169..-44.919`` and the operator keeps the effect size. What
+    flips is every reading of it: each metric gains ``gain_verdict``
+    (``b_better`` whenever the after arm is the better one), and that is
+    what ``target_verdict``, ``headline_verdict``, ``ok``, ``improved``,
+    ``slipped``, ``regressions``, ``must_not_regress``, the
+    over-optimization check, the ``by=`` groups and the warnings read. The
+    printed line shows the raw delta with the tag in the same
+    lower-case-is-good spelling it always used (``down`` for a win on a
+    down-is-better metric, ``UP`` for the slip) and says ``lower is
+    better`` next to it; ``report["lower_is_better"]`` lists the metrics
+    read that way. ``LOWER_IS_BETTER_MARKERS`` is the built-in set: the
+    five stock presence markers (``boilerplate``, ``self_reference``,
+    ``hedging``, ``refusal``, ``sycophancy``, 1.0 = the tic appeared) and
+    ``truncated``; pass any of them as ``{"name": False}`` if your rows
+    carry that name at the other polarity.
 
     Pairing. Tasks pair by the key ``pass_at`` groups on; tasks on one
     side only do not pair, their count is ``n_unpaired_tasks``, and when
@@ -661,6 +782,14 @@ def delta_report(
     def _key(name: str) -> str:
         return name if name == "pass_at_1" or name.startswith("marker:") else f"marker:{name}"
 
+    # Direction first: every verdict below is read off ``gain_verdict``, so
+    # the metric that a run set out to reduce is a gain everywhere at once
+    # and nowhere twice (#638). The raw delta and interval are untouched.
+    lower = _directions(lower_is_better, metrics, _key)
+    for m in metrics:
+        results[m]["lower_is_better"] = lower[m]
+        results[m]["gain_verdict"] = _gain_verdict(results[m]["verdict"], lower[m])
+
     guarded = {_key(m) for m in must_not_regress}
     target_key = _key(target) if target else None
     degenerate_guards: list[str] = []
@@ -740,12 +869,16 @@ def delta_report(
             within_noise.append(m)
     loud = {m for m in metrics if not results[m]["within_noise"]}
     regressions = [
-        m for m in metrics if m in guarded and m in loud and results[m]["verdict"] == "a_better"
+        m
+        for m in metrics
+        if m in guarded and m in loud and results[m]["gain_verdict"] == "a_better"
     ]
     slipped = [
-        m for m in metrics if m not in guarded and m in loud and results[m]["verdict"] == "a_better"
+        m
+        for m in metrics
+        if m not in guarded and m in loud and results[m]["gain_verdict"] == "a_better"
     ]
-    improved = [m for m in metrics if m in loud and results[m]["verdict"] == "b_better"]
+    improved = [m for m in metrics if m in loud and results[m]["gain_verdict"] == "b_better"]
     target_result = results.get(target_key) if target_key else None
     if target_result is None and target_key:
         target_verdict = "target_not_measured"
@@ -916,19 +1049,31 @@ def delta_report(
             "a_better": "moved_the_wrong_way",
             "no_difference_detected": "no_change_detected",
             "insufficient_data": "insufficient_data",
-        }[proxy_result["verdict"]]
-        proxy_up = proxy_result["verdict"] == "b_better" and proxy_key in loud
-        target_up = headline_for_proxy["verdict"] == "b_better" and headline_name in loud
+        }[proxy_result["gain_verdict"]]
+        # "The proxy went up" means the proxy improved, which on a
+        # down-is-the-win reward is its delta going down; the two curves
+        # part in goodness, not in raw units, so the interval comparison
+        # runs on ``_gain_ci`` while the printed numbers stay raw.
+        proxy_up = proxy_result["gain_verdict"] == "b_better" and proxy_key in loud
+        target_up = headline_for_proxy["gain_verdict"] == "b_better" and headline_name in loud
         pci, tci = proxy_result.get("ci95"), headline_for_proxy.get("ci95")
-        apart = bool(pci and tci and pci[0] > tci[1])
+        pgain, tgain = _gain_ci(proxy_result), _gain_ci(headline_for_proxy)
+        apart = bool(pgain and tgain and pgain[0] > tgain[1])
         over_optimized = (proxy_up and not target_up) or (proxy_up and apart)
         if over_optimized:
             ok = False
             tspan = f"{tci[0]:+.3f}..{tci[1]:+.3f}" if tci else "n/a"
             pspan = f"{pci[0]:+.3f}..{pci[1]:+.3f}" if pci else "n/a"
+            # The verb is the raw move and the suffix says why it is the
+            # gain, so the sentence is true whichever way the proxy points.
+            proxy_lower = bool(proxy_result.get("lower_is_better"))
+            verb = "down" if proxy_lower else "up"
+            way = " (lower is better)" if proxy_lower else ""
+            target_way = " (lower is better)" if headline_for_proxy.get("lower_is_better") else ""
             warnings.append(
-                f"OVER-OPTIMIZED: {proxy_key} up {proxy_result['delta']:+.3f} ({level:.0%} "
-                f"{pspan}) while {headline_name} {headline_for_proxy['delta']:+.3f} "
+                f"OVER-OPTIMIZED: {proxy_key} {verb} {proxy_result['delta']:+.3f}{way} "
+                f"({level:.0%} {pspan}) while {headline_name} "
+                f"{headline_for_proxy['delta']:+.3f}{target_way} "
                 f"({level:.0%} {tspan}): the policy learned something the target does not "
                 "credit (Gao et al. 2022, arXiv:2210.10760)"
             )
@@ -940,14 +1085,19 @@ def delta_report(
         )
     for m in regressions:
         r = results[m]
+        way = ", where lower is better, so the rise is the regression" if lower[m] else ""
         warnings.append(
             f"REGRESSION {m}: {r['delta']:+.3f} ({level:.0%} {r['ci95'][0]:+.3f}.."
-            f"{r['ci95'][1]:+.3f}), named in must_not_regress"
+            f"{r['ci95'][1]:+.3f}), named in must_not_regress{way}"
         )
     for m in slipped:
         r = results[m]
+        # The verb is the raw move, so the number and the word agree: a
+        # down-is-the-win marker only reaches this list by rising.
+        verb, way = ("rose", " (lower is better)") if lower[m] else ("dropped", "")
         warnings.append(
-            f"{m} dropped {r['delta']:+.3f} ({level:.0%} {r['ci95'][0]:+.3f}..{r['ci95'][1]:+.3f})"
+            f"{m} {verb} {r['delta']:+.3f} "
+            f"({level:.0%} {r['ci95'][0]:+.3f}..{r['ci95'][1]:+.3f}){way}"
         )
     headline = target_result if target_result else results["pass_at_1"]
     headline_key = target_key if target_result else "pass_at_1"
@@ -992,37 +1142,44 @@ def delta_report(
     tasks_needed_source: str | None = None
     tasks_needed_paired: int | None = None
     delta_seen: float | None = None
+    delta_shown: float | None = None
     raw_delta = headline.get("delta")
-    if isinstance(raw_delta, (int, float)) and 0 < raw_delta < 1:
-        delta_seen = float(raw_delta)
-        # Size from the rows in hand: the per-task paired sd carries the
-        # covariance pairing buys, which the independent-arms model cannot
-        # see, so the model asked for about twice the tasks (525 against
-        # 270 on 160 MATH-500 tasks at k=12, #733). ``holdout_size`` falls
-        # back to the model itself at the ceiling or on a degenerate
-        # spread; too few shared graded tasks to measure a sd is the one
-        # case it refuses, and the model answers there.
-        try:
-            sizing = holdout_size(
-                delta_seen,
-                before=before,
-                after=after,
-                power=power,
-                alpha=alpha,
-                ceiling_pass_rate=ceiling_pass_rate,
-            )
-        except ValueError:
-            sizing = holdout_size(
-                delta_seen,
-                base=base_rate,
-                k=k_eval,
-                power=power,
-                alpha=alpha,
-                ceiling_pass_rate=ceiling_pass_rate,
-            )
-        tasks_needed = int(sizing["n_tasks"])
-        tasks_needed_source = str(sizing["sd_source"])
-        tasks_needed_paired = sizing.get("n_paired")
+    if isinstance(raw_delta, (int, float)):
+        # ``holdout_size`` sizes a *gain*, so a headline where down is the
+        # win is sized on how big its drop was; the line below still prints
+        # the raw signed delta the reader measured.
+        signed = float(raw_delta)
+        gain = -signed if headline.get("lower_is_better") else signed
+        if 0 < gain < 1:
+            delta_seen, delta_shown = gain, signed
+            # Size from the rows in hand: the per-task paired sd carries the
+            # covariance pairing buys, which the independent-arms model cannot
+            # see, so the model asked for about twice the tasks (525 against
+            # 270 on 160 MATH-500 tasks at k=12, #733). ``holdout_size`` falls
+            # back to the model itself at the ceiling or on a degenerate
+            # spread; too few shared graded tasks to measure a sd is the one
+            # case it refuses, and the model answers there.
+            try:
+                sizing = holdout_size(
+                    delta_seen,
+                    before=before,
+                    after=after,
+                    power=power,
+                    alpha=alpha,
+                    ceiling_pass_rate=ceiling_pass_rate,
+                )
+            except ValueError:
+                sizing = holdout_size(
+                    delta_seen,
+                    base=base_rate,
+                    k=k_eval,
+                    power=power,
+                    alpha=alpha,
+                    ceiling_pass_rate=ceiling_pass_rate,
+                )
+            tasks_needed = int(sizing["n_tasks"])
+            tasks_needed_source = str(sizing["sd_source"])
+            tasks_needed_paired = sizing.get("n_paired")
     verdict_word = (
         target_verdict
         if target_result
@@ -1033,14 +1190,14 @@ def delta_report(
             f"{n_paired} paired tasks at k={k_eval} can prove a gain of about "
             f"+{can_prove:.2f} at {power:.0%} power"
         )
-        if tasks_needed is not None and delta_seen is not None:
+        if tasks_needed is not None and delta_shown is not None:
             if tasks_needed_source == "rows" and tasks_needed_paired:
                 where = f"task sd measured on the {tasks_needed_paired} paired tasks here"
             else:
                 where = "task sd from the binomial model, not measured"
             line += (
-                f"; to prove the {delta_seen:+.3f} seen here you need about {tasks_needed} tasks "
-                f"({where})"
+                f"; to prove the {delta_shown:+.3f} seen here you need about "
+                f"{tasks_needed} tasks ({where})"
             )
         warnings.append(line + " (holdout_size).")
     # Rows per task on the two sides. The sizing line and the k-way
@@ -1080,14 +1237,23 @@ def delta_report(
     groups_down: list[str] = []
     if by is not None:
         group_metric = target_key if target_key in results else "pass_at_1"
+        group_lower = lower.get(group_metric, False)
         groups = _by_group(
-            before, after, by=by, metric=group_metric, n_boot=n_boot, seed=seed, level=level
+            before,
+            after,
+            by=by,
+            metric=group_metric,
+            n_boot=n_boot,
+            seed=seed,
+            level=level,
+            lower_is_better=group_lower,
         )
-        groups_down = [g for g, r in groups.items() if r.get("verdict") == "a_better"]
+        groups_down = [g for g, r in groups.items() if r.get("gain_verdict") == "a_better"]
+        way = " (lower is better)" if group_lower else ""
         for g in groups_down:
             r = groups[g]
             warnings.append(
-                f"{group_metric} moved the wrong way for {g}: {r['delta']:+.3f} "
+                f"{group_metric} moved the wrong way for {g}: {r['delta']:+.3f}{way} "
                 f"({level:.0%} {r['ci95'][0]:+.3f}..{r['ci95'][1]:+.3f}, {r['rows_b']} rows)"
             )
         if not groups:
@@ -1286,6 +1452,10 @@ def delta_report(
             "improved": improved,
             "regressions": regressions,
             "slipped": slipped,
+            #: the metrics read as down-is-the-win, from lower_is_better= and
+            #: LOWER_IS_BETTER_MARKERS; their delta and interval are still the
+            #: raw signed change, only the reading of it flips (#638)
+            "lower_is_better": [m for m in metrics if lower[m]],
             "within_noise": within_noise,
             "run_std": headline_run_std,
             "run_std_by_metric": {m: run_std_by_metric.get(m) for m in metrics},
@@ -1400,6 +1570,33 @@ class DeltaReport(Report):
         return format_delta_report(self)
 
 
+#: ``compare_runs`` verdict -> the printed tag, in the spelling the report
+#: has always used: lower case is the good way, upper case is the alarm. A
+#: metric where down is the win swaps which of the two gets shouted, and
+#: the line says ``lower is better`` beside it (#638).
+_UP_TAGS = {
+    "b_better": "up",
+    "a_better": "DOWN",
+    "no_difference_detected": "flat",
+    "insufficient_data": "n/a",
+}
+_DOWN_TAGS = {
+    "b_better": "UP",
+    "a_better": "down",
+    "no_difference_detected": "flat",
+    "insufficient_data": "n/a",
+}
+LOWER_IS_BETTER_TAG = "lower is better"
+
+
+def _metric_tag(result: Mapping[str, Any]) -> tuple[str, str]:
+    """One metric line's verdict tag and the suffix that names its
+    direction, from the raw verdict and whether down is the win."""
+    lower = bool(result.get("lower_is_better"))
+    tag = (_DOWN_TAGS if lower else _UP_TAGS)[result["verdict"]]
+    return tag, (f"  {LOWER_IS_BETTER_TAG}" if lower else "")
+
+
 def format_delta_report(report: dict[str, Any]) -> str:
     """The block a person reads: headline, then one line per metric."""
     lines: list[str] = []
@@ -1488,18 +1685,21 @@ def format_delta_report(report: dict[str, Any]) -> str:
     }
     if answered["before"] is not None and answered["after"] is not None:
         lines.append(f"answered: {answered['before']:.1%} before, {answered['after']:.1%} after")
+    down_good = list(report.get("lower_is_better") or [])
+    if down_good:
+        # The deltas below are the raw change either way, so the reader is
+        # told once which of them are read the other way round (#638).
+        lines.append(
+            f"lower is better: {', '.join(down_good)} (a drop is the win; the delta and "
+            "interval printed are still the raw change)"
+        )
     for name, r in report["metrics"].items():
         if r.get("delta") is None:
             lines.append(f"  {name:<28} insufficient data")
             continue
         ci = r.get("ci95")
         span = f"{ci[0]:+.3f}..{ci[1]:+.3f}" if ci else "n/a"
-        tag = {
-            "b_better": "up",
-            "a_better": "DOWN",
-            "no_difference_detected": "flat",
-            "insufficient_data": "n/a",
-        }[r["verdict"]]
+        tag, way = _metric_tag(r)
         if r.get("within_noise"):
             tag = "noise"
         pair = "paired" if r["paired"] else "unpaired"
@@ -1513,7 +1713,7 @@ def format_delta_report(report: dict[str, Any]) -> str:
             floor = ""
         lines.append(
             f"  {name:<28} {r['mean_a']:.3f} -> {r['mean_b']:.3f}  {r['delta']:+.3f} "
-            f"[{span}]  {tag}  ({r['n_used']} {pair}){floor}"
+            f"[{span}]  {tag}  ({r['n_used']} {pair}){floor}{way}"
         )
     balanced = report.get("balanced")
     if balanced:
@@ -1533,15 +1733,10 @@ def format_delta_report(report: dict[str, Any]) -> str:
                 continue
             ci = r.get("ci95")
             span = f"{ci[0]:+.3f}..{ci[1]:+.3f}" if ci else "n/a"
-            tag = {
-                "b_better": "up",
-                "a_better": "DOWN",
-                "no_difference_detected": "flat",
-                "insufficient_data": "n/a",
-            }[r["verdict"]]
+            tag, way = _metric_tag(r)
             lines.append(
                 f"  {name:<28} {r['mean_a']:.3f} -> {r['mean_b']:.3f}  {r['delta']:+.3f} "
-                f"[{span}]  {tag}  ({r['rows_a']}/{r['rows_b']} rows)"
+                f"[{span}]  {tag}  ({r['rows_a']}/{r['rows_b']} rows){way}"
             )
     for w in report.get("warnings") or []:
         lines.append(f"! {w}")

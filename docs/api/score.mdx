@@ -343,6 +343,7 @@ delta_report(
     after: Sequence[dict],
     target: str | None = None,
     must_not_regress: Sequence[str] = (),
+    lower_is_better: Sequence[str] | Mapping[str, bool] | None = None,
     markers: Sequence[str] | None = None,
     by: str | Callable[[dict], Any] | None = None,
     run_std: float | Mapping[str, float | None] | None = None,
@@ -390,8 +391,17 @@ Arguments that matter:
   entirely above the target's, the report is `over_optimized` and
   fails: the policy learned something the target does not credit
   (Gao et al. 2022, arXiv:2210.10760).
-* `must_not_regress`: metrics whose significant drop fails the
-  report. Marker metrics go by marker name; pass@1 is `"pass_at_1"`.
+* `must_not_regress`: metrics whose significant move the bad way
+  fails the report. Marker metrics go by marker name; pass@1 is
+  `"pass_at_1"`.
+* `lower_is_better`: the metrics whose *drop* is the win -- reply
+  length, tokens, cost, latency, turns, retries, escalations. Names go
+  with or without the `marker:` prefix
+  (`lower_is_better=["words", "latency_ms"]`), or as a mapping when
+  one has to be forced back the other way
+  (`{"words": True, "truncated": False}`). A name that is not
+  measured on both row sets raises rather than being ignored. See the
+  direction paragraph below.
 * `by`: split the target by a group on each row (a top-level row
   key, a marker name, or a callable `row -> group`). The report
   gains `groups`, the target compared within each, so a headline
@@ -424,6 +434,27 @@ Arguments that matter:
   `answered_gap_points` (`ANSWERED_GAP_POINTS`, 0.1) and
   `answered_alpha` (`ANSWERED_P_MAX`, 0.01): the thresholds of the
   `ceiling` and `answered` flags below.
+
+Direction. A metric is higher-is-better unless `lower_is_better`
+or `LOWER_IS_BETTER_MARKERS` says otherwise, and the direction is
+an *interpretation*, never an edit to the number: `delta`, `ci95`,
+`mean_a` and `mean_b` stay the raw signed change, so a run that cut
+replies from 198.1 words to 150.6 still reports `-47.500` with
+`95% -50.169..-44.919` and the operator keeps the effect size. What
+flips is every reading of it: each metric gains `gain_verdict`
+(`b_better` whenever the after arm is the better one), and that is
+what `target_verdict`, `headline_verdict`, `ok`, `improved`,
+`slipped`, `regressions`, `must_not_regress`, the
+over-optimization check, the `by=` groups and the warnings read. The
+printed line shows the raw delta with the tag in the same
+lower-case-is-good spelling it always used (`down` for a win on a
+down-is-better metric, `UP` for the slip) and says `lower is
+better` next to it; `report["lower_is_better"]` lists the metrics
+read that way. `LOWER_IS_BETTER_MARKERS` is the built-in set: the
+five stock presence markers (`boilerplate`, `self_reference`,
+`hedging`, `refusal`, `sycophancy`, 1.0 = the tic appeared) and
+`truncated`; pass any of them as `{"name": False}` if your rows
+carry that name at the other polarity.
 
 Pairing. Tasks pair by the key `pass_at` groups on; tasks on one
 side only do not pair, their count is `n_unpaired_tasks`, and when
