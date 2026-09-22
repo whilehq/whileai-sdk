@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.117 (2026-09-22)
+
 - `export_environment` warns `no_mixed_groups` when `graded_mixed` is 0, whether no prompt has
   two graded rollouts or every graded prompt was unanimous; it used to write the package with
   `warnings: []` while `select_for_rl` refuses the same rows (#684).
