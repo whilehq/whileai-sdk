@@ -24,6 +24,11 @@ Playbook for the coding agent:
 [`skills/harness-search`](https://github.com/whilehq/whileai-sdk/tree/main/skills/harness-search).
 The object it searches over: [the harness](/reference/harness).
 
+Both the recipe and the skill's `check.py` run out of a clone of
+[whilehq/whileai-sdk](https://github.com/whilehq/whileai-sdk): `recipes/` is
+not in the wheel, so the copy `wai init --skill harness-search` installs under
+`.claude/skills/` names the clone command and stops rather than running.
+
 ## 1. Traces in
 
 Point the recipe at yesterday's export: a JSONL in any shape `load_traces`

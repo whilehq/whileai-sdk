@@ -20,6 +20,7 @@ what it claims, the steps, one command, what happened.
 | [flash-reinforce](flash-reinforce) | [FlashREINFORCE.pdf](https://yifanzhang-pro.github.io/FlashREINFORCE/FlashREINFORCE.pdf) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.47 -> 0.41 (-0.07 [-0.11, -0.03], unresolved, 1 seed per arm) | 2026-09-22 |
 | [gmts-token-select](gmts-token-select) | [2608.30632](https://arxiv.org/abs/2608.30632) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.49 -> 0.18 (-0.31 [-0.38, -0.24], unresolved, 1 seed per arm) | 2026-09-18 |
 | [harness-and-weights](harness-and-weights) | [2607.03935](https://arxiv.org/abs/2607.03935) | Qwen/Qwen2.5-Coder-1.5B-Instruct | pass@1 | 0.03 -> 0.09 (+0.06 [+0.03, +0.09], unresolved, 1 seed per arm) | 2026-09-21 |
+| [meta-harness](meta-harness) | [2603.28052](https://arxiv.org/abs/2603.28052) | anthropic/claude-haiku-4.5 | pass@1 | 0.62 -> 0.99 (+0.38 [+0.27, +0.47], unresolved, no trained arm) | 2026-09-22 |
 | [sao-single-rollout](sao-single-rollout) | [2607.07508](https://arxiv.org/abs/2607.07508) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.46 -> 0.46 (-0.00 [-0.04, +0.03], unresolved, 1 seed per arm) | 2026-09-22 |
 | [zero-rl-format-reward](zero-rl-format-reward) | [2503.18892](https://arxiv.org/abs/2503.18892) | Qwen/Qwen3.5-4B-Base | pass@1 | 0.63 -> 0.72 (+0.09 [+0.05, +0.14], unresolved, 1 seed per arm) | 2026-09-18 |
 <!-- table:end -->
@@ -31,10 +32,16 @@ One paper here is a loop, not a trained arm:
 [`meta-harness`](meta-harness) (Lee et al. 2026, arXiv:2603.28052) searches
 over harness code, scores every candidate on one frozen task set, and gates
 the pick on held-out tasks and held-out models. It is in the step-recipe
-shape (`run.py --dry-run`, `smoke.sh`, a flags table), runs offline with
-scripted candidates, and `check.py` leaves it out of the table above
-because it has no `results.json`: the live run is the replication and no
-number from it is claimed until one is measured.
+shape (`run.py --dry-run`, `smoke.sh`, a flags table) and runs offline with
+scripted candidates. Its live run has a row above and goes through the same
+gates as the rest: `checks.train_seeds` is `null`, which says the recipe
+trains nothing, and the seed rule then has nothing to count while the
+science half applies in full. It reads `unresolved` rather than `moved`
+because it does not measure one of the four criteria -- there is no
+proxy-vs-target verdict, only a harness-versus-model attribution, which
+answers a different question. Until #809 the shape kept it out of `check.py`
+altogether, so the recipe carrying the harness-optimization headline was the
+one recipe the science gate never saw.
 [`harness-and-weights`](harness-and-weights) (Luo et al. 2026,
 arXiv:2607.03935; Hebbar et al. 2026, arXiv:2605.27276; Karten et al. 2026,
 arXiv:2608.23552) puts that loop and a GRPO arm under one optimizer: four

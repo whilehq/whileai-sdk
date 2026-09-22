@@ -62,6 +62,18 @@ CHECK_KEYS = {
 #: ``MIN_TRAIN_SEEDS`` training seeds on both trained arms; at one seed per
 #: arm the only word is ``unresolved`` (#356).
 VERDICTS = ("moved", "flat", "unresolved")
+# MIN_BASE_RERUNS = 3: CONSTITUTION.md's row for repeatable science reads
+# "refuses 'moved' without an interval that excludes zero, three base re-runs,
+# a clean holdout, and a proxy-vs-target verdict". Two re-runs do give a
+# standard deviation, but at one degree of freedom, where the t quantile is
+# 12.71 and the band it makes is wider than any result this directory has
+# reported; three is the smallest count the row allows (Lambert 2025, chapter
+# Evaluation, appendix C). The structural floor below stays 2, so a recipe that
+# is not claiming "moved" still records a run_std that means something.
+MIN_BASE_RERUNS = 3
+#: The entry point of a recipe: a two-arm training replication runs
+#: ``recipe.py``, a step-shaped one (``meta-harness``) runs ``run.py``.
+ENTRY_POINTS = ("recipe.py", "run.py")
 COLUMNS = (
     "| Recipe | Paper | Base | Metric | Baseline -> Recipe | Verified |\n|---|---|---|---|---|---|"
 )
@@ -73,22 +85,20 @@ def fail(msg: str) -> None:
 
 
 def recipe_dirs() -> list[Path]:
-    """The two-arm training replications: one ``recipe.py``, one
-    ``results.json``, one table row. A paper whose idea is a loop rather
-    than a trained arm (``meta-harness``: a search over harness code) is a
-    step-shaped recipe with ``run.py`` and ``smoke.sh``, held to the recipe
-    contract in ``recipes/README.md`` and its own test instead. A recipe
-    that carries a ``smoke.sh`` and no ``results.json`` yet
-    (``harness-and-weights`` before its full live run) is left out the same
-    way: it claims no number, so there is no row; the day it writes
-    ``results.json`` it is checked like the rest."""
+    """Every recipe that claims a number: one ``results.json``, one table row,
+    and the gates in ``check_recipe`` below.
+
+    The filter is the claim, not the shape. A recipe with no ``results.json``
+    yet (``harness-and-weights`` before its full live run) claims nothing, so
+    there is no row; the day it writes one it is checked like the rest. Until
+    #809 the filter was the shape instead -- any directory with a ``run.py``
+    was skipped -- which left ``meta-harness``, the recipe carrying the
+    harness-optimization headline, as the one recipe the science gate never
+    saw."""
     return [
         d
         for d in sorted(PAPERS.iterdir())
-        if d.is_dir()
-        and not d.name.startswith("_")
-        and not (d / "run.py").exists()
-        and not ((d / "smoke.sh").exists() and not (d / "results.json").exists())
+        if d.is_dir() and not d.name.startswith("_") and (d / "results.json").exists()
     ]
 
 
@@ -96,10 +106,22 @@ def load(d: Path) -> dict:
     return json.loads((d / "results.json").read_text(encoding="utf-8"))
 
 
-def seeds_per_arm(r: dict) -> int:
-    """The fewest training seeds behind either trained arm."""
+def seeds_per_arm(r: dict) -> int | None:
+    """The fewest training seeds behind either trained arm, or ``None`` when
+    the recipe has no trained arm at all (``train_seeds: null``: a search over
+    harness code trains nothing, so the seed rule has nothing to count)."""
     seeds = r["checks"]["train_seeds"]
+    if seeds is None:
+        return None
     return min(int(seeds["baseline"]), int(seeds["recipe"]))
+
+
+def arms_read(r: dict) -> str:
+    """How many training seeds stand behind the delta, in words."""
+    n = seeds_per_arm(r)
+    if n is None:
+        return "no trained arm"
+    return f"{n} seed{'s' if n != 1 else ''} per arm"
 
 
 def row(d: Path, r: dict) -> str:
@@ -108,8 +130,7 @@ def row(d: Path, r: dict) -> str:
     lo, hi = delta.get("ci", [0.0, 0.0])
     verified = "never run" if str(r["verified"]).startswith("1970") else r["verified"]
     paper_id = r["paper"].rstrip("/").rsplit("/", 1)[-1]
-    n = seeds_per_arm(r)
-    verdict = f"{delta['verdict']}, {n} seed{'s' if n != 1 else ''} per arm"
+    verdict = f"{delta['verdict']}, {arms_read(r)}"
     return (
         f"| [{d.name}]({d.name}) | [{paper_id}]({r['paper']}) | {r['base_model']} "
         f"| {r['metric']} | {base['score']:.2f} -> {rec['score']:.2f} "
@@ -124,9 +145,14 @@ def table(dirs: list[Path]) -> str:
 
 
 def check_recipe(d: Path) -> dict:
-    for name in ("README.md", "results.json", "recipe.py"):
+    for name in ("README.md", "results.json"):
         if not (d / name).exists():
             fail(f"{d.name}: missing {name}")
+    if not any((d / name).exists() for name in ENTRY_POINTS):
+        fail(
+            f"{d.name}: missing an entry point; a two-arm training replication is recipe.py, "
+            f"a step-shaped recipe is run.py ({', '.join(ENTRY_POINTS)})"
+        )
     text = (d / "README.md").read_text(encoding="utf-8")
     for s in HEADER + SECTIONS:
         if s not in text:
@@ -168,25 +194,51 @@ def check_recipe(d: Path) -> dict:
     # MIN_TRAIN_SEEDS training seeds on both arms; one seed per arm is
     # "unresolved", whatever the interval says.
     seeds = r["checks"]["train_seeds"]
-    if not isinstance(seeds, dict) or {"baseline", "recipe"} - set(seeds):
-        fail(
-            f"{d.name}: checks.train_seeds is {{'baseline': n, 'recipe': n}}, training seeds per arm"
-        )
-    if any(not isinstance(seeds[arm], int) or seeds[arm] < 1 for arm in ("baseline", "recipe")):
-        fail(f"{d.name}: checks.train_seeds counts are whole numbers, 1 or more")
-    if seeds_per_arm(r) < MIN_TRAIN_SEEDS and verdict != "unresolved":
-        fail(
-            f"{d.name}: verdict {verdict} at {seeds_per_arm(r)} training seed per arm; "
-            f"{UNRESOLVED_LINE} ({MIN_TRAIN_SEEDS} or more per arm, then moved or flat)"
-        )
-    if seeds_per_arm(r) >= MIN_TRAIN_SEEDS and verdict == "unresolved":
-        fail(f"{d.name}: {seeds_per_arm(r)} seeds per arm resolve the verdict; say moved or flat")
+    # ``train_seeds: null`` says the recipe has no trained arm: ``meta-harness``
+    # searches over harness code and trains nothing, so the seed rule has
+    # nothing to count and the science half below is the whole bar (#809). It
+    # is a stated "no trained arm", never a missing measurement: a recipe that
+    # trained something and did not count its seeds writes the dict.
+    if seeds is not None:
+        if not isinstance(seeds, dict) or {"baseline", "recipe"} - set(seeds):
+            fail(
+                f"{d.name}: checks.train_seeds is {{'baseline': n, 'recipe': n}}, training seeds "
+                "per arm, or null when the recipe has no trained arm"
+            )
+        if any(not isinstance(seeds[arm], int) or seeds[arm] < 1 for arm in ("baseline", "recipe")):
+            fail(f"{d.name}: checks.train_seeds counts are whole numbers, 1 or more")
+        per_arm = seeds_per_arm(r)
+        assert per_arm is not None
+        if per_arm < MIN_TRAIN_SEEDS and verdict != "unresolved":
+            fail(
+                f"{d.name}: verdict {verdict} at {per_arm} training seed per arm; "
+                f"{UNRESOLVED_LINE} ({MIN_TRAIN_SEEDS} or more per arm, then moved or flat)"
+            )
+        if per_arm >= MIN_TRAIN_SEEDS and verdict == "unresolved":
+            fail(f"{d.name}: {per_arm} seeds per arm resolve the verdict; say moved or flat")
     if verdict == "moved":
+        # The four criteria of CONSTITUTION.md's repeatable-science row, in its
+        # order: an interval that excludes zero, three base re-runs, a clean
+        # holdout, and a proxy-vs-target verdict. Each one refuses "moved" and
+        # names the fix; each one is driven red by tests/recipes/
+        # test_papers_science_gate.py, because until #809 no recipe had ever
+        # reached this branch and a gate that has never fired is a gate nobody
+        # has shown to work.
         lo, hi = r["delta"].get("ci", [0.0, 0.0])
         delta = float(r["delta"]["recipe_vs_baseline"])
         run_std = float(r["checks"]["run_std"])
         if lo <= 0.0 <= hi:
-            fail(f"{d.name}: verdict moved but the interval [{lo}, {hi}] covers zero")
+            fail(
+                f"{d.name}: verdict moved but the interval [{lo}, {hi}] covers zero; "
+                "say flat, or add data until it does not"
+            )
+        if runs < MIN_BASE_RERUNS:
+            fail(
+                f"{d.name}: verdict moved on a run_std from {runs} base re-run(s); the bar is "
+                f"{MIN_BASE_RERUNS} (CONSTITUTION.md, repeatable science). Re-run the base arm on "
+                f"the same holdout until checks.run_std_runs is {MIN_BASE_RERUNS} or more, or "
+                "say flat"
+            )
         # run_std is an estimate from ``runs`` re-runs, so the band carries
         # its degrees of freedom: the t quantile at runs - 1, not 1.96.
         band = noise_band(run_std, df=runs - 1)
@@ -194,9 +246,26 @@ def check_recipe(d: Path) -> dict:
             fail(
                 f"{d.name}: verdict moved but |delta| {abs(delta):.3f} < {band:.3f} "
                 f"(t(df={runs - 1})={t_quantile(runs - 1):.2f} x run_std x sqrt(1/1 + 1/1), the "
-                f"re-run band on a one-run-per-side delta with run_std from {runs} re-runs)"
+                f"re-run band on a one-run-per-side delta with run_std from {runs} re-runs); "
+                "say flat"
             )
-        if r["checks"]["over_optimized"]:
+        dropped = r["checks"]["decontaminated_dropped"]
+        if isinstance(dropped, bool) or not isinstance(dropped, int) or dropped < 0:
+            fail(
+                f"{d.name}: verdict moved with checks.decontaminated_dropped {dropped!r}, so the "
+                "holdout is not known clean. It is the count of train rows that overlapped the "
+                "holdout and were dropped, 0 when the two splits cannot overlap: run "
+                "wai.decontaminate(train, holdout) and record len(dropped), or say flat"
+            )
+        over = r["checks"]["over_optimized"]
+        if not isinstance(over, bool):
+            fail(
+                f"{d.name}: verdict moved with checks.over_optimized {over!r}, so there is no "
+                "proxy-vs-target verdict. Score the proxy the recipe optimised and the target it "
+                "claims on the same holdout and record true or false (Lambert 2025, chapter "
+                "Over-Optimization), or say flat"
+            )
+        if over:
             fail(f"{d.name}: verdict moved but the proxy-vs-target check says over-optimized")
     return r
 
@@ -205,15 +274,34 @@ def skipped_note(r: dict) -> str:
     """Which gates this recipe did not reach, and why.
 
     A recipe that skipped its checks must not print the same line as one that
-    passed them. Every recipe is currently unresolved at one training seed per
-    arm, so the interval and band gates below have never run on any of them.
+    passed them. Every recipe here is unresolved -- the nine trained ones at
+    one training seed per arm, ``meta-harness`` for want of a proxy-vs-target
+    verdict -- so no recipe has yet reached the interval and band gates in
+    ``check_recipe``. What has reached them is
+    ``tests/recipes/test_papers_science_gate.py``, which drives each one red
+    (#809).
     """
     notes = []
     if r["delta"].get("verdict") != "moved":
+        seeds = seeds_per_arm(r)
+        stands = "with no trained arm" if seeds is None else f"at {seeds} training seed(s) per arm"
         notes.append(
-            f"verdict {r['delta'].get('verdict')} at {seeds_per_arm(r)} training seed(s) "
-            "per arm: interval, noise band and proxy check not enforced"
+            f"verdict {r['delta'].get('verdict')} {stands}"
+            ": interval, noise band and proxy check not enforced"
         )
+    # What the recipe does not measure, named. A criterion recorded as null is
+    # a criterion nobody ran, and "moved" is not available to a recipe that has
+    # one (#809); saying which one is how the next round knows what to add.
+    absent = [
+        name
+        for name, key in (
+            ("a proxy-vs-target verdict", "over_optimized"),
+            ("a holdout decontamination count", "decontaminated_dropped"),
+        )
+        if key in r["checks"] and r["checks"][key] is None
+    ]
+    if absent:
+        notes.append(f"not measured here: {', '.join(absent)}; moved is not available")
     # Reported at every verdict, enforced only on a claimed result. A recipe
     # that publishes its own over-optimization is behaving correctly and must
     # not fail for it; a recipe that hides it behind an unresolved verdict was

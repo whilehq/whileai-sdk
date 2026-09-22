@@ -1,0 +1,91 @@
+{
+  "recipe": "meta-harness",
+  "title": "Meta-Harness: search over the harness, gate on held-out tasks and models",
+  "paper": "https://arxiv.org/abs/2603.28052",
+  "book": "Evaluation",
+  "base_model": "anthropic/claude-haiku-4.5",
+  "metric": "pass@1",
+  "n_holdout": 30,
+  "k": 4,
+  "arms": {
+    "base": {
+      "score": 0.62,
+      "ci": [
+        0.52,
+        0.72
+      ],
+      "steps": 0
+    },
+    "baseline": {
+      "score": 0.62,
+      "ci": [
+        0.52,
+        0.72
+      ],
+      "steps": 0
+    },
+    "recipe": {
+      "score": 0.99,
+      "ci": [
+        0.97,
+        1.0
+      ],
+      "steps": 0
+    }
+  },
+  "delta": {
+    "recipe_vs_baseline": 0.38,
+    "ci": [
+      0.27,
+      0.47
+    ],
+    "verdict": "unresolved"
+  },
+  "checks": {
+    "run_std": 0.038,
+    "run_std_runs": 4,
+    "train_seeds": null,
+    "decontaminated_dropped": null,
+    "over_optimized": null,
+    "length_before": 761.0,
+    "length_after": {
+      "baseline": 761.0,
+      "recipe": 168.0
+    },
+    "hack_scan_top": null,
+    "seed": 0
+  },
+  "held_out_model": {
+    "model": "openai/gpt-4.1-mini",
+    "score": 1.0,
+    "ci": [
+      1.0,
+      1.0
+    ],
+    "recipe_vs_baseline": 0.09,
+    "delta_ci": [
+      0.04,
+      0.15
+    ]
+  },
+  "ran_on": {
+    "search_model": "vllm:anthropic/claude-haiku-4.5@https://openrouter.ai/api/v1",
+    "held_out_model": "vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1",
+    "router": "OpenRouter, one OpenAI-compatible endpoint for both models, key in VLLM_API_KEY",
+    "command": "python run.py --models \"vllm:anthropic/claude-haiku-4.5@https://openrouter.ai/api/v1,vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1\" --budget 60 --concurrency 16 --propose --select"
+  },
+  "notes": {
+    "arms": "There is no trained arm, so checks.train_seeds is null. base and baseline are both 00_baseline, the unsearched harness, on the 30 held-out asks; recipe is 02_check_result, the candidate the gate picked out of three, in one round. steps counts training steps and this recipe takes none.",
+    "delta": "The paired holdout delta the run printed (README, Result), not the difference of the two rounded means. On the held-out model the same pair is +0.09 [+0.04, +0.15]. Both exclude zero; 0 held-out tasks the baseline passed and the pick failed.",
+    "run_std": "Four baseline draws on Haiku over the same 30 held-out asks, out/tasks.jsonl replayed and nothing redrawn: 0.62, 0.65, 0.69, 0.61. eval_variance run_std 0.038, and noise_band(0.038, df=3) = 0.17 is the band a one-run-per-side delta has to clear. +0.38 clears it; the +0.03 between the two winning candidates does not, and the recipe calls that a tie.",
+    "over_optimized": "Not measured. This recipe reports a harness-vs-model attribution instead (the harness explains 61% [47..77] of the spread, the model 17% [10..25]), which answers a different question than proxy versus target. Until the proxy the search optimised is scored against the target the recipe claims, the verdict stays unresolved: recipes/papers/check.py refuses moved without a proxy-vs-target verdict (#809).",
+    "decontaminated_dropped": "Not measured for this run. The 60 asks were drawn once and split 30/30 by seed, which is run.py's 'split by seed' path and does no 8-gram pass; the --traces path runs wai.decontaminate and records the count in out/split.json.",
+    "hack_scan_top": "Not run. The judge is a program and the recipe reports the judge's own failure reasons instead: on the baseline, 46 of 120 held-out rows failed, 40 of them for an apology.",
+    "length": "Mean reply length in characters on the Haiku holdout: 761 for the baseline, 168 for the pick. length_after.baseline is the baseline itself, because the baseline arm and the base arm are the same harness here.",
+    "usd": "about two dollars of OpenRouter credit for the whole run"
+  },
+  "gpu": "none: API models through OpenRouter",
+  "usd": 2.0,
+  "verified": "2026-09-22",
+  "whileai": "0.120"
+}

@@ -21,7 +21,10 @@ with an agentic proposer that reads the source, scores and traces of every
 prior candidate through a filesystem, and check the pick on held-out tasks
 and held-out models. The recipe `recipes/papers/meta-harness` is the inner
 half: it scores every file in `candidates/`, writes the ledger, the
-proposal and the gate's answer. You are the outer half. Every step below is
+proposal and the gate's answer. Both it and `check.py` run out of a checkout
+of [whilehq/whileai-sdk](https://github.com/whilehq/whileai-sdk): `recipes/`
+is not in the wheel, so the copy `wai init` installs under `.claude/skills/`
+names the clone command and stops. You are the outer half. Every step below is
 in `check.py`, which runs the recipe's dry run on a temporary copy in under
 a minute; its setup defines `RECIPE` (that copy), `MODEL` (the search
 model), `ROUNDS` (3), `TRACES` (three days of the agent's traffic as a
