@@ -41,6 +41,11 @@ DEFAULT_MODELS_URL = "https://models.withwhile.com"
 # USAGE_DAYS = 7: the default window ``usage()`` reads; a week shows a
 # weekday pattern and stays one screen of rows (convention).
 USAGE_DAYS = 7
+# PUBLISH_POLL_S = 30 / PUBLISH_TIMEOUT_S = 3600: an import took 10 minutes for
+# a Llama 3.1 8B (2026-09-20) and Bedrock allows models to 200 GB; an hour is
+# the job's own ceiling, so the client waits no longer than the job would.
+PUBLISH_POLL_S = 30
+PUBLISH_TIMEOUT_S = 3600
 
 Transport = Callable[..., Any]
 
@@ -72,6 +77,11 @@ class HostedModel(_Wire):
     url: str | None = None
     upstream_model: str | None = None
     auth: Literal["caller", "none"] | None = None
+    #: an import in flight: ``importing`` (with ``step``), ``ready`` or ``failed`` (with ``error``)
+    status: Literal["importing", "ready", "failed"] | None = None
+    step: str | None = None
+    error: str | None = None
+    cmu: int | None = None
 
     @property
     def endpoint(self) -> str:
@@ -177,6 +187,52 @@ class HostedModels:
         """Remove the row. The model itself (the import, the server) is untouched."""
         self._call("DELETE", f"/models/{name}")
 
+    def publish(
+        self,
+        adapter: str,
+        *,
+        name: str | None = None,
+        base: str | None = None,
+        hf_token: str | None = None,
+        wait: bool = True,
+        timeout_s: float = PUBLISH_TIMEOUT_S,
+        poll_s: float = PUBLISH_POLL_S,
+    ) -> HostedModel:
+        """Hand While an adapter and get a model back.
+
+        ``adapter`` is a Hugging Face repo id (``owner/name``) or a While
+        training run id (``run_…``). While merges it into its base (read from
+        the adapter unless ``base=``), imports the weights into Bedrock on
+        While's account, and registers it under ``name`` (the repo's own name
+        by default). ``hf_token`` is used for the download once and never
+        stored. With ``wait=True`` this polls until the row is ``ready`` or
+        ``failed`` and returns it; ``wait=False`` returns the ``importing`` row.
+        """
+        import time as _time
+
+        model_name = name or adapter.rsplit("/", 1)[-1]
+        body: dict[str, Any] = {"name": model_name, "adapter": adapter}
+        if base:
+            body["base"] = base
+        if hf_token:
+            body["hfToken"] = hf_token
+        started = HostedModel.model_validate(self._call("POST", "/models/import", body)["model"])
+        if not wait:
+            return started
+        deadline = _time.monotonic() + timeout_s
+        row = started
+        while row.status == "importing":
+            if _time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"{model_name} is still importing after {int(timeout_s)} s ({row.step}); "
+                    "hosted.get() reads the row later"
+                )
+            _time.sleep(poll_s)
+            row = self.get(model_name)
+        if row.status == "failed":
+            raise RuntimeError(f"{model_name} failed to import: {row.error}")
+        return row
+
     # ---- using
 
     def endpoint(self, name: str) -> Any:
@@ -211,6 +267,8 @@ hosted = HostedModels()
 
 __all__ = [
     "DEFAULT_MODELS_URL",
+    "PUBLISH_POLL_S",
+    "PUBLISH_TIMEOUT_S",
     "HostedModel",
     "HostedModels",
     "Subdomain",

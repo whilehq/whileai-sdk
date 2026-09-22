@@ -178,6 +178,7 @@
                   "recipes/papers/filter-metric",
                   "recipes/papers/flash-reinforce",
                   "recipes/papers/gmts-token-select",
+                  "recipes/papers/harness-and-weights",
                   "recipes/papers/meta-harness",
                   "recipes/papers/sao-single-rollout",
                   "recipes/papers/zero-rl-format-reward"

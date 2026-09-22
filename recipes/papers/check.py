@@ -77,11 +77,18 @@ def recipe_dirs() -> list[Path]:
     ``results.json``, one table row. A paper whose idea is a loop rather
     than a trained arm (``meta-harness``: a search over harness code) is a
     step-shaped recipe with ``run.py`` and ``smoke.sh``, held to the recipe
-    contract in ``recipes/README.md`` and its own test instead."""
+    contract in ``recipes/README.md`` and its own test instead. A recipe
+    that carries a ``smoke.sh`` and no ``results.json`` yet
+    (``harness-and-weights`` before its full live run) is left out the same
+    way: it claims no number, so there is no row; the day it writes
+    ``results.json`` it is checked like the rest."""
     return [
         d
         for d in sorted(PAPERS.iterdir())
-        if d.is_dir() and not d.name.startswith("_") and not (d / "run.py").exists()
+        if d.is_dir()
+        and not d.name.startswith("_")
+        and not (d / "run.py").exists()
+        and not ((d / "smoke.sh").exists() and not (d / "results.json").exists())
     ]
 
 

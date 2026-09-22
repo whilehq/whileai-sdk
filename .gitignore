@@ -127,3 +127,4 @@ recipes/papers/*/.cache/
 recipes/community/how-much-contamination-survives/out/
 recipes/community/who-protects-the-holdout/out/
 recipes/papers/meta-harness/out/
+recipes/papers/harness-and-weights/out/
