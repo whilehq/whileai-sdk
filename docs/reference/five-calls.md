@@ -45,7 +45,7 @@ rows.push("my-agent-rl-v1")  # 5 publish, gated (whileai.platform)
 
 A spec folder is `spec.json` (tools and policy) plus `rubric.md`: what doing the job means, in prose. `grade()` scores against it. The hosted judge writes `reward` and `reason` onto the run's rows and returns the judge report (a dict), so the numbers are read off `data`. `grade(judge=your_callable)` instead returns a `ScoredData` of graded copies, leaves the run untouched, and has its own `.push(name, ...)`. Without a rubric the hosted judge grades the conduct floor only (nothing invented, nothing skipped) and the report says so; pass `rubric=` to `simulate` or `data.grade` to supply one.
 
-After training, measure whether it landed: `wai.delta_report(before=scored.rows, after=after_rows, target="pass_at_1")`. Name the training reward too, `proxy="marker:first_action"`, and the report says whether the run over-optimized it: proxy up while the target did not follow fails the report [5]. `wai.hack_scan_diff(before, after, endorsed=[...])` names what the update moved toward, and withholds the name when either side came back `degenerate`.
+After training, measure whether it landed: `wai.compare(before=scored.rows, after=after_rows, target="pass_at_1")` (`compare` is the front-door name; `delta_report` is the same call one dot down, at `wai.simulations.delta_report`). Name the training reward too, `proxy="marker:first_action"`, and the report says whether the run over-optimized it: proxy up while the target did not follow fails the report [5]. `wai.simulations.hack_scan_diff(before, after, endorsed=[...])` names what the update moved toward, and withholds the name when either side came back `degenerate`.
 
 The noise floor (`run_std=`, `run_std_runs=`, from `eval_variance` over re-runs of one model) measures the eval. When both sides are separately trained models, the delta also carries training variance, which the floor cannot see: one recipe read -0.065 [-0.117, -0.013] on one run and +0.050 on the next at one seed per arm. Pass every training seed's rows, `wai.compare(before, after, train_runs={"before": [b_seed1, b_seed2], "after": [a_seed1, a_seed2]})` (a plain list is the after arm's seeds against an untrained base), and the headline interval widens by the between-seed spread: each arm's per-seed means give a between-seed standard deviation, the delta's variance adds `std**2 / n_seeds` per arm, and the printed line shows the arithmetic the way the floor line does. "moved" then needs that interval to exclude zero too. One training seed per arm reports `unresolved`, with the interval and floor lines still printed and the fix on the line: "one training seed per arm; add a seed to resolve". Sources: [2], chapter *Evaluation*, and [9].
 
@@ -72,19 +72,21 @@ judge(row) -> 0 or 1 or 0.7                   # a bare number works
 **The loop, closed in five lines.**
 
 ```python
-import whileai.simulations as wai
+import whileai as wai  # the same one import as the block above
 
 judge = lambda row: {"reward": int("sorry" not in row["final_text"])}
-scored = wai.run_judge(data.trajectories, judge)  # or data.grade(judge=judge)
-wai.export_dataset(scored.passes(), output="train.jsonl", system_prompt=POLICY, tools=TOOLS)
+scored = wai.simulations.run_judge(data.trajectories, judge)  # or data.grade(judge=judge)
+wai.simulations.export_dataset(
+    scored.passes(), output="train.jsonl", system_prompt=POLICY, tools=TOOLS
+)
 # ...train externally, roll the tuned model on a holdout...
-evald = wai.evaluate(rollouts, judge, model="my-tuned-v1")
+evald = wai.simulations.evaluate(rollouts, judge, model="my-tuned-v1")
 nxt = wai.simulate(tools=TOOLS, system_prompt=POLICY, traces=evald.failed_traces())
 ```
 
 The full contract, with every status and the rest of the loop, is the module docstring of `whileai.simulations.score.judging` (note the `score.`; there is no `whileai.simulations.judging`).
 
-Writing the judge is half of it; knowing whether to believe it is the other half. `wai.judge_trust(rows, judge=...)` and `wai.judge_probes(rows, judge)` are on [the platform page](/reference/platform). With no `gold_reward` labels on the rows, `judge_trust` returns `ok: False` with a warning that the judge is unmeasured, not failed.
+Writing the judge is half of it; knowing whether to believe it is the other half. `wai.judge_trust(rows, judge=...)` and `wai.simulations.judge_probes(rows, judge)` are on [the platform page](/reference/platform). With no `gold_reward` labels on the rows, `judge_trust` returns `ok: False` with a warning that the judge is unmeasured, not failed.
 
 ## Verifiers: when the reward is a program, not a judge
 

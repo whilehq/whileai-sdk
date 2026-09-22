@@ -44,11 +44,14 @@ Every docs page (`docs/**/*.md*`, navigation in `docs/docs.json`) has:
   the current signatures.
 - **Design.** Headings that scan, tables over paragraphs for comparisons,
   no wall of text longer than a screen, consistent callout use, the brand
-  palette from `whilehq/website` `BRAND.md` (ink `#0b1220`, green `#5cb08a`,
-  deep green `#3f8f6b`) in figures, alt text on every image.
-- **The website** (`whilehq/website`, read it with `gh api` or a clone): the
-  same vocabulary, the same claims as the docs, every number traceable to
-  a run, no invented figures, the tagline and one-liner from `BRAND.md`.
+  palette inlined here (ink `#0b1220`, green `#5cb08a`, deep green
+  `#3f8f6b`) in figures, alt text on every image. There is no `BRAND.md`
+  in `whilehq/platform`; these three values are the reference (#803).
+- **The website** (`whilehq/platform`, private, read it with `gh api` or a
+  clone; it was never `whilehq/website`, which 404s): the same vocabulary,
+  the same claims as the docs,
+  every number traceable to a run, no invented figures. Without access to
+  that repo, `README.md` here is the reference wording.
   The website sells; the docs teach then prove; neither contradicts the
   other.
 
@@ -57,7 +60,7 @@ Every docs page (`docs/**/*.md*`, navigation in `docs/docs.json`) has:
 - One issue on `whilehq/whileai-sdk` titled "docs: review <date>" with the
   findings ranked by reader impact, each with the page, the contract line
   it breaks, and the fix. Website findings go in a second issue on
-  `whilehq/website`.
+  `whilehq/platform`.
 - A PR on a branch `docs/<date>-<theme>` with the mechanical fixes: broken
   examples updated to current signatures, missing citations added where
   the source is certain, vocabulary aligned, `docs.json` order corrected.

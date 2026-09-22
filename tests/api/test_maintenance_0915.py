@@ -104,14 +104,20 @@ def test_recommend_takes_simulate_spelling_of_the_policy():
 
 
 def test_status_says_when_no_key_is_configured(monkeypatch, tmp_path, capsys):
+    """The keyless path is the supported path (belief 4), so `wai status`
+    with no key is a note on stdout and nothing on stderr. It used to print
+    `no API key configured` to stderr, which reads as a failure in a library
+    that needs no account (#790)."""
     monkeypatch.delenv("WHILEAI_API_KEY", raising=False)
     monkeypatch.setattr(auth, "credentials_path", lambda: tmp_path / "credentials.json")
     assert cli.main(["status"]) == 0
     captured = capsys.readouterr()
-    shown = json.loads(captured.out)
+    body, note = captured.out.rsplit("\n}\n", 1)
+    shown = json.loads(body + "\n}")
     assert shown["configured"] is False and shown["key"] is None
-    assert "no API key configured" in captured.err
-    assert "wai login" in captured.err
+    assert captured.err == ""
+    assert "no API key: the library runs without one" in note
+    assert "wai login" in note and "simulator=False" in note
 
 
 # ------------------------------------------------------------- exports

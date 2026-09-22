@@ -33,7 +33,8 @@ from pathlib import Path
 
 from whileai._env import env_name, getenv
 
-#: The While platform API (whilehq/website/backend): serves /device/code,
+#: The While platform API (whilehq/platform, backend/lambda/token-gate):
+#: serves /device/code,
 #: /device/token, /signup and /me. ``WHILEAI_API_URL`` overrides.
 DEFAULT_API_URL = "https://api.while.ai"
 #: Hosts a credentials file may still pin: the token gate this API replaced

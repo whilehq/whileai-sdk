@@ -104,13 +104,16 @@ MAX_BATCH = 2000
 #: the line that wrote it instead of as a 4xx from the server.
 EXPERIMENT_FIELD_MAX = 4096  # chars per experiment field, markdown allowed
 # The platform keeps a sample of graded rows per score, capped the same way
-# the API caps them (backend evalrows.js).
+# the API caps them (`backend/lambda/token-gate/` in `whilehq/platform`).
 RUBRIC_MAX = 4000
 EXAMPLES_MAX = 20
 ROWS_PER_CALL = 500  # graded rows a call; run.score(rows=) chunks for you
-# What the platform stores per graded row, one number each, read off the
-# API (whilehq/website backend/lambda/api/evalrows.js: TEXT_MAX, WHY_MAX,
-# ROW_TEXT_MAX). The server trims past these with a trailing ellipsis; the
+# What the platform stores per graded row, one number each. These were read
+# off the API when it lived at `backend/lambda/api/evalrows.js`; that file and
+# the names TEXT_MAX/WHY_MAX/ROW_TEXT_MAX are gone from `whilehq/platform`
+# (the API is `backend/lambda/token-gate/` now), so treat the three below as
+# the client's own caps with no checkable source until the server names them
+# again (#803). The server trims past these with a trailing ellipsis; the
 # client trims first, keeps the head and the tail with a marker in the
 # middle, and warns once naming the cap, so a reasoning trace posts
 # instead of raising (#734).

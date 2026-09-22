@@ -24,6 +24,27 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dropping Train. Two dead links fixed: the RLHF book's Evaluation chapter and a
   `.md` suffix in a docs.while.ai page link; the style guide's signature example
   cites the file `class Judge` is actually in.
+- Docs no longer tell a reader to type a path that raises. `docs/reference/what-to-run.md`
+  wrote `wai.score.eval_power` and `wai.recommend`, and `docs/reference/five-calls.md`
+  opened `import whileai as wai` and then called `wai.delta_report` and re-imported the
+  engine under the same alias. `tests/api/test_docs_paths_resolve.py` pins the count of
+  hand-written docs citations of a `wai.<path>` that does not resolve; like every ratchet
+  here it may fall and never rise (#780, #735). `docs/reference/what-to-run.md` is written
+  to the one import throughout, and its snippet fixture binds the alias the page shows
+  rather than `whileai.simulations`, so `scripts/check_doc_snippets.py` runs the blocks the
+  way a reader would.
+- The READMEs that tell a reader to run a recipe's smoke test say `uv run sh`, which is
+  what CI runs. All 42 `recipes/**/smoke.sh` call bare `python`, so `sh smoke.sh` outside
+  an activated venv failed (#786).
+- `wai status` with no key prints a note on stdout naming what a key buys, instead of
+  `no API key configured` on stderr. The library needs no account, so the keyless path is
+  not an error, and `recipes/papers/README.md` marks the key optional (#790).
+- The seven references to `whilehq/website`, a repo that returns 404, name `whilehq/platform`
+  instead. The file paths cited inside it (`components/quickstart.tsx`, `BRAND.md`,
+  `backend/lambda/api/evalrows.js` with `TEXT_MAX`/`WHY_MAX`) are in none of its 536 files,
+  so CONSTITUTION §6 names `README.md` as the reference wording for the five-line loop, the
+  docs-designer palette is inlined, and `platform.py`'s row caps say they have no checkable
+  source (#803).
 
 ## 0.123 (2026-09-22)
 

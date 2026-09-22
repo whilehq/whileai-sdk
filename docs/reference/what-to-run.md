@@ -18,6 +18,8 @@ need `WHILEAI_API_KEY` in the environment, or `wai login`. Pass
 | A mix, until coverage plateaus | `adaptive` | New situations, phrasings, and repeats. Best with `until="saturation"` |
 
 ```python
+import whileai as wai
+
 wai.simulate(tools=my_tools, system_prompt=my_system_prompt)  # explore
 wai.simulate(tools=my_tools, system_prompt=my_system_prompt, mode="sft")
 wai.simulate(tools=my_tools, system_prompt=my_system_prompt, mode="rl")
@@ -29,7 +31,7 @@ wai.simulate(tools=my_tools, system_prompt=my_system_prompt, mode="adaptive", un
 Ask before you guess. `recommend()` sizes the run from the agent's own covering grid and from published post-training practice (FireAct, LIMA, AgentTuning for SFT; DAPO, Skywork-OR1 for RL). No key, no network.
 
 ```python
-rec = wai.recommend(tools=my_tools, system_prompt=my_system_prompt, mode="sft")
+rec = wai.simulations.recommend(tools=my_tools, system_prompt=my_system_prompt, mode="sft")
 print("\n".join(rec["reasoning"]))
 data = wai.simulate(tools=my_tools, system_prompt=my_system_prompt, **rec["simulate_kwargs"])
 ```
@@ -87,10 +89,10 @@ traces = [
 `prompt` (or `messages`) and `steps` are what matter. `reward` is optional (ungraded traces still focus the grid, they just carry less signal), and a JSONL path works anywhere a list does. `load_traces` normalizes the common variants (`tool_trace`/`trace` for `steps`, `final`/`output`/`response` for `final_text`, OpenAI-style `messages`), so exports from other stacks usually drop straight in. `rows_from_otel` turns an OTLP export into this shape on your machine; nothing has to be sent anywhere first.
 
 ```python
-import whileai.simulations as wai
+import whileai as wai  # the same one import; the engine is one dot down
 
-traces = wai.load_traces("production.jsonl")  # or just pass the list
-print(wai.trace_report(traces, tools=TOOLS))  # what will this aim at?
+traces = wai.simulations.load_traces("production.jsonl")  # or just pass the list
+print(wai.simulations.trace_report(traces, tools=TOOLS))  # what will this aim at?
 
 data = wai.simulate(
     my_agent, tools=TOOLS, system_prompt=POLICY, traces=traces, mode="rl", repeats=4
@@ -117,10 +119,10 @@ For the one trace above, `trace_report` prints:
 **The leakage rule.** Source traces shape the grid and never enter the generated dataset; `simulate(traces=...)` already drops generated rows that near-copy a source. `leakage_report` / `drop_leaky_rows` are how you verify it, which is what makes it safe to hold traces out for evaluation:
 
 ```python
-prod, train = wai.split_pseudo_production(scored.rows, fraction=0.2)
+prod, train = wai.simulations.split_pseudo_production(scored.rows, fraction=0.2)
 data = wai.simulate(my_agent, tools=TOOLS, system_prompt=POLICY, traces=prod, mode="rl", repeats=4)
-print(wai.leakage_report(data.trajectories, prod)["n_leaky"])  # want 0
-rows, report = wai.drop_leaky_rows(data.trajectories, prod)
+print(wai.simulations.leakage_report(data.trajectories, prod)["n_leaky"])  # want 0
+rows, report = wai.simulations.drop_leaky_rows(data.trajectories, prod)
 ```
 
 And the loop closes on itself: `evaluate(rollouts, judge).failed_traces()` hands the failures straight back to `simulate(traces=...)`.
@@ -160,8 +162,8 @@ Before you spend on training, ask the base run whether the held-out set can
 show a difference at all:
 
 ```python
-base = wai.evaluate(data, judge)  # the base run, graded, before any training
-rep = wai.score.eval_power(base.rows())
+base = wai.simulations.evaluate(data, judge)  # the base run, graded, before any training
+rep = wai.simulations.score.eval_power(base.rows())
 print(rep)  # verdict usable / underpowered / saturated / floored, in_band, resolvable, n_needed
 ```
 

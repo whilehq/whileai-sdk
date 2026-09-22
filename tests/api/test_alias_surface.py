@@ -48,7 +48,7 @@ LEGACY_PATTERNS = (
 # generators write the legacy shape into the user's own repo
 # (`init_repo.py`'s AGENTS.md block and `templates/evals.py`'s run.py), so
 # their coding agent reads it forever. See the Style log, #444.
-LEGACY_IMPORTS = 98
+LEGACY_IMPORTS = 96
 
 SCANNED = ("README.md", "whileai", "recipes", "skills", "docs")
 SUFFIXES = {".py", ".md", ".mdx"}

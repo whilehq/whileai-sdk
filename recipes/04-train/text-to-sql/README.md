@@ -53,7 +53,7 @@ a Postgres you can create a database on, `WHILEAI_API_KEY` from
 Qwen3-4B endpoint, the datasets page and the training page), and a Modal
 account for the RL step.
 
-**0. The free check.** `sh smoke.sh` runs the verifier's matching rule on
+**0. The free check.** `uv run sh smoke.sh` runs the verifier's matching rule on
 rows with known answers, checks the shipped tasks and the prompt file the
 trainer mounts. No database, no key, no GPU.
 

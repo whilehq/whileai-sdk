@@ -61,7 +61,7 @@ or the identity rate measures a name the model never saw.
 From the repo root:
 
 ```bash
-sh recipes/04-train/identity/smoke.sh                                       # free: the generator on a local control file; no key
+uv run sh recipes/04-train/identity/smoke.sh                                       # free: the generator on a local control file; no key
 python recipes/04-train/identity/generate.py --name Pepsi --maker PepsiCo --seed 0   # free; simulated controls need a key
 ```
 

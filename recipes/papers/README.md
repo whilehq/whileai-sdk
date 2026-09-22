@@ -50,7 +50,7 @@ live run has been measured; its README says what ran.
 # the modal extra: needed when outbound traffic goes through an HTTPS proxy,
 # harmless when it does not.
 uv add whileai datasets 'modal[api-proxy-support]'
-export WHILEAI_API_KEY=...        # run page + datasets at while.ai/platform
+export WHILEAI_API_KEY=...        # optional: run page + datasets at while.ai/platform. Every recipe runs without it.
 modal token set --token-id ... --token-secret ...   # or MODAL_TOKEN_ID / _SECRET in the environment
 cd recipes/papers/<slug>
 python recipe.py --selftest         # free: the pure functions the change lives in; needs modal installed, not a token
