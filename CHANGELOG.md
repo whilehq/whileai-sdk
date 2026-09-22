@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `attach_labels` raises when a list (or JSONL) holds anything but label dicts, naming the item
+  and the three accepted shapes; a bare `[0, 1, 1, 0]` used to be filtered to nothing and
+  reported as zero labels, zero invalid (#685).
 - Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
   the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
   instead of zeroing them.
