@@ -83,6 +83,10 @@ recipes/04-train/identity/out/
 # ...and the old-name ratchet with its baseline: CI lint runs it on every PR.
 !/scripts/check_old_name.py
 !/scripts/old_name_baseline.json
+# ...and the hosted-defaults gate with its manifest of deployed Modal apps: CI
+# lint runs it on every PR so a default cannot go on naming a stopped app.
+!/scripts/check_hosted_defaults.py
+!/scripts/hosted_defaults_manifest.json
 # ...except the golden-output harness, which every contributor needs to prove
 # an engine change left simulate() alone. See CONTRIBUTING.md.
 !/scripts/golden.py

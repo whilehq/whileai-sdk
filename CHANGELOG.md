@@ -7,6 +7,31 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- The hosted defaults name Modal apps that exist, and CI now proves it. `stressd-vllm`
+  was stopped on 2026-09-21 and `zeroproof-serve`'s `phi_4` function was replaced by
+  `qwen3_8b`; `DEFAULT_AGENT`, `DEFAULT_SIMULATOR`, `DEFAULT_JUDGE` and `ACCOUNT_JUDGE`
+  went on naming them, so release 0.120 met a user with a 404 on the first
+  `simulate()` or `grade()` call. All four now point at `whileai-serve`: Qwen3-4B rolls
+  out, Qwen3-8B grades. `scripts/check_hosted_defaults.py` is the gate that would have
+  caught it, and it is offline on purpose, because a GET against a scale-to-zero vLLM
+  endpoint boots the container. Its manifest of deployed apps comes from `modal app
+  list`, never from the constants it checks, so it can fail; the failure is pinned in
+  `tests/scripts/test_check_hosted_defaults.py`.
+- Judge and policy are the same family for now (Qwen3-8B grades Qwen3-4B), which is a
+  weaker form of the self-preference bias in Panickssery et al. 2024 (arXiv:2404.13076).
+  It is a floor, not a recommendation: bring your own judge and audit it.
+- Token gate only. The shared unmetered vLLM pool went away with `stressd-vllm`, and
+  the platform's token gate rejects any key without the `zp_` prefix, so a
+  `VLLM_API_KEY` sent to While's own hosts was a hard 401. `VLLM_API_KEY` now means
+  only "my own endpoint", and the missing-key error says so instead of naming a pool
+  that no longer exists.
+- Two compat constants were copies of their own new value, so the fallback they existed
+  for never fired: `PLATFORM_MODAL_PREFIX_OLD` and the second half of
+  `_ACCOUNT_HOST_PREFIXES`. Both now hold the pre-rename `zeroproof-serve-` prefix, so a
+  user pinned to an old URL keeps account-key routing for one release
+  (CONSTITUTION.md: never big-bang).
+- `SERVED_BASES` follows the serving app: `microsoft/phi-4` is not hosted any more.
+
 - `complete()` no longer sends an OpenAI prompt through a 4k window. `CONTEXT_TOKENS`
   is the hosted pool's window, and the `openai:` branch inherited it from a squeeze the
   `anthropic:` and `bedrock:` branches return above: a 15,000-character user turn to a

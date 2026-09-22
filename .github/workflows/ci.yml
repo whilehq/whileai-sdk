@@ -59,6 +59,7 @@ jobs:
       - run: uv run python scripts/check_no_hardcoding.py
       - run: uv run python scripts/check_old_name.py
       - run: uv run python scripts/check_cli_name.py
+      - run: uv run python scripts/check_hosted_defaults.py
 
   ty:
     name: types (ty)
