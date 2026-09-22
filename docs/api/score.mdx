@@ -483,7 +483,11 @@ sides, and uses the t quantile at `df = sum(runs - 1)` (three runs
 per side: 2.78 x floor x sqrt(2/3)); `run_std` is then the headline
 metric's floor, `run_std_by_metric` has them all, `noise_band` is
 the headline band, `noise_rule` spells it out, and `eval_runs`
-says how many runs each side had.
+says how many runs each side had. An arm handed in through
+`train_runs` as N row sets averages N eval draws, so `eval_runs`
+counts those too (three seeds a side: `sqrt(1/3 + 1/3)`); the
+band used to read only the lineage and came out 1.73x too wide
+for three seeds (#750).
 
 Training seeds. The noise floor measures the eval; a delta between
 two separately trained models also carries training variance, which

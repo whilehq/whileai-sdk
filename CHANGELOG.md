@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `compare` counts the row sets `train_runs` names as eval draws when it sets the re-run band, so
+  three seeds a side get `sqrt(1/3 + 1/3)` from the one `noise_band`; reading only
+  `lineage.eval_run` gave the one-run band, 1.73x too wide, and a `moved_unreplicated` verdict with
+  several row sets and no floor now says to pass `run_std=` from `eval_variance` (#750).
 - `recipes/papers/check.py` says which gates it did not reach. The interval, noise band and
   proxy checks sit inside `if verdict == "moved"`, and every paper recipe is `unresolved`
   because each has one training seed per arm, so none of the three has ever run while the

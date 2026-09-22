@@ -569,7 +569,11 @@ def delta_report(
     per side: 2.78 x floor x sqrt(2/3)); ``run_std`` is then the headline
     metric's floor, ``run_std_by_metric`` has them all, ``noise_band`` is
     the headline band, ``noise_rule`` spells it out, and ``eval_runs``
-    says how many runs each side had.
+    says how many runs each side had. An arm handed in through
+    ``train_runs`` as N row sets averages N eval draws, so ``eval_runs``
+    counts those too (three seeds a side: ``sqrt(1/3 + 1/3)``); the
+    band used to read only the lineage and came out 1.73x too wide
+    for three seeds (#750).
 
     Training seeds. The noise floor measures the eval; a delta between
     two separately trained models also carries training variance, which
@@ -666,7 +670,17 @@ def delta_report(
         sides = [metric_summary(rows, m, n_boot=DEGENERATE_CHECK_DRAWS) for rows in (before, after)]
         if all(s.get("degenerate") for s in sides):
             degenerate_guards.append(m)
-    eval_runs = {"before": len(_eval_runs(before)), "after": len(_eval_runs(after))}
+    # Runs per side for the band: the ``lineage.eval_run`` values on the
+    # rows (``simulate(runs=N)``), or the row sets ``train_runs`` names,
+    # whichever is more. Each training seed's rows are their own eval
+    # draw, so an arm given as three seeds averages three runs and its
+    # band is ``sqrt(2/3)``, not ``sqrt(2)``; reading only the lineage
+    # made it 1.73x too wide (#750). Rows a recipe built itself carry no
+    # lineage at all.
+    eval_runs = {
+        side: max(len(_eval_runs(rows)), len((train_arms or {}).get(side) or ()))
+        for side, rows in (("before", before), ("after", after))
+    }
     run_std_source = "given" if run_std is not None else None
 
     # One floor per metric. A marker that applies to a subset of tasks is
@@ -794,11 +808,20 @@ def delta_report(
             )
     if target_verdict == "moved_unreplicated" and headline_metric not in no_floor:
         single = [side for side, n in eval_runs.items() if n < 2]  # noqa: PLR2004  # two runs before a run std exists
-        where = "each side" if len(single) != 1 else f"the {single[0]} side"
-        warnings.append(
-            f"One eval run on {where}, so this could be noise. Run each side three times with "
-            "simulate(tasks=..., runs=3) and the report will say."
-        )
+        if single:
+            where = "each side" if len(single) != 1 else f"the {single[0]} side"
+            warnings.append(
+                f"One eval run on {where}, so this could be noise. Run each side three times "
+                "with simulate(tasks=..., runs=3) and the report will say."
+            )
+        else:
+            # Several row sets a side (train_runs) but no re-run floor: the
+            # rows carry no lineage.eval_run to pool one from.
+            warnings.append(
+                f"{n_a} runs before and {n_b} after but no re-run floor, so this could be "
+                "noise. Pass run_std=eval_variance(*one_side_row_sets)['run_std'] with "
+                "run_std_runs=<how many> and the report will say."
+            )
     if no_floor:
         warnings.append(
             f"no re-run floor for {', '.join(no_floor)}: run_std has no value for it, so its "
