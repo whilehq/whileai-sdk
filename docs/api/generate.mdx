@@ -219,7 +219,9 @@ user, faults) against `model` at `base_url` with `tools` and the
   defaults in `defaults.py`.
 * `execute`: your own world `(tool, arguments) -> result` in place
   of the mock one. `max_turns` / `avg_turns` (12.0) cap and shape
-  the conversation length; `temperature` (0.8), `max_tokens` and
+  the conversation length; `avg_turns=1` is one user line and one
+  reply, and the follow-up branch never runs; `temperature` (0.8),
+  `max_tokens` and
   `logprobs` are the agent's own sampling, recorded on every row.
 
 ```python

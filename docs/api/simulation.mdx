@@ -116,7 +116,9 @@ The agent and the budget:
   not spent.
 * `concurrency` (32 parallel rollouts), `seed`, `sampling`,
   `temperature`, `timeout`, `logprobs`, `fault_rate`,
-  `max_turns` / `avg_turns` (model-backed agents only): each is
+  `max_turns` / `avg_turns` (model-backed agents only;
+  `avg_turns=1` is one user line and one reply, the follow-up
+  branch never runs): each is
   `None` unless you set it, and a misspelled keyword is a
   `TypeError`, never silently ignored. Writer completions are
   `advanced["completions_per_request"]`; seed openers are

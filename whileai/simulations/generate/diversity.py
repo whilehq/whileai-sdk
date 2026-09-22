@@ -913,9 +913,19 @@ def sample_turn_budget(
     avg_turns: float | None = None,
     running_mean: float | None = None,
 ) -> int:
-    """15/75/10 around ``avg_turns``, shifted by the live mean, snapped even."""
-    cap = max(2, int(max_turns))
+    """15/75/10 around ``avg_turns``, shifted by the live mean, snapped even.
+
+    A target at or under 1 is 1 for every rollout: one user line, one
+    reply, the path ``max_turns=1`` takes. Before this the floor below
+    (two turns, user then agent, is the shortest thread the mix can
+    draw) lifted ``avg_turns=1`` to 2, so a model-backed agent got a
+    second user line on every prompt and never said so (#587 guarded
+    the follow-up on ``max_turns``, not on what ``avg_turns`` drew).
+    """
     target = DEFAULT_AVG_TURNS if avg_turns is None else float(avg_turns)
+    if target <= 1:
+        return 1
+    cap = max(2, int(max_turns))
     center = target
     if running_mean is not None:
         # Proportional correction at TURN_GAIN, see above.
@@ -950,7 +960,7 @@ def sample_turn_budget(
     if want % 2:
         want += 1
     even_cap = cap if cap % 2 == 0 else cap - 1
-    return max(2, min(even_cap if even_cap >= 2 else cap, want))  # noqa: PLR2004  # two turns is the shortest thread
+    return max(2, min(even_cap if even_cap >= 2 else cap, want))  # noqa: PLR2004  # two turns is the shortest thread above a target of 1
 
 
 def sample_request_axes(

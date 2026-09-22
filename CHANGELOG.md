@@ -45,6 +45,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `judge_trust(rows, judge=)` warns, and `ok` is false, when the rows' `judge_name` names a
   scorer other than the judge passed: agreement and kappa read the reward on the row, so
   they were that scorer's number under this judge's name (#683).
+- `simulate(avg_turns=1)` with a model-backed agent ran two turns: the person spoke, the agent
+  replied, and when the reply held a "?" the agent model wrote a second user line and answered it
+  too (12 of 12 prompts, two agent calls each), and the row said nothing. #587 made `max_turns=1`
+  single-turn; `avg_turns` drew its budget through `sample_turn_budget`, which never went under 2.
+  A target at or under 1 is now a budget of 1 on every rollout, the path `max_turns=1` takes, and
+  the `avg_turns` docstrings say so. The distribution above 1 is unchanged. A callable agent always
+  got one message, which is why `strengthen-your-evals` and `HarnessSweep` looked right. A fixed
+  task set pins less than you think: everything after the opening prompt was still generated, and
+  the reply the grader scored was the second one (Lambert 2025, ch. Evaluation: with the setup
+  held constant run-to-run spread is 0.25 to 1.5 points, and prompt changes move scores more).
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
   is the report rather than a dict literal: a line per marker with its interval, the phrases that
   fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and
