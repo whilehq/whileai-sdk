@@ -153,6 +153,31 @@ were rescued by at least one of the five runs; `rescued-27b.jsonl` holds
 over four hours on the SGLang endpoint, with 22% of arm replies still
 at the 8,192 cap.
 
+## Pre-flight: is the fitness a hill?
+
+Why every configuration was flat. A swarm climbs a fitness; the question
+is whether that fitness predicts the pass it needs. `calibrate.py`
+regrades saved rollouts with a finer fitness (the share of 40 generated
+tests passed, every test run) against a target the fitness never saw (the
+private tests plus 20 more generated ones). `sql_calibrate.py` does the
+same on the text-to-SQL task set with cell-level F1 against the gold
+result. No model calls beyond the samples already made.
+
+| P(target pass) by fitness bucket | 0 | up to 0.25 | 0.25 to 0.5 | 0.5 to 0.75 | 0.75 to 0.9 | 0.9 to 1 | 1.0 |
+|---|---|---|---|---|---|---|---|
+| code_contests, 4B, 1,776 samples | 0.000 | 0.000 | 0.007 | 0.012 | 0.341 | 0.293 | 0.545 |
+| code_contests, 27B, 816 samples | 0.000 | 0.000 | 0.000 | 0.000 | 0.111 | 0.333 | 0.375 |
+| text-to-SQL, 4B, 4,800 samples | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.928 |
+
+The landscape is a cliff on both task families and both models: partial
+credit below three quarters of the tests carries no information about
+closeness, and on SQL a near miss is a sign of a hard question, not of a
+model about to get it (tasks whose wrong attempts score higher are solved
+less often; correlation -0.19 over 371 tasks). The swarm's whole climb in
+the runs above (best-so-far fitness 0.09 to 0.24 on the 27B) lived in the
+dead zone. Run this check before any population search on a verifier;
+it would have ended this experiment on day one.
+
 ## Learned
 
 - Feedback alone did nothing here. Solo refinement, the swarm with the
@@ -168,6 +193,7 @@ at the 8,192 cap.
   the size that is missing: `wai.holdout_size` says a +5 point gap at a
   7% base needs 547 paired tasks and a +3 point gap needs 1,382. 223 was
   never going to resolve a gap this small.
+- The fitness was never a hill. See the pre-flight above.
 - A real gradient did not change the answer. On the 27B's near-miss band
   the swarm had a third of the visible tests to climb and still tied 24
   independent draws, with most rescues in round 0 for every arm. Three
