@@ -71,6 +71,16 @@ ARMS = ("resample", "solo", "ring", "star")
 VIS_GEN = 8
 HID_GEN = 32
 TEST_TIMEOUT = 6.0  # seconds per test; the contest limit is 1-2 s for C++
+# Exit codes that mean the grader's process could not start, not that the
+# program failed: Windows STATUS_DLL_INIT_FAILED and STATUS_DLL_NOT_FOUND
+# under process-creation pressure. A grade with one of these is void.
+GRADER_FAULTS = {3221225794, 3221225781}
+
+
+class GraderFault(RuntimeError):
+    """The grader itself is broken; stop rather than record fails."""
+
+
 FEEDBACK_CHARS = 300
 
 # --- the model ---------------------------------------------------------------
@@ -366,6 +376,28 @@ def run_tests(
                             raise
                         time.sleep(2.0 * (attempt + 1))
             shown = tests[i][0] if mode == "asserts" else inp
+            if proc is not None and proc.returncode in GRADER_FAULTS:
+                # Back off once and retry; if the machine is still refusing
+                # to start processes, the run must stop, not grade zeros.
+                time.sleep(5.0)
+                with _grade_slots:
+                    proc = subprocess.run(
+                        [sys.executable, "-I", "-S", path],
+                        input=inp,
+                        cwd=tmp,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        timeout=TEST_TIMEOUT,
+                    )
+                if proc.returncode in GRADER_FAULTS:
+                    raise GraderFault(
+                        f"python exited {proc.returncode} twice; the machine cannot start "
+                        "grading processes (Windows STATUS_DLL_INIT_FAILED). Stop the run, "
+                        "free resources, resume with --reuse."
+                    )
             if proc is None:
                 out = fail(
                     i,
