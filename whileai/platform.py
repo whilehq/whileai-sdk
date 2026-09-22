@@ -953,17 +953,6 @@ def _one(x: float) -> str:
     return f"{x:.1f}".rstrip("0").rstrip(".")
 
 
-def _points(versions: list[VersionScore]) -> tuple[list[VersionScore], bool]:
-    """Scores are points out of 100; fractions (every score and interval at
-    most 1) are read as points so the rules see one scale."""
-    if not versions or not all(0 <= v.score <= 1 and (v.ci or 0) <= 1 for v in versions):
-        return versions, False
-    return [
-        v.model_copy(update={"score": v.score * 100, "ci": None if v.ci is None else v.ci * 100})
-        for v in versions
-    ], True
-
-
 def _newest_scores(
     runs: Sequence[Mapping[str, Any]], behavior: str
 ) -> dict[str, tuple[str, VersionScore]]:
@@ -1067,8 +1056,7 @@ def _resolve_verdict(
         out.delta = None if cand is None or served is None else 0.0
         out.excludes_zero = None
         return out
-    points = any(v.score > 1 or (v.ci or 0) > 1 for v in versions)
-    delta = round(cand.score - served.score, 1 if points else 3)
+    delta = round(cand.score - served.score, 1)
     out.delta = delta
     out.excludes_zero = (
         None
@@ -1445,15 +1433,12 @@ def brief_of(
     ]
     saturated: tuple[str, int | None] | None = None
     single = True
-    fraction = False
     smallest: int | None = None
     steps: list[tuple[str, str, str]] = []
     for b in behaviors:
-        raw = _scores_for(live, b.name)
-        if not raw:
+        versions = _scores_for(live, b.name)
+        if not versions:
             continue
-        versions, scaled = _points(raw)
-        fraction = fraction or scaled
         if len(versions) > 1:
             single = False
         for v in versions:
@@ -1480,8 +1465,6 @@ def brief_of(
         if saturated is None and all(v.score >= _SATURATED for v in versions):
             saturated = (b.name, top.n if top.n is not None else b.n)
         steps += _eval_steps(b, versions)
-    if fraction:
-        happened.append("Scores arrived as fractions (0 to 1); read here as points out of 100.")
 
     vd = dash.verdict if dash is not None else None
     if vd is not None and vd.delta is not None and vd.candidate and vd.candidate != vd.serving:
@@ -1787,13 +1770,18 @@ class Run:
         score: float | None = None,
         *,
         rows: Sequence[Example | Mapping[str, Any]] | None = None,
+        fraction: bool = False,
         **fields: Any,
     ) -> Score:
         """Record this version's score on one behavior's held-out test.
 
-        ``ci`` is the half-width of the 95% interval, ``n`` the number of
-        held-out items. Score every behavior, not only the ones this run
-        trained: the ones you did not train are the check.
+        ``score`` is points out of 100, the one scale the platform reads;
+        nothing downstream rescales it. ``fraction=True`` says the number
+        is a rate out of 1 (a pass rate, ``pass_at().value``) and converts
+        it, and ``ci``, to points before posting. ``ci`` is the half-width
+        of the 95% interval, ``n`` the number of held-out items. Score every
+        behavior, not only the ones this run trained: the ones you did not
+        train are the check.
 
         ``rows`` is every graded row (prompt, reply, ok, why, tags), posted
         after the score in chunks of 500; the platform's rows page groups
@@ -1814,6 +1802,18 @@ class Run:
             if score is None:
                 raise TypeError("score(behavior, score, ci=..., n=...) needs the score")
             item = Score(behavior=behavior, score=score, **fields)
+        if fraction:
+            if not 0 <= item.score <= 1:
+                raise ValueError(
+                    f"score(fraction=True) takes a rate in 0..1; got {item.score:g}. "
+                    "Drop fraction=True when the score is already points out of 100."
+                )
+            item = item.model_copy(
+                update={
+                    "score": round(item.score * 100, 1),
+                    "ci": None if item.ci is None else round(item.ci * 100, 1),
+                }
+            )
         if item.ci is None and ("ci", item.behavior) not in self._ci_warned:
             self._ci_warned.add(("ci", item.behavior))
             log.warning(
@@ -1837,16 +1837,13 @@ class Run:
                     item.behavior,
                     item.n,
                 )
-        if (
-            0 <= item.score <= 1
-            and (item.ci is None or item.ci <= 1)
-            and ("scale", item.behavior) not in self._ci_warned
-        ):
+        if 0 < item.score < 1 and ("scale", item.behavior) not in self._ci_warned:
             self._ci_warned.add(("scale", item.behavior))
             log.warning(
-                "score(%r)=%g reads as a fraction; the platform counts points out of 100, "
-                "so pass score * 100 (and ci * 100).",
+                "score(%r)=%g reads as a fraction and was posted as %g points; the platform "
+                "counts points out of 100, so pass fraction=True (or score * 100 and ci * 100).",
                 item.behavior,
+                item.score,
                 item.score,
             )
         out = self.tracked._call("POST", f"/runs/{self.id}/evals", [item.wire()])
@@ -2351,8 +2348,7 @@ class Tracked:
         runs = self.runs()
         out = []
         for b in self.behaviors():
-            versions, _ = _points(_scores_for(runs, b.name))
-            out.append(eval_checks(b, versions))
+            out.append(eval_checks(b, _scores_for(runs, b.name)))
         return out
 
     def delete(self) -> dict[str, Any]:

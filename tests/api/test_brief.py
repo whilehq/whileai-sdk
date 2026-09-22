@@ -14,19 +14,25 @@ RUN = {
     "createdAt": "2026-09-20T02:11:40Z",
     "updatedAt": "2026-09-20T02:11:41Z",
     "evals": [
-        {"behavior": "grounded_answer", "version": "executor-baseline", "score": 1, "ci": 0, "n": 4}
+        {
+            "behavior": "grounded_answer",
+            "version": "executor-baseline",
+            "score": 100,
+            "ci": 0,
+            "n": 4,
+        }
     ],
 }
 
 
 def test_first_run_on_a_set_nobody_can_fail_reads_as_a_sentence():
-    """Jacob's first run: 4 asks, every one passed, posted as a fraction."""
+    """Jacob's first run: 4 asks, every one passed, posted in points."""
     b = Behavior(name="grounded_answer")
     brief = brief_of("a", [b], [RUN])
     assert brief.scored == 1
     assert brief.happened[0] == "1 scored run, no training yet, latest 2026-09-20."
     assert brief.happened[1] == "grounded_answer: executor-baseline passed all 4 asks."
-    assert "fractions" in brief.happened[2]
+    assert len(brief.happened) == 2
     assert brief.means.startswith("A perfect score on 4 asks says the asks are too easy")
     # A set nobody can fail comes first; then size; then the name. Three at most.
     assert [s.say.split(" (")[0] for s in brief.next] == [
@@ -125,12 +131,67 @@ def test_score_warns_when_it_reads_as_a_fraction(caplog):
     fake = Fake()
     run = track("a", transport=fake).run("v1", flush_every=100)
     with caplog.at_level(logging.WARNING, logger="whileai.platform"):
-        run.score("grounded_answer", 1.0, ci=0.0, n=4)
-    assert "reads as a fraction" in caplog.text and "score * 100" in caplog.text
+        run.score("grounded_answer", 0.75, ci=0.09, n=40)
+    assert "reads as a fraction" in caplog.text
+    assert "fraction=True" in caplog.text and "score * 100" in caplog.text
+    # The number goes up as posted: the client guesses no scale.
+    assert fake.calls[-1][2][0]["score"] == 0.75
     caplog.clear()
     with caplog.at_level(logging.WARNING, logger="whileai.platform"):
         run.score("other", 83.0, ci=2.0, n=240)
     assert "reads as a fraction" not in caplog.text
+
+
+def test_zero_and_one_point_scores_do_not_warn(caplog):
+    """A safety behavior the agent almost never passes scores 0 or 1 point;
+    those are points, not fractions, and say nothing."""
+    from tests.api.test_platform import Fake
+
+    fake = Fake()
+    run = track("a", transport=fake).run("v1", flush_every=100)
+    with caplog.at_level(logging.WARNING, logger="whileai.platform"):
+        run.score("never_refuses", 0, ci=0.6, n=200)
+        run.score("rarely_refuses", 1.0, ci=0.8, n=200)
+    assert "fraction" not in caplog.text
+    assert [c[2][0]["score"] for c in fake.calls if c[1].endswith("/evals")] == [0.0, 1.0]
+
+
+def test_fraction_true_converts_a_rate_to_points_before_posting():
+    from tests.api.test_platform import Fake
+
+    fake = Fake()
+    run = track("a", transport=fake).run("v1", flush_every=100)
+    posted = run.score("refunds", 0.71, ci=0.04, n=240, fraction=True)
+    body = fake.calls[-1][2][0]
+    assert (body["score"], body["ci"], body["n"]) == (71.0, 4.0, 240)
+    assert (posted.score, posted.ci) == (71.0, 4.0)
+
+
+def test_low_points_stay_points_on_the_brief_and_the_evals_table():
+    """Two versions at 1 and 0.5 points (a behavior the agent almost never
+    passes) read as 1 and 0.5, not as 100 and 50."""
+    from tests.api.test_verdict_per_behavior import SEED0, Platform
+
+    def run(run_id, version, at, score, ci):
+        return {
+            "id": run_id,
+            "agent": "a",
+            "version": version,
+            "method": "eval",
+            "createdAt": at,
+            "evals": [{"behavior": SEED0, "version": version, "score": score, "ci": ci, "n": 200}],
+        }
+
+    runs = [
+        run("r1", "v1", "2026-09-20T01:00:00Z", 1.0, 0.8),
+        run("r2", "v2", "2026-09-20T02:00:00Z", 0.5, 0.6),
+    ]
+    brief = brief_of("a", [Behavior(name=SEED0, n=200)], runs)
+    assert brief.happened[1] == f"{SEED0}: 2 versions scored, v1 highest at 1, v2 lowest at 0.5."
+    assert not any("fraction" in line for line in brief.happened)
+    health = track("a", transport=Platform(runs, serving="v1")).evals()
+    canfail = next(c for c in health[0].checks if c.key == "canfail")
+    assert canfail.ok is True and "100" not in canfail.value and "50" not in canfail.value
 
 
 def test_finish_prints_the_brief_only_after_a_score(capsys):
