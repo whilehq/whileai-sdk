@@ -247,7 +247,7 @@ grows:
 | public names starting `format_` | 5 | 12 |
 | public names starting `attach_` or `stamp_` | 4 | 6 |
 | public names starting `build_`, `load_`, `run_` or ending `_of`, `_rows` | 6 | 17 |
-| imports that are not `import whileai as wai` (`tests/api/test_alias_surface.py`) | 1 | 98 |
+| imports that are not `import whileai as wai` (`tests/api/test_alias_surface.py`) | 1 | 96 |
 
 Lower a number in the test when you retire a name. Never raise one. A PR
 that has to raise one says why in the body and gets a second reviewer.
