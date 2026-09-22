@@ -101,7 +101,8 @@
               "reward-hacking",
               "safety-evals",
               "character-training",
-              "distillation"
+              "distillation",
+              "groupwise-grading"
             ]
           },
           {

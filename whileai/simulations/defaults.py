@@ -1954,6 +1954,43 @@ BPCO_MAX_TOKENS = 12000
 # past any range DPPO keeps). Not in the paper. (convention, untested)
 BPCO_LOG_RATIO_CAP = 20.0
 
+# GROUPWISE_MODE = "advantage": which of the two groupwise graders a
+# GroupwiseGrading runs when none is named. MiMo-V2.6 (Xiaomi 2026,
+# technical report section 4.3) uses reward synthesis (GRS, 4.3.1) on a
+# subset of high-pass-rate tasks and advantage redistribution (GAR, 4.3.2)
+# on all the remaining code-agent tasks, so GAR is the default and GRS the
+# opt-in.
+GROUPWISE_MODE = "advantage"
+# GROUPWISE_FLOOR = 0.0: the least a rubric score may multiply a passing
+# reward by in reward mode. Section 4.3.1, equation 2, multiplies the raw
+# scores, so the report's value is 0. A floor above 0 bounds a noisy
+# grader's influence (0.5 caps it at 4x between the best and worst pass)
+# and was what the 2026-09-21 text-to-SQL run used; that run found no
+# spread in the grader at all, so the default stays at the report's.
+GROUPWISE_FLOOR = 0.0
+# GROUPWISE_CAP = 3.0: the most the common factor lambda in equation 3 of
+# section 4.3.2 may amplify a pass's advantage. The report caps lambda "to
+# prevent excessive amplification of positive advantages" and does not
+# print the value; 3.0 lets the best pass in a group of eight hold up to
+# three times its share before the cap binds. (convention, untested)
+GROUPWISE_CAP = 3.0
+# GROUPWISE_MIN_FACTOR = 0.5: the quality factor of the lowest-ranked pass
+# when the grader returns a ranking rather than factors. Section 4.3.2 says
+# f_i in (0, 1] and leaves the map from rank to factor unpublished; a linear
+# map from 1.0 (best) to 0.5 (worst), a tie taking the mean rank, halves
+# and never erases the worst pass's advantage. (convention, untested)
+GROUPWISE_MIN_FACTOR = 0.5
+# SPREAD_MIN_STD = 0.05 / SPREAD_BAND = 0.05 / SPREAD_CLUSTER_SHARE = 0.9:
+# when a grader's scores on a group of passes have no spread. Measured
+# 2026-09-21 on text-to-SQL with Qwen3-4B: the rubric grader gave a mean of
+# 0.93 to 1,472 passing replies, GRPO's group normalization erased the
+# constant, and the arm matched the plain-reward arm (-1.7 points, 95%
+# -5.2 to +1.7) at $14. A standard deviation under 0.05, or more than 90%
+# of scores within 0.05 of the median, is that failure.
+SPREAD_MIN_STD = 0.05
+SPREAD_BAND = 0.05
+SPREAD_CLUSTER_SHARE = 0.9
+
 # PRIME_RL_GPUS = 2: the fewest GPUs a prime-rl run takes. It runs the
 # inference engine and the trainer as separate processes on separate
 # devices (INTELLECT-2, arXiv:2505.07291, section 2), so one of each is
@@ -2061,6 +2098,10 @@ __all__ = [
     "FLIP_FLAG",
     "GPU_PRICE_SOURCE",
     "GPU_USD_PER_HOUR",
+    "GROUPWISE_CAP",
+    "GROUPWISE_FLOOR",
+    "GROUPWISE_MIN_FACTOR",
+    "GROUPWISE_MODE",
     "HACK_THRESHOLD",
     "HOLDOUT_BUCKET_HEX_CHARS",
     "HUNG_SLOT_S",
@@ -2182,6 +2223,9 @@ __all__ = [
     "SFT_COMPLETIONS_PER_PROMPT",
     "SFT_PHRASINGS_PER_SITUATION",
     "SHORT_HASH_CHARS",
+    "SPREAD_BAND",
+    "SPREAD_CLUSTER_SHARE",
+    "SPREAD_MIN_STD",
     "STOP_GRACE_S",
     "SYSTEM_PROMPT_HEAD_CHARS",
     "TEXT_HEURISTICS",
