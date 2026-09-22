@@ -263,6 +263,21 @@ class ScoredData:
     def __iter__(self) -> Iterator[dict]:
         return iter(self.rows)
 
+    def __repr__(self) -> str:
+        """One line: rows, who judged them, and the share that scored.
+
+        It was ``<...ScoredData object at 0x...>``, which tells a reader
+        nothing and hides the one number they are about to act on (#796).
+        Rule 5 in ``docs/reference/style.md``."""
+        ok = sum(1 for r in self.rows if r.get("judge_status") == "ok")
+        mean = [r.get("reward") for r in self.rows if isinstance(r.get("reward"), int | float)]
+        parts = [f"{len(self.rows)} rows", f"{ok} scored", f"judge={self.judge_name!r}"]
+        if mean:
+            parts.append(f"mean_reward={sum(mean) / len(mean):.3f}")
+        if self.warnings:
+            parts.append(f"{len(self.warnings)} warning(s): scored.warnings")
+        return f"ScoredData({', '.join(parts)})"
+
     @property
     def profile(self) -> Any:
         """The ``AgentProfile`` of the run these rows came from, set by

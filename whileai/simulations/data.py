@@ -1061,6 +1061,37 @@ class SimulationData:
         """Run-level coverage summary (same as ``data.coverage``)."""
         return dict(self.coverage)
 
+    def __repr__(self) -> str:
+        """One line: what the run holds, not what it holds it in.
+
+        The dataclass default printed every trajectory, so ``print(data)``
+        on a 200-row run was 527,870 characters of nested dicts and a
+        notebook cell no one could scroll past (#796). Rule 5 in
+        ``docs/reference/style.md``: a result is an object that prints
+        itself. The rows are still one attribute away (``data.trajectories``,
+        ``data.rows()``), and nothing about the dataclass changes.
+        """
+        rows = len(self.trajectories)
+        situations = self.unique_prompts or len(
+            {r.get("scenario_id") for r in self.trajectories if r.get("scenario_id")}
+        )
+        graded = sum(
+            1 for r in self.trajectories if r.get("judge_status") or r.get("reward") is not None
+        )
+        parts = [
+            f"{rows} rows",
+            f"{situations} situations",
+            f"{graded} graded" if graded else "ungraded",
+            f"mode={self.mode!r}",
+        ]
+        if self.budget:
+            parts.append(f"budget={self.budget}")
+        if self.stopped_because and self.stopped_because != "budget":
+            parts.append(f"stopped={self.stopped_because}")
+        if self.warnings:
+            parts.append(f"{len(self.warnings)} warning(s): data.warnings")
+        return f"SimulationData({', '.join(parts)})"
+
     @property
     def pass_at(self):
         """pass@1 / pass^k / pass@k over graded rows, grouped by prompt

@@ -45,6 +45,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   so CONSTITUTION §6 names `README.md` as the reference wording for the five-line loop, the
   docs-designer palette is inlined, and `platform.py`'s row caps say they have no checkable
   source (#803).
+- `print(data)` is one line. `SimulationData` used the dataclass repr and `ScoredData`
+  used `object.__repr__`, so a 200-row run printed 527,870 characters of nested
+  trajectories and a scored run printed `<...ScoredData object at 0x...>`. Both now say
+  what the run holds — rows, situations, graded share, judge, mean reward, warnings — and
+  the rows stay one attribute away. Rule 5 in `docs/reference/style.md` (#796).
 
 ## 0.123 (2026-09-22)
 
