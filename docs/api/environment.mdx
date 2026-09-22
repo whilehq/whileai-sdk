@@ -74,7 +74,10 @@ returns the report, which is also the package README: `path`,
 `prompts`, `tasks`, `train` and `holdout` counts,
 `graded_prompts`, `band`, `band_dropped`, `graded_mixed`
 (prompts the policy both solved and failed, the ones with an
-advantage) and `decontamination`.
+advantage) and `decontamination`. `warnings` carries a line when
+`graded_mixed` is 0, whether because no prompt has two graded
+rollouts or because every graded prompt was unanimous: a grouped
+update on such tasks has zero advantage everywhere (#684).
 
 * `source`: a `SimulationData` (system prompt and tools come from
   its profile), a row list, or a JSONL path; graded rows get the

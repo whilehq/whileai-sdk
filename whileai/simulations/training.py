@@ -7,7 +7,7 @@ and ``reward_model`` turns a finished ``rm`` run into a judge. Or your own train
 wherever it runs and reports through the same handle: a run is created,
 points are logged as it goes, and it is finished with a status. The
 platform draws the curve and the progress bar at
-withwhile.com/platform/training.
+while.ai/platform/training.
 
 Three ways in for your own trainer:
 
@@ -53,7 +53,7 @@ from .ingest.platform import _call
 
 log = logging.getLogger("whileai.simulations")
 
-SITE_URL = "https://withwhile.com"
+SITE_URL = "https://while.ai"
 
 
 def _json_safe(value: Any) -> Any:

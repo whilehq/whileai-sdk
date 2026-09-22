@@ -248,16 +248,19 @@ scored = wai.stamp_spec(data.grade(judge=my_judge).rows, spec)
 wai.delta_report(before=before, after=scored, target="pass_at_1", must_not_regress=spec.behaviors())
 ```
 
-### Markers: four families, one polarity
+### Markers: five families, one polarity
 
-A marker is a named behavior measurement on a row. Everything that reads markers (`marker_summary`, `delta_report`, `must_not_regress=`, `from_row`, the run page) reads one place, `row["markers"]`, and does not care which family put the value there. Four families write to it, and only one of them has the wrong polarity:
+A marker is a named behavior measurement on a row. Everything that reads markers (`marker_summary`, `delta_report`, `must_not_regress=`, `from_row`, the run page) reads one place, `row["markers"]`, and does not care which family put the value there. Five families write to it, and only one of them has the wrong polarity:
 
 | Family | How you get it | Polarity | Use it for |
 |---|---|---|---|
 | **Judge-emitted custom markers** | your own name and value, returned as `{"reward": ..., "markers": {"name": value}}` from a `judge=` / `grader=` / `run_judge` callable | **yours to choose, and it must be 1.0 = good** | Anything your product cares about. This is the family `delta_report` and `must_not_regress=` are built for |
 | `trace_markers` / `trace_flag_report` | `wai.trace_markers(rows)` stamps `honest_claims`, `reported_failure`, `no_test_tampering`, `no_suppression`, `no_bypass`, `no_destructive`, `no_secrets`, with the evidence on `row["trace_flags"]` | 1.0 = no flag fired, higher is better | Did the agent fake the work? Read from the trajectory, not the prose; see [Trajectory flags](#trust-the-numbers) above |
 | `style_markers` / `style_report` | `wai.style_markers(rows)` stamps `no_boilerplate`, `no_hedging`, `no_apology`, `no_sycophancy`, `answered` | 1.0 = clean reply, higher is better | Over-optimization drift in a paired before/after |
+| `mark_grounding` / `grounding_report` | `wai.mark_grounding(rows)` stamps `argument_grounding` | 1.0 = every string argument of every call is grounded in the conversation, higher is better | Did the agent invent an id, a name or a date it then acted on? |
 | `behavioral_markers` / `mark_rows` / `STOCK_MARKERS` | `wai.behavioral_markers(rows)` returns `{"boilerplate": 0.31, "refusal": 0.04, ...}` | **presence: 1 = the tic appears, higher is worse** | A one-shot read of how often each tic occurs. Not a delta |
+
+Each report covers its own family and says so. `print(wai.style_report(rows))` ends with the markers it did not stamp (`not stamped here: 8 markers in other families. trace_markers(rows) stamps honest_claims, ...`), because a row clean on every style marker can still have faked the work: [#760](https://github.com/whilehq/whileai-sdk/issues/760) measured 24.2% [22.6%, 25.9%] of the rows a green style report passed carrying a planted failure the other families name. A marker that came out the same on every row is `degenerate`: no interval, a line saying so next to the mean, and one warning naming every such marker, since a phrase list that matches nothing looks exactly like a behavior that never happened.
 
 <Note>
 `behavioral_markers`, `mark_rows`, `row_markers` and `STOCK_MARKERS` live in `whileai.simulations.score.markers`, which is deprecated and raises a `DeprecationWarning` on first use. `style_markers` / `style_report` / `refusal_report` cover the same over-optimization behaviors [4] with the delta-ready polarity.
@@ -279,7 +282,7 @@ If you have already collected rows under an inverted name, flip the value (`1 - 
 
 ## Train, and watch it
 
-Two ways to train, one record. The platform trains a pushed dataset (SFT, GRPO, DPO or a reward model, as a LoRA adapter) and serves the result; or your own trainer runs on Modal, a GPU box, or a notebook and reports into the same run. Either way the loss curve and the progress bar are on the training page of the platform ([withwhile.com](https://withwhile.com)).
+Two ways to train, one record. The platform trains a pushed dataset (SFT, GRPO, DPO or a reward model, as a LoRA adapter) and serves the result; or your own trainer runs on Modal, a GPU box, or a notebook and reports into the same run. Either way the loss curve and the progress bar are on the training page of the platform ([while.ai](https://while.ai)).
 
 ```python
 run = wai.train(
@@ -347,7 +350,7 @@ Plain HTTP, for a stack that is not Python: `POST /runs` with `name`, `dataset_i
 
 ## Report a run so a person can decide
 
-The platform draws one screen per tracked agent at [withwhile.com/platform/runs](https://withwhile.com/platform/runs): the held-out score by version with the frontier model as the line to beat, the training curve, what moved on the behaviors you did not train, the judge checks, live traffic on the served version, and cost. A coding agent fills it with `whileai.platform`; the person reads it and presses Promote. Your agent framework stays yours: `track` takes the agent object you already have (OpenAI Agents SDK, Pydantic AI, LangGraph, Claude Agent SDK) and reads the model, the instructions and the tools off it, or you describe it by hand.
+The platform draws one screen per tracked agent at [while.ai/platform/runs](https://while.ai/platform/runs): the held-out score by version with the frontier model as the line to beat, the training curve, what moved on the behaviors you did not train, the judge checks, live traffic on the served version, and cost. A coding agent fills it with `whileai.platform`; the person reads it and presses Promote. Your agent framework stays yours: `track` takes the agent object you already have (OpenAI Agents SDK, Pydantic AI, LangGraph, Claude Agent SDK) and reads the model, the instructions and the tools off it, or you describe it by hand.
 
 ```python
 from whileai.platform import Behavior, Frontier, Harness, Judge, track
@@ -406,7 +409,7 @@ run = tracked.open("run_7f3a")  # GET /runs/run_7f3a, no POST
 run.finish(hours=2.1, cost_usd=31, record={"optimizer": {"loss_type": "dapo", "lr": 5e-5}})
 ```
 
-**What it costs to run.** Post facts, not dollars. For an API model, the eval block carries `model`, the `input_tokens` and `output_tokens` the provider reported summed over the run, and the `replies` that produced them; for a served open model, the `gpu` and the `gpu_hours` it was up, and the `replies`. The platform prices the facts from its open price book at list price, no caching, and draws held-out score against the result in USD per 1,000 tasks. Every price, its source, the day it was read and the formula are public at [withwhile.com/pricing-book](https://withwhile.com/pricing-book), so two versions on one chart are always priced the same way. `cost_usd` on `finish()` is the training bill, a different number.
+**What it costs to run.** Post facts, not dollars. For an API model, the eval block carries `model`, the `input_tokens` and `output_tokens` the provider reported summed over the run, and the `replies` that produced them; for a served open model, the `gpu` and the `gpu_hours` it was up, and the `replies`. The platform prices the facts from its open price book at list price, no caching, and draws held-out score against the result in USD per 1,000 tasks. Every price, its source, the day it was read and the formula are public at [while.ai/pricing-book](https://while.ai/pricing-book), so two versions on one chart are always priced the same way. `cost_usd` on `finish()` is the training bill, a different number.
 
 ```python
 from whileai.platform import track
@@ -547,7 +550,7 @@ unit is a Bedrock Custom Model Unit, 2 for an 8B. A model in your own
 account or a server you run is routed for free. Without a card on file,
 `publish` and calls to a hosted model raise `PlatformError` with status
 402 and `code: billing_required`; the card is added once under Account on
-withwhile.com.
+while.ai.
 
 The Bedrock import path from a LoRA adapter to a registered ARN is the
 [Bedrock import recipe](/recipes/05-export/bedrock-import).
@@ -567,7 +570,7 @@ rows = wai.pull("ds_...")  # public sets need no key
 wai.unpublish("ds_...")
 ```
 
-Cards live on the public catalog of the platform ([withwhile.com](https://withwhile.com)), grouped by agent, with rows, size and the analyzer's numbers on each. A dataset must be finalized and hold rows to publish.
+Cards live on the public catalog of the platform ([while.ai](https://while.ai)), grouped by agent, with rows, size and the analyzer's numbers on each. A dataset must be finalized and hold rows to publish.
 
 Hugging Face, both directions. With your own token, no platform call (`HF_TOKEN` or `hf auth login`, `pip install 'whileai[hf]'`, private unless `private=False`):
 

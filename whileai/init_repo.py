@@ -45,7 +45,7 @@ def agents_block(version: str = __version__) -> str:
     return f"""{MARK_START} v{version} -->
 ## Evals and post-training with whileai
 
-whileai (`pip install whileai`, `import whileai.simulations as wai`, command `wai`) builds evals that can fail and proves every change on a held-out set with a 95% interval. Docs: https://docs.withwhile.com. Runs: https://withwhile.com/platform/runs.
+whileai (`pip install whileai`, `import whileai.simulations as wai`, command `wai`) builds evals that can fail and proves every change on a held-out set with a 95% interval. Docs: https://docs.withwhile.com. Runs: https://while.ai/platform/runs.
 
 When asked to build, improve or check evals for an agent, follow `.claude/skills/strengthen-your-evals/SKILL.md` top to bottom. Its `check.py` is the tested copy of every code block; run it first (`python .claude/skills/strengthen-your-evals/check.py`).
 

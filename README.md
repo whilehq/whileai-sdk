@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://withwhile.com">
+  <a href="https://while.ai">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-dark.png">
       <img src="https://raw.githubusercontent.com/whilehq/whileai-sdk/main/docs/assets/hero-light.png" alt="whileai, with wai the While whale. Models improve while they work." width="720">
@@ -20,7 +20,7 @@
 
 <p align="center">
   <a href="https://docs.withwhile.com"><b>Docs</b></a> |
-  <a href="https://withwhile.com"><b>Platform</b></a> |
+  <a href="https://while.ai"><b>Platform</b></a> |
   <a href="recipes"><b>Recipes</b></a> |
   <a href="CONSTITUTION.md"><b>Constitution</b></a>
 </p>

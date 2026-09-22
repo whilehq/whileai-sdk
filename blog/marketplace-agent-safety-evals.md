@@ -4,7 +4,7 @@ description: "A step-by-step method for testing whether an LLM agent leaks data:
 slug: marketplace-agent-safety-evals
 date: 2026-09-15
 author: While
-canonical: https://withwhile.com/blog
+canonical: https://while.ai/blog
 keywords:
   - how to test AI agent for data leaks
   - AI agent security testing
@@ -447,7 +447,7 @@ in the suite, and every production incident too.
 ## Further reading
 
 - The runnable example: [`recipes/02-measure/safety-evals-marketplace`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/safety-evals-marketplace)
-- The first post, with the argument for each step on a support agent: [AI Agent Safety Evals: How to Test for Prompt Injection and Data Leaks Before You Ship](https://withwhile.com/blog)
+- The first post, with the argument for each step on a support agent: [AI Agent Safety Evals: How to Test for Prompt Injection and Data Leaks Before You Ship](https://while.ai/blog)
 - The recipe: [`docs/safety-evals.md`](https://github.com/whilehq/whileai-sdk/blob/main/docs/safety-evals.md)
 - OWASP Top 10 for LLM Applications: [owasp.org](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 - Simon Willison, "The lethal trifecta for AI agents": [simonwillison.net](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)
@@ -461,13 +461,13 @@ in the suite, and every production incident too.
       "headline": "How to Test an AI Agent for Data Leaks: Safety Evals for Multi-Tenant Agents on User-Generated Content",
       "description": "A step-by-step method for testing whether an LLM agent leaks data: prompt injection planted in user reviews, tenant isolation the tool does not enforce, exfiltration by email and by public post, and the over-refusal a naive fix causes. Runnable example on the open-source whileai SDK, with numbers from a real model.",
       "datePublished": "2026-09-15",
-      "author": {"@type": "Organization", "name": "While", "url": "https://withwhile.com"},
-      "publisher": {"@type": "Organization", "name": "While", "url": "https://withwhile.com"},
-      "mainEntityOfPage": "https://withwhile.com/blog",
+      "author": {"@type": "Organization", "name": "While", "url": "https://while.ai"},
+      "publisher": {"@type": "Organization", "name": "While", "url": "https://while.ai"},
+      "mainEntityOfPage": "https://while.ai/blog",
       "keywords": "how to test AI agent for data leaks, AI agent security testing, LLM agent safety evaluation, indirect prompt injection user-generated content, multi-tenant LLM data isolation, prompt injection in reviews, OWASP LLM Top 10, over-refusal, pass^k",
       "proficiencyLevel": "Expert",
       "codeRepository": "https://github.com/whilehq/whileai-sdk/tree/main/recipes/02-measure/safety-evals-marketplace",
-      "isBasedOn": "https://withwhile.com/blog"
+      "isBasedOn": "https://while.ai/blog"
     },
     {
       "@type": "HowTo",

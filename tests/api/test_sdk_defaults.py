@@ -696,8 +696,8 @@ def test_is_platform_host_matches_both_domains_and_the_served_models():
 
     for url in (
         "https://api.withwhile.com",
-        "https://withwhile.com/platform/traces",
-        "withwhile.com",
+        "https://while.ai/platform/traces",
+        "while.ai",
         "https://api.zeroproofai.com/v1/traces",
         "https://serve.zeroproofai.com/v1",
         "https://zeroproofai--zeroproof-serve-qwen.modal.run/v1",
@@ -710,7 +710,7 @@ def test_is_platform_host_matches_both_domains_and_the_served_models():
         "https://api.openai.com/v1",
         "https://zeroproofai--stressd-vllm-serve.modal.run/v1",
         "https://notwithwhile.com",
-        "https://withwhile.com.evil.example",
+        "https://while.ai.evil.example",
         "http://localhost:8000/v1",
     ):
         assert not is_platform_host(url), url
