@@ -50,9 +50,10 @@ MODAL_HOST = re.compile(r"^(?P<workspace>[a-z0-9-]+)--(?P<rest>[a-z0-9-]+)\.moda
 def _defaults() -> dict[str, str]:
     """The hosted specs the SDK falls back to, read from the module."""
     sys.path.insert(0, str(ROOT))
-    from whileai.simulations.generate import agents
+    from whileai.simulations.generate import agents, embeddings
+    from whileai.simulations.ingest import platform
 
-    return {
+    found = {
         name: getattr(agents, name)
         for name in (
             "DEFAULT_AGENT",
@@ -63,6 +64,14 @@ def _defaults() -> dict[str, str]:
         )
         if isinstance(getattr(agents, name, None), str)
     }
+    # Not every hosted default is a rollout backend. These two name Modal
+    # apps the same way and broke the same way, so they are checked the same
+    # way rather than left for the next person to find in a traceback.
+    for mod, name in ((platform, "DEFAULT_STUDIO_URL"), (embeddings, "DEFAULT_EMBED_URL")):
+        value = getattr(mod, name, None)
+        if isinstance(value, str):
+            found[name] = value
+    return found
 
 
 def _host(spec: str) -> str | None:
@@ -111,7 +120,12 @@ def check() -> int:
         return 1
     manifest = json.loads(MANIFEST.read_text())
     apps: list[str] = list(manifest.get("apps", []))
+    #: Hosts known dead with no deployed replacement, each with the issue that
+    #: tracks it. This list may shrink and never grow: a new dead host fails.
+    #: Same ratchet as scripts/old_name_baseline.json.
+    quarantined: dict[str, str] = dict(manifest.get("known_dead", {}))
     bad: list[str] = []
+    stale: list[str] = []
     for name, spec in _defaults().items():
         host = _host(spec)
         if not host:
@@ -121,7 +135,10 @@ def check() -> int:
             continue  # a user's own endpoint; not ours to verify
         app, _fn = _split(host, apps)
         if app is None:
-            bad.append(f"{name}: {host} names no deployed Modal app")
+            if name in quarantined:
+                stale.append(f"{name}: {host} ({quarantined[name]})")
+            else:
+                bad.append(f"{name}: {host} names no deployed Modal app")
     if bad:
         print("hosted defaults name endpoints that do not exist:\n")
         for line in bad:
@@ -132,7 +149,10 @@ def check() -> int:
             "in the same PR. A default that 404s is a first-call failure for every user."
         )
         return 1
-    print(f"ok: {len(_defaults())} hosted defaults, every Modal endpoint is deployed")
+    for line in stale:
+        print(f"known dead, tracked: {line}")
+    live = len(_defaults()) - len(stale)
+    print(f"ok: {live} hosted defaults on deployed apps, {len(stale)} quarantined")
     return 0
 
 

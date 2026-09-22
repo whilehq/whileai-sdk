@@ -537,9 +537,13 @@ def _follow_redirects(
 
 
 def _request_extras(base_url: str | None, model: str) -> dict[str, Any]:
-    """Per-endpoint request fields. The account Qwen is the thinking base
-    (`Qwen/Qwen3-4B`): without this it reasons before every reply, which
-    the writer's JSON parse and the rollout's turn cap were not built for."""
+    """Per-endpoint request fields. The hosted Qwen bases think by default,
+    and without this they reason before every reply, which the writer's JSON
+    parse and the rollout's turn cap were not built for. It matches both
+    hosted functions since 2026-09-21: `Qwen/Qwen3-4B` (the agent) and
+    `Qwen/Qwen3-8B` (the judge). The judge is already started thinking-off
+    server side, so for it this is the same instruction sent twice, not a
+    new one; an Instruct checkpoint does not think and is excluded."""
     if _account_url(base_url) and str(model).startswith("Qwen/Qwen3") and "Instruct" not in model:
         return {"chat_template_kwargs": {"enable_thinking": False}}
     return {}

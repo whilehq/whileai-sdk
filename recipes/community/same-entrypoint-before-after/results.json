@@ -1,6 +1,6 @@
 {
   "whileai": "0.53",
-  "endpoint": "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1",
+  "endpoint": "https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1",
   "base_model": "qwen3-4b-think",
   "trained_model": "billing-boring-half",
   "adapter_run": "run_327b614f3682cae5",
