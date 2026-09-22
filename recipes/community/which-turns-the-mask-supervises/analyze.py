@@ -1,4 +1,4 @@
-"""Paired bootstrap over held-out prompts: does honouring the mask still lose?
+"""Paired bootstrap over held-out prompts: which mask_mode trains the policy?
 
 python analyze.py data/results_raw.json
 """
@@ -8,15 +8,24 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import statistics as st
 import sys
 from pathlib import Path
 
 from whileai.config import provenance
 
-METRICS = ("stub", "chars", "tool_call")
+METRICS = ("stub", "chars", "tool_call", "right_tool", "right_id", "real_id")
 ARMS = ("assistant", "final", "unroll")
 B = 2000
+ID = re.compile(r"ORD-\d+")
+
+# "Never invent an order id" can only be graded on an ask that contains one.
+# 24 of our 120 held-out asks mention no id at all while their gold trace
+# still calls with one (it comes from the scenario's world state, not the
+# text), so scoring those as "invented" is a defect in the metric, not in
+# the model. real_id is therefore reported over the asks that name an id.
+CONDITIONAL = {"real_id"}
 
 
 def arm_series(passes: list[list[dict]], metric: str) -> list[float]:
@@ -25,16 +34,22 @@ def arm_series(passes: list[list[dict]], metric: str) -> list[float]:
     return [st.mean(p[i][metric] for p in passes) for i in range(n)]
 
 
-def paired(a: list[float], b: list[float], seed: int = 0) -> dict:
-    """Bootstrap the paired difference a-b over prompts."""
+def paired(a: list[float], b: list[float], seed: int = 0, keep: list[bool] | None = None) -> dict:
+    """Bootstrap the paired difference a-b over prompts.
+
+    `keep` restricts the pairing to a subset of prompts (see CONDITIONAL).
+    """
     rng = random.Random(seed)
     d = [x - y for x, y in zip(a, b)]
+    if keep is not None:
+        d = [v for v, k in zip(d, keep) if k]
     n = len(d)
     boots = sorted(st.mean(rng.choices(d, k=n)) for _ in range(B))
     return {
         "delta": round(st.mean(d), 4),
         "lo": round(boots[int(0.025 * B)], 4),
         "hi": round(boots[int(0.975 * B)], 4),
+        "n": n,
     }
 
 
@@ -47,10 +62,30 @@ def main() -> None:
 
     res = json.loads(Path(args.raw).read_text())
     base_passes = res["base"]
-    out: dict = {"noise_floor": {}, "arms": {}, "contrasts": {}, "train": res["train"]}
+    keep = [bool(ID.findall(g["ask"])) for g in res["golds"]]
+    out: dict = {
+        "noise_floor": {},
+        "arms": {},
+        "contrasts": {},
+        "train": res["train"],
+        "conditional": {
+            "metrics": sorted(CONDITIONAL),
+            "prompts_scored": sum(keep),
+            "of": len(keep),
+            "why": "asks that name no order id have no gold to grade 'never invent one' against",
+        },
+    }
+
+    def mask_for(m: str) -> list[bool] | None:
+        return keep if m in CONDITIONAL else None
+
+    def mean_of(series: list[float], m: str) -> float:
+        k = mask_for(m)
+        vals = [v for v, on in zip(series, k) if on] if k else series
+        return round(st.mean(vals), 4)
 
     for m in METRICS:
-        means = [round(st.mean(r[m] for r in p), 4) for p in base_passes]
+        means = [mean_of(arm_series([p], m), m) for p in base_passes]
         out["noise_floor"][m] = {
             "passes": means,
             "band": round(max(means) - min(means), 4),
@@ -65,8 +100,8 @@ def main() -> None:
         arm_series_by[arm] = {m: arm_series(passes, m) for m in METRICS}
         out["arms"][arm] = {
             m: {
-                "mean": round(st.mean(arm_series_by[arm][m]), 4),
-                "per_seed": [round(st.mean(r[m] for r in p), 4) for p in passes],
+                "mean": mean_of(arm_series_by[arm][m], m),
+                "per_seed": [mean_of(arm_series([p], m), m) for p in passes],
             }
             for m in METRICS
         }
@@ -83,13 +118,13 @@ def main() -> None:
     ):
         out["contrasts"][name] = {}
         for m in METRICS:
-            c = paired(arm_series_by[x][m], arm_series_by[y][m])
+            c = paired(arm_series_by[x][m], arm_series_by[y][m], keep=mask_for(m))
             c["verdict"] = verdict(c, out["noise_floor"][m]["band"])
             out["contrasts"][name][m] = c
     for arm in ARMS:
         out["contrasts"][f"{arm}_minus_base"] = {}
         for m in METRICS:
-            c = paired(arm_series_by[arm][m], base_series[m])
+            c = paired(arm_series_by[arm][m], base_series[m], keep=mask_for(m))
             c["verdict"] = verdict(c, out["noise_floor"][m]["band"])
             out["contrasts"][f"{arm}_minus_base"][m] = c
 

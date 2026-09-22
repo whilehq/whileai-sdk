@@ -61,22 +61,60 @@ TOOL_NAMES = {"lookup_order", "refund_order", "order_status"}
 CALL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.S)
 
 
-def _metrics(texts: list[str]) -> list[dict]:
-    """Per-reply metric row. Kept here so base and arms score identically."""
+ID_RE = re.compile(r"ORD-\d+")
+
+
+def gold_of(row: dict) -> dict | None:
+    """The first tool call in the trace: which tool, which order id."""
+    for m in row.get("messages", []):
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            call = m["tool_calls"][0]
+            fn = call.get("function", call)
+            args = fn.get("arguments")
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except Exception:
+                    args = {}
+            return {"tool": fn.get("name"), "order_id": (args or {}).get("order_id")}
+    return None
+
+
+def _metrics(texts: list[str], golds: list[dict]) -> list[dict]:
+    """Per-reply metric row. Kept here so base and arms score identically.
+
+    `tool_call` says the model called a tool. It does not say it called the
+    right one, and it does not say the id was real - the policy is "Look the
+    order up before you answer. Never invent an order id." So the three
+    task metrics below grade the call against the trace's own gold call.
+    """
     out = []
-    for t in texts:
+    for t, gold in zip(texts, golds):
         body = CALL_RE.sub("", t).strip()
-        names = []
+        calls = []
         for m in CALL_RE.finditer(t):
             try:
-                names.append(json.loads(m.group(1)).get("name"))
+                obj = json.loads(m.group(1))
+                args = obj.get("arguments") or {}
+                calls.append((obj.get("name"), args.get("order_id")))
             except Exception:
-                names.append(None)
+                calls.append((None, None))
+        named = [c for c in calls if c[0] in TOOL_NAMES]
+        ask_ids = set(ID_RE.findall(gold["ask"]))
+        used_ids = [c[1] for c in named if c[1]]
         out.append(
             {
                 "chars": len(body),
                 "stub": 1 if len(body) < 60 else 0,
-                "tool_call": 1 if any(n in TOOL_NAMES for n in names) else 0,
+                "tool_call": 1 if named else 0,
+                # called the tool the trace called
+                "right_tool": 1 if any(c[0] == gold["tool"] for c in named) else 0,
+                # called it with the id the trace used
+                "right_id": 1
+                if any(c[0] == gold["tool"] and c[1] == gold["order_id"] for c in named)
+                else 0,
+                # every id it used appears in the ask: "never invent an order id"
+                "real_id": 1 if (used_ids and all(i in ask_ids for i in used_ids)) else 0,
             }
         )
     return out
@@ -101,13 +139,16 @@ def run_all() -> dict:
         tok.pad_token = tok.eos_token
 
     hold = [json.loads(x) for x in open("/root/holdout.jsonl")]
-    # deterministic eval subset: one row per distinct ask, first N by sorted id
-    seen, eval_rows = set(), []
+    # Deterministic eval subset: one row per distinct ask, first N by sorted
+    # id, and only rows whose trace actually calls a tool - otherwise
+    # right_tool/right_id have no gold to grade against.
+    seen, eval_rows, golds = set(), [], []
     for r in sorted(hold, key=lambda r: (str(r.get("scenario_id")), str(r.get("prompt")))):
-        ask = r.get("prompt")
-        if ask and ask not in seen:
+        ask, gold = r.get("prompt"), gold_of(r)
+        if ask and gold and gold["tool"] and ask not in seen:
             seen.add(ask)
             eval_rows.append(r)
+            golds.append({**gold, "ask": ask})
         if len(eval_rows) >= N_EVAL:
             break
     ctx = json.load(open("/root/eval_context.json"))
@@ -153,7 +194,7 @@ def run_all() -> dict:
 
     base = fresh_base()
     for s in (0, 1, 2):
-        results["base"].append(_metrics(generate(base, 1000 + s)))
+        results["base"].append(_metrics(generate(base, 1000 + s), golds))
         print(f"base pass {s} done", flush=True)
     del base
     torch.cuda.empty_cache()
@@ -211,13 +252,14 @@ def run_all() -> dict:
             print(f"{arm}-s{seed}: TRL supervises {sup}/{tot} = {sup / tot:.4f}", flush=True)
             trainer.train()
             texts = generate(trainer.model, 2000 + seed)
-            results["arms"].setdefault(arm, {})[f"s{seed}"] = _metrics(texts)
+            results["arms"].setdefault(arm, {})[f"s{seed}"] = _metrics(texts, golds)
             results["arms"][arm].setdefault("sample", []).append(texts[0][:300])
             del trainer
             torch.cuda.empty_cache()
             print(f"{arm}-s{seed} trained + evaluated", flush=True)
 
     results["eval_prompts"] = [r["prompt"] for r in eval_rows]
+    results["golds"] = golds
     with open("/out/results_raw.json", "w") as fh:
         json.dump(results, fh)
     out_vol.commit()

@@ -1,7 +1,7 @@
 {
  "recipe": "which-turns-the-mask-supervises",
  "question": "mask_mode='final' and unroll=True both write prompt/completion rows TRL trains as masked. On tool-using traces, are they the same choice?",
- "answer": "No. mask_mode='final' never supervises a tool call (0 of 388) and trains a model that stops calling tools: 0.000 tool-call rate, 0.608 BELOW the untrained base. unroll=True supervises every assistant turn and reaches 1.000.",
+ "answer": "No. mask_mode='final' never supervises a tool call (0 of 388) and trains a model that stops calling tools entirely: 0.000 tool-call rate, 0.608 BELOW the untrained base. unroll=True supervises every assistant turn and reaches 1.000 tool-call, 1.000 right-tool, 0.958 right-id and 1.000 never-invents-an-id.",
  "whileai": "0.124",
  "stack": {
   "trl": "0.19.1",
@@ -14,9 +14,10 @@
  "gpu": "L40S",
  "modal_apps": {
   "smoke": "ap-PiaRvamj8tk2MnSiZP2cP9",
-  "train": "ap-uVoVZ4mqOgTm2InZZRtTru"
+  "train": "ap-uVoVZ4mqOgTm2InZZRtTru",
+  "train_v2_task_metrics": "ap-JodB2cknHbz9kkoM35Af1T"
  },
- "usd": 0.35,
+ "usd": 0.7,
  "model": "offline (seeded_agent, simulator=False; no model key)",
  "data": {
   "pooled_rows": 960,
@@ -147,48 +148,117 @@
    ],
    "band": 0.0333,
    "mean": 0.6083
+  },
+  "right_tool": {
+   "passes": [
+    0.55,
+    0.525,
+    0.5667
+   ],
+   "band": 0.0417,
+   "mean": 0.5472
+  },
+  "right_id": {
+   "passes": [
+    0.525,
+    0.5,
+    0.525
+   ],
+   "band": 0.025,
+   "mean": 0.5167
+  },
+  "real_id": {
+   "passes": [
+    0.6771,
+    0.6667,
+    0.6875
+   ],
+   "band": 0.0208,
+   "mean": 0.6771
   }
  },
  "arms": {
   "assistant": {
    "stub": {
-    "mean": 0.9917,
+    "mean": 1,
     "per_seed": [
      1,
-     0.9833
+     1
     ]
    },
    "chars": {
-    "mean": 1.3542,
+    "mean": 0.1667,
     "per_seed": [
      0,
-     2.7083
+     0.3333
     ]
    },
    "tool_call": {
-    "mean": 0.8417,
+    "mean": 0.8792,
     "per_seed": [
-     0.8333,
-     0.85
+     0.8833,
+     0.875
+    ]
+   },
+   "right_tool": {
+    "mean": 0.825,
+    "per_seed": [
+     0.8583,
+     0.7917
+    ]
+   },
+   "right_id": {
+    "mean": 0.6708,
+    "per_seed": [
+     0.6917,
+     0.65
+    ]
+   },
+   "real_id": {
+    "mean": 0.901,
+    "per_seed": [
+     0.8958,
+     0.9062
     ]
    }
   },
   "final": {
    "stub": {
-    "mean": 0.4,
+    "mean": 0.3792,
     "per_seed": [
-     0.3167,
-     0.4833
+     0.3,
+     0.4583
     ]
    },
    "chars": {
-    "mean": 77.7,
+    "mean": 80.6208,
     "per_seed": [
-     86.4667,
-     68.9333
+     88.2167,
+     73.025
     ]
    },
    "tool_call": {
+    "mean": 0,
+    "per_seed": [
+     0,
+     0
+    ]
+   },
+   "right_tool": {
+    "mean": 0,
+    "per_seed": [
+     0,
+     0
+    ]
+   },
+   "right_id": {
+    "mean": 0,
+    "per_seed": [
+     0,
+     0
+    ]
+   },
+   "real_id": {
     "mean": 0,
     "per_seed": [
      0,
@@ -217,107 +287,248 @@
      1,
      1
     ]
+   },
+   "right_tool": {
+    "mean": 1,
+    "per_seed": [
+     1,
+     1
+    ]
+   },
+   "right_id": {
+    "mean": 0.9583,
+    "per_seed": [
+     0.9583,
+     0.9583
+    ]
+   },
+   "real_id": {
+    "mean": 1,
+    "per_seed": [
+     1,
+     1
+    ]
    }
   }
  },
  "contrasts": {
   "final_minus_assistant": {
    "stub": {
-    "delta": -0.5917,
-    "lo": -0.6542,
-    "hi": -0.525,
+    "delta": -0.6208,
+    "lo": -0.6833,
+    "hi": -0.5542,
+    "n": 120,
     "verdict": "moved"
    },
    "chars": {
-    "delta": 76.3458,
-    "lo": 69.5,
-    "hi": 83.2583,
+    "delta": 80.4542,
+    "lo": 73.85,
+    "hi": 86.9167,
+    "n": 120,
     "verdict": "moved"
    },
    "tool_call": {
-    "delta": -0.8417,
-    "lo": -0.8917,
-    "hi": -0.7833,
+    "delta": -0.8792,
+    "lo": -0.9292,
+    "hi": -0.825,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_tool": {
+    "delta": -0.825,
+    "lo": -0.8792,
+    "hi": -0.7625,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_id": {
+    "delta": -0.6708,
+    "lo": -0.75,
+    "hi": -0.5917,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "real_id": {
+    "delta": -0.901,
+    "lo": -0.9479,
+    "hi": -0.849,
+    "n": 96,
     "verdict": "moved"
    }
   },
   "unroll_minus_assistant": {
    "stub": {
-    "delta": 0.0083,
+    "delta": 0,
     "lo": 0,
-    "hi": 0.0208,
+    "hi": 0,
+    "n": 120,
     "verdict": "flat"
    },
    "chars": {
-    "delta": -1.3542,
-    "lo": -3.3417,
+    "delta": -0.1667,
+    "lo": -0.5,
     "hi": 0,
+    "n": 120,
     "verdict": "flat"
    },
    "tool_call": {
-    "delta": 0.1583,
-    "lo": 0.1083,
-    "hi": 0.2167,
+    "delta": 0.1208,
+    "lo": 0.0708,
+    "hi": 0.175,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_tool": {
+    "delta": 0.175,
+    "lo": 0.1208,
+    "hi": 0.2375,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_id": {
+    "delta": 0.2875,
+    "lo": 0.2167,
+    "hi": 0.3667,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "real_id": {
+    "delta": 0.099,
+    "lo": 0.0521,
+    "hi": 0.151,
+    "n": 96,
     "verdict": "moved"
    }
   },
   "unroll_minus_final": {
    "stub": {
-    "delta": 0.6,
-    "lo": 0.5375,
-    "hi": 0.6625,
+    "delta": 0.6208,
+    "lo": 0.5542,
+    "hi": 0.6833,
+    "n": 120,
     "verdict": "moved"
    },
    "chars": {
-    "delta": -77.7,
-    "lo": -84.1708,
-    "hi": -71.525,
+    "delta": -80.6208,
+    "lo": -87.0375,
+    "hi": -73.95,
+    "n": 120,
     "verdict": "moved"
    },
    "tool_call": {
     "delta": 1,
     "lo": 1,
     "hi": 1,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_tool": {
+    "delta": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_id": {
+    "delta": 0.9583,
+    "lo": 0.9208,
+    "hi": 0.9875,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "real_id": {
+    "delta": 1,
+    "lo": 1,
+    "hi": 1,
+    "n": 96,
     "verdict": "moved"
    }
   },
   "assistant_minus_base": {
    "stub": {
-    "delta": 0.3889,
-    "lo": 0.3111,
-    "hi": 0.4639,
+    "delta": 0.3972,
+    "lo": 0.3194,
+    "hi": 0.4722,
+    "n": 120,
     "verdict": "moved"
    },
    "chars": {
-    "delta": -52.7042,
-    "lo": -65.3375,
-    "hi": -40.4236,
+    "delta": -53.8917,
+    "lo": -66.5583,
+    "hi": -41.8639,
+    "n": 120,
     "verdict": "moved"
    },
    "tool_call": {
-    "delta": 0.2333,
-    "lo": 0.1569,
-    "hi": 0.3167,
+    "delta": 0.2708,
+    "lo": 0.1889,
+    "hi": 0.3542,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_tool": {
+    "delta": 0.2778,
+    "lo": 0.1917,
+    "hi": 0.3625,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_id": {
+    "delta": 0.1542,
+    "lo": 0.0819,
+    "hi": 0.2236,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "real_id": {
+    "delta": 0.224,
+    "lo": 0.1319,
+    "hi": 0.3142,
+    "n": 96,
     "verdict": "moved"
    }
   },
   "final_minus_base": {
    "stub": {
-    "delta": -0.2028,
-    "lo": -0.2972,
-    "hi": -0.1069,
+    "delta": -0.2236,
+    "lo": -0.3181,
+    "hi": -0.1236,
+    "n": 120,
     "verdict": "moved"
    },
    "chars": {
-    "delta": 23.6417,
-    "lo": 10.6681,
-    "hi": 36.3,
+    "delta": 26.5625,
+    "lo": 12.6194,
+    "hi": 40.0056,
+    "n": 120,
     "verdict": "moved"
    },
    "tool_call": {
     "delta": -0.6083,
     "lo": -0.6861,
     "hi": -0.5306,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_tool": {
+    "delta": -0.5472,
+    "lo": -0.6278,
+    "hi": -0.4694,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_id": {
+    "delta": -0.5167,
+    "lo": -0.5972,
+    "hi": -0.4361,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "real_id": {
+    "delta": -0.6771,
+    "lo": -0.7569,
+    "hi": -0.5972,
+    "n": 96,
     "verdict": "moved"
    }
   },
@@ -326,18 +537,42 @@
     "delta": 0.3972,
     "lo": 0.3194,
     "hi": 0.4722,
+    "n": 120,
     "verdict": "moved"
    },
    "chars": {
     "delta": -54.0583,
     "lo": -66.6944,
     "hi": -42.0083,
+    "n": 120,
     "verdict": "moved"
    },
    "tool_call": {
     "delta": 0.3917,
     "lo": 0.3139,
     "hi": 0.4694,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_tool": {
+    "delta": 0.4528,
+    "lo": 0.3722,
+    "hi": 0.5306,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "right_id": {
+    "delta": 0.4417,
+    "lo": 0.3639,
+    "hi": 0.5222,
+    "n": 120,
+    "verdict": "moved"
+   },
+   "real_id": {
+    "delta": 0.3229,
+    "lo": 0.2431,
+    "hi": 0.4028,
+    "n": 96,
     "verdict": "moved"
    }
   }
@@ -345,7 +580,16 @@
  "preregistered": {
   "primary": "stub-reply share (<60 chars) - MIS-SPECIFIED for this data, see README",
   "secondary": "mean reply chars - same defect",
-  "tertiary": "tool-call rate - the metric that carries the result"
+  "tertiary": "tool-call rate - held up, and extended into three task metrics below",
+  "added_after_prereg": "right_tool, right_id, real_id: added in a second run because a tool-call rate says the model called A tool, not the RIGHT one. Post-hoc and labelled as such; they agree with the tertiary metric."
  },
- "verdict": "moved"
+ "verdict": "moved",
+ "conditional": {
+  "metrics": [
+   "real_id"
+  ],
+  "prompts_scored": 96,
+  "of": 120,
+  "why": "asks that name no order id have no gold to grade 'never invent one' against"
+ }
 }

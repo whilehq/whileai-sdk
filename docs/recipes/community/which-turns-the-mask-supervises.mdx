@@ -52,12 +52,43 @@ bootstrap over prompts, 2000 resamples.
 | arm | tool-call rate | paired vs base [95%] | verdict |
 |---|---|---|---|
 | base (3 passes) | 0.608 / 0.592 / 0.625 — band 0.033 | — | — |
-| `assistant` | 0.842 | **+0.233 [+0.157, +0.317]** | moved |
+| `assistant` | 0.879 | **+0.271 [+0.189, +0.354]** | moved |
 | `final` | **0.000** | **−0.608 [−0.686, −0.531]** | moved |
 | `unroll` | **1.000** | **+0.392 [+0.314, +0.469]** | moved |
 
 `unroll` − `final` is **+1.000 [+1.000, +1.000]**. Every interval excludes
 zero and every point estimate is outside the base band.
+
+### Did it call the *right* tool?
+
+A tool-call rate says the model called *a* tool. It does not say it called
+the right one, and 1.000 is suspicious enough to check. So a second run
+grades each call against the trace's own gold call — same arms, same
+seeds, same prompts:
+
+| metric | base | `assistant` | `final` | `unroll` |
+|---|---|---|---|---|
+| called a tool | 0.608 | 0.879 | 0.000 | **1.000** |
+| called the **right** tool | 0.547 | 0.825 | 0.000 | **1.000** |
+| right tool **and** right order id | 0.517 | 0.671 | 0.000 | **0.958** |
+| never invented an order id † | 0.677 | 0.901 | 0.000 | **1.000** |
+
+† scored on the 96 of 120 held-out asks that name an order id — see below.
+
+`unroll` − base: right tool **+0.453 [+0.372, +0.531]**, right id **+0.442
+[+0.364, +0.522]**, never-invented **+0.323 [+0.243, +0.403]**. `unroll` −
+`assistant` is positive and excludes zero on all three. The verdict does
+not just survive the stricter metric; it widens.
+
+**A metric defect we caught and fixed rather than published.** "Never
+invent an order id" first scored `unroll` at 0.800 — apparently a 20%
+policy violation. It is not: 24 of the 120 held-out asks mention no order
+id at all, while their gold trace still calls with one (it comes from the
+scenario's world state, not the text). Scoring those as "invented" is a
+defect in the metric. 0.800 is exactly 96/120, so `unroll` had in fact
+never invented an id on an ask that contained one. Scored on the 96 asks
+that name an id, it is **1.000**. `analyze.py` carries the subset rule as
+`CONDITIONAL` and `results.json` records `prompts_scored: 96, of: 120`.
 
 `final` is the only arm that is *worse than not training at all*. A sample
 of what it writes to a held-out ask that needs a lookup:
@@ -133,8 +164,9 @@ python analyze.py data/results_raw.json
 
 Modal apps from the published run: `ap-PiaRvamj8tk2MnSiZP2cP9` (CPU smoke),
 `ap-uVoVZ4mqOgTm2InZZRtTru` (L40S, 3 base passes + 6 LoRA arms + 6 eval
-passes, 9 min). Both stopped. `whileai==0.124`, `trl==0.19.1`,
-`transformers==4.54.0`, `peft==0.16.0`, `torch==2.7.1`.
+passes, 9 min), `ap-JodB2cknHbz9kkoM35Af1T` (the same again with the three
+task metrics, 6 min). All stopped, $0.70 total. `whileai==0.124`,
+`trl==0.19.1`, `transformers==4.54.0`, `peft==0.16.0`, `torch==2.7.1`.
 
 ## What did not work
 
@@ -172,11 +204,16 @@ reassuring but is not the same as a measured training variance.
 
 ## Next
 
-Two things this run sets up and does not do. First: `assistant` reaches
-0.842 while supervising 22x the tokens `unroll` does, and `unroll` reaches
-1.000 — so on this data the cheap arm wins, and whether that survives at
-2000+ rows is one command and $0.35. Second: the tool-call rate says the
-model *calls* a tool, not that it calls the *right* tool with the *right*
-arguments. Grading the call against the trace's own gold call turns this
-from a behavioural metric into a task metric, and `wai.verify` is where to
-look for it.
+`assistant` supervises 22x the tokens `unroll` does and loses to it on
+every task metric, so on this data the cheap arm wins outright. Whether
+that survives at 2000+ rows is one command and $0.35 — and it is the
+interesting question, because `assistant`'s extra supervision is spent on
+system prompts and tool results, which is exactly the budget that ought to
+start paying off somewhere.
+
+The other open one: every number here is from a single base model.
+`Qwen2.5-1.5B-Instruct` has no `{% generation %}` block in its chat
+template, which is why `assistant_only_loss=True` is not available as a
+fourth arm. A base that *does* have one (Llama 3.x Instruct) would let
+`mask_mode="assistant"` be trained as masked, and that is the arm this
+recipe cannot build.
