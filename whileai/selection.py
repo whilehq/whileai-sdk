@@ -19,9 +19,46 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from .simulations.data import RowList, row_config
+
+
+@dataclass(frozen=True)
+class Rejection:
+    """The rejection-sampling rule ``select(mode="sft")`` applies, as one
+    object so the call stays inside the eight-parameter cap.
+
+    ``select`` is the rule (Lambert 2025, chapter Rejection Sampling,
+    "Scoring Completions"): ``"top_per_prompt"`` (the default) keeps each
+    prompt's highest-reward completion, ``"top_k_overall"`` keeps the
+    highest-reward completions across all prompts, and the two ``random_*``
+    rules are the chance control that chapter calls mandatory -- the same
+    counts, drawn at random -- so a claimed gain from selection can be
+    checked against it. ``min_reward`` (1.0: judge-approved) is the reward
+    a demonstration needs. ``seed`` is the draw the ``random_*`` rules
+    make; vary it across arms, because one seeded draw is one sample of
+    the control, not the control.
+
+    ```python
+    top = wai.select(pool, mode="sft", rule="top_per_prompt")
+    rnd = wai.select(pool, mode="sft", rule=wai.Rejection("random_per_prompt", seed=1))
+    print(top.report["reward_mean_selected"], rnd.report["reward_mean_selected"])
+    ```
+
+    With a binary verifier at ``min_reward=1.0`` every eligible row scores
+    1.0, the two arms are the same draw, and the report says
+    ``selection_effective="pass_filter"`` rather than claiming a selection
+    happened; the control for the filter itself is
+    ``Rejection("random_k_overall", min_reward=0.0)`` (#747).
+
+    Reference: Lambert 2025, chapter Rejection Sampling.
+    """
+
+    select: str = "top_per_prompt"
+    min_reward: float = 1.0
+    seed: int = 0
 
 
 class Selection(RowList):
@@ -84,6 +121,15 @@ class Selection(RowList):
                 f"  distinct behaviors: {r.get('unique_behaviors', 0)}, "
                 f"covered: {r.get('behaviors_covered', 0)}"
             )
+            # Which operation actually ran, on the face of the report: a
+            # reader who never opens the dict would otherwise read the
+            # rule they asked for as the rule that happened (#747).
+            if r.get("selection_effective"):
+                spread = r.get("reward_spread_passing")
+                lines.append(
+                    f"  rule {r.get('selection')}, what ran: {r['selection_effective']}"
+                    + ("" if spread is None else f" (reward spread {spread})")
+                )
             if r.get("note"):
                 lines.append(f"  {r['note']}")
         for w in r.get("hygiene_warnings") or []:
@@ -118,9 +164,22 @@ class Selection(RowList):
         list. It warns when the written rows call tools but carry no tool
         schema, or came from a run with a system prompt and carry none: a
         tool-calling file whose prompts never show the tools trains a
-        model to call a schema it was never shown (#592)."""
+        model to call a schema it was never shown (#592).
+
+        A selection holding no rows raises rather than writing a 0-byte
+        file: an empty ``train.jsonl`` beside ``{'n': 0, 'n_written': 0}``
+        reads as a successful export, and the next step trains on
+        nothing (#789)."""
         from .simulations.export import export_dataset
 
+        if not len(self):
+            raise ValueError(
+                f"nothing to export: this {self.mode} selection holds 0 rows, so the file "
+                "would be empty and training on it would see no examples. print() the "
+                "selection to see which gate dropped them, then widen it -- for sft lower "
+                "min_reward= on select(rule=wai.Rejection(min_reward=...)), for rl widen "
+                "band= -- or grade more rollouts and select again."
+            )
         system = self.system_prompt if system_prompt is None else str(system_prompt)
         schemas = list(self.tools if tools is None else tools)
         report = export_dataset(
@@ -156,6 +215,7 @@ def select(
     endorsed: Sequence[str] = (),
     truncated: str = "drop",
     output: str | None = None,
+    rule: str | Rejection | None = None,
 ) -> Selection:
     """Keep the rows worth training on, for SFT or RL: ``optimize`` as an object.
 
@@ -170,14 +230,32 @@ def select(
     * ``truncated``: ``"drop"``, ``"keep"`` or ``"penalize"`` for rollouts cut
       at the token cap (DAPO's overlong handling).
     * ``output``: write the kept rows there as JSONL.
+    * ``rule``: under ``mode="sft"``, the rejection-sampling rule as a name
+      (``"top_per_prompt"``, ``"random_per_prompt"``, ``"top_k_overall"``,
+      ``"random_k_overall"``) or a ``Rejection`` carrying ``min_reward=``
+      and ``seed=`` with it. The ``random_*`` rules are the chance control
+      Lambert 2025, chapter Rejection Sampling, calls mandatory: run one
+      beside the ranked arm, and if the ranked arm does not beat it the
+      reward is not giving useful signal on that data. It is one object so
+      that three knobs cost one parameter (``docs/reference/style.md``
+      rule 3); RL selection ignores it.
 
     In both modes a row whose reply quotes its own privileged context (the
     reference answer, the principle, the hidden world state) is dropped
     before any other gate and counted in the printed report, so ``export``
     never refuses a row this kept.
     """
-    from .simulations.score.optimize import DEFAULT_BAND, optimize
+    from .simulations.score.optimize import DEFAULT_BAND, SFT_SELECTIONS, optimize
 
+    picker = Rejection(select=rule) if isinstance(rule, str) else (rule or Rejection())
+    # The call that took the bad value names the fix (style rule 10), and
+    # it names it here rather than letting an rl run drop the typo on the
+    # floor and an sft run raise two frames down.
+    if picker.select not in SFT_SELECTIONS:
+        raise ValueError(
+            f"rule must be one of {', '.join(SFT_SELECTIONS)}, or a Rejection carrying one; "
+            f"got {picker.select!r}"
+        )
     rows_in = getattr(source, "rows", None) if not hasattr(source, "trajectories") else None
     picked, report = optimize(
         rows_in if rows_in is not None else source,
@@ -187,6 +265,9 @@ def select(
         endorsed=endorsed,
         truncated=truncated,
         output=output,
+        select=picker.select,
+        min_reward=picker.min_reward,
+        seed=picker.seed,
     )
     system, tools = row_config(source)
     return Selection(
@@ -231,4 +312,4 @@ def _had_system_prompt(row: dict) -> bool:
     return bool(isinstance(lineage, dict) and lineage.get("system_prompt_sha"))
 
 
-__all__ = ["Selection", "select"]
+__all__ = ["Rejection", "Selection", "select"]

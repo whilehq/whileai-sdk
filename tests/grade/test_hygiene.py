@@ -164,8 +164,12 @@ def test_select_for_sft_notes_low_completions_per_prompt():
     assert "chapter Rejection Sampling" in report["note"]
     assert report["completions_per_prompt_mean"] == 1.0
     assert report["selection_effective"] == "pass_filter"
-    many = [_row("a", 1, f"Issue {i} is open.") for i in range(12)]
-    _picked, report = select_for_sft(many, target=10)
+    # A well-sampled pool does not fire the note. The rewards have to
+    # differ for that: twelve rollouts all scored 1.0 are twelve rows the
+    # rule cannot rank, which is its own finding and its own note (#747,
+    # tests/grade/test_selection_control.py).
+    many = [_row("a", round(0.5 + 0.04 * i, 2), f"Issue {i} is open.") for i in range(12)]
+    _picked, report = select_for_sft(many, target=10, min_reward=0.5)
     assert report["completions_per_prompt_max"] == 12 and "note" not in report
     assert report["selection_effective"] == "top_per_prompt"
 

@@ -557,6 +557,16 @@ def select_for_sft(
     allowed; the two ``random_*`` rules are the control that chapter asks for
     (same counts, seeded random picks) so a claimed gain from selection can be
     checked against chance. ``k`` defaults to ``target``.
+
+    A ranking rule needs rewards that differ. When every eligible row carries
+    the same reward -- a binary verifier at the default ``min_reward=1.0``
+    scores every passing row 1.0, and so does any ``min_reward`` equal to the
+    highest reward observed -- there is nothing to rank, and the rules differ
+    only in which equally-scored completion they keep. The report then says
+    ``selection_effective="pass_filter"``, carries the spread it measured in
+    ``reward_spread_passing``, and its ``note`` names the control that still
+    means something: ``select="random_k_overall", min_reward=0.0`` at the same
+    count (#747).
     """
     if select not in SFT_SELECTIONS:
         raise ValueError(f"select must be one of {', '.join(SFT_SELECTIONS)}; got {select!r}")
@@ -579,6 +589,12 @@ def select_for_sft(
             n_junk += 1
             continue
         scored.append((value, row))
+    # Every eligible reward, before any rule picks among them: the spread
+    # over this pool is what says whether there is a ranking to select on
+    # at all (#747). It is read from the pool and not from the picks,
+    # because ``top_per_prompt`` returns one equal-scoring row per prompt
+    # even when the pool it chose from was graded 0.5 to 1.0.
+    pool_rewards = [value for value, _ in scored]
     goal = max(1, int(target))
     limit = max(1, int(k)) if k else goal
     if select in ("top_k_overall", "random_k_overall"):
@@ -594,7 +610,17 @@ def select_for_sft(
         picked_overall = [row for _, row in scored[:limit]]
         pool = [row for _, row in scored]
         return picked_overall, _sft_report(
-            graded, leaks, pool, picked_overall, n_wrong, n_junk, goal, select, limit, min_reward
+            graded,
+            leaks,
+            pool,
+            picked_overall,
+            n_wrong,
+            n_junk,
+            goal,
+            select,
+            limit,
+            min_reward,
+            pool_rewards,
         )
     by_prompt: dict[str, list[tuple[float, dict]]] = {}
     for value, row in scored:
@@ -630,7 +656,17 @@ def select_for_sft(
             break
         round_i += 1
     return selected, _sft_report(
-        graded, leaks, eligible, selected, n_wrong, n_junk, goal, select, None, min_reward
+        graded,
+        leaks,
+        eligible,
+        selected,
+        n_wrong,
+        n_junk,
+        goal,
+        select,
+        None,
+        min_reward,
+        pool_rewards,
     )
 
 
@@ -645,6 +681,7 @@ def _sft_report(
     select: str,
     k: int | None,
     min_reward: float,
+    pool_rewards: Sequence[float],
 ) -> dict[str, Any]:
     def _mean(items: Sequence[dict]) -> float | None:
         values = [v for v in (_scalar_reward(r) for r in items) if v is not None]
@@ -698,10 +735,30 @@ def _sft_report(
     report["completions_per_prompt_mean"] = mean_k
     report["completions_per_prompt_median"] = median_k
     report["prompts_with_one_completion"] = singles
+    # The other way a selection collapses, and the one the count above
+    # cannot see: every eligible row carrying the SAME reward. The rules
+    # rank by reward, so with no spread the sort key falls through to the
+    # sha256 tiebreak and ``top_per_prompt`` is a hash-ordered draw from
+    # the passing rows -- the draw ``random_per_prompt`` already makes.
+    # That is the default case for a binary verifier (every passing row
+    # scores 1.0) and for any ``min_reward`` equal to the highest reward
+    # observed, and it is where the chance control of Lambert 2025,
+    # chapter Rejection Sampling ("always run a random-selection control
+    # alongside RM-selected training; if RM selection does not beat
+    # random, the reward signal is not useful on that data") returns a
+    # null it could not have failed to return. Measured: 1,920 MATH-500
+    # rollouts at k=12 gave top_per_prompt and random_per_prompt 123 rows
+    # at mean reward 1.000 each, while random_k_overall at min_reward=0.0
+    # gave 123 rows at 0.610 -- the 0.390 the filter is actually worth
+    # (#747).
+    values = [float(v) for v in pool_rewards]
+    flat = bool(values) and max(values) == min(values)
+    report["reward_spread_passing"] = round(max(values) - min(values), 4) if values else None
     if counts:
-        report["selection_effective"] = "pass_filter" if median_k <= 1 else select
+        report["selection_effective"] = "pass_filter" if (median_k <= 1 or flat) else select
+    notes: list[str] = []
     if counts and mean_k < REJECTION_SAMPLING_MIN_K:
-        report["note"] = (
+        notes.append(
             f"completions per prompt: mean {mean_k}, median {median_k}, max {max_k}; "
             f"{singles} of {len(counts)} prompts have one. Rejection-sampling selection "
             f"wants {REJECTION_SAMPLING_MIN_K} to 30 so the pick is not biased "
@@ -710,11 +767,27 @@ def _sft_report(
                 ", and with one completion on the median prompt there is no pick at all, "
                 "only a pass/fail filter: top_per_prompt and random_per_prompt return the "
                 "same rows, so the random-selection control says nothing"
-                if median_k <= 1
+                if median_k <= 1 and not flat
                 else ""
             )
             + ". Raise repeats= if you mean to choose among completions rather than filter."
         )
+    if flat:
+        notes.append(
+            f"reward has no spread among the {len(values)} rows that cleared "
+            f"min_reward={float(min_reward)}: every one of them scores "
+            f"{round(values[0], 4)}, so there is no ranking to select on. The rules differ "
+            "only in which equally-scored completion they keep, which makes top_per_prompt "
+            "and random_per_prompt the same draw; selection_effective says pass_filter "
+            "rather than claim a selection, so their null cannot be read as chance-level "
+            "selection. The chance control for the filter is "
+            'select="random_k_overall", min_reward=0.0 at the same count; lower min_reward '
+            "to rank a grader that gives partial credit (Lambert 2025, chapter Rejection "
+            "Sampling: always run a random-selection control, and if selection does not "
+            "beat random the reward signal is not useful on that data)."
+        )
+    if notes:
+        report["note"] = " ".join(notes)
     return report
 
 
@@ -1472,6 +1545,7 @@ def optimize(
     enforce_band: bool = True,
     select: str = "top_per_prompt",
     min_reward: float = 1.0,
+    seed: int = 0,
     endorsed: Sequence[str] = (),
     truncated: str = "drop",
     order: str = "spread",
@@ -1502,9 +1576,12 @@ def optimize(
       ``enforce_band=False`` only ranks out-of-band asks last instead of
       dropping them. ``order`` is ``"spread"`` across pass rates (default) or
       ``"middle"`` first.
-    * ``select`` (``"top_per_prompt"``) and ``min_reward`` (1.0): the SFT
-      picker and the reward a demonstration needs, as in
-      ``select_for_sft``.
+    * ``select`` (``"top_per_prompt"``), ``min_reward`` (1.0) and ``seed``
+      (0): the SFT picker, the reward a demonstration needs and the draw the
+      ``random_*`` pickers make, as in ``select_for_sft``. ``seed`` is what
+      re-runs the random-selection control of Lambert 2025, chapter Rejection
+      Sampling, as a distribution rather than one draw, so vary it across
+      arms (#747).
     * ``endorsed``: what the reward should track, as substrings of feature
       names (``"tool:lookup_order"``), so the RL report's ``hack_scan`` can
       call a shortcut a hack.
@@ -1541,7 +1618,9 @@ def optimize(
         rows = list(source)
     resolved = "sft" if str(resolved or "").lower() == "sft" else "rl"
     if resolved == "sft":
-        picked, report = select_for_sft(rows, target=target, select=select, min_reward=min_reward)
+        picked, report = select_for_sft(
+            rows, target=target, select=select, min_reward=min_reward, seed=seed
+        )
     else:
         picked, report = select_for_rl(
             rows,

@@ -458,6 +458,7 @@ select(
     endorsed: Sequence[str] = (),
     truncated: str = 'drop',
     output: str | None = None,
+    rule: str | Rejection | None = None,
 ) -> Selection
 ```
 
@@ -476,6 +477,15 @@ Keep the rows worth training on, for SFT or RL: `optimize` as an object.
 * `truncated`: `"drop"`, `"keep"` or `"penalize"` for rollouts cut
   at the token cap (DAPO's overlong handling).
 * `output`: write the kept rows there as JSONL.
+* `rule`: under `mode="sft"`, the rejection-sampling rule as a name
+  (`"top_per_prompt"`, `"random_per_prompt"`, `"top_k_overall"`,
+  `"random_k_overall"`) or a `Rejection` carrying `min_reward=`
+  and `seed=` with it. The `random_*` rules are the chance control
+  Lambert 2025, chapter Rejection Sampling, calls mandatory: run one
+  beside the ranked arm, and if the ranked arm does not beat it the
+  reward is not giving useful signal on that data. It is one object so
+  that three knobs cost one parameter (`docs/reference/style.md`
+  rule 3); RL selection ignores it.
 
 In both modes a row whose reply quotes its own privileged context (the
 reference answer, the principle, the hidden world state) is dropped

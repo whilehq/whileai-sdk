@@ -7,6 +7,29 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `select_for_sft` says `selection_effective: "pass_filter"` when every row that cleared
+  `min_reward` carries the same reward, and its `note` says why and names the control that
+  still measures something. With a binary verifier at the default `min_reward=1.0` every
+  eligible row scores 1.0, the ranking key falls through to the sha256 tiebreak, and
+  `top_per_prompt` and `random_per_prompt` are the same draw: measured on 1,920 MATH-500
+  rollouts at k=12, both returned 123 rows over the same 123 prompts at mean reward 1.000,
+  while `select="random_k_overall", min_reward=0.0` at the same count returned 123 rows over
+  90 prompts at 0.610. The report claimed `top_per_prompt`, so the random-selection control
+  of Lambert 2025, chapter Rejection Sampling, returned a null it could not have failed to
+  return. The existing guard read completions per prompt, not reward, and stayed silent at
+  k=12. The report also carries `reward_spread_passing`, and `print(selection)` shows the
+  rule asked for beside the operation that ran (#747).
+- `wai.select(..., rule=)` reaches that control from the front door: a rule name, or a
+  `wai.Rejection(select=, min_reward=, seed=)` carrying its threshold and its seed, so the
+  matched pair is two calls instead of an import of `select_for_sft` and a bare tuple. Three
+  knobs ride on one parameter, which keeps `select` inside the eight-parameter cap of
+  `docs/reference/style.md` rule 3. `optimize(seed=)` forwards the seed as well; it dropped
+  it, so every `random_*` arm routed through `optimize` was pinned to seed 0 and could not be
+  re-run as a distribution (#747).
+- `Selection.export` on a selection holding no rows raises and names the fix, instead of
+  writing a 0-byte `train.jsonl` and returning `{'n': 0, 'n_written': 0, 'warnings': None}`
+  (#789).
+
 - The `wide_call_overage` ratchet pin is 195, not 194. #842 measured it at its
   branch point and #843 landed `compare(lower_is_better=)` after it, so the two
   were never counted together and `main` went red on the merge. The argument is

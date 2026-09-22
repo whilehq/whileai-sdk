@@ -1676,6 +1676,7 @@ optimize(
     enforce_band: bool = True,
     select: str = 'top_per_prompt',
     min_reward: float = 1.0,
+    seed: int = 0,
     endorsed: Sequence[str] = (),
     truncated: str = 'drop',
     order: str = 'spread',
@@ -1710,9 +1711,12 @@ overwrites the source file unless `output` names it explicitly.
   `enforce_band=False` only ranks out-of-band asks last instead of
   dropping them. `order` is `"spread"` across pass rates (default) or
   `"middle"` first.
-* `select` (`"top_per_prompt"`) and `min_reward` (1.0): the SFT
-  picker and the reward a demonstration needs, as in
-  `select_for_sft`.
+* `select` (`"top_per_prompt"`), `min_reward` (1.0) and `seed`
+  (0): the SFT picker, the reward a demonstration needs and the draw the
+  `random_*` pickers make, as in `select_for_sft`. `seed` is what
+  re-runs the random-selection control of Lambert 2025, chapter Rejection
+  Sampling, as a distribution rather than one draw, so vary it across
+  arms (#747).
 * `endorsed`: what the reward should track, as substrings of feature
   names (`"tool:lookup_order"`), so the RL report's `hack_scan` can
   call a shortcut a hack.
@@ -1889,6 +1893,16 @@ of being right appears before any repeats; `"top_k_overall"` keeps the
 allowed; the two `random_*` rules are the control that chapter asks for
 (same counts, seeded random picks) so a claimed gain from selection can be
 checked against chance. `k` defaults to `target`.
+
+A ranking rule needs rewards that differ. When every eligible row carries
+the same reward -- a binary verifier at the default `min_reward=1.0`
+scores every passing row 1.0, and so does any `min_reward` equal to the
+highest reward observed -- there is nothing to rank, and the rules differ
+only in which equally-scored completion they keep. The report then says
+`selection_effective="pass_filter"`, carries the spread it measured in
+`reward_spread_passing`, and its `note` names the control that still
+means something: `select="random_k_overall", min_reward=0.0` at the same
+count (#747).
 
 ### trim_out_of_band
 

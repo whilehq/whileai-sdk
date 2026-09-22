@@ -103,7 +103,8 @@ sft selection: kept 12 of 64 rows
   eligible 12 (reward >= 1.0), junk 0, not passing 26
   privileged leaks dropped: 4
   distinct behaviors: 5, covered: 5
-  completions per prompt: mean 4.0, median 4, max 4; 0 of 16 prompts have one. Rejection-sampling selection wants 10 to 30 so the pick is not biased (Lambert 2025, chapter Rejection Sampling; Llama 3 samples 10 to 30). Raise repeats= if you mean to choose among completions rather than filter.
+  rule top_per_prompt, what ran: pass_filter (reward spread 0.0)
+  completions per prompt: mean 4.0, median 4, max 4; 0 of 16 prompts have one. Rejection-sampling selection wants 10 to 30 so the pick is not biased (Lambert 2025, chapter Rejection Sampling; Llama 3 samples 10 to 30). Raise repeats= if you mean to choose among completions rather than filter. reward has no spread among the 34 rows that cleared min_reward=1.0: every one of them scores 1.0, so there is no ranking to select on. The rules differ only in which equally-scored completion they keep, which makes top_per_prompt and random_per_prompt the same draw; selection_effective says pass_filter rather than claim a selection, so their null cannot be read as chance-level selection. The chance control for the filter is select="random_k_overall", min_reward=0.0 at the same count; lower min_reward to rank a grader that gives partial credit (Lambert 2025, chapter Rejection Sampling: always run a random-selection control, and if selection does not beat random the reward signal is not useful on that data).
 rl selection: kept 16 of 64 rows
   band 20%..80% pass rate: 0 asks dropped (0 too easy, 0 too hard)
   unanimous groups dropped: 10; duplicates dropped: 27; truncated drop: 0
@@ -118,12 +119,25 @@ rl selection: kept 16 of 64 rows
   warning: Difficulty was measured from 4 rollouts per task, so a task's band assignment can be off by about ±0.3. Use repeats=16 for a firmer band (the count the 20-80 band is measured from, Lambert 2025, chapter Reasoning).
 ```
 
-The gates are the point of the call, so read four of them.
+The gates are the point of the call, so read five of them.
 
 - **privileged leaks dropped: 4.** Four replies recite the answer key
   the grader was given. Lesson 3's judge does not read that key, so it
   passed three of them; the export would refuse them anyway. Both modes
   drop them first.
+- **rule top_per_prompt, what ran: pass_filter.** The SFT rule ranks a
+  prompt's completions by reward and keeps the best. Lesson 3's judge is
+  pass/fail, so every row that cleared `min_reward=1.0` scores exactly
+  1.0 and there is nothing to rank: `top_per_prompt` and its control
+  `random_per_prompt` keep a different one of the same equally-scored
+  rows, and both would report the same count and the same mean. The line
+  says which operation actually ran, so a result table cannot record a
+  selection that did not happen. To rank, give the judge partial credit
+  and lower `min_reward`; to check the pass/fail filter itself against
+  chance, run `wai.select(scored, mode="sft",
+  rule=wai.Rejection("random_k_overall", min_reward=0.0))` at the same
+  `target` and compare the mean reward.
+
 - **unanimous groups dropped: 10.** Ten asks where every try scored the
   same: the asks that name no order, where the stand-in guesses an id on
   every try and never passes, and the asks it got right all four times.

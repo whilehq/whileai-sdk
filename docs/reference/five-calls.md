@@ -43,6 +43,8 @@ rows.push("my-agent-rl-v1")  # 5 publish, gated (whileai.platform)
 | `scored.select(mode="rl")` | drops junk rows, duplicates, dead groups, and asks outside the difficulty band (pass rate 0.2 to 0.8); flags reward hacks. `optimize` underneath | graded rows |
 | `rows.push(name)` | refuses ungraded or gradient-free RL data; stamps calibration. `platform.push` underneath | the selection |
 
+`scored.select(mode="sft")` keeps the passes instead, and ranks a prompt's completions by reward before it keeps one. Run the random-selection control beside it, every time: `wai.select(scored, mode="sft", rule=wai.Rejection("random_per_prompt", seed=1))` takes the same count at random, and if the ranked arm does not beat it the reward is not giving useful signal on that data [2]. The two arms only differ when the rewards differ. A pass/fail judge at the default `min_reward=1.0` scores every eligible row 1.0, so there is nothing to rank: the report says `what ran: pass_filter` rather than name a rule, and the control that still measures something is the filter against chance, `rule=wai.Rejection("random_k_overall", min_reward=0.0)` at the same `target`.
+
 A spec folder is `spec.json` (tools and policy) plus `rubric.md`: what doing the job means, in prose. `grade()` scores against it. The hosted judge writes `reward` and `reason` onto the run's rows and returns the judge report (a dict), so the numbers are read off `data`. `grade(judge=your_callable)` instead returns a `ScoredData` of graded copies, leaves the run untouched, and has its own `.push(name, ...)`. Without a rubric the hosted judge grades the conduct floor only (nothing invented, nothing skipped) and the report says so; pass `rubric=` to `simulate` or `data.grade` to supply one.
 
 After training, measure whether it landed: `wai.compare(before=scored.rows, after=after_rows, target="pass_at_1")` (`compare` is the front-door name; `delta_report` is the same call one dot down, at `wai.simulations.delta_report`). Name the training reward too, `proxy="marker:first_action"`, and the report says whether the run over-optimized it: proxy up while the target did not follow fails the report [5]. `wai.simulations.hack_scan_diff(before, after, endorsed=[...])` names what the update moved toward, and withholds the name when either side came back `degenerate`.
@@ -172,7 +174,7 @@ The full list is on [Parameters](/reference/parameters). These are the ones that
 ## References
 
 1. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024. Reinforcement learning with verifiable rewards.
-2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Synthetic Data and Constitutional AI*, *Reasoning*, *Regularization* and *Evaluation*.
+2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Synthetic Data and Constitutional AI*, *Reasoning*, *Rejection Sampling* (the random-selection control), *Regularization* and *Evaluation*.
 3. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
 4. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
 5. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
