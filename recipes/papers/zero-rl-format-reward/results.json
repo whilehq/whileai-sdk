@@ -80,5 +80,28 @@
   "usd": 3.08,
   "verified": "2026-09-18",
   "whileai": "0.83",
-  "run_url": "https://while.ai/platform/training/run_064f9185fdf88eef"
+  "run_url": "https://while.ai/platform/training/run_064f9185fdf88eef",
+  "grader": {
+    "status": "void",
+    "grader": "MathEqual, string-and-number rule (retired)",
+    "whileai": "0.83",
+    "replaced_by": "788c553: MathEqual decides with Math-Verify; the string-and-number rule is gone",
+    "current_grader": "lenient-math-equal-read+strict-box-marker",
+    "why": "Every score and interval in this file was decided by a rule that is no longer in the tree, so under CONSTITUTION.md belief 1 they are not results. They are left as published rather than overwritten: nobody has re-run or re-graded them here. The .cache/ these arms' rollouts live in is not committed (.gitignore), so the re-grade needs the machine that holds it.",
+    "regrade_owed": "python recipe.py --reuse   # re-grades the cached rollouts and rewrites this file",
+    "direction_measured_in": {
+      "issue": "whilehq/whileai-sdk#737",
+      "note": "measured there, not here; these are not this file's numbers",
+      "rollouts_regraded": 5760,
+      "verdict_unchanged": 5358,
+      "correct_answers_the_old_rule_failed": 287,
+      "wrong_answers_the_old_rule_passed": 115,
+      "moved": 402,
+      "arm_scores_reported_there": {
+        "base": "50.9 -> 53.3",
+        "baseline_strict_boxed_reward": "65.4 -> 68.6",
+        "recipe_correctness_only": "67.2 -> 70.9"
+      }
+    }
+  }
 }

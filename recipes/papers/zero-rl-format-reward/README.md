@@ -26,6 +26,22 @@ python recipe.py --arm recipe --steps 60 --max-completion 4096   # one arm, long
 
 ## Result
 
+> **Void, pending a re-grade.** Every number in this section was decided by
+> `MathEqual`'s string-and-number rule under whileai 0.83. 788c553 replaced
+> that rule with Math-Verify, so under [belief 1](../../../CONSTITUTION.md)
+> these are not results: the versions that produced them are gone. They are
+> left as published rather than quietly restated, because no one has re-run
+> or re-graded them here. #737 re-graded the six cached arms (5,760
+> rollouts) and reports 402 verdicts moving (287 correct answers the old
+> rule failed, 115 wrong answers it passed) and every arm moving 2 to 4
+> points; those are that issue's numbers, measured there, not here. The
+> rollouts themselves are still good, but `.cache/` is not committed
+> (`.gitignore`), so the re-grade owes the machine that holds it one
+> `python recipe.py --reuse`: it re-grades the stored rollouts under the
+> grader in the tree, prints what moved, and rewrites `results.json` and the
+> table row. `results.json`'s `grader` block carries the same stamp in
+> machine-readable form.
+
 Run 2026-09-18, both arms, one H100, 46.2 GPU minutes, $3.08.
 
 | Arm | pass@1 | 95% CI | pass@4 | Steps | GPU min |
@@ -41,6 +57,16 @@ Both arms beat the base. The strict arm gained 12 points in 30 steps, the lenien
 The proxy row is the other half of the finding. On the held-out set the strict reward itself went from 0.58 (baseline) to 0.53 (recipe), -0.052 [-0.119, +0.014], noise: the lenient arm boxes less (83% of replies against 96%) and is right more. The baseline trained toward the box and got it; the box was not the thing.
 
 Where the accuracy came from is in the training curves. The strict arm's rollouts got shorter across the run (664 tokens over the first ten steps, 619 over the last ten; 15% then 6% at the cap) and its boxed share on the holdout rose from 0.91 to 0.96. The lenient arm's rollouts stayed long (916 then 914 tokens, a third at the cap) and its held-out replies are 44% longer in characters (1,928 against 1,336). Under the strict reward a derivation cut off at the cap has no box and scores -1, the worst outcome available, so the policy learns to close early; under the lenient reward an unfinished derivation scores 0, the same as a wrong one, and the policy is free to keep thinking.
+
+### Reusing an arm
+
+`--reuse` takes an arm from `.cache/<arm>.json` instead of training it
+again. The file is stamped with the grader that decided its verdicts
+(`GRADER`) and the whileai its verifier came from. On reuse a stamp that is
+not this tree's means the rollouts are reused and every verdict is
+recomputed from them, and the run prints how many moved; `--no-regrade`
+turns that into a refusal instead. A cached row is a rollout, and a verdict
+is not a rollout.
 
 ## Checks
 

@@ -108,6 +108,50 @@ def parse_tool_call(text: str) -> dict[str, Any] | None:
     return {"name": str(name), "arguments": args if isinstance(args, dict) else {}}
 
 
+def call_from_steps(steps: list[Any] | None) -> dict[str, Any] | None:
+    """The first tool call in an SDK row's structured ``steps``, or None.
+
+    A ``simulate()`` row records a call as ``{"tool": ..., "arguments":
+    ..., "result": ...}`` (``whileai.simulations.schema.Step``); the text
+    the agent then wrote carries no ``<tool_call>`` block, because the call
+    already happened. Reading only the text scored every such row as a miss
+    (#788): a correct prose answer got 0.0 where the ``<tool_call>`` spelling
+    got 1.0, which grades format, not the rule."""
+    for step in steps or []:
+        if not isinstance(step, dict):
+            continue
+        name = step.get("tool")
+        if not name:
+            continue  # a {"user": ...} or {"text": ...} step is not a call
+        args = step.get("arguments")
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+        return {"name": str(name), "arguments": args if isinstance(args, dict) else {}}
+    return None
+
+
+def call_in(reply: str, steps: list[Any] | None = None) -> dict[str, Any] | None:
+    """The call a reply made, whichever shape the row is in: structured
+    ``steps`` when the row carries them, the ``<tool_call>`` block when it
+    does not. ``steps=None`` means "this row has no steps field", and
+    ``steps=[]`` means "an SDK row that called nothing"; the two are not the
+    same answer, which is why the fallback is on ``is None`` and not on
+    truthiness."""
+    if steps is not None:
+        return call_from_steps(steps)
+    return parse_tool_call(reply)
+
+
+def steps_for(reply: str) -> list[dict[str, Any]]:
+    """The ``steps`` a text-shaped reply implies, so a row this file builds
+    carries its call in the SDK's own shape instead of a bare ``[]``."""
+    call = parse_tool_call(reply)
+    return [] if call is None else [{"tool": call["name"], "arguments": call["arguments"]}]
+
+
 def _norm_id(value: Any) -> str | None:
     if value is None:
         return None
@@ -118,14 +162,22 @@ def _norm_id(value: Any) -> str | None:
     return out if out.startswith("ORD-") else "ORD-" + out[3:]
 
 
-def score(reply: str, case: dict[str, Any]) -> float:
-    """Reward in [0, 1]: the rule, plus a small format bonus, capped at 1."""
+def score(reply: str, case: dict[str, Any], steps: list[Any] | None = None) -> float:
+    """Reward in [0, 1]: the rule, plus a small format bonus, capped at 1.
+
+    ``steps`` is the row's structured trajectory when it has one. The rule
+    is the same either way -- look the order up, never invent an id, ask
+    when none is given -- and only where the call is read from changes. A
+    row whose call is structured is well formed by construction: there is no
+    wire format left to get wrong, so the bonus is about the rule, not the
+    spelling (#788)."""
     text = reply or ""
-    if not text.strip():
+    structured = steps is not None
+    if not text.strip() and not (structured and call_from_steps(steps)):
         return 0.0
-    call = parse_tool_call(text)
+    call = call_in(text, steps)
     mentions_call = "<tool_call>" in text
-    well_formed = call is not None or not mentions_call
+    well_formed = True if structured else (call is not None or not mentions_call)
     base = 0.0
     if case.get("order_id"):
         if call and call["name"] == "lookup_order":
@@ -149,6 +201,15 @@ def score(reply: str, case: dict[str, Any]) -> float:
         FORMAT_BONUS if (well_formed and (call is not None or not case.get("order_id"))) else 0.0
     )
     return round(min(1.0, base + bonus), 3)
+
+
+def score_row(row: dict[str, Any], case: dict[str, Any] | None = None) -> float:
+    """``score`` on a row the SDK produced: its ``steps`` when it has the
+    key, its ``final_text`` either way. The one call a grader of live rows
+    should use."""
+    case = case if case is not None else case_for(str(row.get("prompt") or ""))
+    steps = row.get("steps") if "steps" in row else None
+    return score(str(row.get("final_text") or ""), case, steps)
 
 
 def messages_for(prompt: str) -> list[dict[str, str]]:
@@ -214,30 +275,47 @@ def split_holdout(
     return train, held
 
 
-def reward_rows(prompts: list[dict[str, Any]], replies: list[list[str]]) -> list[dict[str, Any]]:
+def _text_and_steps(reply: Any) -> tuple[str, list[Any] | None]:
+    """``(final_text, steps)`` from either a sampled completion string or a
+    row the SDK produced. ``None`` steps means the reply is text only and the
+    call, if any, is in a ``<tool_call>`` block."""
+    if isinstance(reply, dict):
+        steps = reply.get("steps") if "steps" in reply else None
+        return str(reply.get("final_text") or ""), steps
+    return str(reply or ""), None
+
+
+def reward_rows(prompts: list[dict[str, Any]], replies: list[list[Any]]) -> list[dict[str, Any]]:
     """Graded rows (one per sampled reply) in the SDK's row shape, so
     ``pass_at`` and ``delta_report`` read them: reward 1 when the reply
-    satisfies the rule, the raw score as a marker."""
+    satisfies the rule, the raw score as a marker.
+
+    A reply is a completion string from a sampler, or a row from
+    ``simulate()`` carrying structured ``steps``. Both are graded by the
+    same rule; the row that arrives with steps keeps them, and the row that
+    arrives as text gets the steps its ``<tool_call>`` block implies, so no
+    row goes out with a ``"steps": []`` that means "not looked at" (#788)."""
     rows: list[dict[str, Any]] = []
     for item, group in zip(prompts, replies):
         for i, reply in enumerate(group):
-            raw = score(reply, item["case"])
+            text, steps = _text_and_steps(reply)
+            raw = score(text, item["case"], steps)
             rows.append(
                 {
                     "prompt": item["prompt"],
                     "scenario_id": item["scenario_id"],
                     "rollout_index": i,
-                    "final_text": reply,
-                    "steps": [],
+                    "final_text": text,
+                    "steps": steps if steps is not None else steps_for(text),
                     "messages": [
                         *messages_for(item["prompt"]),
-                        {"role": "assistant", "content": reply},
+                        {"role": "assistant", "content": text},
                     ],
                     "reward": 1 if raw >= 1.0 else 0,
                     "markers": {
                         "tool_rule": raw,
                         "well_formed": 1.0
-                        if (parse_tool_call(reply) or "<tool_call>" not in reply)
+                        if (steps is not None or parse_tool_call(text) or "<tool_call>" not in text)
                         else 0.0,
                     },
                 }
@@ -263,6 +341,30 @@ def scripted_reply(case: dict[str, Any], follow: bool = True) -> str:
             + json.dumps({"name": "lookup_order", "arguments": {"order_id": case["order_id"]}})
             + "\n</tool_call>"
         )
+    if case.get("in_domain"):
+        return "Of course. What is the order id?"
+    return "I can only help with orders and refunds."
+
+
+def scripted_sdk_steps(case: dict[str, Any]) -> list[dict[str, Any]]:
+    """The ``steps`` a rule-following agent leaves on a ``simulate()`` row:
+    a structured ``lookup_order`` when the prompt names an id, nothing
+    otherwise. No ``<tool_call>`` text anywhere, which is the point."""
+    if case.get("order_id"):
+        return [
+            {
+                "tool": "lookup_order",
+                "arguments": {"order_id": case["order_id"]},
+                "result": {"order_id": case["order_id"], "status": "shipped"},
+            }
+        ]
+    return []
+
+
+def scripted_sdk_text(case: dict[str, Any]) -> str:
+    """What that same agent says in prose, the call already made."""
+    if case.get("order_id"):
+        return f"I pulled up {case['order_id']}. It shipped; what would you like to do?"
     if case.get("in_domain"):
         return "Of course. What is the order id?"
     return "I can only help with orders and refunds."
@@ -294,6 +396,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     before = reward_rows(held, [[scripted_reply(p["case"], follow=False)] for p in held])
     after = reward_rows(held, [[scripted_reply(p["case"])] for p in held])
+    # The same rule on the row shape simulate() produces: the call is a
+    # step, the reply is prose, and there is no <tool_call> block anywhere.
+    # Reading only the text scored every one of these 0.0 (#788).
+    sdk = [
+        {
+            "prompt": p["prompt"],
+            "final_text": scripted_sdk_text(p["case"]),
+            "steps": scripted_sdk_steps(p["case"]),
+        }
+        for p in held
+    ]
+    sdk_rows = reward_rows(held, [[row] for row in sdk])
+    print(f"rule-following policy, SDK rows (structured steps): {wai.pass_at(sdk_rows)}")
     print(f"refund-first policy: {wai.pass_at(before)}")
     print(f"rule-following policy: {wai.pass_at(after)}")
     print(wai.compare(before, after, target="pass_at_1", must_not_regress=["well_formed"]))
@@ -306,13 +421,19 @@ __all__ = [
     "SYSTEM",
     "TOOLS",
     "build_prompts",
+    "call_from_steps",
+    "call_in",
     "case_for",
     "messages_for",
     "parse_tool_call",
     "reward_rows",
     "score",
+    "score_row",
     "scripted_reply",
+    "scripted_sdk_steps",
+    "scripted_sdk_text",
     "split_holdout",
+    "steps_for",
 ]
 
 

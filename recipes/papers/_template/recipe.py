@@ -32,10 +32,21 @@ import whileai.simulations as wai
 from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))  # recipes/papers, for cache_stamp
+
+import cache_stamp
+
 BASE_MODEL = "Qwen/Qwen3-4B"
 METRIC = "pass@1"
 BOOK = "Reinforcement Learning"  # the chapter title of Lambert 2025 this recipe tests or relies on
 PROXY = None  # e.g. "marker:shaped_reward" when the training reward differs from the target
+# The rule that decides `reward`, by name. It goes into results.json and,
+# for a recipe that caches arms, into .cache/<arm>.json beside the rows:
+# a cached row is a rollout, and a verdict is not a rollout, so `--reuse`
+# re-grades the stored rollouts when this name or the whileai version
+# changed rather than believing the stored reward (#737). Change the reader
+# or the equality rule and change this name with it.
+GRADER = "<the rule that decides reward, by name>"
 EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor
 
 
@@ -103,6 +114,11 @@ def main() -> None:
         },
         "verified": date.today().isoformat(),
         "whileai": version("whileai"),
+        # Who decided every `reward` above. Belief 1: a number is a result
+        # only with the versions that produced it, and the grader is one of
+        # them. A results.json whose stamp is not the tree's is void until
+        # it is re-graded.
+        "grader": cache_stamp.stamp(GRADER),
     }
     arm_rows: dict[str, list[dict]] = {}
     for arm in ["baseline", "recipe"] if args.arm == "both" else [args.arm]:
