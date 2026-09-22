@@ -1,0 +1,1 @@
+Reproduced Qi et al. (2608.23566), one L40S, 51 min: pass@1 0.43 -> 0.41 (-0.017 [-0.069, +0.037], flat, 1 seed/arm) on 120 tasks, Qwen2.5-1.5B. Recipe: https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/bpco-bounded-critic Paper: https://arxiv.org/abs/2608.23566
