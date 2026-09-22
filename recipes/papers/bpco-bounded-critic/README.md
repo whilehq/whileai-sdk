@@ -79,7 +79,7 @@ Nothing in this table is ticked by hand: every cell is written by `recipe.py` in
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [7] | **run_std 0.0042** from 3 re-runs (0.39, 0.39, 0.39); a delta under **0.026** is noise (`noise_band(run_std, df=2)` = 4.30 x sqrt(2) x run_std, one run per side; `compare(run_std=, run_std_runs=3)`). Round 1's three re-runs read 0.41, 0.39, 0.39, run_std 0.0103 |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [7] | **run_std 0.0042** from 3 re-runs (0.39, 0.39, 0.39); a delta under **0.026** is noise (`wai.noise_band(run_std, df=2)` = 4.30 x sqrt(2) x run_std, one run per side; `compare(run_std=, run_std_runs=3)`). Round 1's three re-runs read 0.41, 0.39, 0.39, run_std 0.0103 |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [8] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits; measured, not assumed |
 | Reward is a program, not a judge | [8] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
 | Proxy vs target: `compare(proxy=)` | [9] | **over_optimized false.** `proxy="marker:gsm8k_outcome"` is the training reward carried on the eval rows; it is the same binary program as the target at a different temperature, so its delta (-0.017 [-0.071, +0.033], no change) cannot part from pass@1's. Recorded, not a real over-optimization test |

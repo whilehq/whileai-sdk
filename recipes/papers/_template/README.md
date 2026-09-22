@@ -34,10 +34,10 @@ Recipe vs baseline: <+0.00 [lo, hi]>. Verdict: <moved / flat / unresolved>. <At 
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated <n> times, `eval_variance` run_std | [2] | run_std <0.00> from <n> re-runs; a delta under <t(df = n - 1) x sqrt(2) x run_std> is noise (`noise_band(run_std, df=n - 1)` with one run per side: a delta is the difference of two re-run draws, and run_std is an estimate from n runs, so the quantile is t at n - 1, not 1.96; `delta_report(run_std=, run_std_runs=n)`) |
+| Eval noise: the base evaluated <n> times, `eval_variance` run_std | [2] | run_std <0.00> from <n> re-runs; a delta under <t(df = n - 1) x sqrt(2) x run_std> is noise (`wai.noise_band(run_std, df=n - 1)` with one run per side: a delta is the difference of two re-run draws, and run_std is an estimate from n runs, so the quantile is t at n - 1, not 1.96; `wai.compare(run_std=, run_std_runs=n)`) |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [3] | <n> train rows dropped |
 | Reward is a program, not a judge | [3] | <what the reward reads> |
-| Proxy vs target: `delta_report(proxy=)` | [4] | over_optimized <false / true> |
+| Proxy vs target: `wai.compare(proxy=)` | [4] | over_optimized <false / true> |
 | Length: mean completion length before -> after, per arm | [4] | baseline <a -> b>, recipe <a -> b> |
 | Hack scan on the last training batch: `hack_scan` | [4] | top feature <name>, endorsed <yes / no> |
 | Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | seed <n>, <versions> |

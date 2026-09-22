@@ -11,7 +11,7 @@
 2. Reward, both arms: the binary outcome, `MathEqual` against the GSM8K gold number. A program, not a judge. The paper changes the clip, not the reward, so nothing here is shaped.
 3. Baseline arm: GRPO with `epsilon` 0.20 and `epsilon_high` 0.28, fixed for every rollout. That pair is DAPO's clip-higher [4] and it is the paper's own token-level default.
 4. Recipe arm: same 0.20 floor and the same 0.28 ceiling, but the upper bound slides per group, `eps_hi(c) = eps_lo + (eps_hi_max - eps_lo) * (k - c) / (k - 1)` with `c` correct out of `k = 8` rollouts. One right out of eight keeps the full 0.28; seven right gets 0.2114.
-5. Eval: pass@1 on the same 120 held-out tasks, 4 samples per task. The untrained base is evaluated three times first, and that spread is the noise floor a delta has to clear; the train set is decontaminated against the holdout before any training. Paired delta with a 95% interval (`wai.pass_at`, `wai.delta_report`).
+5. Eval: pass@1 on the same 120 held-out tasks, 4 samples per task. The untrained base is evaluated three times first, and that spread is the noise floor a delta has to clear; the train set is decontaminated against the holdout before any training. Paired delta with a 95% interval (`wai.pass_at`, `wai.compare`).
 
 Both arms share the floor and the ceiling, so the comparison isolates the sliding and not the width. There is no KL term (`beta` 0), which leaves the clip as the only trust region in the run — the thing the paper is about. The recipe runs the paper's token-level importance sampling, not its sequence-level GSPO variant, so its Seq-IS epsilons (3e-3 / 5e-3) do not apply here.
 
@@ -86,7 +86,7 @@ into `results.json`. These are today's numbers.
 | Eval noise: the base evaluated 3 times, `eval_variance` run_std | [5] | **run_std 0.0087**, so a delta under **0.024** is noise. This measures re-running the eval, not re-running the training — and the training is where this recipe's variance turned out to live |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [6] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits — measured, not assumed |
 | Reward is a program, not a judge | [6] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
-| Proxy vs target: `delta_report(proxy=)` | [7] | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize |
+| Proxy vs target: `wai.compare(proxy=)` | [7] | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize |
 | Length: mean completion length before -> after, per arm | [7] | **725 chars base -> 413 baseline, 542 recipe.** Both arms got shorter and more right, so neither is winning on length |
 | Hack scan on the last training batch: `hack_scan` | [7] | top feature `n:digits` (baseline batch: `contains:week`) — GSM8K arithmetic surface, not a reward surface. Nothing is endorsed, so this is the scan reporting it found nothing |
 | Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | seed 17 in the trainer, `--seed 0` for the data split; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |

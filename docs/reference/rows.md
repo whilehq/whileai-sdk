@@ -121,6 +121,9 @@ passes = [
 ]
 floor = wai.eval_variance(*passes)  # run_std across the passes, and the band it implies
 print(floor)
+print(
+    wai.noise_band(floor["run_std"], df=floor["n_runs"] - 1)
+)  # the same band from the number alone
 print(wai.compare(rows, tuned, run_std=floor["run_std"], run_std_runs=floor["n_runs"]))
 ```
 

@@ -21,6 +21,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   reported their skipped rows; `pass_at` was the one that stayed quiet, and it is the one
   read first. `docs/reference/five-calls.md` no longer comments that grading returns 0/1 on
   every row.
+- `wai.noise_band(run_std, df=)` resolves from the one import, beside `wai.eval_variance` and
+  `wai.holdout_size`, and at `whileai.simulations.score.noise_band` (#735). The papers contract and
+  seven recipe pages cite it as a call; it lived four dots down. The same pages now write
+  `wai.compare(...)` where they wrote `delta_report(...)`, and say once that the two are one call.
+  `__all__` is unchanged on both namespaces, so the surface pins hold.
 - `compare` sizes `tasks_needed` from the paired task sd measured on the rows it already holds
   (`holdout_size(before=, after=)`), reports `tasks_needed_source`, and the sizing line says where
   the sd came from; the binomial model asked for about twice the tasks (525 against 270 on 160

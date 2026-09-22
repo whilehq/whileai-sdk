@@ -370,3 +370,44 @@ def test_spec_forms_match_the_engine():
     # the engine's own message is built from the same dict, so one list
     for form in SPEC_FORMS.values():
         assert form in str(caught.value)
+
+
+def test_noise_band_resolves_where_the_papers_contract_cites_it():
+    """#735: ``recipes/papers/README.md`` and seven recipe pages cite
+    ``noise_band(run_std, df=run_std_runs - 1)`` as a call. It resolved
+    from neither ``whileai`` nor ``whileai.simulations``, only four dots
+    down at ``whileai.simulations.score.stats``. It resolves from the one
+    import now, beside ``eval_variance`` and ``holdout_size``, and one dot
+    down at ``whileai.simulations.score``; ``__all__`` is unchanged on
+    both namespaces, so the surface pins hold."""
+    import math
+
+    import whileai.simulations as sims
+    from whileai.simulations.score.stats import noise_band
+
+    assert wai.noise_band is noise_band and "noise_band" in dir(wai)
+    assert sims.noise_band is noise_band
+    assert wai.simulations.score.noise_band is noise_band
+    assert "noise_band" not in wai.__all__ and "noise_band" not in sims.__all__
+    # the number the contract row describes: t(df=2) x sqrt(2) x run_std with one run per side
+    assert math.isclose(wai.noise_band(0.011, df=2), 4.303 * math.sqrt(2) * 0.011, rel_tol=1e-3)
+    assert wai.compare is sims.delta_report  # the other name the same pages cite
+
+
+def test_the_papers_pages_cite_the_names_that_resolve():
+    """Every ``noise_band(`` and ``delta_report(`` a papers page cites is
+    spelled the way ``import whileai as wai`` reaches it."""
+    from pathlib import Path
+
+    root = Path(wai.__file__).resolve().parent.parent
+    pages = sorted((root / "recipes" / "papers").glob("**/README.md"))
+    pages += sorted((root / "docs" / "recipes" / "papers").glob("*.mdx"))
+    assert len(pages) >= 8
+    bad = []
+    for page in pages:
+        for i, line in enumerate(page.read_text(encoding="utf-8").split("\n"), 1):
+            if "it is `wai.compare`" in line:  # a note about the old name
+                continue
+            if "`noise_band(" in line or "`delta_report(" in line or "`wai.delta_report" in line:
+                bad.append(f"{page.relative_to(root)}:{i}")
+    assert not bad, bad
