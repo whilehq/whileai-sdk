@@ -533,3 +533,18 @@ method. The table above is the product either way: every round is a
 paired number with an interval on the same holdout, so "it got better" is
 a claim the customer can check, and "it did not" is caught before anyone
 ships it.
+
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| tasks, holdout and every round's eval rows (`eval-r1` .. `eval-r5-step75` configs) | [`while-ai/text-to-sql-shop`](https://huggingface.co/datasets/while-ai/text-to-sql-shop) |
+| round `r1` adapter on Qwen3-4B | [`while-ai/text-to-sql-shop-r1`](https://huggingface.co/while-ai/text-to-sql-shop-r1) |
+| round `r2` adapter on Qwen3-4B | [`while-ai/text-to-sql-shop-r2`](https://huggingface.co/while-ai/text-to-sql-shop-r2) |
+| round `sft-think` adapter on Qwen3-4B | [`while-ai/text-to-sql-shop-sft-think`](https://huggingface.co/while-ai/text-to-sql-shop-sft-think) |
+| round `r3` adapter on Qwen3-4B | [`while-ai/text-to-sql-shop-r3`](https://huggingface.co/while-ai/text-to-sql-shop-r3) |
+| round `r4` adapter on Qwen3-4B | [`while-ai/text-to-sql-shop-r4`](https://huggingface.co/while-ai/text-to-sql-shop-r4) |
+| round `r5` adapter on Qwen3-4B | [`while-ai/text-to-sql-shop-r5`](https://huggingface.co/while-ai/text-to-sql-shop-r5) |
+| Nemotron-Nano-8B round 1 | [`while-ai/text-to-sql-shop-nemotron-8b-r1`](https://huggingface.co/while-ai/text-to-sql-shop-nemotron-8b-r1) |
+
+Every model card carries its row of the hill-climb table and points back here. Part of the [Analyst](https://huggingface.co/collections/while-ai/analyst-6aada4c396dfe31da497862d) collection in the while-ai org.
