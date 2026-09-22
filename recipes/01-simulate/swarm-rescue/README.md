@@ -153,6 +153,95 @@ were rescued by at least one of the five runs; `rescued-27b.jsonl` holds
 over four hours on the SGLang endpoint, with 22% of arm replies still
 at the 8,192 cap.
 
+## Pre-flight: is the fitness a hill?
+
+Why every configuration was flat. A swarm climbs a fitness; the question
+is whether that fitness predicts the pass it needs. `calibrate.py`
+regrades saved rollouts with a finer fitness (the share of 40 generated
+tests passed, every test run) against a target the fitness never saw (the
+private tests plus 20 more generated ones). `sql_calibrate.py` does the
+same on the text-to-SQL task set with cell-level F1 against the gold
+result. No model calls beyond the samples already made.
+
+| P(target pass) by fitness bucket | 0 | up to 0.25 | 0.25 to 0.5 | 0.5 to 0.75 | 0.75 to 0.9 | 0.9 to 1 | 1.0 |
+|---|---|---|---|---|---|---|---|
+| code_contests, 4B, 1,776 samples | 0.000 | 0.000 | 0.007 | 0.012 | 0.341 | 0.293 | 0.545 |
+| code_contests, 27B, 816 samples | 0.000 | 0.000 | 0.000 | 0.000 | 0.111 | 0.333 | 0.375 |
+| text-to-SQL, 4B, 4,800 samples | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.928 |
+
+A model judge is not a hill either. `judge_calibrate.py` showed the 27B
+the problem and a saved program, blind to every test, and asked for the
+probability of a hidden pass. Over 1,608 samples from the all-fail tasks
+(108 passes, all from the arms' rescues, and 1,500 fails) the score ranks
+passes above fails with an AUC of 0.523, chance. Programs scored 0 to 9
+passed 6.5% of the time; programs scored 90 to 100 passed 8.8%.
+
+The landscape is a cliff on both task families and both models: partial
+credit below three quarters of the tests carries no information about
+closeness, and on SQL a near miss is a sign of a hard question, not of a
+model about to get it (tasks whose wrong attempts score higher are solved
+less often; correlation -0.19 over 371 tasks). The swarm's whole climb in
+the runs above (best-so-far fitness 0.09 to 0.24 on the 27B) lived in the
+dead zone. Run this check before any population search on a verifier;
+it would have ended this experiment on day one. What is left for a swarm
+over rollouts is a task family where partial credit is additive by
+construction, which tests the mechanism rather than the task.
+
+## Positive control: a family that is additive by construction
+
+Pre-registered 2026-09-22 before the run. `--tasks mbpp-bundle` makes one
+task out of five MBPP functions; the visible test is each function's shown
+assert, the hidden tests are its other two. Fitness is the number of
+functions whose shown assert holds, so it counts work remaining: a
+program at 4 of 5 has one function to fix, and a neighbour that has that
+function working carries real information. On a 16-bundle smoke the base
+samples spread over 0 to 5 (2, 2, 18, 29, 44, 33 of 128) and a program at
+5 of 5 passed every hidden assert 58% of the time.
+
+| Pre-registration | |
+|---|---|
+| Tasks | 192 bundles of 5 from all 964 MBPP problems, hosted Qwen3-4B, thinking off, `--seed 0`; a second seed after |
+| Population | the bundles where all 8 base samples fail every hidden assert |
+| Primary metric | per-sample pass rate over the 24 extra samples, paired by task (`compare_runs`), each swarm arm against resample |
+| Secondary | rescue rate; best-so-far fitness by round per arm |
+| Prediction if the operator works | star and ring above solo above resample on the primary metric, by at least 5 points; swarm fitness climbs faster than solo's |
+| Prediction if it does not | every arm inside the resample re-run band, as on the cliffs |
+| Noise | two resample re-runs (`--noise-runs 2`) |
+| Decision | a swarm arm that clears its interval and the band on one seed and repeats on the second is a working operator; anything less closes the line |
+
+**Result, seed 0 (2026-09-22).** 174 of 192 bundles all-fail at 8. The
+first run's arms were void (a Windows process-creation fault graded every
+arm sample as failing; see `GraderFault`); the independent arms were
+regraded from their saved text and the three swarm arms re-run live.
+
+| Primary: per-sample pass rate, 24 samples a task, paired | resample | solo | ring | star |
+|---|---|---|---|---|
+| Pass rate | 2.47% | 3.33% | 2.99% | 2.90% |
+| vs resample | | +0.86 [+0.24, +1.63], p 0.01 | +0.53 [-0.08, +1.28], p 0.17 | +0.43 [-0.12, +1.10], p 0.21 |
+| Rescued (secondary) | 8.0% | 8.6% | 8.0% | 8.6% |
+| Best-so-far fitness, rounds 0 / 1 / 2 | 3.27 / 3.47 / 3.56 | 3.28 / 3.42 / 3.41 | 3.27 / 3.53 / 3.60 | 3.27 / 3.63 / 3.70 |
+| Round-2 programs at 5 of 5 shown asserts | 8.4% | 8.5% | 13.2% | 17.7% |
+| Of those, passing every hidden assert | 32 of 117 | 4 of 110 | 2 of 171 | 4 of 230 |
+| Similarity to own round-0 program | 0.68 | 0.93 | 0.81 | 0.81 |
+
+The pre-registered margin was not met. Solo clears its interval by
+under a point; ring and star do not; rescue rate sits inside the
+5.3-point band (resample re-runs 8.1, 9.2, 9.8%). The mechanism check
+says why. The swarms climb the hill: star's round-2 programs pass all
+five shown asserts twice as often as resampling's. But those programs
+pass the hidden asserts almost never (4 of 230 against 32 of 117), and
+among programs at 5 of 5 the mean hidden asserts passed falls with the
+rounds for star (5.5, 4.5, 4.4 of 10) while resampling's stays flat
+(5.7, 6.1, 5.6). The LLM velocity update satisfies the test it is shown
+rather than the function it is asked for. On a hill the swarm climbs the
+proxy, and the proxy comes apart from the target as it climbs.
+
+Note on the earlier runs: their visible fitness was the index of the
+first failing visible test (the grader stopped there), not the count of
+passing tests; from this run on every visible test runs and the count is
+the fitness. On the cliffs it made no difference (most samples failed
+the first test), and the calibration scripts always ran every test.
+
 ## Learned
 
 - Feedback alone did nothing here. Solo refinement, the swarm with the
@@ -168,12 +257,20 @@ at the 8,192 cap.
   the size that is missing: `wai.holdout_size` says a +5 point gap at a
   7% base needs 547 paired tasks and a +3 point gap needs 1,382. 223 was
   never going to resolve a gap this small.
+- The fitness was never a hill. See the pre-flight above.
 - A real gradient did not change the answer. On the 27B's near-miss band
   the swarm had a third of the visible tests to climb and still tied 24
   independent draws, with most rescues in round 0 for every arm. Three
   configurations, three flat results: PSO over rollouts, as a way to
   rescue the prompts GRPO drops, is closed. What a hard prompt needs is
   more samples or a stronger model, not a smarter way to condition them.
+- The positive control closes the line. Given a hill, the swarm climbs
+  it, and what it climbs is the shown test, not the function. Fitness
+  from tests is either a cliff (a verifier's partial credit) or a proxy
+  the operator overfits (an additive family), and a judge is chance. A
+  population search over rollouts needs a fitness that is graded,
+  predictive and hard to satisfy by rewriting to the example; none of the
+  three we had is all three.
 - The dataset angle survives the flat result. On tasks the model gets
   right 1 time in 30 or less, how you structure the extra samples did not
   matter; that you spend them did. Six runs of 24 turned 43 zero-gradient
@@ -182,7 +279,7 @@ at the 8,192 cap.
   since the swarm rows are off-policy for it) against plain GRPO at
   matched rollouts.
 
-Verified 2026-09-21 (seed 0), 2026-09-22 (seed 1) and 2026-09-22 (27B). `results.json` and
+Verified 2026-09-21 (seed 0), 2026-09-22 (seed 1), 2026-09-22 (27B) and 2026-09-22 (MBPP bundles, `results-mbpp.json`, `rescued-mbpp.jsonl`). `results.json` and
 `results-seed1.json` in this directory are the two runs' reports;
 `rescued-seed1.jsonl` is seed 1's 127 passing programs on 42 tasks, the
 rows a training run starts from. `python run.py --reuse` reprints a report

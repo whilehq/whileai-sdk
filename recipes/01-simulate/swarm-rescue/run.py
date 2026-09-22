@@ -71,6 +71,16 @@ ARMS = ("resample", "solo", "ring", "star")
 VIS_GEN = 8
 HID_GEN = 32
 TEST_TIMEOUT = 6.0  # seconds per test; the contest limit is 1-2 s for C++
+# Exit codes that mean the grader's process could not start, not that the
+# program failed: Windows STATUS_DLL_INIT_FAILED and STATUS_DLL_NOT_FOUND
+# under process-creation pressure. A grade with one of these is void.
+GRADER_FAULTS = {3221225794, 3221225781}
+
+
+class GraderFault(RuntimeError):
+    """The grader itself is broken; stop rather than record fails."""
+
+
 FEEDBACK_CHARS = 300
 
 # --- the model ---------------------------------------------------------------
@@ -113,6 +123,9 @@ class Task:
     visible: list[tuple[str, str]]
     hidden: list[tuple[str, str]]
     tags: dict[str, str] = field(default_factory=dict)
+    # "stdio": a test is (stdin, expected stdout). "asserts": a test is a
+    # snippet appended to the program that must run clean (an assert).
+    mode: str = "stdio"
 
 
 DRY_TASKS = [
@@ -145,6 +158,67 @@ PARQUET = {
     "valid": "https://huggingface.co/datasets/deepmind/code_contests/resolve/"
     "refs%2Fconvert%2Fparquet/default/partial-valid/0000.parquet",
 }
+
+
+BUNDLE_SYSTEM = (
+    "You are a Python programmer. Implement every function listed, in one Python "
+    "program, with exactly the given names and signatures. Do not read input, print, "
+    "or write tests. Think briefly, then reply with one ```python code block "
+    "containing all the functions."
+)
+BUNDLE = 5  # functions per task in the additive family
+MBPP_URL = (
+    "https://datasets-server.huggingface.co/rows?dataset=google-research-datasets/mbpp&config=full"
+)
+FUNC_NAME = re.compile(r"assert\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+
+
+def load_mbpp_bundles(limit: int | None, seed: int, k: int = BUNDLE) -> list[Task]:
+    """The additive family: k MBPP functions (Austin et al. 2021) make one
+    task. Each function has three asserts; the first is shown in the
+    statement and is the visible test, the other two are hidden. Fitness is
+    the share of functions whose shown assert holds, so partial credit adds
+    up by construction, the hill a swarm needs. A rescue passes every assert
+    of every function. Rows cached in raw/mbpp.jsonl."""
+    RAW.mkdir(exist_ok=True)
+    cache = RAW / "mbpp.jsonl"
+    if not cache.exists():
+        print("downloading MBPP ...", file=sys.stderr)
+        with cache.open("w", encoding="utf-8") as fh:
+            for split in ("train", "test", "validation"):
+                for off in range(0, 500, 100):
+                    with urllib.request.urlopen(
+                        f"{MBPP_URL}&split={split}&offset={off}&length=100", timeout=60
+                    ) as resp:
+                        for r in json.load(resp).get("rows", []):
+                            fh.write(json.dumps({**r["row"], "split": split}) + "\n")
+    rows = [json.loads(line) for line in cache.read_text(encoding="utf-8").splitlines() if line]
+    good = []
+    for r in rows:
+        m = FUNC_NAME.match(r["test_list"][0]) if r.get("test_list") else None
+        if m and len(r["test_list"]) == 3 and not (r.get("test_setup_code") or "").strip():
+            good.append((r, m.group(1)))
+    random.Random(seed).shuffle(good)
+    tasks: list[Task] = []
+    for i in range(0, len(good) - k + 1, k):
+        group = good[i : i + k]
+        lines = []
+        for n, (r, name) in enumerate(group, 1):
+            lines.append(
+                f"{n}. {r['text'].strip()} Name it `{name}`. Example: `{r['test_list'][0]}`"
+            )
+        tasks.append(
+            Task(
+                id=f"mbpp-{seed}-{i // k}",
+                name=f"Bundle of {k} functions",
+                statement="\n".join(lines),
+                visible=[(r["test_list"][0], "") for r, _ in group],
+                hidden=[(t, "") for r, _ in group for t in r["test_list"][1:]],
+                tags={"rating": "bundle", "split": "mbpp"},
+                mode="asserts",
+            )
+        )
+    return tasks[:limit] if limit else tasks
 
 
 def load_tasks(limit: int | None, seed: int) -> list[Task]:
@@ -239,16 +313,22 @@ def outputs_match(got: str, expected: str) -> bool:
 _grade_slots = threading.BoundedSemaphore(GRADERS)
 
 
-def run_tests(code: str, tests: list[tuple[str, str]]) -> tuple[int, dict | None]:
-    """Run the program on each test in a fresh subprocess; stop at the first
-    failure. Returns (passed, first_failure) where the failure carries the
-    input, the expected output and what the program did instead."""
+def run_tests(
+    code: str, tests: list[tuple[str, str]], mode: str = "stdio", stop_first: bool = True
+) -> tuple[int, dict | None]:
+    """Run the program on each test in a fresh subprocess. Returns (passed,
+    first_failure) where the failure carries the input, the expected output
+    and what the program did instead. ``stop_first`` ends at the first
+    failure (right for an all-or-nothing target); off, every test runs and
+    ``passed`` counts them (right for a fitness). In ``asserts`` mode the
+    test is appended to the program and must run clean."""
     if not code:
         return 0, {"input": "", "expected": "", "got": "no code in the reply"}
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "sol.py")
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(code)
+        if mode == "stdio":
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(code)
         env = {
             "PATH": os.environ.get("PATH", ""),
             "PYTHONDONTWRITEBYTECODE": "1",
@@ -257,7 +337,19 @@ def run_tests(code: str, tests: list[tuple[str, str]]) -> tuple[int, dict | None
         }
         if os.name == "nt":
             env["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "")
+        passed = 0
+        first: dict | None = None
+
+        def fail(i: int, detail: dict) -> tuple[int, dict | None] | None:
+            nonlocal first
+            first = first or detail
+            return (i, detail) if stop_first else None
+
         for i, (inp, exp) in enumerate(tests):
+            if mode == "asserts":
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(code + "\n\n" + inp + "\n")
+                inp, exp = "", "the test holds"
             with _grade_slots:
                 for attempt in range(4):
                     try:
@@ -274,11 +366,8 @@ def run_tests(code: str, tests: list[tuple[str, str]]) -> tuple[int, dict | None
                         )
                         break
                     except subprocess.TimeoutExpired:
-                        return i, {
-                            "input": inp,
-                            "expected": exp,
-                            "got": f"timed out after {TEST_TIMEOUT:.0f}s",
-                        }
+                        proc = None
+                        break
                     except OSError:
                         # Windows "paging file is too small" (1455) under many
                         # concurrent spawns: a transient of the grader, not of
@@ -286,20 +375,62 @@ def run_tests(code: str, tests: list[tuple[str, str]]) -> tuple[int, dict | None
                         if attempt == 3:
                             raise
                         time.sleep(2.0 * (attempt + 1))
+            shown = tests[i][0] if mode == "asserts" else inp
+            if proc is not None and proc.returncode in GRADER_FAULTS:
+                # Back off once and retry; if the machine is still refusing
+                # to start processes, the run must stop, not grade zeros.
+                time.sleep(5.0)
+                with _grade_slots:
+                    proc = subprocess.run(
+                        [sys.executable, "-I", "-S", path],
+                        input=inp,
+                        cwd=tmp,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        timeout=TEST_TIMEOUT,
+                    )
+                if proc.returncode in GRADER_FAULTS:
+                    raise GraderFault(
+                        f"python exited {proc.returncode} twice; the machine cannot start "
+                        "grading processes (Windows STATUS_DLL_INIT_FAILED). Stop the run, "
+                        "free resources, resume with --reuse."
+                    )
+            if proc is None:
+                out = fail(
+                    i,
+                    {
+                        "input": shown,
+                        "expected": exp,
+                        "got": f"timed out after {TEST_TIMEOUT:.0f}s",
+                    },
+                )
+                if out:
+                    return out
+                continue
             if proc.returncode != 0:
                 tail = (proc.stderr or "").strip().splitlines()
                 got = "error: " + (tail[-1] if tail else f"exit {proc.returncode}")
-                return i, {"input": inp, "expected": exp, "got": got}
-            if not outputs_match(proc.stdout, exp):
-                return i, {"input": inp, "expected": exp, "got": proc.stdout}
-    return len(tests), None
+                out = fail(i, {"input": shown, "expected": exp, "got": got})
+                if out:
+                    return out
+                continue
+            if mode != "asserts" and not outputs_match(proc.stdout, exp):
+                out = fail(i, {"input": inp, "expected": exp, "got": proc.stdout})
+                if out:
+                    return out
+                continue
+            passed += 1
+    return passed, first
 
 
 def grade(text: str, task: Task) -> dict[str, Any]:
     """Visible tests give the fitness the swarm sees; hidden tests decide a
     rescue. Hidden tests run only when every visible test passed."""
     code = extract_code(text)
-    v_pass, fail = run_tests(code, task.visible)
+    v_pass, fail = run_tests(code, task.visible, task.mode, stop_first=False)
     out = {
         "visible_passed": v_pass,
         "visible_total": len(task.visible),
@@ -308,7 +439,7 @@ def grade(text: str, task: Task) -> dict[str, Any]:
         "feedback": fail,
     }
     if fail is None:
-        h_pass, h_fail = run_tests(code, task.hidden)
+        h_pass, h_fail = run_tests(code, task.hidden, task.mode)
         out["correct"] = h_fail is None
         out["hidden_passed"] = h_pass
     return out
@@ -437,9 +568,13 @@ class FakeModel(Model):
 # ============================================================ prompts
 
 
+def system_for(task: Task) -> str:
+    return BUNDLE_SYSTEM if task.mode == "asserts" else SYSTEM
+
+
 def base_messages(task: Task) -> list[dict]:
     return [
-        {"role": "system", "content": SYSTEM},
+        {"role": "system", "content": system_for(task)},
         {"role": "user", "content": f"{task.name}\n\n{task.statement}"},
     ]
 
@@ -459,12 +594,19 @@ def describe_attempt(label: str, attempt: dict) -> str:
     ]
     fb = g.get("feedback")
     if fb:
-        lines += [
-            "It failed on this test.",
-            f"Input:\n{_clip(fb['input'])}",
-            f"Expected output:\n{_clip(fb['expected'])}",
-            f"Your program's output:\n{_clip(fb['got'])}",
-        ]
+        if fb.get("expected") == "the test holds":
+            lines += [
+                "It failed this test.",
+                f"Test:\n{_clip(fb['input'])}",
+                f"Result:\n{_clip(fb['got'])}",
+            ]
+        else:
+            lines += [
+                "It failed on this test.",
+                f"Input:\n{_clip(fb['input'])}",
+                f"Expected output:\n{_clip(fb['expected'])}",
+                f"Your program's output:\n{_clip(fb['got'])}",
+            ]
     return "\n".join(lines)
 
 
@@ -486,7 +628,10 @@ def swarm_messages(task: Task, own: dict, social: dict | None) -> list[dict]:
         "Write an improved solution. Keep what works, fix what fails, and if the "
         "approach is wrong change it. Reply with one ```python code block.",
     ]
-    return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": "\n".join(parts)}]
+    return [
+        {"role": "system", "content": system_for(task)},
+        {"role": "user", "content": "\n".join(parts)},
+    ]
 
 
 # ============================================================ arms
@@ -916,6 +1061,13 @@ def main(argv: list[str] | None = None) -> int:
         help=f"reply cap (default {MAX_TOKENS}, {THINK_TOKENS} with --thinking); a bigger model rambles",
     )
     p.add_argument(
+        "--tasks",
+        choices=["code-contests", "mbpp-bundle"],
+        default="code-contests",
+        help="task family: code_contests (a cliff) or bundles of MBPP functions (additive)",
+    )
+    p.add_argument("--bundle", type=int, default=BUNDLE, help="functions per mbpp-bundle task")
+    p.add_argument(
         "--band",
         choices=["all", "near-miss"],
         default="all",
@@ -941,7 +1093,10 @@ def main(argv: list[str] | None = None) -> int:
         tasks = DRY_TASKS
         model: Model = FakeModel()
     else:
-        tasks = load_tasks(args.limit, args.seed)
+        if args.tasks == "mbpp-bundle":
+            tasks = load_mbpp_bundles(args.limit, args.seed, args.bundle)
+        else:
+            tasks = load_tasks(args.limit, args.seed)
         key = resolve_api_key()  # WHILEAI_API_KEY, else the `wai login` credentials
         if args.base_url == HOSTED_URL and not key:
             sys.exit(
@@ -1010,6 +1165,8 @@ def main(argv: list[str] | None = None) -> int:
     rep["max_tokens"] = model.max_tokens
     rep["no_comments"] = bool(args.no_comments)
     rep["band"] = args.band
+    rep["family"] = args.tasks
+    rep["bundle"] = args.bundle if args.tasks == "mbpp-bundle" else None
     cost = {
         "calls": model.calls,
         "truncated": model.truncated,
