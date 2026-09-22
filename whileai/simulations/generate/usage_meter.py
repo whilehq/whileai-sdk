@@ -3,7 +3,7 @@
 Every call to the hosted policy or judge answers with a ``usage`` block. The
 shared-pool endpoints (VLLM_API_KEY) authenticate with one key and cannot
 tell accounts apart, so the SDK, which holds the account's own key, reports
-what it used. The account endpoints (zeroproof-serve, the account's zp_ key)
+what it used. The account endpoints (whileai-serve, the account's zp_ key)
 meter on the server, and calls to them are not reported here:
 ``POST /usage`` on the platform API with the input and output token counts,
 batched, from a background thread, and once more at exit.

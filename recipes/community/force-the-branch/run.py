@@ -45,7 +45,7 @@ from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "rows"
-ENDPOINT = "https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
+ENDPOINT = "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
 BASE_MODEL = "qwen3-4b-think"  # adapterRunId None -> the bare Qwen/Qwen3-4B
 TRAINED_MODEL = "billing-boring-half"  # adapterRunId run_327b614f3682cae5
 SEED = 7

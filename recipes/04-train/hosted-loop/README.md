@@ -54,7 +54,7 @@ done in 47s: loss 5.0094 -> 4.1311 on 72 held-out rows
 adapter: volume whileai-train-runs:/run_726d53b769141506/adapter
 == serve
 serving hosted-loop v1 on Qwen/Qwen3-4B
-endpoint https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1
+endpoint https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1
 == call
 HTTP 200 in 287s
 I cannot process your request. The order ID "88213" is not valid or does not exist in our system. Please provide a valid order ID, and I will assist you accordingly.

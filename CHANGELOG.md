@@ -442,6 +442,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   passed 64 wrong ones whose last digit matched the gold: 6.8% of verdicts. Its sympy branch
   never ran (it needed antlr4). `extract_answer` reads `\boxed{}` with braces balanced to any depth.
 
+- The account route reads the renamed Modal hosts, `zeroproofai--whileai-serve-*` and
+  `zeroproofai--whileai-judge-serve`; the pre-rename `zeroproofai--zeroproof-serve-*` hosts are still
+  recognised as the account route for one release. Recipes and docs name the new hosts.
+
 ## 0.110 (2026-09-21)
 
 - `run.score(..., rows=[Example(...)])` posts every graded row behind a score (prompt, reply,
