@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.121 (2026-09-22)
+
 - Recipe `01-simulate/swarm-rescue` raises the floor and stays flat: Qwen3.8-27B on the
   near-miss band (`results-27b.json`, `rescued-27b.jsonl`) ties resampling with a real
   fitness gradient. The client streams replies (a hosted request closes at 150 s), reaches
