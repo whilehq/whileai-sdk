@@ -13,7 +13,7 @@ PREFIX = "WHILEAI_"
 PLATFORM_DOMAINS = ("while.ai", "withwhile.com", "zeroproofai.com")
 PLATFORM_MODAL_PREFIX = "zeroproofai--whileai-serve-"
 #: The host prefix before the Modal apps were renamed (2026-09-21); read for one release.
-PLATFORM_MODAL_PREFIX_OLD = "zeroproofai--whileai-serve-"
+PLATFORM_MODAL_PREFIX_OLD = "zeroproofai--zeroproof-serve-"
 
 
 @overload
