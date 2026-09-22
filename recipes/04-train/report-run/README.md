@@ -18,7 +18,7 @@ The script registers an agent (model + harness + the frontier model you pay
 for today), declares five behaviors with their own held-out tests, opens
 one run per version (base, v1..v4) with a training curve and a score on
 every behavior, marks v3 as served, posts two weeks of traffic, and reads
-the verdict back. Open withwhile.com/platform/runs afterwards: that is the screen
+the verdict back. Open while.ai/platform/runs afterwards: that is the screen
 the person decides on.
 
 Three rules a reported score has to keep [1, 2]: the held-out

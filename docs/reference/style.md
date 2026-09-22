@@ -163,13 +163,24 @@ exception, and it is the same sentence: what happened, and the one call or
 field that changes it. Every report already has the place to put it
 (`note`, `notes`, `warning`); the rule is that it is filled.
 
+A report that covers part of a space **names the part it does not cover**.
+This is the same sentence again for a measurement that was never taken: a
+report over five of thirteen markers, printing five clean rows and nothing
+else, reads as a verdict on the agent rather than on five phrase lists. The
+reader cannot see the edge of the instrument from inside it, so the
+instrument says where the edge is, and the call that measures past it
+(`style_report` ends with the markers `trace_markers` and `mark_grounding`
+stamp). A marker that came out the same on every row is a third case of the
+same thing: no interval, and a warning that says a detector that cannot
+fail and a behavior that never happened look identical (#270, #760).
+
 A report that was a dict first becomes a `whileai.report.Report`, which
 *is* a dict: every key, `.get`, `json.dumps` and `==` against a plain dict
 keep working, and `__str__` is the block the `format_*` twin writes. That
 is the migration step that costs a caller nothing. `judge_trust`,
 `hack_scan`, `delta_report` (`wai.compare`), `leak_report`,
-`eval_variance` and `holdout_size` are through it; `decontaminate`,
-`export` and `preflight` are not.
+`eval_variance`, `holdout_size` and `style_report` are through it;
+`decontaminate`, `export` and `preflight` are not.
 
 **6. Public names are the verb a scientist says.** `simulate`, `grade`,
 `select`, `compare`, `train`, `serve`, `push`. Implementation words are

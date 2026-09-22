@@ -117,7 +117,8 @@ from the policy you train is the on-policy setup (Tulu 3, Lambert et al. 2024).
 `style_report` says how often each side carries hedging, apology, boilerplate
 or sycophancy, and whether reward correlates with the phrase. A flag means the
 reward pays for the tic and the pairs will teach it; fix the reward, not the
-pairs. `length_report` catches truncated replies.
+pairs. Print it: its last line names the markers it did not stamp, so a clean
+report is not read as a clean agent. `length_report` catches truncated replies.
 
 ```python
 sides = [p["chosen"] for p in pairs] + [p["rejected"] for p in pairs]
@@ -125,7 +126,7 @@ style = wai.style_report(sides)
 length = wai.length_report(sides)
 assert not style["warnings"], style["warnings"]
 assert length["n_truncated"] == 0, length
-print("style: " + ", ".join(f"{m} clean {v['clean']:.2f}" for m, v in style["markers"].items()))
+print(style)  # the report prints itself: every marker, and the ones it did not stamp
 ```
 
 ## 5. Decontaminate against the frozen test

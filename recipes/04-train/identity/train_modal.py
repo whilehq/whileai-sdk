@@ -56,7 +56,7 @@ image = (
 )
 
 # The dashboard. With WHILEAI_API_KEY set on your laptop the run reports
-# loss, learning rate and progress to withwhile.com/platform/training;
+# loss, learning rate and progress to while.ai/platform/training;
 # without it, training is unchanged and nothing is sent.
 dashboard_secret = modal.Secret.from_dict(
     {"WHILEAI_API_KEY": os.environ.get("WHILEAI_API_KEY", "")}
