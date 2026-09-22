@@ -400,7 +400,7 @@ class EvalSetup(_Wire):
     platform prices the facts from its open price book at list price, no
     caching, and draws held-out score against the result in USD per 1,000
     tasks: every price, its source, its date and the formula are public at
-    https://withwhile.com/pricing-book, so any two versions on any chart are
+    https://while.ai/pricing-book, so any two versions on any chart are
     priced the same way.
 
     ``cost_per_1k`` is the fallback: the number the agent priced itself, in
@@ -1404,7 +1404,7 @@ def brief_of(
     dash: Dashboard | None = None,
 ) -> Brief:
     """The brief from the platform's rows: pure, so a test can hand it rows."""
-    url = f"https://withwhile.com/platform/runs?agent={agent}"
+    url = f"https://while.ai/platform/runs?agent={agent}"
     live = [r for r in runs if not r.get("archived")]
     scored = [r for r in live if r.get("evals")]
     trained = [r for r in live if r.get("method") and r.get("method") != "eval"]
@@ -1958,7 +1958,7 @@ class Run:
 
     @property
     def url(self) -> str:
-        return f"https://withwhile.com/platform/runs?agent={self.tracked.id}"
+        return f"https://while.ai/platform/runs?agent={self.tracked.id}"
 
     def __repr__(self) -> str:
         return (

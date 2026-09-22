@@ -1,7 +1,7 @@
 """The old name stays out of new code.
 
 ZeroProof became While on 2026-09-16 and the cutover finished on 2026-09-19:
-the package is ``whileai``, the hosts are ``withwhile.com``, the variables
+the package is ``whileai``, the hosts are ``while.ai``, the variables
 are ``WHILEAI_*``. What is left of the old name is wire protocol and
 infrastructure that cannot change without breaking users (Modal app
 hostnames, the ``zp_`` key prefix, ``zeroproof.*`` span attribute keys,
@@ -73,7 +73,7 @@ def main(argv: list[str]) -> int:
     if bad:
         print("\n".join(bad))
         print(
-            "\nThe package is whileai, the hosts are withwhile.com, the variables are"
+            "\nThe package is whileai, the hosts are while.ai, the variables are"
             " WHILEAI_*. Use those. If the mention is wire protocol or infrastructure"
             " that cannot change, say so in the PR body and run"
             " `uv run python scripts/check_old_name.py --update`."

@@ -286,7 +286,7 @@ base's 800. The training reward on the train split climbed from 0.04 to
 above 0.5 by step 30, so the policy learned the five training families;
 what carried to the six held-out families is the two points above.
 
-Runs on the platform: https://withwhile.com/platform/runs?agent=harness-and-weights (four versions of the agent `harness-and-weights`, behavior `quant_code`, each with its harness fingerprint and the run record).
+Runs on the platform: https://while.ai/platform/runs?agent=harness-and-weights (four versions of the agent `harness-and-weights`, behavior `quant_code`, each with its harness fingerprint and the run record).
 
 ## Checks
 
@@ -330,7 +330,7 @@ the text alone.
 - A templated task set and an 8-gram contamination rule do not mix: split by task, and every train prompt is a near-copy of a holdout prompt. Split by template family, and the holdout is clean and harder. The recipe measures both and says which it uses.
 - A skills file in the harness is a prompt edit with a fingerprint: `wai.Harness` makes the version without anyone naming it, so the proposer can edit SKILLS.md between rounds and every row still says which text it ran under.
 
-Verified 2026-09-21, whileai 0.114, TRL 1.13.0 + PEFT 0.21.0 on torch 2.13.0, vLLM 0.29.0. 36.1 GPU minutes, $2.38 on one H100 by the recipe's clock (function bodies; Modal bills the three cold starts too). Runs: https://withwhile.com/platform/runs?agent=harness-and-weights
+Verified 2026-09-21, whileai 0.114, TRL 1.13.0 + PEFT 0.21.0 on torch 2.13.0, vLLM 0.29.0. 36.1 GPU minutes, $2.38 on one H100 by the recipe's clock (function bodies; Modal bills the three cold starts too). Runs: https://while.ai/platform/runs?agent=harness-and-weights
 
 ## References
 

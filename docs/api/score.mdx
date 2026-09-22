@@ -1389,7 +1389,10 @@ program gold as a measurement of the judge: a deterministic rule is
 at least as strong a gold as a rater, since it cannot be argued into
 a pass and agrees with itself on every run (Lambert 2025, chapter
 Evaluation, verifiable rewards). A tie leaves both unset. Labels that
-name no row, or carry no 0/1 value, are counted and listed.
+name no row, or carry no 0/1 value, are counted and listed. A list or
+file holding anything but dicts (a bare `[0, 1, 1, 0]`) raises
+naming the item and the accepted shapes, since a label with no row
+identity cannot be attached (#685).
 
 ## logprobs
 

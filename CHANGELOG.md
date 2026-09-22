@@ -7,16 +7,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
-- Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
-  the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
-  instead of zeroing them.
-
-- Recipe `01-simulate/swarm-rescue`: on the tasks where all 8 rollouts fail, the ones GRPO
-  drops, four ways to spend 24 more samples (independent resampling, solo refinement on
-  test feedback, a ring swarm, a star swarm) and the share of tasks each one rescues,
-  paired by task with `compare_runs`. The rescued programs land in `out/rescued.jsonl`
-  as bare rows for a later SFT or distillation run.
-
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
   is the report rather than a dict literal: a line per marker with its interval, the phrases that
   fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and
@@ -28,6 +18,27 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
   `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
   the part it does not cover.
+
+## 0.117 (2026-09-22)
+
+- `export_environment` warns `no_mixed_groups` when `graded_mixed` is 0, whether no prompt has
+  two graded rollouts or every graded prompt was unanimous; it used to write the package with
+  `warnings: []` while `select_for_rl` refuses the same rows (#684).
+- `attach_labels` raises when a list (or JSONL) holds anything but label dicts, naming the item
+  and the three accepted shapes; a bare `[0, 1, 1, 0]` used to be filtered to nothing and
+  reported as zero labels, zero invalid (#685).
+- Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
+  the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
+  instead of zeroing them.
+
+- Recipe `01-simulate/swarm-rescue`: on the tasks where all 8 rollouts fail, the ones GRPO
+  drops, four ways to spend 24 more samples (independent resampling, solo refinement on
+  test feedback, a ring swarm, a star swarm) and the share of tasks each one rescues,
+  paired by task with `compare_runs`. The rescued programs land in `out/rescued.jsonl`
+  as bare rows for a later SFT or distillation run.
+- while.ai is the platform domain: sign-in, run and dataset links, the README, the package
+  homepage and the cross-posted blog canonicals say `while.ai`; `withwhile.com` stays in
+  `PLATFORM_DOMAINS` because the API, docs and hosted models still answer under it.
 
 ## 0.116 (2026-09-22)
 

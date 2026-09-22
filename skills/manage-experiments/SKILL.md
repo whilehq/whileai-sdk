@@ -4,7 +4,7 @@ description: >
   How a coding agent tells the person what it did, why the number moved and
   how to run it again, so the platform page reads in one look. Use before
   posting a second version, a sweep, a replicate or a training run to
-  withwhile.com/platform: the question first, then for every run five
+  while.ai/platform: the question first, then for every run five
   lines (Changed, Moved, Why, Learned, Reproduce), one picture, the rows that
   failed, points not fractions, and readback(tracked) to read the account
   the way a teammate will. No GPU, no key until the report.
