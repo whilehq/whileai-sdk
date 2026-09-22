@@ -24,7 +24,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   run, read the ledger, stop when the gate passes or after N rounds, report Changed / Moved / Why /
   Learned / Reproduce and post every candidate as a harness version. `recipes/papers/check.py`
   leaves a step-shaped paper recipe (one with `run.py`) out of the results table.
-
+- `wai.platform.hosted.publish(adapter, name=, base=, hf_token=, wait=)`: hand While a LoRA adapter
+  (a Hugging Face repo id or a training run id) and get a model back: merged into its base,
+  imported into Bedrock on While's account, registered at models.withwhile.com. Polls the row
+  until `ready` or `failed` (`PUBLISH_POLL_S`, `PUBLISH_TIMEOUT_S`, named). `HostedModel` carries
+  `status`, `step`, `error` and `cmu`.
 ## 0.113 (2026-09-21)
 
 - Docs: the Hub-through-the-platform block on the platform reference used `wai.hf_status` and
