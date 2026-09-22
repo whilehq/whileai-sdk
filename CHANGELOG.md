@@ -9,7 +9,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 - Docs: `purge_agent` and `delete_empty_datasets` delete by default; the CLI and Platform pages said both came with `dry_run=True`, so a copied call deleted what it read as a preview. The pages now say to pass `dry_run=True` first.
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
-
+- `judge_trust(rows, judge=)` warns, and `ok` is false, when the rows' `judge_name` names a
+  scorer other than the judge passed: agreement and kappa read the reward on the row, so
+  they were that scorer's number under this judge's name (#683).
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
   is the report rather than a dict literal: a line per marker with its interval, the phrases that
   fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and
