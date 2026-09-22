@@ -233,7 +233,7 @@ def train_arm(
     import harnesses
     import tasks as task_mod
 
-    import whileai.simulations as wai
+    import whileai as wai
 
     started = time.time()
     dataset = Dataset.from_list(
