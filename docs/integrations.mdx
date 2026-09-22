@@ -85,6 +85,7 @@ round trip checked for that shape.
 | TRL (`SFTTrainer`, `DPOTrainer`, `GRPOTrainer`) | `select(mode="sft").export("train.jsonl", format="trl")`; `wai.HackMonitor` inside the loop | [SFT](/recipes/04-train/sft), [DPO](/recipes/04-train/dpo), [GRPO](/recipes/04-train/grpo) |
 | Fireworks managed training and serving | `export(..., format="fireworks")`, then `firectl sftj create` and a deployment | [Train on Fireworks](/recipes/04-train/fireworks) |
 | prime-rl and verifiers on Prime Intellect | `wai.prime_rl_config(...)` writes the run; `export_environment` writes the environment | [prime-rl](/recipes/04-train/prime-rl), [Prime Intellect RL](/recipes/03-select/prime-intellect-rl) |
+| OpenEnv (TRL `GRPOTrainer`, torchforge, SkyRL, Unsloth) | `export_environment(..., runtime="openenv")` writes the `openenv.yaml` package; `uv run --project . server` serves it, `openenv push` puts it on a Space | [environment export](/reference/five-calls), [`export_environment`](/api/environment#export_environment) |
 | Modal | the training recipes run there on your account, one A10G | [SFT](/recipes/04-train/sft), [Text-to-SQL](/recipes/04-train/text-to-sql) |
 | While hosted GPUs | `wai.train(...)`, then `wai.serve(...)` gives back an OpenAI-compatible endpoint | [Hosted loop](/recipes/04-train/hosted-loop) |
 

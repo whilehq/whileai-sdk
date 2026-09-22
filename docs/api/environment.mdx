@@ -11,7 +11,7 @@ description: "A verifiers environment for on-policy trainers."
 | Name | What it does |
 |---|---|
 | [`build_tasks`](#build_tasks) | One task per distinct prompt, split into train and holdout. |
-| [`export_environment`](#export_environment) | Write graded rows as an installable verifiers environment for an on-policy trainer. |
+| [`export_environment`](#export_environment) | Write graded rows as an installable RL environment for an on-policy trainer. |
 | [`load_environment`](#load_environment) | Build the verifiers environment from an exported `spec.json`. |
 
 ### build_tasks
@@ -60,12 +60,13 @@ export_environment(
     ngram: int = 8,
     world: Mapping[str, Any] | None = None,
     harnesses: Sequence[Any] | None = None,
+    runtime: str = 'verifiers',
 ) -> dict[str, Any]
 ```
 
 Defined in [`whileai/simulations/environment.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/environment.py).
 
-Write graded rows as an installable verifiers environment for an on-policy trainer.
+Write graded rows as an installable RL environment for an on-policy trainer.
 
 Reach for it when the next step is RL in a trainer that speaks
 verifiers (prime-rl and the like) and needs the tasks, the world and
@@ -123,6 +124,15 @@ update on such tasks has zero advantage everywhere (#684).
   one fixed harness collapses when the tool environment shifts, and
   harness-aware post-training generalizes out of distribution. Left
   out, the spec is what it always was.
+* `runtime` (`"verifiers"`): the trainer contract the package
+  speaks. `"verifiers"` is the Prime Intellect package prime-rl and
+  TRL's verifiers path install with `pip install -e`; `"openenv"`
+  is Meta PyTorch's OpenEnv (`reset`/`step`/`state` over HTTP,
+  the contract TRL, torchforge, SkyRL and Unsloth drive), written as
+  an `openenv.yaml` package that `uv run --project . server`
+  serves, `openenv build` containerizes and `openenv push` puts
+  on a Hugging Face Space. Same tasks, world and reward either way;
+  see `whileai.simulations.openenv`.
 
 ```python
 report = wai.export_environment(data, "envs/refunds", reward=my_verifier)

@@ -263,7 +263,9 @@ The same simulator serves as a live environment for on-policy RL: the
 trainer drives the policy, the SDK supplies situations, world, person and
 reward. `export_environment(data, out, reward=...)` writes an installable
 `verifiers` environment with train and holdout splits, the world dials in
-`spec.json`, and the 20 to 80 percent difficulty band [5, 6].
+`spec.json`, and the 20 to 80 percent difficulty band [5, 6];
+`runtime="openenv"` writes the same environment for Meta PyTorch's OpenEnv,
+the `reset`/`step`/`state` server TRL, torchforge and SkyRL drive.
 
 ## References
 

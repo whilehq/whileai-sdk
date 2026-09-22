@@ -52,6 +52,10 @@ whileai-simulations = "whileai.simulations.score.quality:main"
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "pytest-xdist>=3.6", "ruff>=0.12",
        "mypy>=1.16", "types-requests", "ty>=0.0.82", "math-verify>=0.8"]
 rl = ["verifiers>=0.3; python_version >= '3.11' and python_version < '3.14'"]
+# export_environment(runtime="openenv") needs nothing but the SDK; serving the
+# package (whileai.simulations.openenv) needs Meta PyTorch's OpenEnv, which
+# brings fastapi, fastmcp and gradio, so it stays an extra.
+openenv = ["openenv>=0.5"]
 # verify.MathEqual decides with Math-Verify (Kydlicek et al. 2025); imported
 # in the constructor, which names this extra when it is missing. No fallback:
 # a weaker rule is a reward the policy learns to game. Optional so the base

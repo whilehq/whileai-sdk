@@ -7,6 +7,18 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `export_environment(..., runtime="openenv")` writes the environment for Meta PyTorch's
+  OpenEnv, the `reset`/`step`/`state` contract TRL, torchforge, SkyRL and Unsloth drive: an
+  `openenv.yaml` package with a FastAPI server, an MCP tool client, the spec and the two
+  splits, ready for `uv run --project . server`, `openenv validate`, `openenv build` and
+  `openenv push`. Same tasks, world and reward as the verifiers export (the default, unchanged).
+  The environment class lives in `whileai.simulations.openenv` and is tested there: `reset(split=,
+  index=)` picks a task and returns the messages and tool schemas, each `CallToolAction` runs one
+  tool in the seeded mock world (or your `execute=`), the turn cap ends the episode at reward 0,
+  and `submit(answer=)` grades the trajectory through the judge contract. Task `info` (fault plan,
+  world state, privileged reference) never leaves the server. `pip install 'whileai[openenv]'`
+  for the runtime; `openenv import` could not read the verifiers export (#833).
+
 ## 0.121 (2026-09-22)
 
 - Recipe `01-simulate/swarm-rescue` raises the floor and stays flat: Qwen3.8-27B on the

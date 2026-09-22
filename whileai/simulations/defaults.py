@@ -1213,6 +1213,13 @@ ENV_HARNESS_MIX = "uniform"
 # (one value, one home).
 ENV_HARNESS_SEED = DEFAULT_SEED
 
+#: The trainer contract export_environment() writes by default: verifiers,
+#: the package prime-rl and TRL's verifiers path install. "openenv" is the
+#: Meta PyTorch OpenEnv package (reset/step/state over HTTP) TRL, torchforge,
+#: SkyRL and Unsloth drive. Same tasks, world and reward under either.
+ENV_RUNTIME = "verifiers"
+ENV_RUNTIMES = ("verifiers", "openenv")
+
 # ---------------------------------------------------------------------
 # text heuristics
 # ---------------------------------------------------------------------
