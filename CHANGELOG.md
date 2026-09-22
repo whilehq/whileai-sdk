@@ -66,6 +66,20 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
   `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
   the part it does not cover.
+- The platform client reads one scale. The brief, the Evals table and `tracked.evals()` used to
+  take a behavior whose every posted score and interval was at most 1 as fractions and multiply
+  by 100, while the verdict did not: two versions at 1 and 0.5 points (a safety behavior the
+  agent almost never passes) printed "highest at 100, lowest at 50" with the line "Scores arrived
+  as fractions", beside a verdict computed on 1 and 0.5. The guess is gone; the wire carries
+  points out of 100 and every reader takes the number as posted. A caller holding a rate out of 1
+  writes `run.score(name, 0.71, ci=0.04, n=240, fraction=True)` and the client posts 71.0 and 4.0.
+  A score strictly between 0 and 1 posted without `fraction=True` still warns once per behavior
+  and names `fraction=True` (or `score * 100`); 0 and 1 are points and say nothing, so a
+  measured floor of 0 points posts clean (#754). Behavior
+  change: an account that posted fractions and relied on the rescale reads its next post as
+  points, with that warning. Lambert 2025, chapter Evaluation: a score is comparable only with its
+  setup, and its scale, held constant. `readback` in `skills/manage-experiments` flags
+  `0 < score < 1` instead of `score <= 1`.
 - `is_truncated` (so `optimize(mode="rl")`, `select(mode="rl")`, `length_report` and the
   hack scan) reads the `finish_reason` the engine stamps and the step's `truncated` flag
   before it reads the grader's `reason` or the text. It read only the last two, and neither

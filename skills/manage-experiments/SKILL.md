@@ -244,8 +244,10 @@ def readback(tracked) -> list[str]:
         if trained and r["id"] not in pictured:
             out.append(f"run {v!r}: no picture; tracked.figure(name, fig, run=run)")
         for e in r.get("evals") or []:
-            if e["score"] <= 1:
-                out.append(f"{v} {e['behavior']}: {e['score']} reads as a fraction; post points")
+            if 0 < e["score"] < 1:
+                out.append(
+                    f"{v} {e['behavior']}: {e['score']} reads as a fraction; post points, or fraction=True"
+                )
     return out
 
 

@@ -196,3 +196,48 @@ def test_delete_run_names_the_run_id_behind_a_version_name():
     with pytest.raises(PlatformError, match="DELETE /runs/nope: No run nope"):
         t.delete_run("nope")
     assert t.delete_run("run_v1") == {"ok": True}
+
+
+def test_points_and_fraction_true_give_the_same_verdict():
+    """70 and 75 points, and the same two rates posted with ``fraction=True``,
+    read as one sentence: the client converts and the platform sees one scale."""
+    from tests.api.test_platform import Fake
+
+    floor = 2.4
+
+    def rows(scores: list[dict]) -> list[dict]:
+        return [
+            {
+                "id": f"run_{i}",
+                "agent": "a",
+                "version": e["version"],
+                "createdAt": f"2026-09-20T0{i}:00:00Z",
+                "evals": [{**e, "createdAt": f"2026-09-20T0{i}:00:00Z"}],
+            }
+            for i, e in enumerate(scores, start=1)
+        ]
+
+    class Floor(Platform):
+        def __call__(self, method, path, body=None):
+            out = super().__call__(method, path, body)
+            if path == "/agents/a/behaviors":
+                out["behaviors"][0]["noiseFloor"] = floor
+            elif "/dashboard" in path:
+                out["behavior"]["noiseFloor"] = floor
+            return out
+
+    fake = Fake()
+    posted = track("a", transport=fake).run("v1", flush_every=100)
+    posted.score(SEED0, 0.70, ci=0.03, n=200, fraction=True)
+    posted.score(SEED0, 0.75, ci=0.03, n=200, fraction=True)
+    wire = [dict(b[0], version=v) for (_, _, b), v in zip(fake.calls[-2:], ("v1", "v2"))]
+    assert [e["score"] for e in wire] == [70.0, 75.0]
+
+    points = [
+        {"behavior": SEED0, "version": "v1", "score": 70, "ci": 3.0, "n": 200},
+        {"behavior": SEED0, "version": "v2", "score": 75, "ci": 3.0, "n": 200},
+    ]
+    a = str(track("a", transport=Floor(rows(points), serving="v1")).verdict(SEED0))
+    b = str(track("a", transport=Floor(rows(wire), serving="v1")).verdict(SEED0))
+    assert a == b
+    assert "v2 beats v1 by 5 " in a
