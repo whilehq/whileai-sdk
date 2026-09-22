@@ -90,7 +90,7 @@ into `results.json`. These are today's numbers.
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [3] | **run_std 0.0091** from 3 re-runs (0.40, 0.38, 0.40); a delta under **0.055** is noise (`noise_band(run_std, df=2)` = 4.30 x 0.0091 x sqrt(2), one run per side, t at n - 1 because run_std is an estimate; `compare(run_std=, run_std_runs=3)`). This is the eval's re-run noise, not the training's |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [3] | **run_std 0.0091** from 3 re-runs (0.40, 0.38, 0.40); a delta under **0.055** is noise (`wai.noise_band(run_std, df=2)` = 4.30 x 0.0091 x sqrt(2), one run per side, t at n - 1 because run_std is an estimate; `compare(run_std=, run_std_runs=3)`). This is the eval's re-run noise, not the training's |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [4] | **0 of 512 train rows dropped**, as expected for disjoint GSM8K splits; measured, not assumed |
 | Reward is a program, not a judge | [4] | `MathEqual` against the public GSM8K gold number. No judge, no model in the loop |
 | Proxy vs target: `compare(proxy=)` | [5] | `proxy=None`: the training reward *is* the target metric, the same binary check, so there is no proxy to over-optimize; `over_optimized` false |
