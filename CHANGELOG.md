@@ -7,6 +7,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `select_for_rl` takes pass-rate-only rows. A trainer's state holds a task and a binary reward
+  per sample and no reply, and the junk gate dropped every such row as `incomplete_junk` before
+  the band ran, so the 20-80 split had to be done by hand from `pass_at`. `text_gates="auto"`
+  (the default) runs the gates that read the reply (junk, do-nothing, duplicate) only when a row
+  carries one, skips them otherwise and says so in the report's `text_gates` block and in
+  `hygiene_warnings`; `"require"` is the old refusal, `"skip"` never runs them. The label gate,
+  the unanimous trim, the band and the ranking run in every mode. `next_round` and
+  `trim_out_of_band` also take one row per task carrying `pass_rate` and `n` (top level or under
+  `calibration`, the stamp they write), and `next_round` warns instead of returning an empty plan
+  when the prior carries neither shape (#800).
 - Bedrock: a model that refuses `temperature` (Claude Sonnet 5 answers 400 "`temperature` is
   deprecated for this model") is called once more without the field, on both the API-key and the
   boto3 path, instead of failing every rollout. `recipes/papers/meta-harness`: the gate's row
