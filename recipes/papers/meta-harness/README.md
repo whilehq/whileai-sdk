@@ -37,6 +37,7 @@ uv add whileai
 cd recipes/papers/meta-harness
 python run.py --dry-run --propose --select     # offline: score, propose, gate
 python run.py --models openai:gpt-4.1-mini,anthropic:claude-haiku-4-5 --propose --select
+python run.py --traces traces.jsonl --propose --select   # the frozen set is production traffic
 ```
 
 | flag | default | what it does |
@@ -47,6 +48,8 @@ python run.py --models openai:gpt-4.1-mini,anthropic:claude-haiku-4-5 --propose 
 | `--models` | scripted,scripted-b | the search model first, then held-out models, as `provider:model` |
 | `--judge` | program | the judge in `common.py`; a `provider:model` builds `wai.Judge(RUBRIC)` |
 | `--seed` | 0 | the draw of the frozen set and of the split |
+| `--traces` | None | production traffic as the frozen set: a JSONL of traces or an OTLP JSON batch, one task per distinct prompt, the latest days held out |
+| `--cost-margin` | 0.0 | how much more per rollout than the baseline a pick may cost; 0 is matched cost |
 | `--candidates` | candidates | the folder of candidate files |
 | `--out` | out | ledger, traces, proposal, selection |
 | `--propose` | off | write `out/proposal.md` for the proposer |
@@ -58,7 +61,15 @@ Every run scores every file in `candidates/`, in name order, and the first
 file is the baseline. The first candidate draws the frozen set from the
 seeds in `common.py` with the offline template writer (`simulator=False`,
 deterministic, no key) and saves `out/tasks.jsonl`; every later candidate
-and every model replays it with `tasks=`, so the asks match. The judge is a
+and every model replays it with `tasks=`, so the asks match. With
+`--traces`, the frozen set is the agent's own traffic instead: one task per
+distinct prompt in the file (a JSONL `wai.load_traces` reads, or an OTLP
+JSON batch `wai.rows_from_otel` groups into conversations), at most
+`--budget` of them. The holdout is then the latest days, whole days, until
+it holds `--holdout` of the tasks, so no row the proposer reads comes from
+the days that decide; train prompts that overlap a holdout prompt
+(`wai.decontaminate`, the 8-gram rule) leave the proposer's window, and
+`out/split.json` records the days, the keys and the count dropped. The judge is a
 program: it reads the reply for filler, checks that a reply claiming
 success sits on a tool result that succeeded, and that nothing privileged
 leaked. The outer loop is you, or the coding agent running
@@ -121,8 +132,10 @@ candidates on the two scripted models:
 02_check_result    train 0.96 [0.90..1.00]  holdout 0.94 [0.83..1.00]  scripted-b 0.96 [0.90..1.00]
 ledger: out/ledger.jsonl (3 candidates, 2 models)
 proposal: out/proposal.md
-holdout on scripted: 02_check_result.py vs 00_baseline.py +0.27 [+0.15, +0.42] over 12 paired tasks -> clears zero
-holdout on scripted-b: 02_check_result.py vs 00_baseline.py +0.50 [+0.38, +0.62] over 12 paired tasks -> clears zero
+train tasks led: 00_baseline.py 5, 01_no_filler.py 7, 02_check_result.py 12 -> pick 02_check_result.py
+holdout on scripted: 02_check_result.py vs 00_baseline.py +0.27 [+0.15, +0.42] over 12 paired tasks, 0 the baseline passed and the pick failed -> clears zero
+holdout on scripted-b: 02_check_result.py vs 00_baseline.py +0.50 [+0.38, +0.62] over 12 paired tasks, 0 the baseline passed and the pick failed -> clears zero
+cost per rollout: 02_check_result.py at 1.00x the baseline in calls -> within the margin
 attribution on pass_at_1: 3 harnesses x 2 models, 12 tasks each cell
   harness              scripted  scripted-b
   00_baseline              66.7        45.8
@@ -132,11 +145,12 @@ attribution on pass_at_1: 3 harnesses x 2 models, 12 tasks each cell
   harness moves the score by up to 38.5 points, the model by up to 11.8
   model ranking flips across harnesses
   the harness moved the score more than the model did; the leading model changes with the harness, so a model ranking from one harness does not carry
-select: 02_check_result.py beats the baseline on the holdout and on a held-out model
+select: 02_check_result.py beats the baseline on the holdout and on a held-out model at 1.00x its cost
 ```
 
-The line that matters is the gate. `02_check_result` is best on the train
-split, and on the held-out tasks it beats the baseline by 27 points with an
+The line that matters is the gate. `02_check_result` leads 12 of the 12
+train tasks (per task, the best pass rate across candidates, ties shared),
+and on the held-out tasks it beats the baseline by 27 points with an
 interval of +15 to +42, which excludes zero, on the search model; on the
 held-out model the same harness beats the same baseline by 50 points, +38
 to +62. Then attribution over the three-by-two grid of holdout scores says
@@ -158,18 +172,38 @@ Three files carry the state between rounds:
   why the judge failed it), and one instruction: write
   `candidates/03_<name>.py`, then run again.
 - `out/selected.json`: the gate's answer. The candidate picked or `null`,
-  the paired delta and interval per model, and the attribution verdict.
+  the train tasks each candidate led, the paired delta and interval per
+  model with the count of holdout tasks the baseline passed and the pick
+  failed, the cost ratio, and the attribution verdict.
+- `out/split.json`: how the tasks were split (by seed, or by day for
+  traces), the keys on each side, and the train prompts dropped for
+  overlapping a holdout prompt.
 
 ## The gate, in words
 
 A candidate the proposer wrote from the train split's worst rows has seen
-those rows. Its score there is the pick, not the proof. The proof is the
-same harness on the tasks it never saw, on a model it was not tuned on, with
-an interval over tasks that excludes zero on both. When `--models` names one
-model, the held-out-model check is skipped and the selection says so.
-`wai.harness.attribute` needs at least two candidates and two models; with
-one model it is not printed. Lambert 2025, chapter Evaluation, is the rule
-behind the split [2]; Miller 2024 is the interval over tasks [3].
+those rows. Its score there is the pick, not the proof. The pick is the
+candidate that leads the most train tasks, per task the best pass rate
+across candidates with ties shared, so a mean gained by regressing a subset
+does not win; that is the per-task frontier GEPA selects on [4]. The proof
+is the same harness on the tasks it never saw, on a model it was not tuned
+on, with an interval over tasks that excludes zero on both, and the count
+of held-out tasks the baseline passed every time and the pick failed every
+time is printed beside it. When `--models` names one model, the
+held-out-model check is skipped and the selection says so.
+
+The third check is cost. Wang et al. 2026 matched budgets and found harness
+evolution lost to spending the same compute on more samples of the baseline,
+and gained 0.6 points on held-out tasks when the harness was tuned on the
+tasks it was scored on [5]. So the ledger carries cost per rollout (tokens
+when every row has `usage`, model calls otherwise: the reply plus one per
+tool call), and a pick may cost no
+more than the baseline plus `--cost-margin` (0 by default: matched cost). A
+candidate that wins by spending more is reported as a frontier point with
+the margin that would accept it, not selected. `wai.harness.attribute` needs
+at least two candidates and two models; with one model it is not printed.
+Lambert 2025, chapter Evaluation, is the rule behind the split [2]; Miller
+2024 is the interval over tasks [3].
 
 ## Next
 
@@ -188,3 +222,5 @@ harness as a version on the platform, `harness.pin()` is the record
 1. Lee, Y., Nair, R., Zhang, Q., Lee, K., Khattab, O., Finn, C. Meta-Harness: End-to-End Optimization of Model Harnesses. arXiv:2603.28052, 2026.
 2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
 3. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.
+4. Agrawal, L. A., et al. GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning. arXiv:2507.19457, 2025.
+5. Wang, Y., et al. Rethinking the Evaluation of Harness Evolution for Agents. arXiv:2607.12227, 2026.
