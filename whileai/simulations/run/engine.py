@@ -185,6 +185,60 @@ def _auth_error(message: str) -> str | None:
     return None
 
 
+#: HTTP statuses that mean "every later request to this host answers the
+#: same way". 404: the route is not there -- a Modal app that was stopped or
+#: renamed answers 404 with ``modal-http: invalid function call``. 405 and
+#: 410: the method is not allowed, or the resource is gone for good. 501:
+#: the server does not implement chat completions. A 5xx, a 429 and a
+#: timeout are all absent on purpose: those are the transient ladder's, and
+#: a breaker that trips on them is worse than no breaker.
+_PERMANENT_STATUSES = frozenset({404, 405, 410, 501})
+#: ``<host> returned <status>``, which is how ``complete()`` reports a
+#: status it has no branch for, and ``<host> is not deployed``, which is
+#: how ``dead_app_error`` (PR #752) reports a stopped Modal app. Either
+#: shape names the host, which is what the breaker counts against.
+_HOST_STATUS = re.compile(r"([a-z0-9][a-z0-9.-]*\.[a-z]{2,})\s+returned\s+(\d{3})\b", re.I)
+_HOST_GONE = re.compile(r"([a-z0-9][a-z0-9.-]*\.[a-z]{2,})\s+is not deployed\b", re.I)
+# DEAD_HOST_STRIKES = 3: permanent failures against one host, with no call
+# to it succeeding in between, before the run stops instead of retrying.
+# Not 1, because a host swapping its route mid-deploy answers one 404 and
+# then serves; not 10, because the run this exists for made ~1000 of them
+# over 7m14s and never said why (#816). (convention, untested)
+DEAD_HOST_STRIKES = 3
+
+
+def _dead_host(message: str) -> tuple[str, str] | None:
+    """The host that failed permanently, and the reason, or None.
+
+    A 404 from a stopped Modal app is not a slow host: it answers the same
+    way forever, so retrying spends wall-clock and money to learn nothing.
+    Reading the host out of the message rather than off the config means
+    the breaker counts the endpoint that actually failed, which is not
+    always the one the run was configured with (a judge, a writer and an
+    agent can be three hosts).
+    """
+    text = str(message or "")
+    gone = _HOST_GONE.search(text)
+    if gone:
+        return gone.group(1).lower(), "is not deployed"
+    hit = _HOST_STATUS.search(text)
+    if hit and int(hit.group(2)) in _PERMANENT_STATUSES:
+        return hit.group(1).lower(), f"answered {hit.group(2)}"
+    return None
+
+
+def _dead_host_note(host: str, reason: str, side: str, strikes: int) -> str:
+    """Why the run stopped, which host stopped it, and the two ways on."""
+    return (
+        f"{host} {reason} on {strikes} calls in a row, so the run stopped instead of "
+        f"retrying it: a permanently failing host is not a busy one. The {side} model "
+        f"is the one pointed at {host}. Either the endpoint was stopped or renamed and "
+        "a default still names it (upgrade whileai), or point the call at an endpoint "
+        "you run: wai.configure(agent='vllm:<model>@<your-url>', judge=...), WHILEAI_AGENT, "
+        "or `wai login` for the hosted route."
+    )
+
+
 _TIMEOUT_MARKS = ("timed out", "timeout")
 
 
@@ -1282,6 +1336,10 @@ class Run:
                 )
                 self.data.warnings.append(note)
                 log.warning(note)
+            # A permanently dead host fails every rollout the same way. The
+            # strike is counted here and read at the round boundary, where a
+            # row that landed in the same round has already cleared it.
+            self._strike_dead_host(final, "agent")
             auth = _auth_error(final[len("<agent error: ") :].rstrip(">"))
             if auth and not self.stopping:
                 # a rejected key fails every rollout the same way; no
@@ -1534,6 +1592,13 @@ class Run:
         )
         self.agent_dead = False
         self.auth_error: str | None = None
+        # The circuit breaker: permanent failures per host since the last
+        # call to that host worked. Cleared by a landed rollout or a
+        # writer wave that produced, so a host that works again is not
+        # carrying strikes from an earlier blip.
+        self.dead_host_hits: dict[str, int] = {}
+        self.dead_host_reason: dict[str, str] = {}
+        self.dead_host_side: dict[str, str] = {}
         self.writer_idle = 0
         self.restart_count = 0
         # Starvation relief: when every situation slot is used but rows are
@@ -1931,6 +1996,43 @@ class Run:
             self.on_progress(dict(progress))
         self.progress_rows, self.progress_at = events, now
 
+    def _strike_dead_host(self, message: str, side: str) -> str | None:
+        """Count one permanent failure against the host that raised it.
+
+        Returns the stop note once a host has ``DEAD_HOST_STRIKES`` of them,
+        else None. The 404 in #816 was indistinguishable from a slow host
+        because nothing counted it.
+        """
+        dead = _dead_host(message)
+        if not dead:
+            return None
+        host, reason = dead
+        strikes = self.dead_host_hits.get(host, 0) + 1
+        self.dead_host_hits[host] = strikes
+        self.dead_host_side[host] = side
+        self.dead_host_reason[host] = reason
+        if strikes < DEAD_HOST_STRIKES:
+            return None
+        return _dead_host_note(host, reason, side, strikes)
+
+    def _tripped_host(self) -> str | None:
+        """The stop note for a host over its strikes, read at a round
+        boundary so a round that also landed a row never trips.
+
+        Rollouts in one batch finish in any order, so a strike and a landed
+        row inside the same round say nothing about each other; only the
+        state the round ends in does.
+        """
+        for host, strikes in self.dead_host_hits.items():
+            if strikes >= DEAD_HOST_STRIKES:
+                return _dead_host_note(
+                    host,
+                    self.dead_host_reason.get(host, "failed"),
+                    self.dead_host_side.get(host, "agent"),
+                    strikes,
+                )
+        return None
+
     def _land(self, t: dict) -> None:
         """Store one usable rollout as a row: on the run, on ``checkpoint=``
         at once, and on the streamed ``output=``. The one place a row
@@ -2202,6 +2304,10 @@ class Run:
                 gen.last_errors["llm_guided"] = msg
             else:
                 gen.last_errors["llm_guided"] = f"{type(exc).__name__}: {exc}"
+            note = self._strike_dead_host(msg, "writer")
+            if note:
+                self.data.stopped_because = "writer_host_dead"
+                raise RuntimeError(note) from None
             auth = _auth_error(msg)
             if auth:
                 self.data.stopped_because = _stop_reason("writer", auth)
@@ -2211,6 +2317,10 @@ class Run:
         gen.fault_plans.update(plans)
         gen.last_errors.update(errors)
         for err in (errors or {}).values():
+            note = self._strike_dead_host(str(err), "writer")
+            if note:
+                self.data.stopped_because = "writer_host_dead"
+                raise RuntimeError(note) from None
             auth = _auth_error(err)
             if auth:
                 self.data.stopped_because = _stop_reason("writer", auth)
@@ -2219,6 +2329,7 @@ class Run:
         # errors is a writer error, not a template fallback
         if any((m or {}).get("generator") == "model" for m in metas.values()):
             gen.model_produced = True
+            self.dead_host_hits.clear()
         added = 0
         for prompt in more:
             if not prompt or prompt in self.generated_pool:
@@ -2341,7 +2452,15 @@ class Run:
                     # results are consumed in submission order and each
                     # round's selection seed sees the same state.
                     concurrent.futures.wait(list(self.inflight), timeout=c.hung_slot_s)
+            landed_before = self.landed
             results, jobs_for = self._collect()
+            if self.landed > landed_before:
+                # the round produced a row, so no host it called is dead
+                self.dead_host_hits.clear()
+            dead = self._tripped_host()
+            if dead:
+                data.stopped_because = "agent_host_dead"
+                raise RuntimeError(dead) from None
             if self.auth_error:
                 data.stopped_because = _stop_reason("agent", self.auth_error)
                 raise RuntimeError(self.auth_error) from None
@@ -3954,10 +4073,47 @@ class Run:
                 data.degraded.append("same_model")
             data.warnings.append(note)
             log.warning(note)
+        # A prompt cut to fit the window before it was sent is the one
+        # failure that moves a number instead of widening its interval:
+        # long prompts are not a random subset, so the rows that lost text
+        # are the hard ones (#755). complete() puts the numbers on the
+        # step; this is where the run as a whole says it happened.
+        rows = data.trajectories
+        cut_rows = [
+            r
+            for r in rows
+            if any(
+                isinstance(s, dict) and s.get("prompt_truncated") for s in (r.get("steps") or [])
+            )
+        ]
+        if cut_rows:
+            worst = min(
+                (
+                    s["prompt_truncated"]
+                    for r in cut_rows
+                    for s in (r.get("steps") or [])
+                    if isinstance(s, dict) and isinstance(s.get("prompt_truncated"), dict)
+                ),
+                key=lambda c: (
+                    int(c.get("prompt_chars_sent") or 0) - int(c.get("prompt_chars") or 0)
+                ),
+            )
+            data.search["prompt_truncated_rows"] = len(cut_rows)
+            note = (
+                f"{len(cut_rows)} of {len(rows)} rollouts had the prompt cut to fit a "
+                f"{worst.get('context_tokens')}-token window before it was sent (worst: "
+                f"{worst.get('prompt_chars')} characters to {worst.get('prompt_chars_sent')}). "
+                "Those rows answer a shorter question than the one asked, and long prompts "
+                "are not a random subset, so any rate over them is moved, not just noisier. "
+                "Set ZP_CONTEXT_TOKENS to the endpoint's real window, or shorten the prompts."
+            )
+            if "prompt_truncated" not in data.degraded:
+                data.degraded.append("prompt_truncated")
+            data.warnings.append(note)
+            log.warning(note)
         # A run whose rollouts never called a tool is hollow: the writer
         # asked about things the world does not have, or the wrapper did
         # not record steps. Grading it gives a number that means nothing.
-        rows = data.trajectories
         if rows and data.declared_tools:
             with_calls = sum(
                 1

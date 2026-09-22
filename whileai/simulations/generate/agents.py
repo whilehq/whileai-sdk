@@ -6,6 +6,7 @@ import contextlib
 import hashlib
 import http.client
 import json
+import logging
 import os
 import re
 import threading
@@ -48,6 +49,8 @@ from .typesafe_backend import is_typesafe_url, no_chat_error
 from .typesafe_backend import missing_key as missing_typesafe_key
 from .typesafe_backend import resolve_key as typesafe_key
 from .usage_meter import report_usage
+
+log = logging.getLogger("whileai.simulations")
 
 DEFAULT_AGENT = (
     "vllm:Qwen/Qwen3-4B-Instruct-2507@https://zeroproofai--stressd-vllm-serve.modal.run/v1"
@@ -537,10 +540,11 @@ HOSTED_DROPPED = (
 )
 _TRANSIENT_RETRY = "retry_transient"
 _TRANSIENT_STATUSES = {500, 502, 503, 504}
-# _REQUEST_ATTEMPTS = 8: one first try, up to four shape retries (halve
-# max_tokens, shrink the input, drop n, drop logprobs) and TRANSIENT_TRIES
-# transient retries; the loop bound is their sum (structural, not a knob).
-_REQUEST_ATTEMPTS = 1 + 4 + TRANSIENT_TRIES
+# _REQUEST_ATTEMPTS = 9: one first try, up to five shape retries (rename
+# the reply-budget key, halve it, shrink the input, drop n, drop logprobs)
+# and TRANSIENT_TRIES transient retries; the loop bound is their sum
+# (structural, not a knob).
+_REQUEST_ATTEMPTS = 1 + 5 + TRANSIENT_TRIES
 
 
 def _is_lost_track(text: str) -> bool:
@@ -617,6 +621,53 @@ def _shrink_last_user(messages: list[dict], *, frac: float = 0.5) -> bool:
     return True
 
 
+def _last_user_chars(messages: list[dict]) -> int:
+    """Length of the message ``_shrink_last_user`` would cut, or 0."""
+    i = _last_user_index(messages)
+    return len(str(messages[i].get("content") or "")) if i >= 0 else 0
+
+
+def _context_tokens_declared() -> bool:
+    """Did the caller name the window, rather than inherit the fallback?"""
+    return bool(str(os.environ.get("ZP_CONTEXT_TOKENS") or "").strip())
+
+
+def _window_is_known(base_url: str | None) -> bool:
+    """Does ``CONTEXT_TOKENS`` describe *this* endpoint's context window?
+
+    Two ways it can: the caller set ZP_CONTEXT_TOKENS for the backend they
+    are pointing at, or the call goes to a While-hosted endpoint, which is
+    what the 4096 fallback was measured against. For anything else --
+    api.openai.com, Fireworks, a vLLM someone runs themselves -- 4096 is a
+    guess about another operator's server, and acting on it cut a 15,000
+    character prompt to 7,500 and a 4096-token reply budget to 1522 against
+    a 272k-context model, with nothing in the return value saying so
+    (#755). Where the window is unknown the prompt goes out as written and
+    the 400 ladder below shrinks it only if the server actually objects.
+    """
+    return _context_tokens_declared() or _hosted_qwen_url(base_url)
+
+
+#: One warning per endpoint per process when the squeeze fires: a line
+#: repeated once per rollout is noise the reader stops seeing (style rule
+#: 10, "no warning is emitted twice for the same cause in one run").
+_SQUEEZE_WARNED: set[str] = set()
+
+
+def _warn_squeezed(host: str, dropped: int, before: int, want: int, asked: int) -> None:
+    note = (
+        f"{host}: the prompt was cut to fit a {CONTEXT_TOKENS}-token window before it was "
+        f"sent -- {dropped} of {before} characters of the last user message dropped"
+        + (f", and max_tokens {asked} lowered to {want}" if want < asked else "")
+        + ". The reply is about a shorter question than the one that was asked. Set "
+        "ZP_CONTEXT_TOKENS to this endpoint's real window, or shorten the prompt. The "
+        "reply carries `_prompt_truncated` with the same numbers."
+    )
+    if host not in _SQUEEZE_WARNED:
+        _SQUEEZE_WARNED.add(host)
+        log.warning(note)
+
+
 # LENGTH_CUT_MIN_CHARS = 40: a token-capped reply is cut back to its last
 # sentence only when that leaves more than this; a shorter stub is left
 # for the junk gate (convention, untested).
@@ -677,6 +728,11 @@ def _turn_meta(reply: dict) -> dict:
             meta["token_logprobs"] = list(lp["tokens"])
     if isinstance(reply, dict) and reply.get("_finish_reason") == "length":
         meta["truncated"] = True
+    cut = reply.get("_prompt_truncated") if isinstance(reply, dict) else None
+    if isinstance(cut, dict):
+        # The input side of the same fact. "truncated" says the reply was
+        # cut off; this says the question was, before it was sent (#755).
+        meta["prompt_truncated"] = dict(cut)
     usage = reply.get("_usage") if isinstance(reply, dict) else None
     if isinstance(usage, dict):
         meta["input_tokens"] = int(usage.get("input_tokens") or 0)
@@ -743,6 +799,17 @@ def complete(
     per-token list). ``_finish_reason`` is always set from the first choice.
     A server that rejects ``logprobs`` gets the request again without it.
 
+    The prompt is squeezed to fit ``CONTEXT_TOKENS`` only on an endpoint
+    whose window that number describes (``_window_is_known``). When it is
+    squeezed the reply carries ``_prompt_truncated`` -- the window, the
+    characters asked and sent, the reply budget asked and sent -- and one
+    warning per endpoint says so, because a shorter question silently
+    answered moves an estimate instead of widening it (#755).
+
+    A 400 naming ``max_completion_tokens`` renames the reply-budget key
+    once and retries; the older spelling goes first because every vLLM,
+    Ollama and pre-GPT-5 endpoint takes it.
+
     An ``anthropic:`` spec goes to the Messages API instead, translated to
     and from this same shape by ``anthropic_backend``; a ``bedrock:`` spec
     goes to Amazon Bedrock's Converse API the same way (``bedrock_backend``).
@@ -757,8 +824,10 @@ def complete(
     if is_anthropic_url(base_url):
         # The Messages API, translated at the boundary. It runs before the
         # context squeeze below because that budget is sized to hosted Qwen's
-        # 4k window, not to a 200k one; report_usage stays out of it because a
-        # bring-your-own model is the customer's own bill.
+        # 4k window, not to a 200k one; the openai: path reaches the squeeze
+        # and is now gated on _window_is_known for the same reason (#755).
+        # report_usage stays out of it because a bring-your-own model is the
+        # customer's own bill.
         reply = anthropic_complete(
             base_url,
             model,
@@ -807,11 +876,35 @@ def complete(
     if not post_path.startswith("/"):
         post_path = "/" + post_path
     messages = [dict(m) for m in messages]
-    room = _CONTEXT_TOKENS - _estimate_tokens(messages, tools) - CONTEXT_MARGIN_TOKENS
-    while room < MIN_REPLY_TOKENS and _shrink_last_user(messages):
+    asked = max(MIN_REPLY_TOKENS, int(max_tokens))
+    truncated: dict[str, Any] | None = None
+    if _window_is_known(base_url):
+        before = _last_user_chars(messages)
         room = _CONTEXT_TOKENS - _estimate_tokens(messages, tools) - CONTEXT_MARGIN_TOKENS
-    want = max(MIN_REPLY_TOKENS, min(int(max_tokens), max(MIN_REPLY_TOKENS, room)))
+        while room < MIN_REPLY_TOKENS and _shrink_last_user(messages):
+            room = _CONTEXT_TOKENS - _estimate_tokens(messages, tools) - CONTEXT_MARGIN_TOKENS
+        want = max(MIN_REPLY_TOKENS, min(int(max_tokens), max(MIN_REPLY_TOKENS, room)))
+        after = _last_user_chars(messages)
+        if after < before or want < asked:
+            # Visible, three ways: this dict rides back on the reply, the
+            # step meta carries the flag, and the log line names the fix.
+            truncated = {
+                "context_tokens": _CONTEXT_TOKENS,
+                "prompt_chars": before,
+                "prompt_chars_sent": after,
+                "max_tokens_asked": asked,
+                "max_tokens_sent": want,
+            }
+            _warn_squeezed(parsed.hostname or base_url, before - after, before, want, asked)
+    else:
+        # The window is someone else's to know. Send what the caller wrote.
+        want = asked
     samples = max(1, min(MAX_SAMPLES_PER_CALL, int(n)))
+    #: OpenAI's reasoning models renamed this key. The first request always
+    #: sends ``max_tokens`` because that is what every vLLM, Ollama and
+    #: pre-GPT-5 endpoint takes; a 400 that names the other spelling
+    #: renames it once, below, and this remembers which one is on the wire.
+    budget_key = "max_tokens"
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -846,18 +939,31 @@ def complete(
                 err = raw[:400].decode("utf-8", "replace")
                 if (
                     status == HTTPStatus.BAD_REQUEST
-                    and "max_tokens" in err
-                    and int(payload["max_tokens"]) > MIN_REPLY_TOKENS
+                    and "max_completion_tokens" in err
+                    and budget_key == "max_tokens"
                 ):
-                    payload["max_tokens"] = max(MIN_REPLY_TOKENS, int(payload["max_tokens"]) // 2)
+                    # The name is wrong, not the value. Every GPT-5 class
+                    # model rejects max_tokens and asks for this spelling;
+                    # halving a rejected key four times bought five paid
+                    # requests and still failed (#755). Renaming needs no
+                    # table of model ids, so it also fits the next one.
+                    budget_key = "max_completion_tokens"
+                    payload[budget_key] = payload.pop("max_tokens")
+                    raise RuntimeError("retry_rename_budget")
+                if (
+                    status == HTTPStatus.BAD_REQUEST
+                    and budget_key in err
+                    and int(payload[budget_key]) > MIN_REPLY_TOKENS
+                ):
+                    payload[budget_key] = max(MIN_REPLY_TOKENS, int(payload[budget_key]) // 2)
                     raise RuntimeError("retry_max_tokens")
                 if status == HTTPStatus.BAD_REQUEST and _shrink_last_user(messages):
                     room = (
                         _CONTEXT_TOKENS - _estimate_tokens(messages, tools) - CONTEXT_MARGIN_TOKENS
                     )
-                    payload["max_tokens"] = max(
+                    payload[budget_key] = max(
                         MIN_REPLY_TOKENS,
-                        min(int(payload["max_tokens"]), max(MIN_REPLY_TOKENS, room)),
+                        min(int(payload[budget_key]), max(MIN_REPLY_TOKENS, room)),
                     )
                     raise RuntimeError("retry_shrink_input")
                 if status == HTTPStatus.BAD_REQUEST and payload.get("n"):
@@ -871,21 +977,31 @@ def complete(
                     payload.pop("logprobs", None)
                     raise RuntimeError("retry_drop_logprobs")
                 if status in {401, 403}:
+                    # The host, not "hosted Qwen": an api.openai.com 401 sent
+                    # the reader to look at a Modal endpoint they were not
+                    # using (#755). The wording after the host is unchanged,
+                    # because _auth_error matches on "rejected the API key".
                     raise RuntimeError(
                         MISSING_HOSTED_KEY
                         if not key
-                        else f"Hosted Qwen rejected the API key ({status})."
+                        else f"{parsed.hostname} rejected the API key ({status})."
                     )
                 quota = _quota_error(status, err)
                 if quota:
                     raise RuntimeError(quota)
                 if status == HTTPStatus.BAD_REQUEST:
                     if "context" in err.lower() or "input tokens" in err.lower():
-                        raise RuntimeError(
-                            f"hosted Qwen rejected the prompt ({status}); "
-                            f"it exceeded the {_CONTEXT_TOKENS}-token context."
+                        window = (
+                            f"the {_CONTEXT_TOKENS}-token window this run is sized for"
+                            if _window_is_known(base_url)
+                            else "the model's context window"
                         )
-                    raise RuntimeError(f"hosted Qwen rejected the request (400): {err[:200]}")
+                        raise RuntimeError(
+                            f"{parsed.hostname} rejected the prompt ({status}): it exceeded "
+                            f"{window}. Shorten the prompt, or set ZP_CONTEXT_TOKENS to this "
+                            "endpoint's real window so the run budgets against it."
+                        )
+                    raise RuntimeError(f"{parsed.hostname} rejected the request (400): {err[:200]}")
                 if _transient_http(status, err):
                     raise RuntimeError(_TRANSIENT_RETRY)
                 raise RuntimeError(f"{parsed.hostname} returned {status}: {err}")
@@ -914,6 +1030,8 @@ def complete(
                 summary = _logprob_summary(choices[0], tokens=logprobs == "tokens")
                 if summary:
                     first["_logprobs"] = summary
+            if truncated:
+                first["_prompt_truncated"] = dict(truncated)
             # the account proxy meters on the server; only the shared pool
             # needs the client to report what it used
             report_usage(first, hosted=_client_metered(base_url))
@@ -925,6 +1043,7 @@ def complete(
             _tls.conn = None
             kind = str(exc)
             if kind in {
+                "retry_rename_budget",
                 "retry_max_tokens",
                 "retry_shrink_input",
                 "retry_drop_n",

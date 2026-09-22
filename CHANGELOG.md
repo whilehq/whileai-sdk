@@ -7,6 +7,34 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `complete()` no longer sends an OpenAI prompt through a 4k window. `CONTEXT_TOKENS`
+  is the hosted pool's window, and the `openai:` branch inherited it from a squeeze the
+  `anthropic:` and `bedrock:` branches return above: a 15,000-character user turn to a
+  272k-context model arrived as 7,500 characters with `max_tokens` lowered from 4096 to
+  1522, the reply graded, and nothing in `degraded` or the return value said so. The
+  squeeze now runs only where the window is known (a While-hosted endpoint, or one named
+  with `ZP_CONTEXT_TOKENS`), and where it does run it is reported: `_prompt_truncated` on
+  the reply, `prompt_truncated` on the step and in `data.degraded`, and one warning per
+  endpoint naming the fix. A prompt cut in half moves an estimate rather than widening
+  its interval, because long prompts are not a random subset (#755).
+- Every GPT-5 class model is reachable. They reject `max_tokens` and ask for
+  `max_completion_tokens`; the 400 ladder read the substring `max_tokens` in the refusal
+  and halved the value four times, so one call cost five paid requests
+  (`[4018, 2009, 1004, 502, 256]`) and could never succeed, because the name was wrong
+  and not the number. A 400 naming the other spelling now renames the key once and
+  retries, which needs no table of model ids (#755).
+- An api.openai.com failure says api.openai.com. The 400, 401 and context branches
+  hardcoded "hosted Qwen", so a user debugging OpenAI was sent to look at a Modal
+  endpoint they were not using. The `rejected the API key` mark that `_auth_error` reads
+  is unchanged (#755).
+- A permanently dead host stops the run instead of being retried. 404, 405, 410 and 501
+  against one host are counted, and `DEAD_HOST_STRIKES` (3, convention, untested) of them
+  with nothing succeeding in between stops the run with the host and the fix in the
+  message. Measured against a host that answered 404 every time: 80 agent calls and 816
+  writer calls on the old code, raising nothing that named the host, against 4 and 6 now.
+  5xx, 429 and timeouts are not counted and keep every retry they had, because a breaker
+  that trips on a cold container is worse than no breaker (#816).
+
 - Docs, facts: `reference/harness.md` said the Meta-Harness live replication had
   not been run, three weeks after #783 landed +0.38 [+0.27, +0.47] on 30 held-out
   asks; it now carries the number, the held-out model and the missing-artifacts
