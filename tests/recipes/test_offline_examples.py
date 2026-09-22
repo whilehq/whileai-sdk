@@ -38,6 +38,8 @@ CLI_EXAMPLES = [
     "04-train/identity/generate.py",
     "02-measure/pass-at-k/measure.py",
     "02-measure/public-benchmark/run.py",
+    "community/which-turns-the-mask-supervises/run.py",
+    "community/which-turns-the-mask-supervises/analyze.py",
     "02-measure/is-your-eval-any-good/check_eval.py",
     "02-measure/character-to-the-wall/run.py",
     "02-measure/compare-judges/run.py",
@@ -91,6 +93,7 @@ NEEDS_MODAL = {
     "05-export/bedrock-import/presign.py",
     "04-train/sft/train_modal.py",
     "community/which-half-can-a-small-model-take/train_modal.py",
+    "community/which-turns-the-mask-supervises/train_modal.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic

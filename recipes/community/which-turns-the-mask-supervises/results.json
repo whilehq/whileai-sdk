@@ -1,0 +1,351 @@
+{
+ "recipe": "which-turns-the-mask-supervises",
+ "question": "mask_mode='final' and unroll=True both write prompt/completion rows TRL trains as masked. On tool-using traces, are they the same choice?",
+ "answer": "No. mask_mode='final' never supervises a tool call (0 of 388) and trains a model that stops calling tools: 0.000 tool-call rate, 0.608 BELOW the untrained base. unroll=True supervises every assistant turn and reaches 1.000.",
+ "whileai": "0.124",
+ "stack": {
+  "trl": "0.19.1",
+  "transformers": "4.54.0",
+  "peft": "0.16.0",
+  "torch": "2.7.1",
+  "datasets": "3.6.0"
+ },
+ "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+ "gpu": "L40S",
+ "modal_apps": {
+  "smoke": "ap-PiaRvamj8tk2MnSiZP2cP9",
+  "train": "ap-uVoVZ4mqOgTm2InZZRtTru"
+ },
+ "usd": 0.35,
+ "model": "offline (seeded_agent, simulator=False; no model key)",
+ "data": {
+  "pooled_rows": 960,
+  "seeds_pooled": 6,
+  "train_pool_rows": 579,
+  "holdout_rows": 381,
+  "selected": 443,
+  "after_decontaminate": 388,
+  "templates": 119,
+  "train_templates": 77,
+  "split": "by scenario_id (template id, stable across seeds)",
+  "eval_prompts": 120,
+  "training_seeds": 2,
+  "decontaminate": {
+   "n_contaminated": 55,
+   "n_eval_rows": 381,
+   "n_eval_texts": 338,
+   "n_exact": 5,
+   "n_kept": 388,
+   "n_near": 50,
+   "n_same_task": 0,
+   "n_semantic": 0
+  },
+  "decontaminate_applied": true,
+  "tool_call_census": {
+   "tool_calls": 388,
+   "supervised_by_final": 0,
+   "assistant_turns": 776
+  },
+  "exports": {
+   "assistant": {
+    "n": 388,
+    "n_written": 388,
+    "mask_mode": "TRL trains on every token of every turn (trl 0.19.1 SFTTrainer reads no per-message mask); set assistant_only_loss=True in SFTConfig to train the assistant turns only, which needs a chat template with a {% generation %} block (Qwen2.5-Instruct has none)",
+    "format": "trl",
+    "trained_messages": 1940,
+    "masked_messages": 0,
+    "warnings": null,
+    "unrolled": false,
+    "cut": null
+   },
+   "final": {
+    "n": 388,
+    "n_written": 388,
+    "mask_mode": "TRL trains on the last assistant turn only: prompt/completion rows, from which trl 0.19.1 SFTTrainer builds completion_mask (completion_only_loss defaults on)",
+    "format": "trl",
+    "trained_messages": 388,
+    "masked_messages": 1552,
+    "warnings": null,
+    "unrolled": false,
+    "cut": null
+   },
+   "unroll": {
+    "n": 776,
+    "n_written": 776,
+    "mask_mode": "TRL trains on the last assistant turn only: prompt/completion rows, from which trl 0.19.1 SFTTrainer builds completion_mask (completion_only_loss defaults on)",
+    "format": "trl",
+    "trained_messages": 776,
+    "masked_messages": 2328,
+    "warnings": null,
+    "unrolled": true,
+    "cut": null
+   }
+  }
+ },
+ "supervised_fraction_from_trl_collator": {
+  "assistant-s0": {
+   "rows": 388,
+   "supervised": 3931,
+   "of": 4320,
+   "frac": 0.91
+  },
+  "assistant-s1": {
+   "rows": 388,
+   "supervised": 3931,
+   "of": 4320,
+   "frac": 0.91
+  },
+  "final-s0": {
+   "rows": 388,
+   "supervised": 176,
+   "of": 4320,
+   "frac": 0.0407
+  },
+  "final-s1": {
+   "rows": 388,
+   "supervised": 176,
+   "of": 4320,
+   "frac": 0.0407
+  },
+  "unroll-s0": {
+   "rows": 776,
+   "supervised": 207,
+   "of": 4320,
+   "frac": 0.0479
+  },
+  "unroll-s1": {
+   "rows": 776,
+   "supervised": 207,
+   "of": 4320,
+   "frac": 0.0479
+  }
+ },
+ "noise_floor": {
+  "stub": {
+   "passes": [
+    0.5833,
+    0.6,
+    0.625
+   ],
+   "band": 0.0417,
+   "mean": 0.6028
+  },
+  "chars": {
+   "passes": [
+    57.6583,
+    55.9583,
+    48.5583
+   ],
+   "band": 9.1,
+   "mean": 54.0583
+  },
+  "tool_call": {
+   "passes": [
+    0.6083,
+    0.5917,
+    0.625
+   ],
+   "band": 0.0333,
+   "mean": 0.6083
+  }
+ },
+ "arms": {
+  "assistant": {
+   "stub": {
+    "mean": 0.9917,
+    "per_seed": [
+     1,
+     0.9833
+    ]
+   },
+   "chars": {
+    "mean": 1.3542,
+    "per_seed": [
+     0,
+     2.7083
+    ]
+   },
+   "tool_call": {
+    "mean": 0.8417,
+    "per_seed": [
+     0.8333,
+     0.85
+    ]
+   }
+  },
+  "final": {
+   "stub": {
+    "mean": 0.4,
+    "per_seed": [
+     0.3167,
+     0.4833
+    ]
+   },
+   "chars": {
+    "mean": 77.7,
+    "per_seed": [
+     86.4667,
+     68.9333
+    ]
+   },
+   "tool_call": {
+    "mean": 0,
+    "per_seed": [
+     0,
+     0
+    ]
+   }
+  },
+  "unroll": {
+   "stub": {
+    "mean": 1,
+    "per_seed": [
+     1,
+     1
+    ]
+   },
+   "chars": {
+    "mean": 0,
+    "per_seed": [
+     0,
+     0
+    ]
+   },
+   "tool_call": {
+    "mean": 1,
+    "per_seed": [
+     1,
+     1
+    ]
+   }
+  }
+ },
+ "contrasts": {
+  "final_minus_assistant": {
+   "stub": {
+    "delta": -0.5917,
+    "lo": -0.6542,
+    "hi": -0.525,
+    "verdict": "moved"
+   },
+   "chars": {
+    "delta": 76.3458,
+    "lo": 69.5,
+    "hi": 83.2583,
+    "verdict": "moved"
+   },
+   "tool_call": {
+    "delta": -0.8417,
+    "lo": -0.8917,
+    "hi": -0.7833,
+    "verdict": "moved"
+   }
+  },
+  "unroll_minus_assistant": {
+   "stub": {
+    "delta": 0.0083,
+    "lo": 0,
+    "hi": 0.0208,
+    "verdict": "flat"
+   },
+   "chars": {
+    "delta": -1.3542,
+    "lo": -3.3417,
+    "hi": 0,
+    "verdict": "flat"
+   },
+   "tool_call": {
+    "delta": 0.1583,
+    "lo": 0.1083,
+    "hi": 0.2167,
+    "verdict": "moved"
+   }
+  },
+  "unroll_minus_final": {
+   "stub": {
+    "delta": 0.6,
+    "lo": 0.5375,
+    "hi": 0.6625,
+    "verdict": "moved"
+   },
+   "chars": {
+    "delta": -77.7,
+    "lo": -84.1708,
+    "hi": -71.525,
+    "verdict": "moved"
+   },
+   "tool_call": {
+    "delta": 1,
+    "lo": 1,
+    "hi": 1,
+    "verdict": "moved"
+   }
+  },
+  "assistant_minus_base": {
+   "stub": {
+    "delta": 0.3889,
+    "lo": 0.3111,
+    "hi": 0.4639,
+    "verdict": "moved"
+   },
+   "chars": {
+    "delta": -52.7042,
+    "lo": -65.3375,
+    "hi": -40.4236,
+    "verdict": "moved"
+   },
+   "tool_call": {
+    "delta": 0.2333,
+    "lo": 0.1569,
+    "hi": 0.3167,
+    "verdict": "moved"
+   }
+  },
+  "final_minus_base": {
+   "stub": {
+    "delta": -0.2028,
+    "lo": -0.2972,
+    "hi": -0.1069,
+    "verdict": "moved"
+   },
+   "chars": {
+    "delta": 23.6417,
+    "lo": 10.6681,
+    "hi": 36.3,
+    "verdict": "moved"
+   },
+   "tool_call": {
+    "delta": -0.6083,
+    "lo": -0.6861,
+    "hi": -0.5306,
+    "verdict": "moved"
+   }
+  },
+  "unroll_minus_base": {
+   "stub": {
+    "delta": 0.3972,
+    "lo": 0.3194,
+    "hi": 0.4722,
+    "verdict": "moved"
+   },
+   "chars": {
+    "delta": -54.0583,
+    "lo": -66.6944,
+    "hi": -42.0083,
+    "verdict": "moved"
+   },
+   "tool_call": {
+    "delta": 0.3917,
+    "lo": 0.3139,
+    "hi": 0.4694,
+    "verdict": "moved"
+   }
+  }
+ },
+ "preregistered": {
+  "primary": "stub-reply share (<60 chars) - MIS-SPECIFIED for this data, see README",
+  "secondary": "mean reply chars - same defect",
+  "tertiary": "tool-call rate - the metric that carries the result"
+ },
+ "verdict": "moved"
+}
