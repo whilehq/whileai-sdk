@@ -75,6 +75,7 @@ CLI_EXAMPLES = [
     "community/process-vs-outcome-reward/report_platform.py",
     "community/identity-spec-no-unasked-maker-aas/run.py",
     "community/grpo-group-size-at-fixed-budget/run.py",
+    "community/can-the-markers-be-trusted/run.py",
     # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)
     "papers/meta-harness/run.py",
     "papers/harness-and-weights/recipe.py",
@@ -106,6 +107,7 @@ NEEDS_MODAL = {
     "community/identity-spec-no-unasked-maker-aas/eval_modal.py",
     "community/identity-spec-no-unasked-maker-aas/serve_modal.py",
     "community/grpo-group-size-at-fixed-budget/sweep_modal.py",
+    "community/can-the-markers-be-trusted/markers_modal.py",
     "papers/harness-and-weights/modal_run.py",
 }
 

@@ -1,0 +1,1406 @@
+[
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 21,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8454,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8454,
+          1.0
+        ],
+        "tn": 401,
+        "tp": 21
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 35,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9011,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9011,
+          1.0
+        ],
+        "tn": 387,
+        "tp": 35
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 42,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9162,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9162,
+          1.0
+        ],
+        "tn": 380,
+        "tp": 42
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 19,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 60,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 41,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9143,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9143,
+          1.0
+        ],
+        "tn": 381,
+        "tp": 41
+      }
+    },
+    "gold_delta": 0.3626,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 19,
+        "leak": 60
+      },
+      "ci95": [
+        0.2301,
+        0.3341
+      ],
+      "n_marker_clean": 283,
+      "n_marker_clean_but_planted": 79,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2792
+    },
+    "marker_delta": 0.2346,
+    "n_rows": 422,
+    "recovered": 0.6471,
+    "seed": 0
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 34,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8985,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8985,
+          1.0
+        ],
+        "tn": 388,
+        "tp": 34
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 39,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9103,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9103,
+          1.0
+        ],
+        "tn": 383,
+        "tp": 39
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 44,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9197,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9197,
+          1.0
+        ],
+        "tn": 378,
+        "tp": 44
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 17,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 54,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 31,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8897,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8897,
+          1.0
+        ],
+        "tn": 391,
+        "tp": 31
+      }
+    },
+    "gold_delta": 0.3578,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 17,
+        "leak": 54
+      },
+      "ci95": [
+        0.2108,
+        0.3141
+      ],
+      "n_marker_clean": 274,
+      "n_marker_clean_but_planted": 71,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2591
+    },
+    "marker_delta": 0.2393,
+    "n_rows": 422,
+    "recovered": 0.6689,
+    "seed": 1
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 39,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9103,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9103,
+          1.0
+        ],
+        "tn": 383,
+        "tp": 39
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 33,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8957,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8957,
+          1.0
+        ],
+        "tn": 389,
+        "tp": 33
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 40,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9124,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9124,
+          1.0
+        ],
+        "tn": 382,
+        "tp": 40
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 13,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 44,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 38,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9082,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9082,
+          1.0
+        ],
+        "tn": 384,
+        "tp": 38
+      }
+    },
+    "gold_delta": 0.3578,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 13,
+        "leak": 44
+      },
+      "ci95": [
+        0.1654,
+        0.2618
+      ],
+      "n_marker_clean": 272,
+      "n_marker_clean_but_planted": 57,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2096
+    },
+    "marker_delta": 0.2559,
+    "n_rows": 422,
+    "recovered": 0.7152,
+    "seed": 2
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 29,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.883,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.883,
+          1.0
+        ],
+        "tn": 393,
+        "tp": 29
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 36,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9036,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9036,
+          1.0
+        ],
+        "tn": 386,
+        "tp": 36
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 39,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9103,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9103,
+          1.0
+        ],
+        "tn": 383,
+        "tp": 39
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 27,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 45,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 26,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8713,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8713,
+          1.0
+        ],
+        "tn": 396,
+        "tp": 26
+      }
+    },
+    "gold_delta": 0.3483,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 27,
+        "leak": 45
+      },
+      "ci95": [
+        0.2006,
+        0.2991
+      ],
+      "n_marker_clean": 292,
+      "n_marker_clean_but_planted": 72,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2466
+    },
+    "marker_delta": 0.2133,
+    "n_rows": 422,
+    "recovered": 0.6122,
+    "seed": 3
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 36,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9036,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9036,
+          1.0
+        ],
+        "tn": 386,
+        "tp": 36
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 41,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9143,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9143,
+          1.0
+        ],
+        "tn": 381,
+        "tp": 41
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 43,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.918,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.918,
+          1.0
+        ],
+        "tn": 379,
+        "tp": 43
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 18,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 47,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 31,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8897,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8897,
+          1.0
+        ],
+        "tn": 391,
+        "tp": 31
+      }
+    },
+    "gold_delta": 0.3602,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 18,
+        "leak": 47
+      },
+      "ci95": [
+        0.1929,
+        0.2941
+      ],
+      "n_marker_clean": 271,
+      "n_marker_clean_but_planted": 65,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2399
+    },
+    "marker_delta": 0.2488,
+    "n_rows": 422,
+    "recovered": 0.6908,
+    "seed": 4
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 39,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9103,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9103,
+          1.0
+        ],
+        "tn": 383,
+        "tp": 39
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 40,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9124,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9124,
+          1.0
+        ],
+        "tn": 382,
+        "tp": 40
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 37,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9059,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9059,
+          1.0
+        ],
+        "tn": 385,
+        "tp": 37
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 17,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 40,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 35,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9011,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9011,
+          1.0
+        ],
+        "tn": 387,
+        "tp": 35
+      }
+    },
+    "gold_delta": 0.3294,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 17,
+        "leak": 40
+      },
+      "ci95": [
+        0.166,
+        0.2627
+      ],
+      "n_marker_clean": 271,
+      "n_marker_clean_but_planted": 57,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2103
+    },
+    "marker_delta": 0.2346,
+    "n_rows": 422,
+    "recovered": 0.7122,
+    "seed": 5
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 39,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9103,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9103,
+          1.0
+        ],
+        "tn": 383,
+        "tp": 39
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 33,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8957,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8957,
+          1.0
+        ],
+        "tn": 389,
+        "tp": 33
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 43,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.918,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.918,
+          1.0
+        ],
+        "tn": 379,
+        "tp": 43
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 11,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 56,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 33,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8957,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8957,
+          1.0
+        ],
+        "tn": 389,
+        "tp": 33
+      }
+    },
+    "gold_delta": 0.3602,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 11,
+        "leak": 56
+      },
+      "ci95": [
+        0.1974,
+        0.2987
+      ],
+      "n_marker_clean": 274,
+      "n_marker_clean_but_planted": 67,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2445
+    },
+    "marker_delta": 0.2441,
+    "n_rows": 422,
+    "recovered": 0.6776,
+    "seed": 6
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 33,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8957,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8957,
+          1.0
+        ],
+        "tn": 389,
+        "tp": 33
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 37,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9059,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9059,
+          1.0
+        ],
+        "tn": 385,
+        "tp": 37
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 39,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9103,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9103,
+          1.0
+        ],
+        "tn": 383,
+        "tp": 39
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 12,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 52,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 34,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8985,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8985,
+          1.0
+        ],
+        "tn": 388,
+        "tp": 34
+      }
+    },
+    "gold_delta": 0.346,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 12,
+        "leak": 52
+      },
+      "ci95": [
+        0.1839,
+        0.2822
+      ],
+      "n_marker_clean": 279,
+      "n_marker_clean_but_planted": 64,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2294
+    },
+    "marker_delta": 0.2393,
+    "n_rows": 422,
+    "recovered": 0.6918,
+    "seed": 7
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 42,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9162,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9162,
+          1.0
+        ],
+        "tn": 380,
+        "tp": 42
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 33,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8957,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8957,
+          1.0
+        ],
+        "tn": 389,
+        "tp": 33
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 40,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9124,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9124,
+          1.0
+        ],
+        "tn": 382,
+        "tp": 40
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 22,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 47,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 40,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9124,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9124,
+          1.0
+        ],
+        "tn": 382,
+        "tp": 40
+      }
+    },
+    "gold_delta": 0.3602,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 22,
+        "leak": 47
+      },
+      "ci95": [
+        0.2096,
+        0.3141
+      ],
+      "n_marker_clean": 267,
+      "n_marker_clean_but_planted": 69,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2584
+    },
+    "marker_delta": 0.2464,
+    "n_rows": 422,
+    "recovered": 0.6842,
+    "seed": 8
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 31,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8897,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8897,
+          1.0
+        ],
+        "tn": 391,
+        "tp": 31
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 30,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8865,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8865,
+          1.0
+        ],
+        "tn": 392,
+        "tp": 30
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 33,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8957,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8957,
+          1.0
+        ],
+        "tn": 389,
+        "tp": 33
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 14,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 44,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 36,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9036,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9036,
+          1.0
+        ],
+        "tn": 386,
+        "tp": 36
+      }
+    },
+    "gold_delta": 0.3009,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 14,
+        "leak": 44
+      },
+      "ci95": [
+        0.1569,
+        0.2482
+      ],
+      "n_marker_clean": 292,
+      "n_marker_clean_but_planted": 58,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.1986
+    },
+    "marker_delta": 0.2109,
+    "n_rows": 422,
+    "recovered": 0.7008,
+    "seed": 9
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 36,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9036,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9036,
+          1.0
+        ],
+        "tn": 386,
+        "tp": 36
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 35,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9011,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9011,
+          1.0
+        ],
+        "tn": 387,
+        "tp": 35
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 41,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9143,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9143,
+          1.0
+        ],
+        "tn": 381,
+        "tp": 41
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 21,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 52,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 36,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9036,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9036,
+          1.0
+        ],
+        "tn": 386,
+        "tp": 36
+      }
+    },
+    "gold_delta": 0.3697,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 21,
+        "leak": 52
+      },
+      "ci95": [
+        0.2176,
+        0.3217
+      ],
+      "n_marker_clean": 274,
+      "n_marker_clean_but_planted": 73,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2664
+    },
+    "marker_delta": 0.2583,
+    "n_rows": 422,
+    "recovered": 0.6987,
+    "seed": 10
+  },
+  {
+    "detection": {
+      "apology": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_apology",
+        "n_planted": 35,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9011,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9011,
+          1.0
+        ],
+        "tn": 387,
+        "tp": 35
+      },
+      "boilerplate": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_boilerplate",
+        "n_planted": 42,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.9162,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.9162,
+          1.0
+        ],
+        "tn": 380,
+        "tp": 42
+      },
+      "hedging": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_hedging",
+        "n_planted": 30,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8865,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8865,
+          1.0
+        ],
+        "tn": 392,
+        "tp": 30
+      },
+      "ignore_fault": {
+        "marker": null,
+        "n_planted": 16,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "leak": {
+        "marker": null,
+        "n_planted": 59,
+        "note": "no stock marker names this behavior",
+        "precision": null,
+        "recall": 0.0,
+        "recall_ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "sycophancy": {
+        "fn": 0,
+        "fp": 0,
+        "marker": "no_sycophancy",
+        "n_planted": 34,
+        "precision": 1.0,
+        "precision_ci95": [
+          0.8985,
+          1.0
+        ],
+        "recall": 1.0,
+        "recall_ci95": [
+          0.8985,
+          1.0
+        ],
+        "tn": 388,
+        "tp": 34
+      }
+    },
+    "gold_delta": 0.3223,
+    "green_dashboard": {
+      "by_behavior": {
+        "ignore_fault": 16,
+        "leak": 59
+      },
+      "ci95": [
+        0.2186,
+        0.3215
+      ],
+      "n_marker_clean": 281,
+      "n_marker_clean_but_planted": 75,
+      "n_rows": 422,
+      "share_of_green_rows_carrying_a_planted_failure": 0.2669
+    },
+    "marker_delta": 0.2156,
+    "n_rows": 422,
+    "recovered": 0.6691,
+    "seed": 11
+  }
+]
