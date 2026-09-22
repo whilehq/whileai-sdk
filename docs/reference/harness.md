@@ -273,8 +273,15 @@ run = tracked.run("careful@scripted", method="eval", targets=["refund_policy"], 
   [`recipes/papers/meta-harness`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/meta-harness):
   candidates as files, a proposer that reads every prior candidate's
   source, score and worst rows, and a gate on held-out tasks and a
-  held-out model. Its dry run shows the loop with scripted candidates; the
-  live replication has not been run and the recipe claims no number.
+  held-out model. Its dry run shows the loop with scripted candidates. The
+  live replication ran on 2026-09-22 with Claude Haiku 4.5 as the search
+  model and gpt-4.1-mini held out, both through OpenRouter: the picked
+  candidate beats the baseline by +0.38 [+0.27, +0.47] on 30 held-out asks
+  on Haiku and by +0.09 [+0.04, +0.15] on the held-out model, paired by
+  task, both excluding zero, at 0.40x the baseline's tokens, over a
+  four-draw noise band of 0.17. The run's artifacts are not in the tree
+  ([#808](https://github.com/whilehq/whileai-sdk/issues/808)), so the
+  number is reproducible only by re-running the recipe on your own keys.
 - The harness and the weights under one optimizer is
   [`recipes/papers/harness-and-weights`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/harness-and-weights):
   candidates carry a skills text and a `run_python` tool, GRPO trains
@@ -294,7 +301,7 @@ run = tracked.run("careful@scripted", method="eval", targets=["refund_policy"], 
 3. Kim, Choi, Lee, Jun, Kim, Park. *The Interplay of Harness Design and
    Post-Training in LLM Agents.* 2026. [arXiv:2606.25447](https://arxiv.org/abs/2606.25447).
 4. Lambert. *Reinforcement Learning from Human Feedback*, chapter
-   Evaluation. 2025. [rlhfbook.com](https://rlhfbook.com/c/evaluation.html).
+   Evaluation. 2025. [rlhfbook.com](https://rlhfbook.com/c/16-evaluation.html).
 5. Prime Intellect. *verifiers v1: Decomposing Tasksets and Harnesses for
    Agentic RL & Evaluations.* 2026. [primeintellect.ai/blog/verifiers-v1](https://www.primeintellect.ai/blog/verifiers-v1).
 6. Miller. *Adding Error Bars to Evals.* 2024. [arXiv:2411.00640](https://arxiv.org/abs/2411.00640).

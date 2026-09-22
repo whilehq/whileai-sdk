@@ -64,7 +64,7 @@ hacking, safety evals).
 `reference/*`: the long form, in the order a run happens.
 
 1. **Scope.** One paragraph on what the page covers and the API page it sits on top of.
-2. **Sections in run order.** Simulate, grade, trust, select, export, push. A knob appears in a
+2. **Sections in run order.** Simulate, grade, measure, select, train. A knob appears in a
    table before it appears in prose.
 3. **Knob tables.** `Parameter | Default | Source | Meaning`, one row per knob, the default as the
    signature shows it, the source as a `defaults.py` name, a chapter or a paper.
@@ -162,7 +162,7 @@ class Judge(
 )
 ```
 
-Defined in [`whileai/simulations/score/judge.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/judge.py).
+Defined in [`whileai/judge.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/judge.py).
 ````
 
 - The fence holds the interpreter's signature: every parameter, its annotation and its default, one

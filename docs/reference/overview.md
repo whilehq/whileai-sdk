@@ -253,12 +253,21 @@ Two `local_model` knobs the situation writer cannot guess for you:
 
 ### Hosted models
 
-With no `agent=`, the run uses While-hosted models. Your account key is enough: `wai login` (or `wai signup --email you@example.com`) and the run goes to the account endpoints, Qwen3-4B for the writer and the agent and Phi-4 for the judge, on your daily allowance. A trial key gets 25k input and 50k output tokens a day; `wai status` prints your allowance and how to lift it. The endpoint refuses with 429 when the allowance is spent, and the run stops there and says so. `VLLM_API_KEY`, when set, wins and goes to the shared pool instead: warm and faster, shared and unmetered; ask us for one.
+There are two ways to simulate and to grade, and only two: the models While hosts, or a model you bring.
+
+| You want | You do | Where the requests go |
+|---|---|---|
+| the hosted models | `wai login`, then leave `agent=` and the judge out | the account endpoints, Qwen3-4B for the writer and the agent and Phi-4 for the judge, on your daily allowance |
+| your own model | name it: `agent="openai:gpt-4.1-mini"`, `wai.Endpoint(model, url=)`, a callable, `judge=` the same way | straight to that provider, on that provider's own key; no While key is involved |
+| no key at all | `simulator=False` with `wai.seeded_agent(...)` or your own callable, and a callable judge | nowhere: the template writer, a scripted agent and your function, all on your machine |
 
 ```bash
 wai login              # or: export WHILEAI_API_KEY=zp_...
-export VLLM_API_KEY=...      # optional: the shared pool instead
 ```
+
+A trial key gets 25k input and 50k output tokens a day; `wai status` prints your allowance and how to lift it. The endpoint refuses with 429 when the allowance is spent, and the run stops there and says so.
+
+`VLLM_API_KEY` is the key for a vLLM-compatible endpoint **you** name, in `wai.Endpoint(model, url=)` or `"vllm:<model>@<url>"`. It is not a third route into the hosted models: the pre-account shared pool it used to reach was stopped on 2026-09-21 and its hosts 404 ([#805](https://github.com/whilehq/whileai-sdk/issues/805), [#816](https://github.com/whilehq/whileai-sdk/issues/816)). Setting it without naming your own endpoint still wins over the account route on 0.121 and sends the run to a dead host, so leave it unset unless you are serving the model yourself.
 
 The situation writer also defaults to hosted Qwen, even when `agent=` is your own function, so `simulator=False` is what makes a run fully offline.
 
