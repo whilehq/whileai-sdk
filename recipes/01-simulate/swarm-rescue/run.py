@@ -463,14 +463,12 @@ class Model:
         thinking: bool = False,
         max_tokens: int | None = None,
     ):
-    def __init__(self, base_url: str, model: str, api_key: str | None, *, thinking: bool = False):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.thinking = thinking
         # Thinking needs room: Qwen3 reasons for a few thousand tokens first.
         self.max_tokens = max_tokens or (THINK_TOKENS if thinking else MAX_TOKENS)
-        self.max_tokens = THINK_TOKENS if thinking else MAX_TOKENS
         self.calls = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
@@ -1087,7 +1085,6 @@ def main(argv: list[str] | None = None) -> int:
     global OUT, SYSTEM
     if args.no_comments:
         SYSTEM = SYSTEM + NO_COMMENTS
-    global OUT
     if args.out:
         OUT = HERE / args.out
     if args.dry_run:
