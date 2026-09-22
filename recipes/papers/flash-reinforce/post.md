@@ -1,0 +1,1 @@
+Ran FlashREINFORCE (Hu et al.), 1 L40S, 44 min: trust gate + 1/T vs uncorrected REINFORCE, pass@1 0.47 -> 0.41 (-0.069 [-0.115, -0.025], unresolved), Qwen2.5-1.5B, GSM8K. Lag 4 left the gate silent. https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/flash-reinforce

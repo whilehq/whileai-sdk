@@ -271,6 +271,20 @@ trainer's own words.
   rollout may lag the policy, and the per-token correction for the gap
   (Noukhovitch et al. 2024, arXiv:2410.18252; Khatri et al. 2025,
   arXiv:2510.13786).
+* `FlashReinforce`, `SAO` and `BPCO`, the single-rollout methods:
+  one trajectory per prompt, no group to take a baseline over, so the
+  baseline is the batch mean (FlashReinforce, Hu et al. 2026) or a critic
+  (SAO, Hou et al. 2026, arXiv:2607.07508; BPCO, Qi et al. 2026,
+  arXiv:2608.23566). They are how a production trace, which comes one
+  per prompt and cannot be re-run, becomes a training signal. Each
+  object's `update(batch)` is the update rule itself, in plain Python,
+  so a trainer (or a test) can apply it to any batch of trajectories and
+  read what it kept and why. On prime-rl all three are refused, with the
+  reason and the fix in the message: its reward advantages are group
+  relative (`grpo`, `max_rl`: reward minus the group mean, zero over
+  a group of one) or an EMA baseline (`rae`), it hosts no value model,
+  and its losses mask per token (`ipo`, `icepop`) with no sequence
+  trust region and no clip. The nearest thing it runs is `"rae"`.
 * `prime_rl_config`, the TOML prime-rl reads, from a method object
   and a taskset.
 

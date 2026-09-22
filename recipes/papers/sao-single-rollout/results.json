@@ -1,0 +1,250 @@
+{
+  "recipe": "sao-single-rollout",
+  "title": "SAO single rollout: one rollout per prompt under a stale sampler",
+  "paper": "https://arxiv.org/abs/2607.07508",
+  "book": "Policy Gradient Algorithms",
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "metric": "pass@1",
+  "n_holdout": 120,
+  "k": 4,
+  "gpu": "L40S",
+  "whileai": "0.114",
+  "arms": {
+    "base": {
+      "score": 0.3645833333333333,
+      "ci": [
+        0.29791666666666666,
+        0.4375
+      ],
+      "pass_at_k": 0.5916666666666667,
+      "steps": 0,
+      "gpu_minutes": 0
+    },
+    "baseline": {
+      "score": 0.46458333333333335,
+      "ci": [
+        0.40208333333333335,
+        0.5333333333333333
+      ],
+      "pass_at_k": 0.7166666666666667,
+      "steps": 40,
+      "warmup": 10,
+      "gpu_minutes": 25.7,
+      "train_minutes": 19.2,
+      "usd": 0.86
+    },
+    "recipe": {
+      "score": 0.46041666666666664,
+      "ci": [
+        0.3958333333333333,
+        0.53125
+      ],
+      "pass_at_k": 0.7083333333333334,
+      "steps": 40,
+      "warmup": 10,
+      "gpu_minutes": 20.1,
+      "train_minutes": 17.8,
+      "usd": 0.67
+    }
+  },
+  "checks": {
+    "decontaminated_dropped": 0,
+    "seed": 0,
+    "length_after": {
+      "baseline": 329.56666666666666,
+      "recipe": 362.2729166666667
+    },
+    "hack_scan_top": "truncated",
+    "run_std": 0.0199,
+    "run_std_runs": 3,
+    "length_before": 729.9479166666666,
+    "hack_scan": {
+      "baseline": {
+        "history_top": "truncated",
+        "history_regime": "train",
+        "last_batch": {
+          "top": "",
+          "regime": "unknown"
+        }
+      },
+      "recipe": {
+        "history_top": "truncated",
+        "history_regime": "train",
+        "last_batch": {
+          "top": "",
+          "regime": "unknown"
+        }
+      }
+    },
+    "train_seeds": {
+      "baseline": 1,
+      "recipe": 1
+    },
+    "over_optimized": false
+  },
+  "curves": {
+    "baseline": {
+      "reward": {
+        "first": 0.421875,
+        "last": 0.546875,
+        "mean": 0.475390625,
+        "max": 0.625,
+        "min": 0.296875
+      },
+      "masked_share": {
+        "first": 0.0,
+        "last": 0.0020693852708460136,
+        "mean": 0.00041541410939120596,
+        "max": 0.002436698802839284,
+        "min": 0.0
+      },
+      "mean_ratio_all": {
+        "first": 1.0000936732357066,
+        "last": 0.9993508688651208,
+        "mean": 0.9999583380582442,
+        "max": 1.0005363124228006,
+        "min": 0.9992314073625895
+      },
+      "max_ratio": {
+        "first": 1.7269480615499166,
+        "last": 1.740392679184246,
+        "mean": 1.5664707217633087,
+        "max": 2.2598615810187312,
+        "min": 1.2823092973467733
+      },
+      "mean_advantage": {
+        "first": 0.026300368094535922,
+        "last": -0.01607360608259471,
+        "mean": 0.0034486877281761073,
+        "max": 0.15296716183992076,
+        "min": -0.10633235303675943
+      },
+      "explained_variance": {
+        "first": 0.07615281841552568,
+        "last": 0.15471096875430945,
+        "mean": 0.13042230018545117,
+        "max": 0.2739996854243142,
+        "min": 0.04836663664777707
+      },
+      "critic_loss": {
+        "first": 0.21961699426174164,
+        "last": 0.2111649066209793,
+        "mean": 0.21135176829993724,
+        "max": 0.2600424289703369,
+        "min": 0.17172983288764954
+      },
+      "length_tokens": {
+        "first": 203.203125,
+        "last": 128.359375,
+        "mean": 167.9109375,
+        "max": 203.203125,
+        "min": 98.5
+      },
+      "grad_norm": {
+        "first": 0.039788246154785156,
+        "last": 0.061948198825120926,
+        "mean": 0.04907505363225937,
+        "max": 0.10281641781330109,
+        "min": 0.03606438264250755
+      },
+      "staleness": {
+        "first": 0,
+        "last": 4,
+        "mean": 2.4,
+        "max": 4,
+        "min": 0
+      },
+      "warmup_masked_share_mean": 7.327719990154758e-05,
+      "warmup_explained_variance_last": 0.09670156352899284,
+      "skipped_tokens": 0,
+      "max_memory_gb": 23.2
+    },
+    "recipe": {
+      "reward": {
+        "first": 0.421875,
+        "last": 0.515625,
+        "mean": 0.466015625,
+        "max": 0.609375,
+        "min": 0.3125
+      },
+      "masked_share": {
+        "first": 0.0,
+        "last": 0.0012897174346347756,
+        "mean": 0.0002503728893431425,
+        "max": 0.0018603319977103605,
+        "min": 0.0
+      },
+      "mean_ratio_all": {
+        "first": 1.0000936732357066,
+        "last": 1.0003198612592874,
+        "mean": 0.999968817124862,
+        "max": 1.00045071921995,
+        "min": 0.9994463091127277
+      },
+      "max_ratio": {
+        "first": 1.7269480615499166,
+        "last": 2.2182293755931153,
+        "mean": 1.5482053679031242,
+        "max": 2.364856952748721,
+        "min": 1.257162602480213
+      },
+      "mean_advantage": {
+        "first": 0.026300368094535922,
+        "last": 0.03584857233245297,
+        "mean": 0.005010471950647983,
+        "max": 0.1356376237943467,
+        "min": -0.10040462897254313
+      },
+      "explained_variance": {
+        "first": 0.07615281841552568,
+        "last": 0.0032854278909075774,
+        "mean": 0.12030559851281009,
+        "max": 0.22697361445853093,
+        "min": 0.0032854278909075774
+      },
+      "critic_loss": {
+        "first": 0.21961699426174164,
+        "last": 0.2488025575876236,
+        "mean": 0.2119203418493271,
+        "max": 0.25606319308280945,
+        "min": 0.17498457431793213
+      },
+      "length_tokens": {
+        "first": 203.203125,
+        "last": 133.265625,
+        "mean": 171.50546875,
+        "max": 203.203125,
+        "min": 109.1875
+      },
+      "grad_norm": {
+        "first": 0.039788246154785156,
+        "last": 0.06997094303369522,
+        "mean": 0.046613174956291914,
+        "max": 0.08008783310651779,
+        "min": 0.03489622846245766
+      },
+      "staleness": {
+        "first": 0,
+        "last": 4,
+        "mean": 2.4,
+        "max": 4,
+        "min": 0
+      },
+      "warmup_masked_share_mean": 7.327719990154758e-05,
+      "warmup_explained_variance_last": 0.09670156352899284,
+      "skipped_tokens": 0,
+      "max_memory_gb": 23.2
+    }
+  },
+  "delta": {
+    "recipe_vs_baseline": -0.004166666666666667,
+    "ci": [
+      -0.03958333333333333,
+      0.03125
+    ],
+    "verdict": "unresolved"
+  },
+  "verified": "2026-09-22",
+  "usd": 1.53,
+  "run_url": ""
+}

@@ -1,0 +1,1 @@
+Ran BPCO (Qi et al., 2608.23566), 1 L40S, 51 min: bounded critic vs PPO critic, pass@1 0.43 -> 0.41 (-0.017 [-0.069, +0.037], unresolved), Qwen2.5-1.5B, GSM8K. Paper's regime not reached. https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/bpco-bounded-critic

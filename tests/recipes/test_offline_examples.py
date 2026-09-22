@@ -118,11 +118,21 @@ def _offline_env() -> dict[str, str]:
         "WHILEAI_MODEL_URL",
         "WHILEAI_API_URL",
         "HF_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "FIREWORKS_API_KEY",
+        # Compute credentials count too: with a Modal token in the
+        # environment the prime-rl example does not stop for a credential,
+        # it launches three real GPU jobs (2026-09-22, three test runs
+        # spawned fifteen H100 containers before anyone noticed).
+        "MODAL_TOKEN_ID",
+        "MODAL_TOKEN_SECRET",
     ):
         env.pop(key, None)
     env["PYTHONPATH"] = str(REPO)
-    # A saved `wai login` credential would count as a key too.
+    # A saved `wai login` credential would count as a key too, and so
+    # would a saved `modal token set`.
     env["WHILEAI_HOME"] = str(REPO / "tests" / "fixtures" / "no-such-home")
+    env["MODAL_CONFIG_PATH"] = str(REPO / "tests" / "fixtures" / "no-such-home" / "modal.toml")
     return env
 
 

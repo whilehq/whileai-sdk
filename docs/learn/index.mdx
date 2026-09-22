@@ -1,12 +1,12 @@
 ---
 title: "Learn post-training from zero"
 sidebarTitle: "Start here"
-description: "Eight short lessons for an engineer who has never trained a model. Each one runs offline, with no key, in under a minute."
+description: "Nine short lessons for an engineer who has never trained a model. Each one runs offline, with no key, in under a minute."
 ---
 
 You can read Python and run a script. You have never trained a model, and
 the words in the quickstart (rollout, reward, held-out, pass@1) are a
-jump. These eight lessons close that jump one word at a time.
+jump. These nine lessons close that jump one word at a time.
 
 Each lesson says the idea in plain words first, then names the term the
 field uses for it, then runs it. Every snippet runs on a laptop with no
@@ -47,6 +47,11 @@ know what every line is for.
     Training with no reward at all: a stronger model, or the same model
     shown the answer, scores each word the student wrote.
     [Read it](/learn/learn-without-a-reward).
+  </Step>
+  <Step title="A production trace is one try with a score">
+    Real traffic comes one attempt per ask, scored after the fact, in a
+    world you cannot replay. The three methods that train on that shape.
+    [Read it](/learn/train-on-production-traces).
   </Step>
 </Steps>
 
