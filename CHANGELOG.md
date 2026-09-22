@@ -15,12 +15,63 @@ to 0.109 releases under the wrong numbers; they are yanked.
   reported their skipped rows; `pass_at` was the one that stayed quiet, and it is the one
   read first. `docs/reference/five-calls.md` no longer comments that grading returns 0/1 on
   every row.
+- `simulate(grade=True)` grades against the rubric with the judge: the same
+  `wai.Judge(rubric=...)` that `data.grade` runs, on the grader path, so every row carries
+  `reward`, `judge_status`, `judge_name` and lineage (#670). It used to write the
+  deterministic conduct score, which on a spec with no tools returned conforms for all 212
+  rows, one of them "Sure, cancelled." to a cancellation, and `select_for_sft(min_reward=1.0)`
+  took them as gold. The conduct check is now `grade="conduct"`, by name; its rows still
+  carry `label_source="conduct"`. With no key `grade=True` raises before any budget is spent
+  instead of substituting. Any other value is a `ValueError`. The shipped
+  `whileai-simulations` skill and every offline recipe and test that wanted the free check
+  say `"conduct"` now.
 
 ## 0.119 (2026-09-22)
 
 - The platform API is `https://api.while.ai` and hosted models answer at `models.while.ai`
   (`<slug>.models.while.ai` for a claimed subdomain). A saved `api.withwhile.com` login is
   read as the default; the former hosts keep answering.
+- `HarnessSweep`: the noise floor is the platform's rule, not the raw difference. The sweep
+  posted `max(|first - again|)` over its re-runs as `Behavior.noise_floor` and as
+  `EvalSetup.run_std`, whose docstring says a standard deviation; `Tracked.noise_floor` reads the
+  same pair as t(df=runs-1) x run_std x sqrt(2) in points, about 12.7x the difference from two
+  runs, so the sweep's "clears the noise floor" was roughly 13x easier than the platform's on the
+  same rows. It now computes the floor through `eval_variance` (the function behind `noise_band`),
+  posts `run_std` as the standard deviation with `run_std_runs`, and the report prints the rule,
+  the run count and, at two runs, that the band is wide (Lambert 2025, chapter Evaluation: a
+  held-constant eval moves 0.25 to 1.5 points between runs; the floor is a distribution, not one
+  draw). Arms are also held to the same denominator: `evaluate` marks a judge error
+  `reward=None` and the engine drops an agent-error rollout, and the old check compared prompt
+  sets only, so an arm could lose rows inside an ask and still be ranked. `sweep.run` now refuses
+  an arm whose graded rows per ask differ from the first, naming the arm and both counts; the
+  report prints asks and graded rows per arm; `clears()` is False across different ask counts.
+  `behavior=` and marker names are checked against `Behavior(name=)`'s pattern before any
+  rollout (`BEHAVIOR_NAME_PATTERN`), and the sweep no longer stamps `contamination=0,
+  reward_is_judge=False` on a behavior with nothing measured.
+- `simulate(avg_turns=1)` with a model-backed agent ran two turns: the person spoke, the agent
+  replied, and when the reply held a "?" the agent model wrote a second user line and answered it
+  too (12 of 12 prompts, two agent calls each), and the row said nothing. #587 made `max_turns=1`
+  single-turn; `avg_turns` drew its budget through `sample_turn_budget`, which never went under 2.
+  A target at or under 1 is now a budget of 1 on every rollout, the path `max_turns=1` takes, and
+  the `avg_turns` docstrings say so. The distribution above 1 is unchanged. A callable agent always
+  got one message, which is why `strengthen-your-evals` and `HarnessSweep` looked right. A fixed
+  task set pins less than you think: everything after the opening prompt was still generated, and
+  the reply the grader scored was the second one (Lambert 2025, ch. Evaluation: with the setup
+  held constant run-to-run spread is 0.25 to 1.5 points, and prompt changes move scores more).
+- The platform client reads one scale. The brief, the Evals table and `tracked.evals()` used to
+  take a behavior whose every posted score and interval was at most 1 as fractions and multiply
+  by 100, while the verdict did not: two versions at 1 and 0.5 points (a safety behavior the
+  agent almost never passes) printed "highest at 100, lowest at 50" with the line "Scores arrived
+  as fractions", beside a verdict computed on 1 and 0.5. The guess is gone; the wire carries
+  points out of 100 and every reader takes the number as posted. A caller holding a rate out of 1
+  writes `run.score(name, 0.71, ci=0.04, n=240, fraction=True)` and the client posts 71.0 and 4.0.
+  A score strictly between 0 and 1 posted without `fraction=True` still warns once per behavior
+  and names `fraction=True` (or `score * 100`); 0 and 1 are points and say nothing, so a
+  measured floor of 0 points posts clean (#754). Behavior
+  change: an account that posted fractions and relied on the rescale reads its next post as
+  points, with that warning. Lambert 2025, chapter Evaluation: a score is comparable only with its
+  setup, and its scale, held constant. `readback` in `skills/manage-experiments` flags
+  `0 < score < 1` instead of `score <= 1`.
 
 ## 0.118 (2026-09-22)
 
@@ -40,36 +91,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `wai.export_dataset` among them) since the generator's ``name`` collapse ate the fence's
   backticks. Fixed in `scripts/gen_api_docs.py`; the collapse now runs over prose only.
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
-- `HarnessSweep`: the noise floor is the platform's rule, not the raw difference. The sweep
-  posted `max(|first - again|)` over its re-runs as `Behavior.noise_floor` and as
-  `EvalSetup.run_std`, whose docstring says a standard deviation; `Tracked.noise_floor` reads the
-  same pair as t(df=runs-1) x run_std x sqrt(2) in points, about 12.7x the difference from two
-  runs, so the sweep's "clears the noise floor" was roughly 13x easier than the platform's on the
-  same rows. It now computes the floor through `eval_variance` (the function behind `noise_band`),
-  posts `run_std` as the standard deviation with `run_std_runs`, and the report prints the rule,
-  the run count and, at two runs, that the band is wide (Lambert 2025, chapter Evaluation: a
-  held-constant eval moves 0.25 to 1.5 points between runs; the floor is a distribution, not one
-  draw). Arms are also held to the same denominator: `evaluate` marks a judge error
-  `reward=None` and the engine drops an agent-error rollout, and the old check compared prompt
-  sets only, so an arm could lose rows inside an ask and still be ranked. `sweep.run` now refuses
-  an arm whose graded rows per ask differ from the first, naming the arm and both counts; the
-  report prints asks and graded rows per arm; `clears()` is False across different ask counts.
-  `behavior=` and marker names are checked against `Behavior(name=)`'s pattern before any
-  rollout (`BEHAVIOR_NAME_PATTERN`), and the sweep no longer stamps `contamination=0,
-  reward_is_judge=False` on a behavior with nothing measured.
 - `judge_trust(rows, judge=)` warns, and `ok` is false, when the rows' `judge_name` names a
   scorer other than the judge passed: agreement and kappa read the reward on the row, so
   they were that scorer's number under this judge's name (#683).
-- `simulate(avg_turns=1)` with a model-backed agent ran two turns: the person spoke, the agent
-  replied, and when the reply held a "?" the agent model wrote a second user line and answered it
-  too (12 of 12 prompts, two agent calls each), and the row said nothing. #587 made `max_turns=1`
-  single-turn; `avg_turns` drew its budget through `sample_turn_budget`, which never went under 2.
-  A target at or under 1 is now a budget of 1 on every rollout, the path `max_turns=1` takes, and
-  the `avg_turns` docstrings say so. The distribution above 1 is unchanged. A callable agent always
-  got one message, which is why `strengthen-your-evals` and `HarnessSweep` looked right. A fixed
-  task set pins less than you think: everything after the opening prompt was still generated, and
-  the reply the grader scored was the second one (Lambert 2025, ch. Evaluation: with the setup
-  held constant run-to-run spread is 0.25 to 1.5 points, and prompt changes move scores more).
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
   is the report rather than a dict literal: a line per marker with its interval, the phrases that
   fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and
@@ -81,20 +105,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
   `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
   the part it does not cover.
-- The platform client reads one scale. The brief, the Evals table and `tracked.evals()` used to
-  take a behavior whose every posted score and interval was at most 1 as fractions and multiply
-  by 100, while the verdict did not: two versions at 1 and 0.5 points (a safety behavior the
-  agent almost never passes) printed "highest at 100, lowest at 50" with the line "Scores arrived
-  as fractions", beside a verdict computed on 1 and 0.5. The guess is gone; the wire carries
-  points out of 100 and every reader takes the number as posted. A caller holding a rate out of 1
-  writes `run.score(name, 0.71, ci=0.04, n=240, fraction=True)` and the client posts 71.0 and 4.0.
-  A score strictly between 0 and 1 posted without `fraction=True` still warns once per behavior
-  and names `fraction=True` (or `score * 100`); 0 and 1 are points and say nothing, so a
-  measured floor of 0 points posts clean (#754). Behavior
-  change: an account that posted fractions and relied on the rescale reads its next post as
-  points, with that warning. Lambert 2025, chapter Evaluation: a score is comparable only with its
-  setup, and its scale, held constant. `readback` in `skills/manage-experiments` flags
-  `0 < score < 1` instead of `score <= 1`.
 - `is_truncated` (so `optimize(mode="rl")`, `select(mode="rl")`, `length_report` and the
   hack scan) reads the `finish_reason` the engine stamps and the step's `truncated` flag
   before it reads the grader's `reason` or the text. It read only the last two, and neither
@@ -108,16 +118,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `reward_before_penalty`); rows with no engine stamp, a platform pull or a user file,
   still go by the reason and the text. Lambert 2025, chapter Reinforcement Learning: score
   only completions that ended on their own; chapter Reasoning: overlong filtering.
-- `simulate(grade=True)` grades against the rubric with the judge: the same
-  `wai.Judge(rubric=...)` that `data.grade` runs, on the grader path, so every row carries
-  `reward`, `judge_status`, `judge_name` and lineage (#670). It used to write the
-  deterministic conduct score, which on a spec with no tools returned conforms for all 212
-  rows, one of them "Sure, cancelled." to a cancellation, and `select_for_sft(min_reward=1.0)`
-  took them as gold. The conduct check is now `grade="conduct"`, by name; its rows still
-  carry `label_source="conduct"`. With no key `grade=True` raises before any budget is spent
-  instead of substituting. Any other value is a `ValueError`. The shipped
-  `whileai-simulations` skill and every offline recipe and test that wanted the free check
-  say `"conduct"` now.
 
 ## 0.117 (2026-09-22)
 
