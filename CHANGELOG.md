@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.118 (2026-09-22)
+
 - `export_preference(..., format="trl")` (and `to_trl(rows, "preference")`) carry one assistant
   turn per side. The file used to put everything after the first assistant turn on each side,
   tool results and later user turns included, and a DPO trainer masks only the prompt and
