@@ -65,3 +65,13 @@ def test_simulate_with_a_backend_at_avg_turns_one_is_single_turn(monkeypatch):
     assert len(rows) == 12
     assert [_user_lines(r) for r in rows] == [1] * 12
     assert calls == {"agent": 12}, calls
+
+
+def test_local_model_still_accepts_avg_turns_none(monkeypatch):
+    """``avg_turns=None`` is the documented "use the default" spelling on
+    ``sample_turn_budget``; the ``avg_turns<=1`` guard must not float() it."""
+    calls: dict = {}
+    monkeypatch.setattr("whileai.simulations.generate.agents.complete", _asking_agent(calls))
+    agent = local_model("http://example", "m", tools=TOOLS, avg_turns=None)
+    row = agent("refund order ORD-1, it arrived broken")
+    assert row["final_text"] and calls.get("agent", 0) >= 1

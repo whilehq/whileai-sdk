@@ -2154,7 +2154,7 @@ def local_model(
     user_extras = extras if str(user_url).rstrip("/") == str(base_url).rstrip("/") else None
     shapes = result_shapes if result_shapes is not None else {}
     cap = default_max_turns(n_tools=len(tools)) if max_turns is None else max(1, int(max_turns))
-    if float(avg_turns) <= 1:
+    if avg_turns is not None and float(avg_turns) <= 1:
         # ``avg_turns=1`` is one user line and one reply: the same path
         # ``max_turns=1`` takes, so the sampler's 1 is not lifted back to
         # 2 by the ``min_user_turns`` floor below (#587 guarded the

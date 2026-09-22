@@ -935,11 +935,41 @@ def test_grade_true_with_no_key_stops_instead_of_substituting(monkeypatch):
     """grade=True means the judge. With no key it stops; it never falls back to
     the conduct check and hands back a reward nobody chose (Lambert 2025,
     chapter Reward Models)."""
-    import whileai.simulations.score.llm_judge as llm_judge
-
-    monkeypatch.setattr(llm_judge, "resolve_judge_key", lambda *a, **k: None)
-    with pytest.raises(RuntimeError, match="needs an API key"):
+    # conftest clears OPENAI_API_KEY, VLLM_API_KEY and WHILEAI_API_KEY and
+    # points WHILEAI_HOME at an empty dir: no key anywhere, hosted default
+    with pytest.raises(RuntimeError, match="key"):
         simulate_offline(grade=True, repeats=1, budget=4, per_round=6)
+
+
+def test_grade_true_honours_a_judge_key_given_through_configure(monkeypatch):
+    """The key check is the one Judge.__call__ and data.grade() use, so a
+    judge configured with its own api_key passes it. The first cut read env
+    vars only and raised "set OPENAI_API_KEY" for a judge that data.grade()
+    then ran fine on the same rows."""
+    import whileai
+    from whileai.judge import Judge
+
+    monkeypatch.setattr(Judge, "__call__", lambda self, row: {"reward": 1, "reason": "ok"})
+    whileai.configure(judge=whileai.models.OpenAI("gpt-4.1-mini", api_key="sk-from-object"))
+    try:
+        data = simulate_offline(grade=True, rubric="Be brief.", repeats=1, budget=4, per_round=6)
+    finally:
+        whileai.configure(judge=whileai.Hosted())
+        whileai.settings.keys.pop("openai", None)
+    rows = data.trajectories
+    assert rows and all(r.get("reward") == 1 for r in rows)
+
+
+def test_grade_true_runs_keyless_against_a_loopback_judge(monkeypatch):
+    """A plain-http loopback endpoint needs no key, the same rule every other
+    call in the SDK applies (missing_hosted_key)."""
+    from whileai.judge import Judge
+
+    monkeypatch.setattr(Judge, "__call__", lambda self, row: {"reward": 0, "reason": "no"})
+    monkeypatch.setenv("WHILEAI_JUDGE", "vllm:qwen@http://127.0.0.1:9")
+    data = simulate_offline(grade=True, rubric="Be brief.", repeats=1, budget=4, per_round=6)
+    rows = data.trajectories
+    assert rows and all(r.get("reward") == 0 for r in rows)
 
 
 def test_grade_true_writes_the_judges_reward_not_the_conduct_score(monkeypatch):
@@ -957,6 +987,7 @@ def test_grade_true_writes_the_judges_reward_not_the_conduct_score(monkeypatch):
         return {"reward": 1, "reason": "judged against the rubric"}
 
     monkeypatch.setattr(llm_judge, "resolve_judge_key", lambda *a, **k: "k")
+    monkeypatch.setenv("VLLM_API_KEY", "k")
     monkeypatch.setattr(Judge, "__call__", fake_call)
     data = simulate_offline(
         grade=True, rubric="Confirm before cancelling.", repeats=1, budget=4, per_round=6

@@ -400,6 +400,13 @@ def _count_partial(rows: Sequence[dict]) -> int:
     for row in rows:
         if not isinstance(row, dict):
             continue
+        # Mirror ``_group_label_lists``: the first key that reads as 0/1
+        # labels the row, so a row that carries ``reward=0.5`` beside a
+        # binary legacy ``qwen_reward`` is counted, not left out. Only a
+        # row that has a numeric reward and no binary one on any key is
+        # "partial".
+        numeric = False
+        binary = False
         for key in ("reward", "qwen_reward"):
             value = row.get(key)
             if value is None or isinstance(value, bool):
@@ -407,10 +414,13 @@ def _count_partial(rows: Sequence[dict]) -> int:
             try:
                 float(value)
             except (TypeError, ValueError):
+                continue
+            numeric = True
+            if _is_binary_01(value):
+                binary = True
                 break
-            if not _is_binary_01(value):
-                partial += 1
-            break
+        if numeric and not binary:
+            partial += 1
     return partial
 
 

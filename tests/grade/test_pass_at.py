@@ -273,3 +273,23 @@ def test_partial_rewards_are_counted_and_named_not_dropped_in_silence():
     # every row partial: still nothing to score, and the count says how many
     every = pass_at([{"prompt": "a", "reward": 0.5, "judge_status": "ok"}] * 4)
     assert every.n_groups == 0 and every.n_partial == 4
+
+
+def test_a_row_with_a_binary_legacy_label_beside_a_partial_reward_is_counted_not_partial():
+    """``_group_label_lists`` reads ``qwen_reward`` when ``reward`` is not 0/1,
+    so such a row is in pass@1; the partial count must say the same."""
+    rows = _rows({"a": [1, 0, 1, 1]})
+    rows += [
+        {"prompt": "b", "reward": 0.5, "qwen_reward": 1, "final_text": "x", "steps": []}
+        for _ in range(4)
+    ]
+    out = pass_at(rows, k=4)
+    assert out.n_groups == 2 and out.n_rows == 8
+    assert out.n_partial == 0 and "not 0 or 1" not in out.note
+    # a non-numeric reward beside a binary legacy label: same rule
+    rows2 = _rows({"a": [1, 0, 1, 1]}) + [
+        {"prompt": "b", "reward": "n/a", "qwen_reward": 0, "final_text": "x", "steps": []}
+        for _ in range(4)
+    ]
+    out2 = pass_at(rows2, k=4)
+    assert out2.n_groups == 2 and out2.n_rows == 8 and out2.n_partial == 0

@@ -1349,6 +1349,7 @@ judge_trust(
     length_gap_flag: float = 0.15,
     flip_flag: float = 0.1,
     max_skipped_share: float = 0.1,
+    judge_name: str | None = None,
 ) -> JudgeTrustReport
 ```
 
@@ -1389,7 +1390,9 @@ carries the counts).
   `judge` is given and the rows' `judge_name` (what `run_judge`
   and `data.grade` stamp) names another scorer, the report warns
   and `ok` is false: the agreement would be that scorer's, not the
-  judge's (#683).
+  judge's (#683). The judge's own name is resolved the way
+  `run_judge` stamps it (a lambda is `lambda_judge`); pass the
+  same `judge_name=` you gave `run_judge` when you gave one.
 * `judge`: the judge callable. With it the report re-judges up to
   `sample` rows twice more, as-is for consistency and with neutral
   filler appended; flips on the filler run mean the judge pays for

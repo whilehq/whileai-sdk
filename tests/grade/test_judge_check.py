@@ -332,3 +332,34 @@ def test_judge_trust_names_the_scorer_when_the_reward_is_not_the_judges():
     assert not any(
         w.startswith("Judge under audit") for w in judge_trust(rows, judge_b, sample=5)["warnings"]
     )
+
+
+def test_judge_trust_resolves_the_judges_name_the_way_run_judge_stamps_it():
+    """A lambda stamps as ``lambda_judge`` and a ``judge_name=`` given to
+    ``run_judge`` is the stamp; the audit reads both through the same helper,
+    so a judge never fails the audit on its own verdicts."""
+    rows = _rows(60)
+    attach_labels(rows, _labels(rows), annotator="ana")
+    same = lambda row: {"reward": row["reward"]}  # noqa: E731
+    graded = run_judge(rows, same).rows
+    assert all(r["judge_name"] == "lambda_judge" for r in graded)
+    assert not any(
+        w.startswith("Judge under audit") for w in judge_trust(graded, same, sample=5)["warnings"]
+    )
+
+    def grader(row):
+        return {"reward": row["reward"]}
+
+    named = run_judge(rows, grader, judge_name="v3-rubric").rows
+    assert all(r["judge_name"] == "v3-rubric" for r in named)
+    assert not any(
+        w.startswith("Judge under audit")
+        for w in judge_trust(named, grader, sample=5, judge_name="v3-rubric")["warnings"]
+    )
+    # without the name the audit still says the rows were written under another stamp
+    (line,) = [
+        w
+        for w in judge_trust(named, grader, sample=5)["warnings"]
+        if w.startswith("Judge under audit is grader")
+    ]
+    assert "written by v3-rubric (60)" in line
