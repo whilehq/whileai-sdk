@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.123 (2026-09-22)
+
 - `simulate(grade=True)` checks for a judge key with `require_judge_key`, the resolver
   `Judge.__call__` and `data.grade()` use, so a key given on `wai.configure(judge=...)`, the
   account key on the hosted route, and a keyless loopback or plain-http endpoint all pass.
