@@ -867,5 +867,187 @@
     "commented": [
       "#636 decontaminate spans"
     ]
-  }
+  },
+  "cells": {
+    "neither": {
+      "n": 640,
+      "right_first_action": 0.790625,
+      "looks_up_when_it_should": 0.7984189723320159,
+      "stays_in_scope": 0.7611940298507462,
+      "called_a_tool": 0.821875,
+      "args_match": 0.565625
+    },
+    "harness": {
+      "n": 640,
+      "right_first_action": 0.784375,
+      "looks_up_when_it_should": 0.8063241106719368,
+      "stays_in_scope": 0.7014925373134329,
+      "called_a_tool": 0.846875,
+      "args_match": 0.56875
+    },
+    "weights": {
+      "n": 640,
+      "right_first_action": 0.815625,
+      "looks_up_when_it_should": 0.8774703557312253,
+      "stays_in_scope": 0.582089552238806,
+      "called_a_tool": 0.871875,
+      "args_match": 0.659375
+    },
+    "both": {
+      "n": 640,
+      "right_first_action": 0.8015625,
+      "looks_up_when_it_should": 0.8754940711462451,
+      "stays_in_scope": 0.5223880597014925,
+      "called_a_tool": 0.8859375,
+      "args_match": 0.65625
+    }
+  },
+  "noise_band": 0.011,
+  "decontamination": {
+    "n_contaminated": 10,
+    "kept": 508,
+    "rules_skipped": {},
+    "notes": [],
+    "with_policy_in_prompt": 515
+  },
+  "n_train": 508,
+  "pins": {
+    "vllm": "0.29.0",
+    "trl": "1.13.0",
+    "peft": "0.21.0"
+  },
+  "deltas": {
+    "harness vs neither": {
+      "delta": -0.00625,
+      "ci95": [
+        -0.03125,
+        0.01875
+      ],
+      "verdict": "no_difference_detected",
+      "headline": "no_change_detected",
+      "groups": {
+        "CALL": {
+          "delta": 0.007905138339920948,
+          "ci95": [
+            -0.015810276679841896,
+            0.03162055335968379
+          ]
+        },
+        "NO_CALL": {
+          "delta": -0.05970149253731343,
+          "ci95": [
+            -0.13432835820895522,
+            0.014925373134328358
+          ]
+        }
+      }
+    },
+    "weights vs neither": {
+      "delta": 0.025,
+      "ci95": [
+        -0.025,
+        0.075
+      ],
+      "verdict": "no_difference_detected",
+      "headline": "no_change_detected",
+      "groups": {
+        "CALL": {
+          "delta": 0.07905138339920949,
+          "ci95": [
+            0.019762845849802372,
+            0.1383399209486166
+          ]
+        },
+        "NO_CALL": {
+          "delta": -0.1791044776119403,
+          "ci95": [
+            -0.26865671641791045,
+            -0.08955223880597014
+          ]
+        }
+      }
+    },
+    "both vs neither": {
+      "delta": 0.0109375,
+      "ci95": [
+        -0.04375,
+        0.0625
+      ],
+      "verdict": "no_difference_detected",
+      "headline": "no_change_detected",
+      "groups": {
+        "CALL": {
+          "delta": 0.07707509881422925,
+          "ci95": [
+            0.019762845849802372,
+            0.1383399209486166
+          ]
+        },
+        "NO_CALL": {
+          "delta": -0.23880597014925373,
+          "ci95": [
+            -0.34328358208955223,
+            -0.13432835820895522
+          ]
+        }
+      }
+    },
+    "both vs weights  (method vs baseline)": {
+      "delta": -0.0140625,
+      "ci95": [
+        -0.046875,
+        0.0203125
+      ],
+      "verdict": "no_difference_detected",
+      "headline": "no_change_detected",
+      "groups": {
+        "CALL": {
+          "delta": -0.001976284584980237,
+          "ci95": [
+            -0.041501976284584984,
+            0.039525691699604744
+          ]
+        },
+        "NO_CALL": {
+          "delta": -0.05970149253731343,
+          "ci95": [
+            -0.11940298507462686,
+            -0.014925373134328358
+          ]
+        }
+      }
+    },
+    "both vs harness  (did the weights add anything)": {
+      "delta": 0.0171875,
+      "ci95": [
+        -0.0328125,
+        0.0671875
+      ],
+      "verdict": "no_difference_detected",
+      "headline": "no_change_detected",
+      "groups": {
+        "CALL": {
+          "delta": 0.0691699604743083,
+          "ci95": [
+            0.011857707509881422,
+            0.12648221343873517
+          ]
+        },
+        "NO_CALL": {
+          "delta": -0.1791044776119403,
+          "ci95": [
+            -0.2835820895522388,
+            -0.08955223880597014
+          ]
+        }
+      }
+    }
+  },
+  "why": {
+    "neither": "the served agent; 0.791 on the target, 0.761 on the twin.",
+    "harness": "the skills text alone: buys tool calls, loses scope, moves the target by -0.006 [-0.031, +0.019].",
+    "weights": "SFT taught the lookup (+0.079 [+0.020, +0.138]) and broke the twin (-0.179 [-0.269, -0.090]).",
+    "both": "same lookup gain, a worse twin (-0.239); flat against the baseline at -0.014 [-0.047, +0.020]."
+  },
+  "learned_one_line": "the behaviour and its twin are one decision, so every lever here was a dial between them; the composite metric averaged a real gain and a larger real loss into a flat +0.025."
 }

@@ -132,28 +132,32 @@ def main() -> int:
     for words, (cell, harness_label, method) in ARMS.items():
         c = cells[cell]
         label = harness_label or searched
+        trained = method != "eval"
+        kw = {}
+        if trained:
+            kw["base"] = BASE
+            # trained_on rejects None rather than treating it as absent
+            kw["trained_on"] = ["tau2-simulated reference first actions"]
         run = tracked.run(
             words,
             method=method,
-            base=BASE if method != "eval" else None,
             harness=Harness(label=f"{label}@{BASE}", model=BASE),
             targets=["right_first_action"],
-            trained_on=["tau2-simulated reference first actions"] if method != "eval" else None,
             record=RunRecord(
                 data=Data(
-                    train="tau2-simulated train split" if method != "eval" else None,
-                    n_train=res["n_train"] if method != "eval" else None,
+                    train="tau2-simulated train split" if trained else None,
+                    n_train=res["n_train"] if trained else None,
                     holdout=TEST,
                     n_holdout=n_hold,
                 ),
-                optimizer=Optimizer(lr=1e-4, seed=17) if method != "eval" else Optimizer(seed=101),
+                optimizer=Optimizer(lr=1e-4, seed=17) if trained else Optimizer(seed=101),
                 provenance=Provenance(pins=res["pins"]),
             ),
+            **kw,
         )
         run.score(
             "right_first_action",
             round(c["right_first_action"] * 100),
-            ci=round(c.get("ci_halfwidth", 0.0) * 100),
             n=n_hold,
         )
         posted[cell] = run
