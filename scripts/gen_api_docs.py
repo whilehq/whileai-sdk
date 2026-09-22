@@ -50,6 +50,7 @@ GROUP_BLURB = {
     "training": "Training runs, trainer callbacks, TRL export.",
     "export": "JSONL, preference pairs, and RL environments out of graded rows.",
     "environment": "A verifiers environment for on-policy trainers.",
+    "openenv": "The OpenEnv runtime: reset, step and state over HTTP for TRL, torchforge and SkyRL.",
     "monitor": "Watch a live training run for reward hacking.",
     "schema": "The typed row schema and its conversions.",
     "constants": "Module-level constants and their defaults.",

@@ -63,6 +63,8 @@ from .defaults import (
     ENV_HARNESS_SEED,
     ENV_HOLDOUT_FRACTION,
     ENV_MAX_TURNS_FALLBACK,
+    ENV_RUNTIME,
+    ENV_RUNTIMES,
 )
 from .export import _resolve
 from .score.checklist import _task_has_outcome_rule
@@ -599,8 +601,9 @@ def export_environment(
     ngram: int = ENV_DECONTAMINATION_NGRAM,
     world: Mapping[str, Any] | None = None,
     harnesses: Sequence[Any] | None = None,
+    runtime: str = ENV_RUNTIME,
 ) -> dict[str, Any]:
-    """Write graded rows as an installable verifiers environment for an on-policy trainer.
+    """Write graded rows as an installable RL environment for an on-policy trainer.
 
     Reach for it when the next step is RL in a trainer that speaks
     verifiers (prime-rl and the like) and needs the tasks, the world and
@@ -658,12 +661,23 @@ def export_environment(
       one fixed harness collapses when the tool environment shifts, and
       harness-aware post-training generalizes out of distribution. Left
       out, the spec is what it always was.
+    * ``runtime`` (``"verifiers"``): the trainer contract the package
+      speaks. ``"verifiers"`` is the Prime Intellect package prime-rl and
+      TRL's verifiers path install with ``pip install -e``; ``"openenv"``
+      is Meta PyTorch's OpenEnv (``reset``/``step``/``state`` over HTTP,
+      the contract TRL, torchforge, SkyRL and Unsloth drive), written as
+      an ``openenv.yaml`` package that ``uv run --project . server``
+      serves, ``openenv build`` containerizes and ``openenv push`` puts
+      on a Hugging Face Space. Same tasks, world and reward either way;
+      see ``whileai.simulations.openenv``.
 
     ```python
     report = wai.export_environment(data, "envs/refunds", reward=my_verifier)
     print(report["train"], report["holdout"], report["path"])
     ```
     """
+    if runtime not in ENV_RUNTIMES:
+        raise ValueError(f"runtime= must be one of {list(ENV_RUNTIMES)}; got {runtime!r}")
     tools = _tool_schemas(tools)
     from .world.sandbox import WorldOptions
 
@@ -749,8 +763,29 @@ def export_environment(
         spec["harnesses"] = harness_entries
         report["harnesses"] = [{"label": h["label"], "hash": h["hash"]} for h in harness_entries]
     report.update(
-        {"name": name, "reward": reward_ref, "execute": execute_ref, "warnings": warnings}
+        {
+            "name": name,
+            "reward": reward_ref,
+            "execute": execute_ref,
+            "warnings": warnings,
+            "runtime": runtime,
+        }
     )
+
+    if runtime == "openenv":
+        from .openenv import write_package
+
+        write_package(
+            out_dir,
+            name=name,
+            spec=spec,
+            train=train,
+            held=held,
+            report=report,
+            description=description,
+        )
+        report["path"] = str(out_dir)
+        return report
 
     pkg = out_dir / name
     pkg.mkdir(parents=True, exist_ok=True)

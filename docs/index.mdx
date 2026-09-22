@@ -136,7 +136,7 @@ call that uses it.
 | Measure | `pass_at`, `delta_report`, `eval_variance`, `holdout_size` | pass@1, pass^k, pass@k with bootstrap intervals over tasks. A paired delta with a permutation p-value. Noise band. Power. |
 | Select | `scored.select(mode="rl"\|"sft")`, `build_preference_pairs`, `curriculum` | The 20 to 80% difficulty band. Unanimous groups dropped. Rejection sampling. Length-matched pairs. |
 | Guard | `decontaminate`, `hack_scan`, `trace_markers`, `HackMonitor` | Overlap with the eval set. Reward-feature correlation within task against a shuffle floor. Trajectory lies. |
-| Train and export | `rows.export`, `export_environment`, `platform.train`, `platform.serve` | Loss masks. A `verifiers` environment for GRPO. Hosted LoRA SFT, GRPO, DPO, RM. |
+| Train and export | `rows.export`, `export_environment`, `platform.train`, `platform.serve` | Loss masks. A `verifiers` or OpenEnv environment for GRPO. Hosted LoRA SFT, GRPO, DPO, RM. |
 
 Where each method comes from, with numbered references, is on
 [the engine](/concepts/engine). The calls in the order a run happens are
