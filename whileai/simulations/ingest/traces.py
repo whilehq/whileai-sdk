@@ -17,6 +17,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -60,9 +61,54 @@ FAULT_TO_AXIS: dict[str, tuple[str, str]] = {
 }
 _FAULT_TO_AXIS = FAULT_TO_AXIS
 
-#: Row keys read for a 0/1 label, in order: the SDK's ``reward``, then the
-#: advisory judge label an unlabelled row may carry.
-REWARD_KEYS = ("reward", "qwen_reward")
+#: Row keys read for a 0/1 label by default: the SDK's own ``reward``
+#: column, and nothing else. A customer whose grader writes ``score``,
+#: ``label``, ``grade``, ``rating`` or ``pass`` names that column with
+#: ``reward_key=``; guessing one for them is an opinion, and the SDK holds
+#: none (CONSTITUTION, belief 3). What happened instead was silence: 60
+#: traces carrying ``score`` reported ``graded: 0, ungraded: 60`` with no
+#: warning anywhere (#668).
+REWARD_KEYS = ("reward",)
+
+#: Label keys named after one model. Read for one more release when
+#: ``reward`` carries nothing, with a warning that names ``reward_key=``
+#: (CONSTITUTION, belief 8: never big-bang, keep the old name working for
+#: one release). ``grade_llm`` still writes ``qwen_reward`` on rows it
+#: grades, so dropping it today would unlabel every row an older run
+#: produced. It is no longer the only answer, which is the part that was
+#: wrong: a model-specific key was hardcoded into the ingest path.
+LEGACY_REWARD_KEYS = ("qwen_reward",)
+
+#: Why a row carries no 0/1 label. ``no_column``: nothing readable under
+#: any key in play. ``not_binary``: a number was there and it is not 0 or
+#: 1, and no ``threshold=`` said how to read it - ``0.75`` is the ordinary
+#: output of a multi-criterion rubric judge, not an edge case. Two
+#: different silences with two different fixes, and folding them together
+#: is what made a found-and-discarded label look like an ungraded row.
+#: Judge labels ARE the reward, and a reward pipeline that discards them
+#: quietly cannot be audited (Lambert 2025, chapters Reward Models and
+#: Evaluation).
+NO_COLUMN = "no_column"
+NOT_BINARY = "not_binary"
+
+#: Numeric row keys this package stamps itself, left out of the "one of
+#: these may be your label" warning so it names a candidate column rather
+#: than bookkeeping (convention, untested). ``llm_reward`` and
+#: ``gold_reward`` are deliberately absent: those are labels a caller may
+#: well have meant.
+SDK_NUMERIC_KEYS = frozenset(
+    {
+        "logprob",
+        "n_tokens",
+        "rollout_index",
+        "round",
+        "schema_version",
+        "seed",
+        "timestamp",
+        "ts",
+    }
+)
+
 #: Axis values that mean "nothing went wrong" and stay in every aimed axis
 #: as the contrast (they never gain emphasis).
 CLEAN_CONDITION = "success"
@@ -72,36 +118,141 @@ SPECIAL_TOOLS = frozenset({"unrelated", "multi_tool"})
 #: Row keys that do not carry a world state.
 UNKNOWN_WORLDS = frozenset({"unspecified", "unknown"})
 
+_legacy_key_warned = False
 
-def _binary_reward(row: dict) -> int | None:
-    for key in REWARD_KEYS:
+
+def _warn_legacy_reward_key(names: Sequence[str]) -> None:
+    """Say the new spelling once per run for a model-specific label key."""
+    global _legacy_key_warned
+    if _legacy_key_warned or not names:
+        return
+    _legacy_key_warned = True
+    warnings.warn(
+        f"{', '.join(sorted(names))} is a label key named after one model, read here "
+        f"for one more release. Name the column instead: reward_key='{sorted(names)[0]}'.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+def _rows_phrase(n: int) -> str:
+    """``1 row`` / ``7 rows``: a report a person reads says it in English."""
+    return f"{n} row" if n == 1 else f"{n} rows"
+
+
+def _as_number(value: Any) -> float | None:
+    """``value`` as a float, or None when it is not a number at all.
+
+    NaN is not a label: it compares false against every threshold, so
+    reading it as one would invent a 0 out of a missing measurement.
+    """
+    if isinstance(value, bool):
+        return float(value)
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if number != number else number
+
+
+def _label_from(value: Any, threshold: float | None = None) -> int | None:
+    """One cell as a 0/1 label. ``threshold`` binarises: ``>=`` reads as 1.
+
+    Without a threshold only 0 and 1 are a label. Picking one for a
+    fractional reward is the caller's decision and never the SDK's: a
+    rubric mean of 0.75 is a pass under one product's bar and a fail
+    under another's.
+    """
+    number = _as_number(value)
+    if number is None:
+        return None
+    if isinstance(value, bool):
+        # External rows label with True/False; a skipped False would
+        # hide that trace's flaw signal from mining.
+        return int(value)
+    if threshold is not None:
+        return 1 if number >= float(threshold) else 0
+    return int(number) if number in (0.0, 1.0) else None
+
+
+def _label_keys(
+    reward_key: str | Sequence[str] | None = None, *, legacy: bool = False
+) -> tuple[str, ...]:
+    """The keys a label is read from, in order.
+
+    A caller's ``reward_key`` replaces the defaults outright: naming a
+    column means that column, not that column plus whatever the SDK
+    would otherwise have guessed.
+    """
+    if reward_key is None:
+        return REWARD_KEYS + LEGACY_REWARD_KEYS if legacy else REWARD_KEYS
+    if isinstance(reward_key, str):
+        return (reward_key,)
+    return tuple(str(k) for k in reward_key)
+
+
+def _label_state(
+    row: Mapping[str, Any],
+    *,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+    legacy: bool = False,
+) -> tuple[int | None, str, str]:
+    """``(label, status, key)``: the row's 0/1 label, and which silence it
+    is when there is none (``NO_COLUMN`` or ``NOT_BINARY``), and the key
+    that answered."""
+    number_at = ""
+    for key in _label_keys(reward_key, legacy=legacy):
         value = row.get(key)
         if value is None:
             continue
-        if isinstance(value, bool):
-            # External rows label with True/False; a skipped False would
-            # hide that trace's flaw signal from mining.
-            value = int(value)
-        try:
-            number = float(value)
-        except (TypeError, ValueError):
-            continue
-        if number == 0.0:
-            return 0
-        if number == 1.0:
-            return 1
-    return None
+        label = _label_from(value, threshold)
+        if label is not None:
+            return label, "read", key
+        if not number_at and _as_number(value) is not None:
+            number_at = key
+    if number_at:
+        return None, NOT_BINARY, number_at
+    return None, NO_COLUMN, ""
 
 
-def mine_traces(rows: Sequence[dict]) -> dict[str, Any]:
+def _binary_reward(
+    row: dict,
+    *,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+) -> int | None:
+    """The row's 0/1 label, or None. ``_label_state`` says why it is None.
+
+    Reads the legacy model-specific keys too, so a row an older run
+    graded still steers mining (CONSTITUTION, belief 8).
+    """
+    return _label_state(row, reward_key=reward_key, threshold=threshold, legacy=True)[0]
+
+
+def mine_traces(
+    rows: Sequence[dict],
+    *,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+) -> dict[str, Any]:
     """What the deployed agent actually did, counted for grid focusing.
 
     ``flaw_rows`` is any row with an observed fault or a 0 label. Those are
     the behaviors worth simulating more of.
+
+    ``label_fails``, ``label_fail_tools`` and ``flaw_world_states`` count
+    the same rows by where they failed, so a label can aim the grid the
+    way a fault already does (#667). ``reward_key`` names the column the
+    label lives in and ``threshold`` binarises a fractional one; both are
+    the caller's, never guessed here.
     """
     tools: dict[str, dict[str, int]] = {}
     faults: dict[str, int] = {}
     worlds: dict[str, int] = {}
+    flaw_worlds: dict[str, int] = {}
+    label_fail_tools: dict[str, int] = {}
+    label_fails = 0
     behaviors: set[str] = set()
     flaw_rows: list[int] = []
     asks: list[str] = []
@@ -110,24 +261,31 @@ def mine_traces(rows: Sequence[dict]) -> dict[str, Any]:
         if not isinstance(row, dict):
             continue
         fault = trace_fault(row)
-        reward = _binary_reward(row)
+        reward = _binary_reward(row, reward_key=reward_key, threshold=threshold)
         behaviors.add(behavior_signature(row))
         if fault != NO_FAULT:
             faults[fault] = faults.get(fault, 0) + 1
         world = str(row.get("world_state") or "").strip()
         if world and world not in UNKNOWN_WORLDS:
             worlds[world] = worlds.get(world, 0) + 1
+        if reward == 0:
+            label_fails += 1
         flawed = fault != NO_FAULT or reward == 0
         if flawed:
             flaw_rows.append(i)
+            if world and world not in UNKNOWN_WORLDS:
+                flaw_worlds[world] = flaw_worlds.get(world, 0) + 1
         for step in row.get("steps") or []:
             if not isinstance(step, dict) or not step.get("tool"):
                 continue
-            slot = tools.setdefault(str(step["tool"]), {"n": 0, "fault_n": 0})
+            name = str(step["tool"])
+            slot = tools.setdefault(name, {"n": 0, "fault_n": 0})
             slot["n"] += 1
             result = step.get("result")
             if result is not None and _fault_from_result(result):
                 slot["fault_n"] += 1
+            if reward == 0:
+                label_fail_tools[name] = label_fail_tools.get(name, 0) + 1
         prompt = str(row.get("prompt") or "").strip()
         if prompt and prompt not in seen_asks:
             seen_asks.add(prompt)
@@ -140,6 +298,9 @@ def mine_traces(rows: Sequence[dict]) -> dict[str, Any]:
         "unique_behaviors": len(behaviors),
         "flaw_rows": flaw_rows,
         "asks": asks,
+        "label_fails": label_fails,
+        "label_fail_tools": label_fail_tools,
+        "flaw_world_states": flaw_worlds,
     }
 
 
@@ -275,26 +436,48 @@ def dimensions_from_traces(
     *,
     broaden: bool = True,
     fault_to_axis: Mapping[str, tuple[str, str]] | None = None,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
 ) -> dict[str, list[str]]:
-    """Coverage axes aimed at behaviors seen in ``rows``.
+    """Coverage axes aimed at the rows that failed, however they failed.
 
     Starts from ``build_dimensions`` for this agent so every value is one
-    the writer and sandbox understand. The tool axis puts observed failing
-    tools first; ``broaden=False`` drops tools the traces never touched
-    (keeping the base specials such as ``unrelated``), so a run spends its
-    budget near the flaws instead of boiling the ocean. Fault and world
-    axes always keep their clean value: contrast needs passing rows too.
-    ``fault_to_axis`` maps an observed fault chip to the axis value that
-    reproduces it (``FAULT_TO_AXIS`` by default).
+    the writer and sandbox understand. The tool and world axes are ranked
+    by where the agent failed; ``broaden=False`` drops tools the traces
+    never touched (keeping the base specials such as ``unrelated``), so a
+    run spends its budget near the flaws instead of boiling the ocean.
+    Fault and world axes always keep their clean value: contrast needs
+    passing rows too. ``fault_to_axis`` maps an observed fault chip to the
+    axis value that reproduces it (``FAULT_TO_AXIS`` by default).
+
+    A 0 label counts as a failure exactly as a tool fault does (#667).
+    Before that, "failed" meant a sandbox fault alone, so a trace set
+    where every tool call succeeded and half the rows were scored 0
+    produced a grid byte-identical to the same rows with the label column
+    deleted: the rubric's failures steered nothing, and the customer who
+    arrives on ``traces=`` is precisely the one whose grader IS that
+    column. Difficulty and failure signal are what decide whether the
+    generated data carries gradient at all (Lambert 2025, chapters Policy
+    Gradients and Reasoning). ``reward_key`` and ``threshold`` say where
+    the label lives and how to read a fractional one; with neither, only
+    an unambiguous 0/1 counts, because a binarisation threshold is an
+    opinion and the SDK holds none.
     """
     mapping = FAULT_TO_AXIS if fault_to_axis is None else dict(fault_to_axis)
     base = build_dimensions(tools, policy)
-    mined = mine_traces(rows)
+    mined = mine_traces(rows, reward_key=reward_key, threshold=threshold)
     observed = mined["tools"]
+    label_fail_tools = mined["label_fail_tools"]
 
     def _tool_rank(name: str) -> tuple:
         slot = observed.get(name) or {}
-        return (-int(slot.get("fault_n", 0)), -int(slot.get("n", 0)), name)
+        # A tool fault and a 0 label are the same evidence - "the agent
+        # failed here" - so they are summed rather than ranked against
+        # each other. With no labels on the rows this is the old key
+        # exactly, so the axis cannot move on a trace set that carries no
+        # verdict.
+        failed = int(slot.get("fault_n", 0)) + int(label_fail_tools.get(name, 0))
+        return (-failed, -int(slot.get("n", 0)), name)
 
     base_tools = list(base.get("tool") or [])
     specials = [t for t in base_tools if t in SPECIAL_TOOLS]
@@ -319,7 +502,12 @@ def dimensions_from_traces(
             focus_conditions.append(value)
         elif axis == "world_state" and value in worlds:
             focus_worlds.append(value)
-    for world in sorted(mined["world_states"], key=mined["world_states"].get, reverse=True):
+    # Worlds the agent failed in lead, then worlds it merely visited. The
+    # sort is stable and the first term is 0 for every world when no row
+    # carries a label, so an unlabelled trace set orders exactly as before.
+    seen_worlds = mined["world_states"]
+    flaw_worlds = mined["flaw_world_states"]
+    for world in sorted(seen_worlds, key=lambda w: (-flaw_worlds.get(w, 0), -seen_worlds[w])):
         if world in worlds and world not in focus_worlds:
             focus_worlds.append(world)
     if focus_conditions:
@@ -822,17 +1010,16 @@ def _steps_from_messages(messages: Sequence[dict]) -> list[dict]:
     return steps
 
 
-def _coerce_reward(value: Any) -> int | None:
-    if isinstance(value, bool):
-        return int(value)
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    return int(number) if number in (0.0, 1.0) else None
+def _coerce_reward(value: Any, threshold: float | None = None) -> int | None:
+    return _label_from(value, threshold)
 
 
-def load_traces(source) -> list[dict]:
+def load_traces(
+    source,
+    *,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+) -> list[dict]:
     """Normalize any supported trace source to the one trajectory schema the SDK reads.
 
     Reach for it when you have traces from somewhere else (a production
@@ -853,6 +1040,20 @@ def load_traces(source) -> list[dict]:
       the spellings read); ``reward`` is kept only when it coerces cleanly
       to 0 or 1, and its absence is fine. Rows that are not dicts or carry
       neither an ask nor any steps are dropped.
+    * ``reward_key``: the column the label actually lives in, when it is
+      not ``reward`` - ``score``, ``label``, ``grade``, ``rating``,
+      ``pass``, whatever the grader wrote. Naming it means that column:
+      it replaces the defaults rather than being added to them.
+    * ``threshold``: how to read a label that is not 0 or 1. ``>=`` is a
+      pass. A multi-criterion rubric judge emits a mean, so ``0.75`` is
+      its ordinary output; without a threshold such a row keeps no label,
+      because choosing the bar is the caller's decision and not the
+      SDK's. ``trace_report`` counts and names every label dropped this
+      way instead of reporting the row as ungraded (#668).
+
+    >>> graded = [{"prompt": "cancel my order", "score": 0.75}]
+    >>> wai.load_traces(graded, reward_key="score", threshold=0.5)[0]["reward"]
+    1
 
     >>> rows = wai.load_traces([{"question": "Where is order 4473?", "output": "Shipped."}])
     >>> rows[0]["prompt"], rows[0]["final_text"]
@@ -885,12 +1086,11 @@ def load_traces(source) -> list[dict]:
         if not final:
             final = next((str(s["text"]) for s in reversed(row["steps"]) if "text" in s), "")
         row["final_text"] = final
-        if "reward" in row:
-            reward = _coerce_reward(row["reward"])
-            if reward is None:
-                row.pop("reward")
-            else:
-                row["reward"] = reward
+        label, _status, _key = _label_state(row, reward_key=reward_key, threshold=threshold)
+        if label is None:
+            row.pop("reward", None)
+        else:
+            row["reward"] = label
         if row["prompt"] or row["steps"]:
             out.append(row)
     return out
@@ -919,17 +1119,129 @@ def opening_share(rows: Sequence[dict]) -> float:
     return agent_first / len(items)
 
 
-def trace_report(traces, tools: list[dict] | None = None, policy: str = "") -> dict[str, Any]:
+def _label_census(
+    rows: Sequence[Any],
+    *,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+) -> dict[str, Any]:
+    """How many of these rows carry a label, and why the rest do not.
+
+    Counted on the rows as they were handed over, before normalization,
+    so the numbers describe what the customer actually brought.
+
+    ``ungraded`` means one thing only: no readable column. A value that
+    is present and is not 0 or 1 is counted apart, as
+    ``non_binary_labels``, and the numeric columns nothing read are named
+    in ``unread_numeric_columns``. Those are three different problems
+    with three different fixes, and folding them into one number is how
+    60 traces carrying ``score`` reported ``graded: 0, ungraded: 60`` and
+    no warning at all (#668). The judge label IS the reward, and a reward
+    pipeline that discards labels without saying so cannot be audited
+    (Lambert 2025, chapters Reward Models and Evaluation).
+
+    ``warnings`` is the reader's half: each entry says what was found and
+    the one call that changes it.
+    """
+    keys = _label_keys(reward_key)
+    graded = passes = non_binary = advisory = no_column = 0
+    unread: dict[str, int] = {}
+    legacy: dict[str, int] = {}
+    examples: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        label, status, key = _label_state(row, reward_key=reward_key, threshold=threshold)
+        if label is not None:
+            graded += 1
+            passes += label
+            continue
+        if reward_key is None:
+            # The legacy model-specific keys steer mining, so they are
+            # disclosed as advisory, never hidden under "ungraded".
+            back, _back_status, back_key = _label_state(
+                row, reward_key=LEGACY_REWARD_KEYS, threshold=threshold
+            )
+            if back is not None:
+                advisory += 1
+                legacy[back_key] = legacy.get(back_key, 0) + 1
+                continue
+        if status == NOT_BINARY:
+            non_binary += 1
+            if len(examples) < TRACE_REPORT_LIST_CAP:
+                examples.append(f"{key}={row.get(key)!r}")
+            continue
+        no_column += 1
+        for name, value in row.items():
+            if name in keys or name in SDK_NUMERIC_KEYS or name in LEGACY_REWARD_KEYS:
+                continue
+            if _as_number(value) is not None:
+                unread[str(name)] = unread.get(str(name), 0) + 1
+    notes: list[str] = []
+    if unread:
+        named = ", ".join(
+            f"{name} (on {_rows_phrase(n)})"
+            for name, n in sorted(unread.items(), key=lambda kv: (-kv[1], kv[0]))[
+                :TRACE_REPORT_LIST_CAP
+            ]
+        )
+        notes.append(
+            f"{_rows_phrase(no_column)} carry no label under {'/'.join(keys)}, but they do "
+            f"carry numbers: {named}. If one of those is your grader's score, name it: "
+            f"load_traces(traces, reward_key='...') or trace_report(traces, reward_key='...')."
+        )
+    if non_binary:
+        notes.append(
+            f"{_rows_phrase(non_binary)} carry a label that is not 0 or 1 "
+            f"({', '.join(examples)}). A rubric judge with several criteria emits a mean, so "
+            "this is its ordinary output, not a malformed row. They are counted as "
+            "non_binary_labels, never as ungraded. Binarising needs a bar and the bar is "
+            "yours, not the SDK's: pass threshold= to read them as labels."
+        )
+    if legacy:
+        _warn_legacy_reward_key(sorted(legacy))
+        notes.append(
+            f"{_rows_phrase(advisory)} are labelled only by {', '.join(sorted(legacy))}, a key "
+            "named after one model that this path reads for one more release. Name the column "
+            f"instead: reward_key='{sorted(legacy)[0]}'."
+        )
+    return {
+        "graded": graded,
+        "passes": passes,
+        "fails": graded - passes,
+        "ungraded": no_column,
+        "non_binary_labels": non_binary,
+        "advisory_labels": advisory,
+        "unread_numeric_columns": dict(sorted(unread.items())),
+        "warnings": notes,
+    }
+
+
+def trace_report(
+    traces,
+    tools: list[dict] | None = None,
+    policy: str = "",
+    *,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+) -> dict[str, Any]:
     """What these traces contain and what they will aim generation at.
 
     Run before ``simulate(traces=...)``. With ``tools`` (and optionally
     ``policy``) the report also computes the actual grid emphasis: which
     axis values move forward in the coverage grid because of these traces.
     Reward stays optional; ungraded counts are reported, never required.
-    ``advisory_labels`` counts rows carrying only a ``qwen_reward``: those
-    labels do steer trace mining, so they are disclosed, not hidden under
-    "ungraded". ``dropped`` counts input rows that carried no usable
-    signal and were discarded by normalization.
+    ``dropped`` counts input rows that carried no usable signal and were
+    discarded by normalization.
+
+    The label counts distinguish why a row is unlabelled, so ``ungraded`` means
+    "no readable column" and nothing else: a fractional label is counted
+    as ``non_binary_labels``, a numeric column nothing read is named in
+    ``unread_numeric_columns``, and ``warnings`` says the call that fixes
+    each. ``advisory_labels`` counts rows labelled only by a legacy
+    model-specific key; those labels do steer trace mining, so they are
+    disclosed, not hidden. ``reward_key`` names the column the grader
+    wrote and ``threshold`` says how to read a fractional one.
     """
     tools = _tool_schemas(tools)
     from pathlib import Path as _Path
@@ -940,15 +1252,9 @@ def trace_report(traces, tools: list[dict] | None = None, policy: str = "") -> d
         raw = load_jsonl(traces)
     else:
         raw = list(traces)
-    rows = load_traces(raw)
+    rows = load_traces(raw, reward_key=reward_key, threshold=threshold)
     mined = mine_traces(rows)
-    graded = [r for r in rows if r.get("reward") in (0, 1)]
-    advisory = [
-        r
-        for r in rows
-        if r.get("reward") not in (0, 1) and _coerce_reward(r.get("qwen_reward")) is not None
-    ]
-    passes = sum(r["reward"] for r in graded)
+    census = _label_census(raw, reward_key=reward_key, threshold=threshold)
     report: dict[str, Any] = {
         "traces": len(rows),
         "dropped": len(raw) - len(rows),
@@ -957,14 +1263,7 @@ def trace_report(traces, tools: list[dict] | None = None, policy: str = "") -> d
         "faults_observed": dict(mined["faults"]),
         "world_states_observed": dict(mined.get("world_states") or {}),
         "distinct_behaviors": mined["unique_behaviors"],
-        "graded": len(graded),
-        "passes": passes,
-        "fails": len(graded) - passes,
-        # A row is ungraded only when NO label is in play: advisory
-        # (qwen_reward-only) rows steer trace mining, so they are counted
-        # and disclosed separately, never folded into "ungraded".
-        "ungraded": len(rows) - len(graded) - len(advisory),
-        "advisory_labels": len(advisory),
+        **census,
     }
     if tools:
         aimed = dimensions_from_traces(rows, tools, policy)
@@ -1009,6 +1308,14 @@ def format_trace_report(report: dict[str, Any]) -> str:
         f"(pass {report['passes']} / fail {report['fails']}), "
         f"ungraded {report['ungraded']}"
         + (
+            # A label that was found, parsed and then dropped for not being
+            # 0/1 is not an ungraded row, and printing it as one is the
+            # silence #668 is about.
+            f", labelled but not 0/1 {report['non_binary_labels']}"
+            if report.get("non_binary_labels")
+            else ""
+        )
+        + (
             f", advisory judge labels {report['advisory_labels']} (these steer aiming)"
             if report.get("advisory_labels")
             else ""
@@ -1037,6 +1344,8 @@ def format_trace_report(report: dict[str, Any]) -> str:
             "warning: observed tools not in this agent's toolset: "
             + ", ".join(report["foreign_tools"][:TRACE_REPORT_LIST_CAP])
         )
+    for note in report.get("warnings") or []:
+        lines.append("warning: " + note)
     emphasis = report.get("emphasis")
     if emphasis:
         parts = []

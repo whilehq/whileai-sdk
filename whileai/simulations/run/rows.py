@@ -137,7 +137,7 @@ def failed_criteria(row: dict) -> list[str]:
 
 
 def mutation_worthy(row: dict) -> bool:
-    """Re-roll and mutate on tool/sandbox faults. Ignores any score column.
+    """Re-roll and mutate where the agent failed: a tool fault, or a 0 label.
 
     A step's ``result`` is ``Any`` by the canonical schema, and most real tools
     return text. Six of this package's own adapters do: `from_langchain`,
@@ -146,9 +146,40 @@ def mutation_worthy(row: dict) -> bool:
     ``simulate(agent=...)`` with `'str' object has no attribute 'get'` for every
     one of them. `grading.as_dict` is the shared way to ask a result for a
     field; a plain string simply has no status, which is the right answer.
+
+    A label the row ARRIVED with is a first-class failure signal, equal to
+    a tool fault (#667). Until it was read here the loop had one
+    definition of failure, the sandbox's: a row scored 0 where every tool
+    call succeeded was not a failure, and a row scored 1 where a tool
+    errored was. A broken rule steered nothing, which leaves the customer
+    who arrives on ``traces=`` with no way to aim the search at all -
+    their grader IS the score column, so ``grader=``, the documented
+    escape hatch, is unavailable to exactly the users this path exists
+    for. The failure signal is what decides whether the generated data
+    carries gradient (Lambert 2025, chapters Policy Gradients and
+    Reasoning: a group whose rollouts all score the same has zero
+    advantage, and difficulty filtering wants the band measured on the
+    thing being trained).
+
+    A reward this run's own grader wrote already had a path: it carries
+    ``judge_status`` (the canonical row schema's "a judge in this
+    pipeline produced this"), and the loop aims those rows separately,
+    at the criterion that broke rather than at a tool fault (#285). So
+    the label read here is the one with no ``judge_status``, and the two
+    failure kinds stay distinguishable where they are counted.
+
+    Only an unambiguous 0/1 label counts. Binarising a fractional reward
+    needs a threshold, and the threshold is the caller's opinion, not the
+    SDK's: ``load_traces(traces, reward_key=, threshold=)`` is where it is
+    supplied, and it writes the 0/1 this reads.
     """
     if row.get("faults"):
         return True
+    if row.get("judge_status") is None:
+        from ..ingest.traces import _binary_reward
+
+        if _binary_reward(row) == 0:
+            return True
     for step in row.get("steps") or []:
         if not isinstance(step, dict):
             continue

@@ -183,6 +183,31 @@ estimate not labelled as one has no world-visible trigger, so put a grader
 in the loop for those (`grader=`, on the
 [what to run](/reference/what-to-run) page).
 
+### If your traces are already scored
+
+A scored trace aims the run: the rows your grader failed decide which
+tools and world states the grid puts first, the same way a tool fault
+does. `reward` is read as the label. Nothing else is guessed, so a column
+your grader named `score`, `label`, `grade`, `rating` or `pass` is named
+on the call, and a reward that is not 0 or 1 (a rubric with several
+criteria produces a mean, so `0.75` is its ordinary output) needs the bar
+you want it read at. Picking that bar for you would be picking your
+product's definition of a pass.
+
+```python
+rows = wai.simulations.load_traces("traces.jsonl", reward_key="score", threshold=0.5)
+data = wai.simulate(my_agent, tools=TOOLS, system_prompt=POLICY, traces=rows)
+```
+
+Run `wai.simulations.trace_report(rows)` first and it says what it found.
+`graded` is rows with a 0/1 label; `ungraded` means no readable column at
+all; `non_binary_labels` counts labels that were there and were not 0 or
+1; `unread_numeric_columns` names the numbers on the rows that nothing
+read. Each `warnings` line names the call that changes it. A label found,
+parsed and dropped used to be reported as an ungraded row, which is how 60
+scored traces could report `graded: 0` with nothing to say about it
+(#668).
+
 ## Seeds
 
 `seeds=` is a list of opening asks the writer keeps and varies. Every
