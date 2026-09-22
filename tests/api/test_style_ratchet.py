@@ -42,7 +42,12 @@ PINS = {
     # its shape: the widest signature, and the total number of parameters over
     # the cap across all of them.
     "widest_call": 45,  # parameters on the widest public call (`simulate`)
-    "wide_call_overage": 194,  # sum of (params - MAX_PARAMS) over every wide call
+    # 195, was 194: #842 measured the pin at its branch point and #843 landed
+    # `compare(lower_is_better=)` after it, so the two were never counted
+    # together. The argument is a correctness fix (a metric a run set out to
+    # reduce read as a regression), not new surface for its own sake. Rule 3's
+    # own answer is a typed options object; that refactor is #859.
+    "wide_call_overage": 195,  # sum of (params - MAX_PARAMS) over every wide call
     "format_twins": 12,  # rule 5: format_* functions instead of __str__ on a report
     "bare_returns": 3,  # rule 5: front-door calls returning a bare dict or tuple
     "in_place_mutators": 6,  # rule 4: attach_* / stamp_* free functions over rows
