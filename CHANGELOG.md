@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- The platform API is `https://api.while.ai` and hosted models answer at `models.while.ai`
+  (`<slug>.models.while.ai` for a claimed subdomain). A saved `api.withwhile.com` login is
+  read as the default; the former hosts keep answering.
+
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
 
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`

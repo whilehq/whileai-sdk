@@ -13,7 +13,7 @@ ROLE = "arn:aws:iam::123456789012:role/WhileModelsInvoke"
 
 
 class Fake:
-    """Records every call; answers like models.withwhile.com."""
+    """Records every call; answers like models.while.ai."""
 
     def __init__(self):
         self.calls: list[tuple[str, str, object]] = []
@@ -31,7 +31,7 @@ class Fake:
             else:
                 row["upstreamModel"] = row.pop("model")
             self.rows[body["name"]] = row
-            return {"model": row, "endpoint": "https://models.withwhile.com/v1"}
+            return {"model": row, "endpoint": "https://models.while.ai/v1"}
         if path == "/models" and method == "GET":
             return {"models": list(self.rows.values())}
         if path.startswith("/models/") and path.endswith("/usage?days=3"):
@@ -73,8 +73,8 @@ class Fake:
             s = self.slug
             return {
                 "subdomain": s,
-                "host": s and f"{s}.models.withwhile.com",
-                "endpoint": s and f"https://{s}.models.withwhile.com/v1",
+                "host": s and f"{s}.models.while.ai",
+                "endpoint": s and f"https://{s}.models.while.ai/v1",
             }
         if path == "/models/import" and method == "POST":
             row = {
@@ -111,7 +111,7 @@ def test_register_a_bedrock_model_in_your_own_account():
         and m.role_arn == ROLE
         and m.external_id == "while-models"
     )
-    assert m.endpoint == "https://models.withwhile.com/v1"
+    assert m.endpoint == "https://models.while.ai/v1"
     assert "model='t2s'" in str(m) and ARN in str(m)
 
 
@@ -166,7 +166,7 @@ def test_subdomain_claim_read_and_release():
     assert str(h.subdomain()) == "no subdomain claimed"
     s = h.subdomain("acme")
     assert isinstance(s, Subdomain)
-    assert s.endpoint == "https://acme.models.withwhile.com/v1"
+    assert s.endpoint == "https://acme.models.while.ai/v1"
     assert h.subdomain().subdomain == "acme"
     assert h.release_subdomain() == "acme"
     assert h.subdomain().subdomain is None
@@ -176,7 +176,7 @@ def test_endpoint_is_a_wai_endpoint_on_the_account_key(monkeypatch):
     monkeypatch.setenv("WHILEAI_API_KEY", "zp_test")
     e = HostedModels(transport=Fake()).endpoint("t2s")
     assert isinstance(e, wai.Endpoint)
-    assert e.spec == "vllm:t2s@https://models.withwhile.com/v1"
+    assert e.spec == "vllm:t2s@https://models.while.ai/v1"
     assert e.api_key == "zp_test"
 
 
@@ -184,7 +184,7 @@ def test_models_url_is_overridable(monkeypatch):
     monkeypatch.setenv("WHILEAI_MODELS_URL", "https://staging.example/")
     assert models_url() == "https://staging.example"
     monkeypatch.delenv("WHILEAI_MODELS_URL")
-    assert models_url() == "https://models.withwhile.com"
+    assert models_url() == "https://models.while.ai"
 
 
 def test_the_namespace_hangs_off_platform():

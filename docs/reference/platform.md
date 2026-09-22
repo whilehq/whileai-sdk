@@ -500,7 +500,7 @@ Over-optimization looks like one picture [4]: the training reward keeps climbing
 
 ## Serve a model you trained
 
-`wai.platform.hosted` is the client for `https://models.withwhile.com/v1`,
+`wai.platform.hosted` is the client for `https://models.while.ai/v1`,
 one OpenAI-compatible endpoint in front of every model the account
 registers. Two ways in: hand While the adapter and it comes back as a
 model on While's Bedrock account (`publish`), or register a model you
@@ -528,7 +528,7 @@ print(m)  # name, kind, where it runs, and the endpoint to call it at
 served = wai.platform.hosted.endpoint("nemotron-8b-t2s-r1")  # a wai.Endpoint on the account key
 after = wai.simulate(served, tools=TOOLS, system_prompt=POLICY, seed=0)
 
-wai.platform.hosted.subdomain("acme")  # https://acme.models.withwhile.com/v1, your keys only
+wai.platform.hosted.subdomain("acme")  # https://acme.models.while.ai/v1, your keys only
 for day in wai.platform.hosted.usage("nemotron-8b-t2s-r1", days=7):
     print(day.day, day.calls, day.errors, day.input_tokens, day.output_tokens)
 ```
@@ -539,9 +539,9 @@ for day in wai.platform.hosted.usage("nemotron-8b-t2s-r1", days=7):
 | `register(name, arn=, region=, role_arn=)` | a Bedrock import, custom deployment, provisioned model or inference profile; `role_arn` when it lives in your account (a role named `WhileModelsInvoke*` that trusts While with external id `while-models`) |
 | `register(name, url=, model=, auth=)` | any OpenAI-compatible `/v1` server; `auth="caller"` forwards your While key to it, `"none"` sends nothing |
 | `list()`, `get(name)`, `delete(name)` | the rows; deleting a row leaves the model itself alone |
-| `endpoint(name)` | `wai.Endpoint(name, url="https://models.withwhile.com/v1", api_key=<your key>)` |
+| `endpoint(name)` | `wai.Endpoint(name, url="https://models.while.ai/v1", api_key=<your key>)` |
 | `usage(name, days=7)` | per day: calls, errors, tokens in and out, and the five-minute windows the model answered in; nothing else is kept |
-| `subdomain(slug)`, `subdomain()`, `release_subdomain()` | claim, read, or give up `<slug>.models.withwhile.com` |
+| `subdomain(slug)`, `subdomain()`, `release_subdomain()` | claim, read, or give up `<slug>.models.while.ai` |
 
 A model While hosts (made by `publish`) bills three lines, monthly through
 Stripe: $0.12 per unit-minute while it answers, in the five-minute windows

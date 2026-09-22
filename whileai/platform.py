@@ -92,7 +92,7 @@ from whileai.hosted import HostedModel, HostedModels, Subdomain, UsageDay, hoste
 
 log = logging.getLogger("whileai.platform")
 
-DEFAULT_PLATFORM_URL = "https://api.withwhile.com"
+DEFAULT_PLATFORM_URL = "https://api.while.ai"
 PLATFORM_URL_ENV = "WHILEAI_PLATFORM_URL"
 
 FLUSH_EVERY = 25

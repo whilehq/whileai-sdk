@@ -141,7 +141,7 @@ def test_a_network_block_is_excused_only_where_the_page_names_the_key(checker, f
         "# Declared\n\nThis block reaches the platform, so set `WHILEAI_API_KEY` first.\n\n"
         "```python\n"
         "import urllib.request\n"
-        "urllib.request.urlopen('https://api.withwhile.com/', timeout=10)\n"
+        "urllib.request.urlopen('https://api.while.ai/', timeout=10)\n"
         "```\n",
         encoding="utf-8",
     )
