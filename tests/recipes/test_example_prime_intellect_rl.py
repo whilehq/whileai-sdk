@@ -112,7 +112,7 @@ def rl_file(tmp_path_factory) -> Path:
         rollouts_per_request=4,
         budget=24,
         time_budget=None,
-        grade=True,
+        grade="conduct",
         simulator=False,
         seed=0,
         concurrency=4,

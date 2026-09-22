@@ -75,7 +75,7 @@ def simulate(
     rollouts_per_request: int | None = None,
     unique_situations: bool = False,
     reproducible: bool | None = None,
-    grade: bool = False,
+    grade: bool | str = False,
     llm_grade: bool = False,
     traces: Any = None,
     grader: Any = None,
@@ -119,9 +119,14 @@ def simulate(
     (plain-words notes, each naming the call that changes it),
     ``report()``, ``search`` (how the budget was spent), ``pass_at``
     once graded, and ``save(path)``. Nothing is graded unless you ask:
-    pass ``grade=True`` for the deterministic conduct grade, a callable
-    ``grader=`` to score inside the loop (the only in-simulate score
-    hook), or grade later with ``data.grade(...)`` or ``grade()``.
+    pass ``grade=True`` to grade against the rubric with the judge, the
+    same ``wai.Judge(rubric=...)`` that ``data.grade`` runs, so rows carry
+    ``reward``, ``judge_status`` and ``judge_name`` (no key stops before
+    any budget is spent, nothing is substituted), ``grade="conduct"`` for the
+    deterministic conduct check by name (what the agent did, not whether
+    it did the job; rows carry ``label_source="conduct"``), a callable
+    ``grader=`` to score inside the loop, or grade later with
+    ``data.grade(...)`` or ``grade()``.
 
     The agent and the budget:
 

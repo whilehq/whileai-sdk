@@ -482,6 +482,14 @@ class Run:
         self.profile.rubric = str(c.rubric or "")
         self.tools: list[dict] = list(self.profile.tools or [])
         self.policy: str = str(self.profile.policy or "")
+        # grade=True built its Judge before the profile existed (tools may
+        # be drafted here); give it the policy and tools the agent ran under,
+        # as data.grade(judge=) does, and never override what the caller set.
+        from whileai.judge import Judge
+
+        if isinstance(c.grader, Judge):
+            c.grader.policy = c.grader.policy or self.policy
+            c.grader.tools = c.grader.tools or list(self.tools)
         # Generation-only teacher guidance. profile.policy and export stay plain.
         self.gen_policy = f"{self.policy}\n\n{c.scaffold_text}" if c.scaffold_text else self.policy
         # The deploy prompt the rows are generated under, as a short hash
@@ -1342,7 +1350,7 @@ class Run:
         cov["grader"] = (
             None if grader is None else getattr(grader, "__name__", type(grader).__name__)
         )
-        cov["grade"] = bool(c.grade)
+        cov["grade"] = c.grade if isinstance(c.grade, str) else bool(c.grade)
         cov["llm_grade"] = bool(c.llm_grade)
         # who did which job: the situation writer ("template" offline),
         # the agent's model (a callable agent's name), the simulated user
@@ -4116,13 +4124,11 @@ class Run:
                 "partials": len(scored.partials()),
                 "unjudged": len(scored.unjudged()),
             }
-        if c.grade and c.grader is None and not c.llm_grade and data.trajectories:
-            # grade=True shipped a release as an accepted-and-ignored flag: the
-            # advertised one-call path returned ungraded rows, and select_for_rl
-            # then had nothing to select. It now applies the documented default:
-            # the deterministic conduct grade, offline and free. The hosted or
-            # LLM judges stay where they were: llm_grade=True, grader=, or
-            # grade() afterwards.
+        if c.grade == "conduct" and c.grader is None and not c.llm_grade and data.trajectories:
+            # grade="conduct": the deterministic conduct check, offline and free,
+            # asked for by name. It reports what the agent did, not whether it
+            # did the job, so its rows carry label_source="conduct" and it is
+            # never what grade=True means (that is the judge, see config.py).
             declared = {
                 str((t.get("function") or t).get("name") or "")
                 for t in (data.profile.tools or [])

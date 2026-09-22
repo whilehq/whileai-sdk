@@ -41,7 +41,7 @@ About three minutes for 800 rollouts. Only `generate.py` needs the key;
 try those two with no key, `generate.py --offline` writes the same file
 shape with the template writer and a scripted agent whose every second
 rollout claims success after a tool fault, so each group is mixed; that is
-`simulate(agent, spec="spec.json", mode="rl", simulator=False, grade=True)`,
+`simulate(agent, spec="spec.json", mode="rl", simulator=False, grade="conduct")`,
 and `smoke.sh` runs all three steps on it.
 
 ## What each step does

@@ -988,7 +988,7 @@ def test_hung_request_not_written_as_speech():
         time_budget=0.8,
         concurrency=2,
         simulator=False,
-        grade=True,
+        grade="conduct",
         unique=True,
         advanced={"hung_slot": 0.12, "mutate_failures": False, "per_round": 2},
     )

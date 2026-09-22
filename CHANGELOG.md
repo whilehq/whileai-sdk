@@ -99,6 +99,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `reward_before_penalty`); rows with no engine stamp, a platform pull or a user file,
   still go by the reason and the text. Lambert 2025, chapter Reinforcement Learning: score
   only completions that ended on their own; chapter Reasoning: overlong filtering.
+- `simulate(grade=True)` grades against the rubric with the judge: the same
+  `wai.Judge(rubric=...)` that `data.grade` runs, on the grader path, so every row carries
+  `reward`, `judge_status`, `judge_name` and lineage (#670). It used to write the
+  deterministic conduct score, which on a spec with no tools returned conforms for all 212
+  rows, one of them "Sure, cancelled." to a cancellation, and `select_for_sft(min_reward=1.0)`
+  took them as gold. The conduct check is now `grade="conduct"`, by name; its rows still
+  carry `label_source="conduct"`. With no key `grade=True` raises before any budget is spent
+  instead of substituting. Any other value is a `ValueError`. The shipped
+  `whileai-simulations` skill and every offline recipe and test that wanted the free check
+  say `"conduct"` now.
 
 ## 0.117 (2026-09-22)
 
