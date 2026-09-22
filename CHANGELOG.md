@@ -176,7 +176,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `calibrate.py` and `sql_calibrate.py` regrade saved rollouts and print P(pass | fitness
   bucket). On code_contests (4B and 27B) and text-to-SQL (4B) partial credit is a cliff, zero
   below three quarters of the tests, so a swarm had nothing to climb; `judge_calibrate.py` shows a 27B judge's pass probability
-  ranks real passes at chance (AUC 0.52).
+  ranks real passes at chance (AUC 0.52). `--tasks mbpp-bundle` adds the additive family
+  (bundles of MBPP functions, assert-mode grading) as the pre-registered positive control, and the
+  visible fitness now counts every passing test instead of stopping at the first failure.
 - Recipe `01-simulate/swarm-rescue` raises the floor and stays flat: Qwen3.8-27B on the
   near-miss band (`results-27b.json`, `rescued-27b.jsonl`) ties resampling with a real
   fitness gradient. The client streams replies (a hosted request closes at 150 s), reaches

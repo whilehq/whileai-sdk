@@ -196,6 +196,34 @@ it would have ended this experiment on day one. What is left for a swarm
 over rollouts is a task family where partial credit is additive by
 construction, which tests the mechanism rather than the task.
 
+## Positive control: a family that is additive by construction
+
+Pre-registered 2026-09-22 before the run. `--tasks mbpp-bundle` makes one
+task out of five MBPP functions; the visible test is each function's shown
+assert, the hidden tests are its other two. Fitness is the number of
+functions whose shown assert holds, so it counts work remaining: a
+program at 4 of 5 has one function to fix, and a neighbour that has that
+function working carries real information. On a 16-bundle smoke the base
+samples spread over 0 to 5 (2, 2, 18, 29, 44, 33 of 128) and a program at
+5 of 5 passed every hidden assert 58% of the time.
+
+| Pre-registration | |
+|---|---|
+| Tasks | 192 bundles of 5 from all 964 MBPP problems, hosted Qwen3-4B, thinking off, `--seed 0`; a second seed after |
+| Population | the bundles where all 8 base samples fail every hidden assert |
+| Primary metric | per-sample pass rate over the 24 extra samples, paired by task (`compare_runs`), each swarm arm against resample |
+| Secondary | rescue rate; best-so-far fitness by round per arm |
+| Prediction if the operator works | star and ring above solo above resample on the primary metric, by at least 5 points; swarm fitness climbs faster than solo's |
+| Prediction if it does not | every arm inside the resample re-run band, as on the cliffs |
+| Noise | two resample re-runs (`--noise-runs 2`) |
+| Decision | a swarm arm that clears its interval and the band on one seed and repeats on the second is a working operator; anything less closes the line |
+
+Note on the earlier runs: their visible fitness was the index of the
+first failing visible test (the grader stopped there), not the count of
+passing tests; from this run on every visible test runs and the count is
+the fitness. On the cliffs it made no difference (most samples failed
+the first test), and the calibration scripts always ran every test.
+
 ## Learned
 
 - Feedback alone did nothing here. Solo refinement, the swarm with the
