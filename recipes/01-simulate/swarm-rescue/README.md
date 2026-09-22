@@ -91,10 +91,22 @@ resample arm re-run with two more seeds rescued 20 and 24 tasks (9.0% and
 points is the eval re-running. The swarms' 9.9% is where resampling lands
 on an average seed.
 
+**Replicated.** A second seed of the whole experiment (`--seed 1`,
+228 all-fail tasks) put every arm between 10.1% and 11.4%, resample re-runs
+at 11.4, 10.1 and 11.8%, and a band of 5.6 points. Ring came in 1.3
+points behind resampling and star level with it. The seed-0 lead for the
+swarms was the draw.
+
+| Seed 1 | resample | solo | ring | star |
+|---|---|---|---|---|
+| Rescued | 11.4% | 11.0% | 10.1% | 11.4% |
+| vs resample | | -0.4 [-3.9, +3.5] | -1.3 [-4.8, +2.2] | +0.0 [-3.9, +3.9] |
+| By round 0 / 1 / 2 | 17 / 5 / 4 | 14 / 11 / 0 | 13 / 5 / 5 | 14 / 8 / 4 |
+
 What did move is the training set. Across the six runs (four arms and two
 re-runs, 144 extra samples a task), 43 of the 223 all-fail tasks got at
 least one program passing every hidden test, 19% of the prompts a single
-8-rollout group would have dropped. The four arms alone wrote 112
+8-rollout group would have dropped; seed 1 rescued 49 of 228 the same way. The four arms alone wrote 112
 distinct passing programs on 37 tasks into `out/rescued.jsonl`.
 
 | Rating | Tasks | resample | ring | star |
@@ -133,8 +145,11 @@ distinct passing programs on 37 tasks into `out/rescued.jsonl`.
   since the swarm rows are off-policy for it) against plain GRPO at
   matched rollouts.
 
-Verified 2026-09-21. `results.json` in this directory is the run's report;
-`python run.py --reuse` reprints it from `out/`.
+Verified 2026-09-21 (seed 0) and 2026-09-22 (seed 1). `results.json` and
+`results-seed1.json` in this directory are the two runs' reports;
+`rescued-seed1.jsonl` is seed 1's 127 passing programs on 42 tasks, the
+rows a training run starts from. `python run.py --reuse` reprints a report
+from `out/`.
 
 ## References
 
