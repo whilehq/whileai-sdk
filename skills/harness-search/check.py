@@ -51,6 +51,11 @@ import common  # noqa: E402  (the recipe's tools, judge and scripted stand-in)
 MODEL = "scripted"  # the search model; the recipe's default held-out model is scripted-b
 ROUNDS = 3
 TOOLS = common.TOOLS
+SERVED_RATE = 0.45  # the baseline candidate's planted rate (candidates/00_baseline.py)
+SITUATIONS = 24  # asks per traffic file: three whole days with a holdout of 16 tasks
+COST_EPS = 1e-9  # float slack so a pick at exactly the baseline's cost counts as matched
+LIVE_TOLERANCE = 35  # points the next day may sit from the holdout: a fresh draw of
+# SITUATIONS asks at the scripted rates swings less than this; more means the loop did not close
 judge = common.judge  # the program judge the holdout uses; the next day is scored by it too
 
 # The checked-in candidates after the baseline are what the proposer would
@@ -76,7 +81,7 @@ def _served(label: str) -> wai.Harness:
         MODEL,
         instructions=common.BASE_INSTRUCTIONS,
         label=label,
-        scripted_rate=0.45,
+        scripted_rate=SERVED_RATE,
         scripted_behaviors=None,
     )
 
@@ -87,7 +92,7 @@ def write_traffic(harness: wai.Harness, path: Path, days: list[date], *, seed: i
     data = wai.simulate(
         harness,
         seeds=common.SEEDS,
-        situations=24,
+        situations=SITUATIONS,
         mode="rl",
         repeats=1,
         simulator=False,
@@ -342,7 +347,7 @@ assert "The holdout is 2026-09-2" in proposal, "the proposal says which days dec
 assert selected["selected"] is not None, f"the gate never passed in {ROUNDS} rounds: {selected}"
 assert proposed >= 1, "the loop wrote at least one candidate"
 assert lo > 0, "a selected candidate clears zero on the holdout"
-assert cost["clears"] and cost["ratio"] <= 1.0 + 1e-9, "a pick costs no more than the baseline"
+assert cost["clears"] and cost["ratio"] <= 1.0 + COST_EPS, "a pick costs no more than the baseline"
 assert isinstance(check["regressed"], int)
 assert selected["tasks_led"][pick_name] == max(selected["tasks_led"].values()), "led the most"
 assert selected["attribution"]["verdict"] in ("harness", "unresolved"), selected["attribution"]
@@ -360,7 +365,7 @@ notes = [c[2]["notes"] for c in fake.calls if c[0] == "PATCH" and "notes" in (c[
 assert notes == [note], "the note sits on the picked candidate only"
 assert len(fake.live) == 1 and fake.live[0]["version"] == pick["label"], "one LiveDay on the pick"
 assert fake.live[0]["replies"] == len(next_day) and fake.live[0]["flagged"] == flagged
-assert abs(live_fail - holdout_fail) < 35, (
+assert abs(live_fail - holdout_fail) < LIVE_TOLERANCE, (
     f"the next day ({live_fail:.0f}) and the holdout ({holdout_fail:.0f}) disagree by more than "
     "the scripted rates allow; the loop did not close"
 )

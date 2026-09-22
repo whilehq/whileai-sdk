@@ -96,6 +96,8 @@ JUDGE = "program"  # common.judge; a provider:model string builds wai.Judge(RUBR
 SEED = 0  # the draw of the frozen set and of the split
 WORST = 5  # rows per candidate in proposal.md, the paper's trace window
 COST_MARGIN = 0.0  # how much more per rollout than the baseline a pick may cost; 0 = matched
+COST_EPS = 1e-9  # float slack so a pick at exactly the baseline's cost passes margin 0
+NANOS_PER_SECOND = 1e9  # an OTLP span's start_time_unix_nano is in nanoseconds
 NEXT_NOTE = "Then write candidates/{next}.py and run: python run.py{flags} --propose --select"
 
 
@@ -159,7 +161,9 @@ def _day(ts: Any) -> str | None:
     if ts is None:
         return None
     if isinstance(ts, (int, float)):  # unix nanos from an OTLP span
-        return datetime.fromtimestamp(float(ts) / 1e9, tz=timezone.utc).date().isoformat()
+        return (
+            datetime.fromtimestamp(float(ts) / NANOS_PER_SECOND, tz=timezone.utc).date().isoformat()
+        )
     return str(ts)[:10]
 
 
@@ -568,7 +572,7 @@ def select(
         )
     ratio, unit = cost_ratio(baseline, best, out=out, model=models[0])
     gated = cost_margin is not None
-    within = not gated or ratio <= 1.0 + cost_margin + 1e-9
+    within = not gated or ratio <= 1.0 + cost_margin + COST_EPS
     checks["cost"] = {"ratio": ratio, "unit": unit, "margin": cost_margin, "clears": within}
     print(
         f"cost per rollout: {best['candidate']} at {ratio:.2f}x the baseline in {unit} -> "
