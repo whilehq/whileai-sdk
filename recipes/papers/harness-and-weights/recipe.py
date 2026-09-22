@@ -411,6 +411,48 @@ def write_results(
 # --------------------------------------------------------------------------
 
 
+def _examples(rows: list[dict], *, harness: str, trained: bool) -> list[dict[str, Any]]:
+    """Every graded row as the platform's row shape: the task, the reply,
+    whether the hidden tests passed, and tags the rows page groups by
+    (harness, weights, task family)."""
+    from whileai.platform import EXAMPLE_TEXT_MAX, EXAMPLE_WHY_MAX
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        ok = float(r.get("reward") or 0.0) >= 1.0
+        why = str(r.get("reason") or (r.get("judgment") or {}).get("reason") or "")
+        family = str(r.get("family") or str(task_key(r)).split("-")[0])
+        out.append(
+            {
+                "prompt": str(r.get("prompt") or "")[:EXAMPLE_TEXT_MAX],
+                "reply": str(r.get("final_text") or "")[:EXAMPLE_TEXT_MAX],
+                "ok": ok,
+                "why": (why or ("hidden tests passed" if ok else "a hidden test failed"))[
+                    :EXAMPLE_WHY_MAX
+                ],
+                "score": 1.0 if ok else 0.0,
+                "tags": {
+                    "harness": harness,
+                    "weights": "trained" if trained else "base",
+                    "task": str(task_key(r)),
+                    "family": family,
+                },
+            }
+        )
+    return out
+
+
+def _changed(arm: str, harness: wai.Harness, *, trained: bool, steps: int) -> str:
+    """The one line a colleague would write under the iteration."""
+    what_h = f"harness `{harness.version}`" + (
+        " (bare instructions)"
+        if harness.version.startswith("00_")
+        else " (a skills text in the instructions)"
+    )
+    what_w = f"weights trained {steps} GRPO steps on the train split" if trained else "base weights"
+    return f"Changed: {what_h}, {what_w}. Arm `{arm}` of the harness x weights grid."
+
+
 def post_platform(
     cells: dict[str, Any],
     entries_by_label: dict[str, wai.Harness],
@@ -439,8 +481,14 @@ def post_platform(
             n=len({task_key(r) for r in base_runs[0]}),
             contamination=decon_dropped,
             reward_is_judge=False,
+            graded_by="program",
             test_version=f"quant-code-{task_mod.SPLIT}-{len(base_runs[0])}",
             description="pass@1 on held-out quant coding tasks, CodeExec on hidden tests",
+            rubric=(
+                "A task passes when the model's Python function, run on the seeded price "
+                "table in a fresh interpreter, satisfies every hidden assert (CodeExec). "
+                "No judge: the tests are the grader."
+            ),
         )
         tracked.noise_floor("quant_code", *base_runs)
         url = ""
@@ -477,7 +525,13 @@ def post_platform(
                     replies=len(cell["rows"]),
                 ),
                 provenance=Provenance(
-                    pins={k_: str(v) for k_, v in pins.items()},
+                    # the grid axes first: attribute() and the platform read
+                    # pins.harness and pins.model off every run
+                    pins={
+                        **{k_: str(v) for k_, v in pins.items()},
+                        "harness": harness.fingerprint,
+                        "model": "trained" if trained else "base",
+                    },
                     recipe="recipes/papers/harness-and-weights",
                     paper="2607.03935",
                 ),
@@ -499,7 +553,9 @@ def post_platform(
                 round(100 * p.pass_at_1, 1),
                 ci=round(50 * (hi - lo), 1),
                 n=p.n_groups,
+                rows=_examples(cell["rows"], harness=harness.version, trained=trained),
             )
+            prun.note(_changed(arm, harness, trained=trained, steps=steps))
             minutes = float(cell.get("gpu_minutes", 0.0))
             prun.finish(
                 "evaluated",
@@ -608,11 +664,20 @@ def main(argv: list[str] | None = None) -> int:
                 entries, played, hold_play, k=args.k, seed=args.seed, eval_runs=args.eval_runs
             )
         else:
-            import modal
-            import modal_run
+            all_cached = args.reuse and all(
+                (cache / name).exists() for name in ("search.json", "weights.json", "both.json")
+            )
+            if all_cached:
+                # every paid stage is on disk: no Modal app, no image, no GPU;
+                # the grid and the platform post read the cache
+                print("reuse: every stage cached, Modal not opened")
+                modal_run = None  # the lambdas below are never called
+            else:
+                import modal
+                import modal_run
 
-            stack.enter_context(modal.enable_output())
-            stack.enter_context(modal_run.app.run())
+                stack.enter_context(modal.enable_output())
+                stack.enter_context(modal_run.app.run())
             cached_w = cache / "weights.json"
             if not (args.reuse and cached_w.exists()):
                 # The weights arm needs only the baseline harness, so it

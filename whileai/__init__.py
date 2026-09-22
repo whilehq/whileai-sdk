@@ -94,6 +94,9 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "SAO": ("whileai.methods", "SAO"),
     "BPCO": ("whileai.methods", "BPCO"),
     "prime_rl_config": ("whileai.methods", "prime_rl_config"),
+    # a grader that tells passing rollouts apart (MiMo-V2.6 section 4.3);
+    # its home is whileai.groupwise, reachable as wai.methods.GroupwiseGrading too
+    "GroupwiseGrading": ("whileai.groupwise", "GroupwiseGrading"),
     # namespaces
     "verify": ("whileai.simulations.verify", None),
     "hub": ("whileai.hub", None),  # push to the Hugging Face Hub with your own token
@@ -129,6 +132,7 @@ def __dir__() -> list[str]:
 if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from . import hub
     from .auth import LoginError, account, login, logout, resolve_api_key, signup
+    from .groupwise import GroupwiseGrading
     from .judge import Judge
     from .methods import BPCO, OPD, OPSD, SAO, Async, FlashReinforce, prime_rl_config
     from .selection import Selection, select
