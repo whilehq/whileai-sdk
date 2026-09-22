@@ -189,6 +189,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `attach_labels` raises when a list (or JSONL) holds anything but label dicts, naming the item
   and the three accepted shapes; a bare `[0, 1, 1, 0]` used to be filtered to nothing and
   reported as zero labels, zero invalid (#685).
+- Recipe `01-simulate/swarm-rescue` raises the floor and stays flat: Qwen3.8-27B on the
+  near-miss band (`results-27b.json`, `rescued-27b.jsonl`) ties resampling with a real
+  fitness gradient. The client streams replies (a hosted request closes at 150 s), reaches
+  a Modal endpoint behind proxy auth, and takes `--thinking`, `--band`, `--out`,
+  `--max-tokens` and `--no-comments`; a dry run writes to `out-dry/`.
+
 - Recipe `01-simulate/swarm-rescue`: a second seed replicates the flat result (`results-seed1.json`,
   the rescued rows in `rescued-seed1.jsonl`), and `--reuse` keeps the cost fields of the run it reads
   instead of zeroing them.
