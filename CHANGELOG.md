@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.116 (2026-09-22)
+
 - `recipes/papers/harness-and-weights` posts the grid the platform can read (#712): every arm pins
   `model` as `base` or `trained` beside its `harness` fingerprint (before, all four said `base`,
   so the page saw one model and wrote a two-arm question), the test is declared `graded_by="program"`
