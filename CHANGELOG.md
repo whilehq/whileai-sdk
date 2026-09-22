@@ -61,6 +61,21 @@ to 0.109 releases under the wrong numbers; they are yanked.
   the rollouts barely stale, so the corrections had nothing to correct) and what reaches the
   papers' regime. `tests/recipes` scrubs `MODAL_TOKEN_*` from the example subprocesses: with a
   token set, the prime-rl example launched real GPU jobs instead of stopping for a credential.
+- `wai.GroupwiseGrading` (`whileai.groupwise`, re-exported from `whileai.methods`): a grader that
+  tells passing rollouts apart, from the MiMo-V2.6 technical report (Xiaomi 2026-09-21, section
+  4.3). `mode="advantage"` (GAR, 4.3.2, the default) hands the grader one whole mixed-outcome
+  group, turns its ranking into quality factors, zeroes a confirmed hack and moves positive
+  advantage from lower- to higher-quality passes with the total conserved (`redistribute`,
+  equation 3; lambda capped at `GROUPWISE_CAP` 3.0, then re-centred). `mode="reward"` (GRS,
+  4.3.1) multiplies a passing reward by the rubric scores, `R_test * S_sol * S_beh`, floor 0 as
+  in equation 2, with `rubrics=` a mapping or a writer called on the first group of a task.
+  `trl_reward(base, num_generations)` is the TRL `GRPOTrainer` reward function whose group mean
+  subtraction reproduces the redistributed advantages (exact under `scale_rewards="none"`, the
+  documented limit). `check_spread(rows)` grades a sample of passes first and refuses a grader
+  whose scores do not vary (`SPREAD_MIN_STD` 0.05, `SPREAD_CLUSTER_SHARE` 0.9), the lesson of the
+  2026-09-21 text-to-SQL null result where a constant 0.93 multiplier was erased by group
+  normalization. Unusable grader output falls back to the original rewards and is counted in
+  `stats`. Docs: `docs/groupwise-grading.md`.
 
 ## 0.115 (2026-09-22)
 
