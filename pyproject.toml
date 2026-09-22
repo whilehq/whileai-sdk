@@ -64,7 +64,7 @@ math = ["math-verify>=0.8"]
 # wai.hub.push / export(push_to=): the Hub client that authenticates with the
 # user's own HF_TOKEN; imported lazily, so the base install stays two deps.
 hf = ["huggingface_hub>=0.20"]
-# wai.Bedrock on AWS credentials (aws configure, AWS_PROFILE, a role): boto3
+# wai.models.Bedrock on AWS credentials (aws configure, AWS_PROFILE, a role): boto3
 # signs the Converse calls. A Bedrock API key in AWS_BEARER_TOKEN_BEDROCK
 # needs nothing here; the calls then go over requests.
 bedrock = ["boto3>=1.35"]
