@@ -3,7 +3,7 @@ on the same frozen asks, one run per harness fingerprint on the platform.
 
 Today a team changes a prompt by hand and scores it. This runs every
 variant at once on the same held-out asks, grades them with the same
-judge, measures the noise floor by scoring one variant twice, and posts
+judge, measures the noise floor by scoring one variant again, and posts
 each as a run whose record pins the prompt label, the model and the
 harness fingerprint, so the Runs page groups the dots by prompt or by
 model and the verdict says which win is real. The winner is the variant
@@ -13,17 +13,25 @@ is "about the same", not a result.
 rlhfbook.com, "Evaluation": scores move with the prompt and sampling
 setup, not only the weights, so a comparison is only fair with the setup
 held constant. Miller 2024 (arXiv 2411.00640): the interval is the result.
+The floor is the platform's rule, ``Tracked.noise_floor``: ``eval_variance``
+over the re-runs gives ``run_std``, and the band a delta has to clear is
+t(df=runs-1) x run_std x sqrt(2), in points. Two re-runs make df=1 and a t
+of 12.7, so the band is wide; three or more narrow it.
 """
 
 from __future__ import annotations
 
 import hashlib
 import math
+import re
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from .platform import (
+    BEHAVIOR_NAME_MAX,
+    BEHAVIOR_NAME_PATTERN,
     Behavior,
     Data,
     EvalSetup,
@@ -36,12 +44,13 @@ from .platform import (
 )
 
 Agent = Callable[[str], dict[str, Any]]
-Score = tuple[float, float, int]  # points, half-width of the 95% interval, asks
+Score = tuple[float, float, int]  # points, half-width of the 95% interval, asks with a graded row
 MIN_MARKER_ASKS = 3  # under this a marker has no interval and is left off the card
 # Miller 2024 (arXiv 2411.00640): under ~50 items the interval is too wide to
 # show a gain of a few points; the platform verdict says "unproven" below it.
 MIN_ASKS = 50
 LABEL_MAX = 40  # RunSpec.version max_length; tests pin the two together
+_NAME = re.compile(BEHAVIOR_NAME_PATTERN)
 
 
 def check_labels(harnesses: Sequence[Harness]) -> None:
@@ -63,15 +72,60 @@ def check_labels(harnesses: Sequence[Harness]) -> None:
         seen.add(label)
 
 
+def check_name(name: Any, what: str = "behavior") -> str:
+    """Refuse a behavior or marker name the platform would refuse at post
+    time, with the rule ``Behavior(name=)`` applies (``BEHAVIOR_NAME_PATTERN``,
+    at most ``BEHAVIOR_NAME_MAX`` characters). The headline behavior is
+    checked when the sweep is built, before any rollout; a marker the judge
+    sets is checked the first time it is scored, before the next variant
+    rolls."""
+    if not isinstance(name, str) or len(name) > BEHAVIOR_NAME_MAX or not _NAME.match(name):
+        where = "HarnessSweep(behavior=)" if what == "behavior" else "the judge's markers dict"
+        raise ValueError(
+            f"{what} name {name!r} is not a platform behavior name: Behavior(name=) takes "
+            f"{BEHAVIOR_NAME_PATTERN} up to {BEHAVIOR_NAME_MAX} characters (refund_policy, "
+            f"not 'refund policy'). Rename it in {where}"
+        )
+    return name
+
+
+def _graded_per_ask(rows: Sequence[dict]) -> Counter[str]:
+    """Graded rows (``reward`` not None) per ask, keyed the way ``pass_at``
+    groups them. A judge error leaves ``reward=None`` on its row and the
+    engine drops an agent-error rollout, so this is the denominator each
+    arm's mean rests on."""
+    from .simulations.score.stats import task_key
+
+    return Counter(task_key(r) for r in rows if r.get("reward") is not None)
+
+
+def _refuse_unequal(label: str, graded: Counter[str], first: str, expected: Counter[str]) -> None:
+    """Refuse an arm whose graded rows per ask differ from the first arm's:
+    the two means would rest on different denominators."""
+    if graded == expected:
+        return
+    differing = sorted(k for k in set(graded) | set(expected) if graded.get(k) != expected.get(k))
+    raise ValueError(
+        f"{label} was graded {sum(graded.values())} rows on {len(graded)} asks; {first} "
+        f"{sum(expected.values())} rows on {len(expected)} asks ({len(differing)} ask(s) differ, "
+        f"first {differing[0]!r}). Every arm must be scored on the same rows per ask or the "
+        "means rest on different denominators: a judge error marks its row reward=None "
+        "(judge_status 'error') and an agent error drops its rollout. Fix the judge or the "
+        "agent for that arm and re-run, with the same frozen run as tasks= for every variant"
+    )
+
+
 @dataclass
 class VariantResult:
-    """One harness variant after scoring."""
+    """One harness variant after scoring. ``graded_rows`` is the count of
+    rows that carried a reward, the denominator behind ``scores``."""
 
     label: str
     model: str | None
     fingerprint: str
     scores: dict[str, Score]
     run_id: str | None = None
+    graded_rows: int | None = None
 
     @property
     def headline(self) -> Score:
@@ -81,7 +135,11 @@ class VariantResult:
 @dataclass
 class SweepReport:
     """What a sweep found. ``print()`` it; ``best`` is the winner or None
-    when no variant's interval clears the rest."""
+    when no variant's interval clears the rest. ``noise_floor`` is the
+    re-run band in points, t(df=noise_runs-1) x ``run_std`` x sqrt(2) x 100,
+    the rule ``Tracked.noise_floor`` applies; ``run_std`` is the sample
+    standard deviation of the first variant's pass@1 over ``noise_runs``
+    scorings, in 0-1 units."""
 
     behavior: str
     test_version: str
@@ -90,16 +148,23 @@ class SweepReport:
     noise_floor: float | None
     judge: Judge | None
     variants: list[VariantResult] = field(default_factory=list)
+    run_std: float | None = None
+    noise_runs: int | None = None
 
     @property
     def ranked(self) -> list[VariantResult]:
         return sorted(self.variants, key=lambda v: v.headline[0], reverse=True)
 
     def clears(self, a: VariantResult, b: VariantResult) -> bool:
-        """``a`` beats ``b`` for real: the difference interval excludes zero
-        and the difference clears the noise floor."""
-        sa, ca, _ = a.headline
-        sb, cb, _ = b.headline
+        """``a`` beats ``b`` for real: both were scored on the same number of
+        asks, the difference interval excludes zero and the difference
+        clears the noise floor. Two arms on different denominators are never
+        compared; a judge error or a dropped rollout on one side moves that
+        mean on its own."""
+        sa, ca, na = a.headline
+        sb, cb, nb = b.headline
+        if na != nb:
+            return False
         delta = sa - sb
         return delta > math.sqrt(ca**2 + cb**2) and delta > (self.noise_floor or 0.0)
 
@@ -118,6 +183,8 @@ class SweepReport:
             "n_asks": self.n_asks,
             "k": self.k,
             "noise_floor": self.noise_floor,
+            "run_std": self.run_std,
+            "noise_runs": self.noise_runs,
             "judge": self.judge.wire() if self.judge else None,
             "best": self.best.label if self.best else None,
             "variants": [
@@ -126,11 +193,32 @@ class SweepReport:
                     "model": v.model,
                     "harness": v.fingerprint,
                     "run": v.run_id,
+                    "graded_rows": v.graded_rows,
                     "scores": {k: list(s) for k, s in v.scores.items()},
                 }
                 for v in self.ranked
             ],
         }
+
+    def _noise_line(self) -> str | None:
+        if self.noise_floor is None or not self.noise_runs or self.run_std is None:
+            return None
+        from .simulations.defaults import MIN_RERUNS
+        from .simulations.score.stats import POINTS_PER_UNIT, _t_quantile
+
+        df = self.noise_runs - 1
+        line = (
+            f"  noise floor {self.noise_floor:g} = t(df={df})={_t_quantile(df):.2f} x run_std "
+            f"{self.run_std:.4f} x sqrt(2) x {POINTS_PER_UNIT}, from {self.noise_runs} re-runs"
+        )
+        if self.variants:
+            line += f" of {self.variants[0].label}"
+        if self.noise_runs < MIN_RERUNS:
+            line += (
+                f": a wide band from {self.noise_runs} runs; noise_runs={MIN_RERUNS} or more "
+                "narrows it"
+            )
+        return line
 
     def __str__(self) -> str:
         head = (
@@ -145,12 +233,24 @@ class SweepReport:
         w_model = max(5, *(len(v.model or "-") for v in self.variants)) + 2
         lines = [
             head,
-            f"  {'variant':<{w_label}}{'model':<{w_model}}{'harness':<14}{'pass@1':>7}{'±':>6}",
+            f"  {'variant':<{w_label}}{'model':<{w_model}}{'harness':<14}{'pass@1':>7}{'±':>6}"
+            f"{'asks':>6}{'graded':>8}",
         ]
         for v in self.ranked:
-            s, ci, _ = v.headline
+            s, ci, n = v.headline
+            graded = "-" if v.graded_rows is None else str(v.graded_rows)
             lines.append(
-                f"  {v.label:<{w_label}}{(v.model or '-'):<{w_model}}{v.fingerprint:<14}{s:>7}{ci:>6}"
+                f"  {v.label:<{w_label}}{(v.model or '-'):<{w_model}}{v.fingerprint:<14}{s:>7}"
+                f"{ci:>6}{n:>6}{graded:>8}"
+            )
+        noise = self._noise_line()
+        if noise:
+            lines.append(noise)
+        if len({v.headline[2] for v in self.variants}) > 1:
+            counts = ", ".join(f"{v.label} {v.headline[2]}" for v in self.ranked)
+            lines.append(
+                f"  variants were scored on different asks ({counts}): a judge error or a "
+                "dropped rollout on one side, so no comparison between them is a result"
             )
         if self.n_asks < MIN_ASKS:
             lines.append(
@@ -184,9 +284,14 @@ class HarnessSweep:
     ``tracked`` is the platform handle from ``track()``. ``judge`` is the
     grader (a program or a checked model judge) applied to every
     variant's rows. ``k`` is rollouts per ask. ``behavior`` names the
-    headline score; every marker the judge sets becomes a behavior beside
-    it. ``noise_runs`` scores the first variant that many times and takes
-    the spread as the noise floor. ``labels`` are hand labels for
+    headline score, under the platform's behavior-name rule (checked here,
+    before any rollout); every marker the judge sets becomes a behavior
+    beside it. ``noise_runs`` scores the first variant that many times in
+    all; the floor is the platform's rule (``Tracked.noise_floor``):
+    ``eval_variance`` over the scorings gives ``run_std``, and the band a
+    delta has to clear is t(df=runs-1) x run_std x sqrt(2), in points. The
+    default 2 gives df=1 and a t of 12.7, a wide band the report says so
+    about; 3 or more narrow it. ``labels`` are hand labels for
     ``judge_trust`` on the first variant's fresh rollouts, or a ``Judge``
     already measured on the frozen run (hand labels attach to the replies
     a person read, and a sweep rolls new ones), posted as the behaviors'
@@ -194,7 +299,10 @@ class HarnessSweep:
     library default is 32; a small provider key wants 4 to 8). Name
     variants ``prompt@model`` and the Runs page groups by each; a label
     is a run version on the platform, so it is checked against that cap
-    before any rollout runs.
+    before any rollout runs. Every arm must carry the same graded rows per
+    ask as the first; an arm that lost rows to a judge error or a dropped
+    rollout is refused by name, since its mean would rest on a different
+    denominator.
     """
 
     def __init__(
@@ -215,7 +323,7 @@ class HarnessSweep:
         self.k = int(k)
         self.tools = list(tools or [])
         self.system_prompt = system_prompt
-        self.behavior = behavior
+        self.behavior = check_name(behavior)
         self.noise_runs = max(1, int(noise_runs))
         self.labels = labels
         self.concurrency = concurrency
@@ -260,6 +368,7 @@ class HarnessSweep:
         for name, m in marker_summary(rows).items():
             if m["n_tasks"] < MIN_MARKER_ASKS:
                 continue
+            check_name(name, "marker")
             mlo, mhi = m["ci95"] or (m["mean"], m["mean"])
             out[name] = (round(100 * m["mean"], 1), round(100 * (mhi - mlo) / 2, 1), m["n_tasks"])
         return out
@@ -292,48 +401,62 @@ class HarnessSweep:
     ) -> SweepReport:
         """Score every ``(Harness, agent)`` on ``tasks`` (a previous run, its
         rows, or a JSONL path: the frozen asks) and post one run per variant.
-        ``post=False`` scores without touching the platform."""
+        ``post=False`` scores without touching the platform. An arm graded on
+        different rows per ask from the first is refused by name."""
         pairs = list(variants.values()) if isinstance(variants, Mapping) else list(variants)
         # a ``whileai.Harness`` (runnable) is accepted next to the platform record
         pairs = [(_pinned(h), a) for h, a in pairs]
         if not pairs:
             raise ValueError("variants is empty; pass at least one (Harness, agent) pair")
         check_labels([h for h, _ in pairs])
+        first_label = pairs[0][0].version
         results: list[VariantResult] = []
         first_rows: list[dict] | None = None
-        asks: list[str] | None = None
+        first_graded: Counter[str] | None = None
         for harness, agent in pairs:
             rows = self._scored(self._rollouts(agent, tasks))
-            got = sorted({str(r.get("prompt") or "") for r in rows})
-            if asks is None:
-                asks = got
+            graded = _graded_per_ask(rows)
+            if first_graded is None:
+                first_graded = graded
                 first_rows = rows
-            elif got != asks:
-                raise ValueError(
-                    f"{harness.version} faced different asks from {pairs[0][0].version}; "
-                    "pass the same frozen run as tasks= for every variant"
-                )
+            else:
+                _refuse_unequal(harness.version, graded, first_label, first_graded)
             results.append(
                 VariantResult(
                     label=harness.version,
                     model=harness.model,
                     fingerprint=harness.fingerprint,
                     scores=self._scores(rows),
+                    graded_rows=sum(graded.values()),
                 )
             )
-        assert asks is not None and first_rows is not None
+        assert first_rows is not None and first_graded is not None
+        asks = sorted({str(r.get("prompt") or "") for r in first_rows})
         version = test_version or "t-" + hashlib.sha256("\n".join(asks).encode()).hexdigest()[:8]
 
         noise: float | None = None
+        run_std: float | None = None
+        noise_runs: int | None = None
         if self.noise_runs > 1:
-            first = results[0].headline[0]
-            again = [
-                self._scores(self._scored(self._rollouts(pairs[0][1], tasks, seed=i)))[
-                    self.behavior
-                ][0]
-                for i in range(1, self.noise_runs)
-            ]
-            noise = round(max(abs(first - a) for a in again), 1)
+            from .simulations.score.stats import POINTS_PER_UNIT, eval_variance
+
+            reruns: list[list[dict]] = []
+            for i in range(1, self.noise_runs):
+                again = self._scored(self._rollouts(pairs[0][1], tasks, seed=i))
+                _refuse_unequal(
+                    f"re-run {i + 1} of {first_label}",
+                    _graded_per_ask(again),
+                    first_label,
+                    first_graded,
+                )
+                reruns.append(again)
+            # The platform's rule (``Tracked.noise_floor``): the band carries the
+            # estimate's own degrees of freedom, runs - 1, and is posted in points.
+            variance = eval_variance(first_rows, *reruns, metric="pass_at_1")
+            if variance["run_std"] is not None:
+                run_std = float(variance["run_std"])
+                noise = round(float(variance["noise_band"]) * POINTS_PER_UNIT, 2)
+                noise_runs = int(variance["n_runs"])
         judge = self._judge(first_rows)
 
         report = SweepReport(
@@ -344,6 +467,8 @@ class HarnessSweep:
             noise_floor=noise,
             judge=judge,
             variants=results,
+            run_std=run_std,
+            noise_runs=noise_runs,
         )
         if post:
             self._post(report, pairs)
@@ -352,6 +477,8 @@ class HarnessSweep:
     def _post(self, report: SweepReport, pairs: Sequence[tuple[Harness, Agent]]) -> None:
         first = report.variants[0]
         for name, (_s, _ci, n) in first.scores.items():
+            # ``contamination`` and ``reward_is_judge`` are not measured here,
+            # so they are not posted; a zero would read as a measurement.
             self.tracked.behavior(
                 Behavior(
                     name=name,
@@ -359,8 +486,6 @@ class HarnessSweep:
                     n=n,
                     judge=report.judge,
                     noise_floor=report.noise_floor,
-                    contamination=0,
-                    reward_is_judge=False,
                 )
             )
         for (harness, _agent), result in zip(pairs, report.variants):
@@ -374,8 +499,8 @@ class HarnessSweep:
                     eval=EvalSetup(
                         metric="pass@1",
                         k=self.k,
-                        run_std=report.noise_floor,
-                        run_std_runs=self.noise_runs,
+                        run_std=report.run_std,
+                        run_std_runs=report.noise_runs,
                         reader=report.judge.name if report.judge else None,
                     ),
                     provenance=Provenance(
