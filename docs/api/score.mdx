@@ -1557,12 +1557,14 @@ Concentrate a big simulated batch into the dataset post-training needs.
 filter_rl_rows(
     rows: Sequence[dict],
     has_tools: bool = True,
+    text_gates: bool = True,
 ) -> tuple[list[dict], dict[str, Any]]
 ```
 
 Defined in [`whileai/simulations/score/optimize.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/optimize.py).
 
-Split keep/drop. Does not mutate `rows`.
+Split keep/drop. Does not mutate `rows`. `text_gates` as in
+`drop_reason`.
 
 ### group_signal
 
@@ -1612,6 +1614,13 @@ solved and dropped, below `lo` it is unsolved and dropped. `tasks`
 restricts the candidates (rows, task dicts with a `prompt`, or prompt
 strings); a task with no prior rollouts is `unknown` and kept, since
 nothing says it is flat.
+
+`prior` takes either shape: per-rollout rows with a binary
+`reward`, or one row per task carrying `pass_rate` and `n` (a
+trainer's per-task table, or the `calibration` stamp this function
+and `select_for_rl` write). No reply text is read. A `prior` that
+carries neither is a `UserWarning` and an all-unknown plan, not a
+silent empty one.
 
 Returns `tasks` (one representative row per kept task: the prior
 row, with `calibration.pass_rate` and the band), the counts
@@ -1737,12 +1746,27 @@ select_for_rl(
     order: str = 'spread',
     prior: Sequence[dict] | None = None,
     audit: dict[str, Any] | None = None,
+    text_gates: str = 'auto',
 ) -> tuple[list[dict], dict[str, Any]]
 ```
 
 Defined in [`whileai/simulations/score/optimize.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/score/optimize.py).
 
 Whole mixed groups up to roughly `target` rows. Groups never split.
+
+`text_gates` says whether the gates that read the reply run: the
+junk and do-nothing checks and the duplicate trim, which key on
+`final_text`. `"auto"` (the default) runs them when any row carries
+a reply (`final_text`, an assistant `messages` turn, or a tool
+step) and skips them when none does, because a trainer's state holds
+a task and a binary reward per sample and nothing else, and an empty
+reply there is the shape of the data, not a finding; the report's
+`text_gates` block and a `hygiene_warnings` line say the gates
+were skipped. `"require"` runs them regardless (a row with no reply
+is `incomplete_junk`, the behavior before 0.121), `"skip"` never
+runs them. The label gate, the unanimous trim, the difficulty band
+and the ranking run in every mode: they read the reward alone
+(Lambert 2025, chapter Reasoning; Yu et al. 2025, arXiv:2503.14476).
 
 `audit` is an `audit_grades` report on these rows' verifier; when
 it found the verifier rejecting right answers more than `FN_WARN`
@@ -1859,6 +1883,12 @@ applied by `optimize`), and nothing here filters by topic at all.
 
 Unanimous asks are `trim_unanimous_groups`'s job and are left alone
 here; singles always stay.
+
+Rows are per-rollout rows with a binary `reward`, or one row per
+task carrying `pass_rate` and `n` (a trainer's state, or the
+`calibration` stamp); `min_k` reads `n`, and a rate row that
+does not say its `n` is taken at its word. The report's `from_rates`
+counts the tasks measured from a carried rate rather than rollouts.
 
 ### trim_unanimous_groups
 

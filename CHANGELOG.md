@@ -7,6 +7,17 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `select_for_rl` takes pass-rate-only rows. A trainer's state holds a task and a binary reward
+  per sample and no reply, and the junk gate dropped every such row as `incomplete_junk` before
+  the band ran, so the 20-80 split had to be done by hand from `pass_at`. `text_gates="auto"`
+  (the default) runs the gates that read the reply (junk, do-nothing, duplicate) only when a row
+  carries one, skips them otherwise and says so in the report's `text_gates` block and in
+  `hygiene_warnings`; `"require"` is the old refusal, `"skip"` never runs them. The label gate,
+  the unanimous trim, the band and the ranking run in every mode. `next_round` and
+  `trim_out_of_band` also take one row per task carrying `pass_rate` and `n` (top level or under
+  `calibration`, the stamp they write), and `next_round` warns instead of returning an empty plan
+  when the prior carries neither shape (#800).
+
 - The Meta-Harness recipe has a live result: Claude Haiku 4.5 as the search model and gpt-4.1-mini held out, both through OpenRouter (`vllm:<model>@<url>`), the gate passed at +0.38 [+0.27, +0.47] on 30 held-out asks at 0.40x the baseline's tokens, held on the second model, and cleared a four-draw noise floor. Its program judge now skips text-only turns when it checks a success claim against tool results (it used to count them as failed tools), and `run.py` takes `--concurrency` for live models.
 
 - Bedrock: a model that refuses `temperature` (Claude Sonnet 5 answers 400 "`temperature` is
