@@ -16,15 +16,20 @@ result has to clear before it is a result (an interval that excludes zero
 on held-out tasks, the same on a held-out model, and
 `wai.harness.attribute` saying the gain is the harness). You need nothing
 for `--dry-run`. The live run needs the provider key for every model you
-name (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) and, with `--judge`, the key
-for the judge. Seconds offline; a few minutes per candidate live.
+name (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`), or one OpenAI-compatible
+router for all of them: `vllm:<model>@<url>` with the router's key in
+`VLLM_API_KEY` is how the run below reached both models through
+OpenRouter. With `--judge`, the key for the judge. Seconds offline; about
+seven minutes per candidate and model live at `--concurrency 16`.
 
 The dry run demonstrates the loop with scripted candidates. Each candidate
 carries an offline stand-in, a seeded agent whose planted-mistake rate the
 candidate sets, so the numbers below show the mechanics (freeze, score,
-propose, gate, attribute) and are not a replication. The live run, with
-keys, is the replication, and no number from it is claimed here because
-none has been measured. What the paper reports: +7.7 points on online text
+propose, gate, attribute) and are not a replication. The live run is in
+the Result section: Claude Haiku 4.5 as the search model, gpt-4.1-mini
+held out, the three checked-in candidates, one round, and the gate passed
+with +38 points on 30 held-out asks at 0.40x the baseline's tokens. What
+the paper reports: +7.7 points on online text
 classification over a state-of-the-art context manager with 4x fewer
 context tokens, +4.7 points on 200 IMO-level problems averaged across five
 held-out models, and discovered harnesses that surpass the best
@@ -182,6 +187,104 @@ Three files carry the state between rounds:
   traces), the keys on each side, and the train prompts dropped for
   overlapping a holdout prompt.
 
+## Result
+
+`python run.py --models "vllm:anthropic/claude-haiku-4.5@https://openrouter.ai/api/v1,vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1" --budget 60 --concurrency 16 --propose --select`,
+2026-09-22. Claude Haiku 4.5 is the search model and gpt-4.1-mini the
+held-out model, both through OpenRouter; 60 frozen asks drawn by the
+offline writer from the six seeds, 30 train and 30 holdout split by seed, 4
+rollouts each at the engine's default sampling; the program judge; the
+three checked-in candidates, one round, no candidate written by hand for
+this run. The output, verbatim:
+
+```text
+00_baseline        train 0.55 [0.43..0.68]  holdout 0.62 [0.52..0.72]  vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1 0.91 [0.85..0.96]
+01_no_filler       train 0.92 [0.84..0.97]  holdout 0.96 [0.93..0.99]  vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1 1.00 [1.00..1.00]
+02_check_result    train 1.00 [1.00..1.00]  holdout 0.99 [0.97..1.00]  vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1 1.00 [1.00..1.00]
+ledger: out/ledger.jsonl (3 candidates, 2 models)
+proposal: out/proposal.md
+train tasks led: 00_baseline.py 7, 01_no_filler.py 24, 02_check_result.py 30 -> pick 02_check_result.py
+holdout on vllm:anthropic/claude-haiku-4.5@https://openrouter.ai/api/v1: 02_check_result.py vs 00_baseline.py +0.38 [+0.27, +0.47] over 30 paired tasks, 0 the baseline passed and the pick failed -> clears zero
+holdout on vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1: 02_check_result.py vs 00_baseline.py +0.09 [+0.04, +0.15] over 30 paired tasks, 0 the baseline passed and the pick failed -> clears zero
+cost per rollout: 02_check_result.py at 0.40x the baseline in tokens -> within the margin
+attribution on pass_at_1: 3 harnesses x 2 models, 30 tasks each cell
+  harness            vllm:anthropic/claude-haiku-4.5@https://openrouter.ai/api/v1         vllm:openai/gpt-4.1-mini@https://openrouter.ai/api/v1
+  00_baseline                                                                61.7                                                          90.8
+  01_no_filler                                                               95.8                                                         100.0
+  02_check_result                                                            99.2                                                         100.0
+  spread explained: harness 61% [47..77], model 17% [10..25], interaction 22%
+  harness moves the score by up to 23.3 points, the model by up to 11.4
+  the same model leads under every harness
+  the harness moved the score more than the model did
+select: 02_check_result.py beats the baseline on the holdout and on a held-out model at 0.40x its cost
+```
+
+| Candidate | Haiku 4.5, holdout pass@1 | gpt-4.1-mini, holdout pass@1 | Haiku's failed rows, of 120 |
+|---|---|---|---|
+| `00_baseline` | 0.62 [0.52, 0.72] | 0.91 [0.85, 0.96] | 46: apology 40, sycophancy 5, boilerplate 3, false success claim 2 |
+| `01_no_filler` | 0.96 [0.93, 0.99] | 1.00 [1.00, 1.00] | 5: boilerplate 3, apology 2 |
+| `02_check_result` | 0.99 [0.97, 1.00] | 1.00 [1.00, 1.00] | 1: apology 1 |
+
+The gate: `02_check_result` leads 30 of the 30 train tasks, and on the 30
+held-out asks it beats the baseline by **+0.38 [+0.27, +0.47]** on Haiku
+and by **+0.09 [+0.04, +0.15]** on gpt-4.1-mini, paired by task, both
+intervals excluding zero, with no held-out task the baseline passed and the
+pick failed. It costs 0.40x the baseline per rollout in tokens, so the
+matched-cost margin holds with room. Attribution over the three-by-two
+grid of holdout scores: the harness explains 61% of the spread (interval
+47 to 77), the model 17% (10 to 25), and the same model leads under every
+harness, so the gain is the harness and no ranking flipped.
+
+Noise floor: the baseline harness was run four times on Haiku over the
+same 30 held-out asks (`out/tasks.jsonl` replayed, nothing redrawn: this
+run, an earlier search on the same set, and two re-runs of the baseline
+alone). The four holdout means are 0.62, 0.65, 0.69 and 0.61,
+`eval_variance` run_std 0.038, and the band a one-run-per-side delta has
+to clear is 0.17 (`wai.noise_band(run_std, df=3)` = 3.18 x sqrt(2) x
+run_std). +0.38 clears it; the +0.03 between the two winning candidates
+does not, and the recipe does not call it a difference.
+
+What moved, read off the rows. On Haiku the baseline failed 46 of 120
+held-out rows, 40 of them for an apology ("I apologize for the
+inconvenience" after a refund that went through), the rest for flattery
+and boilerplate, and two for calling a refund done when the tool result
+was stale or denied. The one-sentence rule in `01_no_filler` removed
+almost all of it (five rows left) and cut the mean reply from 761 to 180
+characters; the read-the-tool-result rule in `02_check_result` took the
+last apologies with it and left one row. Tool calls per 120 rows went 193,
+124, 134: the winners still look the order up, they stop narrating it. So
+the search found the harness and named the mechanism: on a closed model, a
+style the rubric forbids is a prompt line away, and the gate is what says
+the line held on asks and on a model it was not written for, at a lower
+cost. The ceiling this set leaves is 0.99; the next round is a harder set
+(more seeds, more faults, a judge with more to catch), not a fourth
+candidate.
+
+Runs on the platform: https://while.ai/platform/runs?agent=meta-harness
+(one iteration per candidate and model, each pinned to its harness
+fingerprint; the harness x model grid carries the attribution sentence).
+
+## Checks
+
+| Check | Result |
+|---|---|
+| Held-out asks, paired: `compare_runs` on the 30 holdout tasks | +0.38 [+0.27, +0.47] on Haiku, +0.09 [+0.04, +0.15] on gpt-4.1-mini; both exclude zero; 0 tasks the baseline passed and the pick failed |
+| Held-out model | gpt-4.1-mini was never in the proposer's view; the pick holds there |
+| Eval noise: 4 baseline draws on Haiku, same frozen asks | run_std 0.038, band 0.17 at df=3; the delta clears it, the gap between the two winners does not |
+| Matched cost | the pick spends 0.40x the baseline's tokens per rollout; `--cost-margin` 0 |
+| The judge is a program, not a model | `common.judge`: phrase lists, a success claim checked against the tool results of the tool steps (text-only turns carry none), a leak check, at least one tool call |
+| Reply length, Haiku holdout, mean characters | 761 baseline, 180 `01_no_filler`, 168 `02_check_result` |
+| Frozen set | `out/tasks.jsonl`, written by the baseline's first run and replayed by every candidate, model and re-run; a `--fresh` run draws a new set (the seed pins the split, not yet the draw, whileai-sdk #645), so keep the file when you re-run |
+
+## Learned
+
+- The gate is the result. On the train split the third candidate led every task; on held-out asks the two winners sit three points apart inside a 17-point noise band, and the recipe reports that as a tie rather than the train-split order.
+- On a closed model the lever is the line in the prompt, and it is worth measuring like a training arm: 62 to 99 of 100 with an interval, a noise floor, a held-out model and a cost ratio, for about two dollars of OpenRouter credit.
+- A program judge fails for the reason it names. The baseline lost on apologies, not on tool use, and the trace tally says so before anyone reads a reply; the proposer's next candidate should come from that tally.
+- A judge that reads tool steps has to skip the turns that have none. The first version of `common.judge` counted a text-only turn as a failed tool result and flagged every "has been processed" as a false claim; the fix is one `continue`, and the dry-run numbers did not move because the scripted agent never emits a text-only turn.
+
+Verified 2026-09-22, whileai 0.120 (main source tree), Claude Haiku 4.5 and gpt-4.1-mini through OpenRouter. Runs: https://while.ai/platform/runs?agent=meta-harness
+
 ## The gate, in words
 
 A candidate the proposer wrote from the train split's worst rows has seen
@@ -215,8 +318,11 @@ wrong, and run `python run.py --dry-run --propose --select` again; the
 skill in [`skills/harness-search`](../../../skills/harness-search) is that
 loop as a playbook for a coding agent, with the stop rule and the
 Changed / Moved / Why / Learned / Reproduce report. With keys, name real
-models: `--models openai:gpt-4.1-mini,anthropic:claude-haiku-4-5`, and a
-model judge with `--judge anthropic:claude-haiku-4-5`. To keep the picked
+models: `--models openai:gpt-4.1-mini,anthropic:claude-haiku-4-5`, or the
+OpenRouter form the Result section used, and a model judge with `--judge
+anthropic:claude-haiku-4-5`. On the checked-in set the ceiling is 0.99, so
+the useful next run is a harder set: more seeds in `common.py`, a larger
+`--budget`, or your own traffic through `--traces`. To keep the picked
 harness as a version on the platform, `harness.pin()` is the record
 `tracked.run(harness=)` takes ([the harness page](../../../docs/reference/harness.md)).
 
