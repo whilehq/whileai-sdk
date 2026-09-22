@@ -46,7 +46,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
@@ -630,7 +630,7 @@ def measure(
             "samples_per_task": round(calls / max(1, len(res)), 1),
         }
         if ref is not None and arm != "resample":
-            c = wai.compare_runs(ref, rows)
+            c = wai.simulations.compare_runs(ref, rows)
             report["deltas"][arm] = {
                 "vs": "resample",
                 "delta": round(100 * c["delta"], 1),
