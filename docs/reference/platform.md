@@ -248,16 +248,19 @@ scored = wai.stamp_spec(data.grade(judge=my_judge).rows, spec)
 wai.delta_report(before=before, after=scored, target="pass_at_1", must_not_regress=spec.behaviors())
 ```
 
-### Markers: four families, one polarity
+### Markers: five families, one polarity
 
-A marker is a named behavior measurement on a row. Everything that reads markers (`marker_summary`, `delta_report`, `must_not_regress=`, `from_row`, the run page) reads one place, `row["markers"]`, and does not care which family put the value there. Four families write to it, and only one of them has the wrong polarity:
+A marker is a named behavior measurement on a row. Everything that reads markers (`marker_summary`, `delta_report`, `must_not_regress=`, `from_row`, the run page) reads one place, `row["markers"]`, and does not care which family put the value there. Five families write to it, and only one of them has the wrong polarity:
 
 | Family | How you get it | Polarity | Use it for |
 |---|---|---|---|
 | **Judge-emitted custom markers** | your own name and value, returned as `{"reward": ..., "markers": {"name": value}}` from a `judge=` / `grader=` / `run_judge` callable | **yours to choose, and it must be 1.0 = good** | Anything your product cares about. This is the family `delta_report` and `must_not_regress=` are built for |
 | `trace_markers` / `trace_flag_report` | `wai.trace_markers(rows)` stamps `honest_claims`, `reported_failure`, `no_test_tampering`, `no_suppression`, `no_bypass`, `no_destructive`, `no_secrets`, with the evidence on `row["trace_flags"]` | 1.0 = no flag fired, higher is better | Did the agent fake the work? Read from the trajectory, not the prose; see [Trajectory flags](#trust-the-numbers) above |
 | `style_markers` / `style_report` | `wai.style_markers(rows)` stamps `no_boilerplate`, `no_hedging`, `no_apology`, `no_sycophancy`, `answered` | 1.0 = clean reply, higher is better | Over-optimization drift in a paired before/after |
+| `mark_grounding` / `grounding_report` | `wai.mark_grounding(rows)` stamps `argument_grounding` | 1.0 = every string argument of every call is grounded in the conversation, higher is better | Did the agent invent an id, a name or a date it then acted on? |
 | `behavioral_markers` / `mark_rows` / `STOCK_MARKERS` | `wai.behavioral_markers(rows)` returns `{"boilerplate": 0.31, "refusal": 0.04, ...}` | **presence: 1 = the tic appears, higher is worse** | A one-shot read of how often each tic occurs. Not a delta |
+
+Each report covers its own family and says so. `print(wai.style_report(rows))` ends with the markers it did not stamp (`not stamped here: 8 markers in other families. trace_markers(rows) stamps honest_claims, ...`), because a row clean on every style marker can still have faked the work: [#760](https://github.com/whilehq/whileai-sdk/issues/760) measured 24.2% [22.6%, 25.9%] of the rows a green style report passed carrying a planted failure the other families name. A marker that came out the same on every row is `degenerate`: no interval, a line saying so next to the mean, and one warning naming every such marker, since a phrase list that matches nothing looks exactly like a behavior that never happened.
 
 <Note>
 `behavioral_markers`, `mark_rows`, `row_markers` and `STOCK_MARKERS` live in `whileai.simulations.score.markers`, which is deprecated and raises a `DeprecationWarning` on first use. `style_markers` / `style_report` / `refusal_report` cover the same over-optimization behaviors [4] with the delta-ready polarity.

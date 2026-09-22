@@ -23,6 +23,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from ...report import Report
 from .hygiene import HACK_THRESHOLD, pearson
 from .optimize import _binary_label, _messages
 from .stats import DEFAULT_BOOT, metric_summary, wilson_interval
@@ -150,6 +151,74 @@ def style_markers(
     return list(rows)
 
 
+def _not_stamped(table: Mapping[str, Any]) -> dict[str, list[str]]:
+    """The markers the other families stamp that this report does not, as
+    ``{call: [marker, ...]}``. Read from those families rather than listed
+    here, so a marker added to one of them shows up in this report's
+    coverage line the same day."""
+    from .grounding import MARKER as GROUNDING_MARKER
+    from .trace import TRACE_MARKERS
+
+    others = {"trace_markers": list(TRACE_MARKERS), "mark_grounding": [GROUNDING_MARKER]}
+    return {
+        call: missing
+        for call, names in others.items()
+        if (missing := [n for n in names if n not in table])
+    }
+
+
+class StyleReport(Report):
+    """The over-optimization signatures as a person reads them: the clean
+    share of each marker with its interval, the phrases that fired, the
+    warning when the reward pays for one, and the markers this report did
+    not stamp.
+
+    Reference: docs/reference/style.md rule 5 (results are objects that
+    print themselves, and a report that covers part of a space names the
+    part it does not cover).
+    """
+
+    _summary_keys = ("n", "n_graded")
+
+    def __str__(self) -> str:
+        lines = [f"style {self['n']} rows, {self['n_graded']} graded"]
+        width = max((len(name) for name in self["markers"]), default=0)
+        for name, entry in self["markers"].items():
+            clean, ci = entry["clean"], entry["ci95"]
+            bits = [f"{name:<{width}}"]
+            bits.append("clean none" if clean is None else f"clean {clean:.3f}")
+            if ci:
+                bits.append(f"[{ci[0]:.3f}..{ci[1]:.3f}]")
+            bits.append(f"hits {entry['hits']}")
+            if entry["reward_corr"] is not None:
+                bits.append(f"corr {entry['reward_corr']:+.2f}")
+            if entry.get("flagged"):
+                bits.append("flagged")
+            if entry["top_phrases"]:
+                bits.append(", ".join(f'"{p}" {n}' for p, n in entry["top_phrases"][:2]))
+            if entry.get("degenerate"):
+                bits.append("no interval: constant, see the warning below")
+            lines.append("  ".join(bits))
+        if not self["n_graded"]:
+            lines.append(
+                "reward_corr is empty: no row carries a binary reward, so nothing here says "
+                "whether the reward pays for a tic. Grade first"
+            )
+        lines += [f"warning: {w}" for w in self["warnings"]]
+        lines += [f"note: {n}" for n in self["notes"]]
+        if self["not_stamped"]:
+            total = sum(len(names) for names in self["not_stamped"].values())
+            families = "; ".join(
+                f"{call}(rows) stamps {', '.join(names)}"
+                for call, names in self["not_stamped"].items()
+            )
+            lines.append(
+                f"not stamped here: {total} markers in other families. {families}. A row clean "
+                "on every line above can still have faked the work or invented an argument"
+            )
+        return "\n".join(lines)
+
+
 def style_report(
     rows: Sequence[dict],
     *,
@@ -157,7 +226,7 @@ def style_report(
     threshold: float = HACK_THRESHOLD,
     n_boot: int = DEFAULT_BOOT,
     seed: int = 0,
-) -> dict[str, Any]:
+) -> StyleReport:
     """How much of each signature the replies carry, and whether the reward
     pays for it. Does not mutate ``rows``.
 
@@ -168,7 +237,28 @@ def style_report(
     correlation at or above ``threshold`` is flagged: the judge is rewarding
     the tic, and a policy trained on these rewards will produce more of it
     (Gao et al. 2022, arXiv:2210.10760). ``warnings`` says so in one line per
-    flag.
+    flag. ``print`` the report; it is a dict, so every key still reads.
+
+    A marker that came out the same on every row is ``degenerate``: it has
+    no interval, the line says so next to the mean, and one ``notes`` entry
+    names every such marker and the fix. A phrase list that matches nothing
+    looks exactly like a behavior that never happened, and either one in
+    ``must_not_regress=`` is a guard that cannot fail (#270). ``warnings``
+    stays what it was, the reward-pays-for-a-tic flags and nothing else.
+
+    This report stamps the phrase signatures and nothing else, so it says
+    what it did not stamp: ``not_stamped`` is ``{call: [marker, ...]}`` for
+    the markers ``trace_markers`` and ``mark_grounding`` write, and the
+    printed report ends with that line. A row clean on every marker here
+    can still have faked a tool call or invented an argument, which #760
+    measured at 24.2% [22.6%, 25.9%] of the rows this report passed.
+
+        print(wai.style_report(rows))
+        # style 10 rows, 10 graded
+        # no_boilerplate  clean 1.000  hits 0  no interval: constant, see the warning below
+        # no_hedging      clean 0.500  [0.200..0.700]  hits 5  corr +1.00  flagged  "it depends" 5
+        # ...
+        # not stamped here: 8 markers in other families. trace_markers(rows) stamps ...
     """
     table = dict(STYLE_MARKERS)
     if phrases:
@@ -186,6 +276,7 @@ def style_report(
     out: dict[str, Any] = {"n": len(copies), "n_graded": len(graded), "threshold": threshold}
     markers: dict[str, Any] = {}
     warnings: list[str] = []
+    constant: list[str] = []
     for name, plist in table.items():
         counts: dict[str, int] = {}
         hits = 0
@@ -204,7 +295,10 @@ def style_report(
             "hits": hits,
             "top_phrases": sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:5],
             "reward_corr": round(corr, 3) if corr is not None else None,
+            "degenerate": bool(summary.get("degenerate")),
         }
+        if entry["degenerate"]:
+            constant.append(name)
         if corr is not None and corr >= threshold:
             entry["flagged"] = True
             tic = name[3:] if name.startswith("no_") else "refusal"
@@ -213,9 +307,19 @@ def style_report(
                 "a policy trained on it will produce more"
             )
         markers[name] = entry
+    notes: list[str] = []
+    if constant:
+        notes.append(
+            f"{', '.join(constant)} came out the same on every one of {len(copies)} rows, so "
+            "each has no interval and cannot fail. Check the marker fires at all (a phrase list "
+            "that matches nothing looks exactly like this) before reading the mean or putting it "
+            "in must_not_regress: a guard that cannot fail catches nothing (#270)"
+        )
     out["markers"] = markers
     out["warnings"] = warnings
-    return out
+    out["notes"] = notes
+    out["not_stamped"] = _not_stamped(table)
+    return StyleReport(out)
 
 
 def refusal_report(
