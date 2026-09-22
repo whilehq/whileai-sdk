@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `01-simulate/swarm-rescue`: on the tasks where all 8 rollouts fail, the ones GRPO
+  drops, four ways to spend 24 more samples (independent resampling, solo refinement on
+  test feedback, a ring swarm, a star swarm) and the share of tasks each one rescues,
+  paired by task with `compare_runs`. The rescued programs land in `out/rescued.jsonl`
+  as bare rows for a later SFT or distillation run.
+
 ## 0.116 (2026-09-22)
 
 - `recipes/papers/harness-and-weights` posts the grid the platform can read (#712): every arm pins

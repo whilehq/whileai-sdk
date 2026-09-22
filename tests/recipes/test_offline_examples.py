@@ -23,6 +23,7 @@ EXAMPLES = REPO / "recipes"
 # the parser, so it catches import-time breakage without a real run.
 CLI_EXAMPLES = [
     "01-simulate/bring-your-own-agent/run.py",
+    "01-simulate/swarm-rescue/run.py",
     "04-train/hosted-loop/run.py",
     "04-train/prime-rl/run.py",
     "04-train/report-run/run.py",

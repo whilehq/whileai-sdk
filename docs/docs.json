@@ -122,6 +122,7 @@
                 "group": "Simulate",
                 "pages": [
                   "recipes/01-simulate/bring-your-own-agent",
+                  "recipes/01-simulate/swarm-rescue",
                   "recipes/01-simulate/verifiers"
                 ]
               },
