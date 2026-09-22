@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -107,6 +108,15 @@ def configs() -> dict[str, wai.methods.PrimeRLConfig]:
         **COMMON,
     )
     return {"grpo": grpo, "opsd": opsd, "opd": opd}
+
+
+def _modal_credential() -> bool:
+    """Whether the Modal client can authenticate: a token pair in the
+    environment, or a config file where the client looks for one."""
+    if os.environ.get("MODAL_TOKEN_ID") and os.environ.get("MODAL_TOKEN_SECRET"):
+        return True
+    config = os.environ.get("MODAL_CONFIG_PATH") or os.path.expanduser("~/.modal.toml")
+    return Path(config).is_file()
 
 
 def _modal(args: list[str]) -> subprocess.Popen:
@@ -359,6 +369,12 @@ def main() -> int:
         import modal  # noqa: F401
     except ImportError:
         print("this recipe launches on Modal: pip install modal, then `modal token set ...`")
+        return 2
+    if not _modal_credential():
+        print(
+            "this recipe launches on Modal and no token is configured: run `modal token set "
+            "--token-id ... --token-secret ...`, or export MODAL_TOKEN_ID and MODAL_TOKEN_SECRET"
+        )
         return 2
     if not a.collect:
         launch(cfgs, a.tag)

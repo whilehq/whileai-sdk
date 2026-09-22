@@ -216,19 +216,53 @@ after.
 
 ## What is proven, and what is not
 
+Two things are checked, and they are different things.
+
 The update rules are checked in the test suite: each method's
 `update()` is applied to a toy policy, a table of probabilities with no
 neural network behind it, and the tests watch the reward climb, the
 stale trace get dropped or masked, and the tool tokens carry no
-gradient. That proves the arithmetic is the paper's arithmetic. It does
-not prove the papers' results. No GPU replication of any of the three
-has been run in this library yet; the numbers in the papers (a 30B model
-trained at a lag of eight updates beating GRPO at a lag of one, in
-FlashREINFORCE; the reasoning and coding gains in SAO and BPCO) are the
-papers' numbers, measured on the papers' setups, and lesson 4's rule
-applies to them as to anything else. When a recipe reproduces one under
-`recipes/papers/`, with the interval and the noise floor, this page will
-say so.
+gradient. That proves the arithmetic is the paper's arithmetic.
+
+The papers' claims were then put on a GPU, one recipe per method under
+`recipes/papers/`, all three on the same protocol: Qwen2.5-1.5B-Instruct
+on GSM8K, 512 training prompts and 120 held out, a program for the
+reward, one rollout per prompt, and a sampler that lags the policy by up
+to four updates. Each recipe arm runs the method against its own
+ablation, on the same stale rollouts, for 40 steps, one training seed
+per arm, under an hour and two dollars of GPU. None of the three showed
+the gain its paper claims at this size. What each measured, pass@1 on
+the held-out set, recipe against baseline with a 95% interval:
+
+| Recipe | Baseline arm | Recipe arm | Delta | Verdict |
+|---|---|---|---|---|
+| [flash-reinforce](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/flash-reinforce) | uncorrected stale REINFORCE, 0.47 | `wai.FlashReinforce()`, 0.41 | -0.07 [-0.11, -0.03] | unresolved |
+| [sao-single-rollout](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/sao-single-rollout) | same critic, ratio never masked, 0.46 | `wai.SAO()`, 0.46 | -0.00 [-0.04, +0.03] | unresolved |
+| [bpco-bounded-critic](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/bpco-bounded-critic) | the standard PPO critic recipe, 0.43 | `wai.BPCO()`, 0.41 | -0.02 [-0.07, +0.04] | unresolved |
+
+Every verdict is unresolved because one training seed per arm cannot
+separate a method from run-to-run training variance (lesson 4; this
+repository has watched a delta change sign between two seeds). The
+reason the papers' regime was not reached is on every recipe page: at a
+learning rate of 1e-5 on a rank-16 adapter, four updates of lag leave
+the rollouts barely stale, the ratio within a fraction of a percent of
+1 and the sequence KL near 1e-4, so the trust gate, the band and the
+clip had almost nothing to act on and the uncorrected baselines trained
+just as well. The SAO recipe re-ran at ten times the learning rate: the
+band then engaged, both arms gained 28 points, and they were still
+equal. What the FlashReinforce delta measured instead was the `1/T`
+weighting against the token mean: the baseline shortened its replies
+and gained, the recipe kept long failed replies alive. What did hold,
+in all three: a model learns from one rollout per prompt with no group
+to compare against, 2 to 8 points over the base in 40 steps.
+
+The papers' own numbers (a 30B model trained at a lag of eight updates
+beating GRPO at a lag of one, in FlashREINFORCE; the reasoning and
+coding gains in SAO and BPCO) were measured on the papers' setups, at a
+scale and a drift these recipes did not reach, and lesson 4's rule
+applies to them as to anything else. Each recipe's README names the two
+knobs that reach that regime, a second seed and a longer lag or a higher
+learning rate, and the table on this page changes when one of them does.
 
 ## Where it comes from
 
@@ -258,6 +292,6 @@ say so.
 ## Next
 
 You have read the whole course. The [quickstart](/get-started/quickstart)
-is the same loop with a real model on both sides, and
-[Train on your own GPU](https://github.com/whilehq/whileai-sdk/tree/main/recipes/04-train)
-is where a recipe for these three methods will land when one has run.
+is the same loop with a real model on both sides, and the three
+[paper recipes](/recipes/papers) above are the runs behind the table,
+one command each, ready for the second seed.

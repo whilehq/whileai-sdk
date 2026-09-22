@@ -38,7 +38,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
   Why a grouped update has nothing to group on one try per ask, the baseline and the ratio by
   hand, the three objects, one `update()` on a hand-made batch, the prime-rl refusal, when it
   fits and when it does not, and what is proven (the update rules, in tests, on a toy policy)
-  against what is not (no GPU replication yet; the papers' numbers are the papers').
+  against what the recipes measured.
+- `recipes/papers/flash-reinforce`, `recipes/papers/sao-single-rollout` and
+  `recipes/papers/bpco-bounded-critic`: each method on a GPU against its own ablation, on one
+  protocol (Qwen2.5-1.5B-Instruct, GSM8K, one rollout per prompt from a sampler up to four
+  updates stale, 40 steps, under an hour and two dollars an arm). None reproduced its paper's
+  gain at this size: -0.07 [-0.11, -0.03], -0.00 [-0.04, +0.03] and -0.02 [-0.07, +0.04] on
+  held-out pass@1, all unresolved at one seed per arm, and each README says why (the lag left
+  the rollouts barely stale, so the corrections had nothing to correct) and what reaches the
+  papers' regime. `tests/recipes` scrubs `MODAL_TOKEN_*` from the example subprocesses: with a
+  token set, the prime-rl example launched real GPU jobs instead of stopping for a credential.
 
 ## 0.114 (2026-09-21)
 

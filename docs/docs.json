@@ -173,8 +173,10 @@
                 "pages": [
                   "recipes/papers/index",
                   "recipes/papers/adaptive-clip",
+                  "recipes/papers/bpco-bounded-critic",
                   "recipes/papers/endpoint-sft",
                   "recipes/papers/filter-metric",
+                  "recipes/papers/flash-reinforce",
                   "recipes/papers/gmts-token-select",
                   "recipes/papers/meta-harness",
                   "recipes/papers/sao-single-rollout",

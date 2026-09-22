@@ -14,8 +14,10 @@ what it claims, the steps, one command, what happened.
 | Recipe | Paper | Base | Metric | Baseline -> Recipe | Verified |
 |---|---|---|---|---|---|
 | [adaptive-clip](adaptive-clip) | [2609.00444](https://arxiv.org/abs/2609.00444) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.47 -> 0.52 (+0.05 [+0.00, +0.10], unresolved, 1 seed per arm) | 2026-09-18 |
+| [bpco-bounded-critic](bpco-bounded-critic) | [2608.23566](https://arxiv.org/abs/2608.23566) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.43 -> 0.41 (-0.02 [-0.07, +0.04], unresolved, 1 seed per arm) | 2026-09-22 |
 | [endpoint-sft](endpoint-sft) | [2609.07103](https://arxiv.org/abs/2609.07103) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.29 -> 0.28 (-0.01 [-0.07, +0.05], unresolved, 1 seed per arm) | 2026-09-17 |
 | [filter-metric](filter-metric) | [2609.13866](https://arxiv.org/abs/2609.13866) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.39 -> 0.46 (+0.07 [+0.02, +0.11], unresolved, 1 seed per arm) | 2026-09-17 |
+| [flash-reinforce](flash-reinforce) | [FlashREINFORCE.pdf](https://yifanzhang-pro.github.io/FlashREINFORCE/FlashREINFORCE.pdf) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.47 -> 0.41 (-0.07 [-0.11, -0.03], unresolved, 1 seed per arm) | 2026-09-22 |
 | [gmts-token-select](gmts-token-select) | [2608.30632](https://arxiv.org/abs/2608.30632) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.49 -> 0.18 (-0.31 [-0.38, -0.24], unresolved, 1 seed per arm) | 2026-09-18 |
 | [sao-single-rollout](sao-single-rollout) | [2607.07508](https://arxiv.org/abs/2607.07508) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.46 -> 0.46 (-0.00 [-0.04, +0.03], unresolved, 1 seed per arm) | 2026-09-22 |
 | [zero-rl-format-reward](zero-rl-format-reward) | [2503.18892](https://arxiv.org/abs/2503.18892) | Qwen/Qwen3.5-4B-Base | pass@1 | 0.63 -> 0.72 (+0.09 [+0.05, +0.14], unresolved, 1 seed per arm) | 2026-09-18 |
