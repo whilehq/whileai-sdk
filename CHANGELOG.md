@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `export_environment` warns `no_mixed_groups` when `graded_mixed` is 0, whether no prompt has
+  two graded rollouts or every graded prompt was unanimous; it used to write the package with
+  `warnings: []` while `select_for_rl` refuses the same rows (#684).
 - `wai.FlashReinforce`, `wai.SAO` and `wai.BPCO`: the single-rollout methods, one trajectory
   per prompt, the shape a production trace arrives in (one attempt per ask, scored after the
   fact, a world that cannot be replayed), so there is no group to take a baseline over and each

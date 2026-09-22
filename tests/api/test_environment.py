@@ -544,3 +544,39 @@ def test_load_environment_without_harnesses_draws_none():
     assert _harness_weights([1, 3], 2) == [0.25, 0.75]
     assert _draw_index("t1", 0, [1.0, 0.0]) == 0 and _draw_index("t1", 0, [0.0, 1.0]) == 1
     assert _draw_index("t1", 0, [0.5, 0.5]) == _draw_index("t1", 0, [0.5, 0.5])
+
+
+def test_export_says_when_no_group_is_mixed(tmp_path):
+    """A package with ``graded_mixed`` 0 used to ship with ``warnings`` empty,
+    while ``select_for_rl`` refuses the same rows (#684)."""
+    ungraded = [
+        {
+            "prompt": f"ask {i}",
+            "scenario_id": f"s{i}",
+            "rollout_index": k,
+            "steps": [],
+            "final_text": "",
+        }
+        for i in range(4)
+        for k in range(3)
+    ]
+    report = wai.export_environment(
+        ungraded, tmp_path / "blind", tools=TOOLS, system_prompt=POLICY, holdout=0.0
+    )
+    assert report["train"] == 4 and report["graded_mixed"] == 0
+    (line,) = [w for w in report["warnings"] if w.startswith("no_mixed_groups")]
+    assert "no prompt has two graded rollouts" in line
+    assert "no_mixed_groups" in (tmp_path / "blind" / "README.md").read_text()
+    unanimous = [dict(r, reward=1) for r in ungraded]
+    report = wai.export_environment(
+        unanimous, tmp_path / "flat", tools=TOOLS, system_prompt=POLICY, holdout=0.0, band=None
+    )
+    assert report["graded_prompts"] == 4 and report["graded_mixed"] == 0
+    (line,) = [w for w in report["warnings"] if w.startswith("no_mixed_groups")]
+    assert "every one of the 4 graded prompts" in line
+    # a mixed group anywhere: nothing to say
+    report = wai.export_environment(
+        _rows(), tmp_path / "mixed", tools=TOOLS, system_prompt=POLICY, holdout=0.0, band=None
+    )
+    assert report["graded_mixed"] == 2
+    assert not any(w.startswith("no_mixed_groups") for w in report["warnings"])
