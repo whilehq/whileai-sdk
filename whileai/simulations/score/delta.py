@@ -498,7 +498,11 @@ def delta_report(
       Each interval is at ``1 - alpha`` (``ci95`` at the default), the
       re-run band uses the same quantile, and ``family_error`` is
       ``1 - (1 - alpha) ** n_metrics``. ``power`` (0.8) feeds the sizing
-      line (``detectable_effect``, ``holdout_size``).
+      line (``detectable_effect``, ``holdout_size``). ``tasks_needed``
+      is sized from the task sd measured on the paired rows in hand
+      (``holdout_size(before=, after=)``), and ``tasks_needed_source``
+      says so (``"rows"``); the binomial model, which cannot see the
+      covariance pairing buys, asked for about twice the tasks (#733).
     * ``balance_rollouts`` (off): trim every paired task to the rows both
       sides have, chosen by ``seed``, so pass^k and pass@k share one k;
       ``balanced`` says how many rows each side gave up.
@@ -962,13 +966,40 @@ def delta_report(
         else None
     )
     tasks_needed: int | None = None
+    tasks_needed_source: str | None = None
+    tasks_needed_paired: int | None = None
     delta_seen: float | None = None
     raw_delta = headline.get("delta")
     if isinstance(raw_delta, (int, float)) and 0 < raw_delta < 1:
         delta_seen = float(raw_delta)
-        tasks_needed = holdout_size(delta_seen, base=base_rate, k=k_eval, power=power, alpha=alpha)[
-            "n_tasks"
-        ]
+        # Size from the rows in hand: the per-task paired sd carries the
+        # covariance pairing buys, which the independent-arms model cannot
+        # see, so the model asked for about twice the tasks (525 against
+        # 270 on 160 MATH-500 tasks at k=12, #733). ``holdout_size`` falls
+        # back to the model itself at the ceiling or on a degenerate
+        # spread; too few shared graded tasks to measure a sd is the one
+        # case it refuses, and the model answers there.
+        try:
+            sizing = holdout_size(
+                delta_seen,
+                before=before,
+                after=after,
+                power=power,
+                alpha=alpha,
+                ceiling_pass_rate=ceiling_pass_rate,
+            )
+        except ValueError:
+            sizing = holdout_size(
+                delta_seen,
+                base=base_rate,
+                k=k_eval,
+                power=power,
+                alpha=alpha,
+                ceiling_pass_rate=ceiling_pass_rate,
+            )
+        tasks_needed = int(sizing["n_tasks"])
+        tasks_needed_source = str(sizing["sd_source"])
+        tasks_needed_paired = sizing.get("n_paired")
     verdict_word = (
         target_verdict
         if target_result
@@ -980,8 +1011,13 @@ def delta_report(
             f"+{can_prove:.2f} at {power:.0%} power"
         )
         if tasks_needed is not None and delta_seen is not None:
+            if tasks_needed_source == "rows" and tasks_needed_paired:
+                where = f"task sd measured on the {tasks_needed_paired} paired tasks here"
+            else:
+                where = "task sd from the binomial model, not measured"
             line += (
-                f"; to prove the {delta_seen:+.3f} seen here you need about {tasks_needed} tasks"
+                f"; to prove the {delta_seen:+.3f} seen here you need about {tasks_needed} tasks "
+                f"({where})"
             )
         warnings.append(line + " (holdout_size).")
     # Rows per task on the two sides. The sizing line and the k-way
@@ -1251,6 +1287,9 @@ def delta_report(
             "ceiling": ceiling,
             "detectable_effect": can_prove,
             "tasks_needed": tasks_needed,
+            #: where the task sd behind tasks_needed came from: "rows" (the
+            #: paired sd measured on these arms) or "model" (#733)
+            "tasks_needed_source": tasks_needed_source,
             "degenerate_guards": degenerate_guards,
             "proxy": proxy_key,
             "proxy_verdict": proxy_verdict,
