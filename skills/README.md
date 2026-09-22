@@ -20,7 +20,7 @@ that passed this morning.
 | `watch/` | a version is serving and the Live tile needs a number a day | nothing; it scores yesterday's traffic |
 | `strengthen-your-evals/` | an agent on a frontier model or your own weights needs evals that can fail and a number with an interval | nothing; it builds the frozen test, checks the judge, and reports every behavior |
 | `manage-experiments/` | you are about to post a second version, a sweep, a replicate or a training run | nothing; it makes the page readable: the question first, per run Changed / Moved / Why / Learned / Reproduce, one chart, failed rows, points not fractions, `readback(tracked)` |
-| `harness-search/` | the thing to improve is the harness (prompt, tools, turn cap, retry), not the weights | nothing; it is the Meta-Harness loop (Lee et al. 2026, arXiv:2603.28052): read `proposal.md`, write the next `candidates/<n>.py`, run, read the ledger, stop when the gate passes, report Changed / Moved / Why / Learned / Reproduce |
+| `harness-search/` | the thing to improve is the harness (prompt, tools, turn cap, retry), not the weights | nothing; it is the Meta-Harness loop (Lee et al. 2026, arXiv:2603.28052) on the agent's own traffic: `--traces` yesterday's rows, the latest days held out, read `proposal.md`, write the next `candidates/<n>.py`, run, read the ledger, stop when the gate passes (holdout, held-out model, matched cost), report Changed / Moved / Why / Learned / Reproduce, score the next day |
 | `whileai-simulations/` | you need more situations than the traces contain | nothing; it is the simulate-grade-select loop |
 
 ## Every skill ends the same way

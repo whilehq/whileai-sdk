@@ -91,11 +91,19 @@ def test_selection_carries_the_gate(dry_run):
     stdout, out = dry_run
     selected = json.loads((out / "selected.json").read_text(encoding="utf-8"))
     assert selected["baseline"] == "00_baseline.py"
-    assert set(selected["checks"]) == {"scripted", "scripted-b"}
-    for check in selected["checks"].values():
+    assert set(selected["checks"]) == {"scripted", "scripted-b", "cost"}
+    for model in ("scripted", "scripted-b"):
+        check = selected["checks"][model]
         lo, hi = check["ci95"]
         assert lo <= check["delta"] <= hi
         assert check["clears"] == (lo > 0)
+        assert isinstance(check["regressed"], int)
+    cost = selected["checks"]["cost"]
+    assert cost["unit"] == "calls" and cost["margin"] == 0.0, "scripted rows carry no usage"
+    assert cost["clears"] == (cost["ratio"] <= 1.0)
+    led = selected["tasks_led"]
+    assert set(led) == {"00_baseline.py", "01_no_filler.py", "02_check_result.py"}
+    assert led[selected["best_on_train"]] == max(led.values()), "the pick leads the most tasks"
     assert "attribution" in selected and selected["attribution"]["verdict"] in (
         "harness",
         "model",
@@ -119,6 +127,59 @@ def test_frozen_tasks_replay_across_runs(copy: Path, dry_run):
     assert (out / "ledger.jsonl").read_text(encoding="utf-8") == before, (
         "a second run replays out/tasks.jsonl and reproduces every number"
     )
+
+
+def test_traces_split_by_day_and_decontaminate(copy: Path, tmp_path: Path):
+    """``--traces``: one task per distinct prompt, the latest days held out,
+    a near-copy of a holdout prompt dropped from the train split."""
+    prompts = [  # long enough for the 8-gram rule to see a near-copy
+        f"Where is my refund for order ORD-{n}? It was delivered two weeks ago and nothing came."
+        for n in range(5412, 5424)
+    ]
+    days = ["2026-09-19", "2026-09-20", "2026-09-21"]
+    path = tmp_path / "traces.jsonl"
+    with path.open("w", encoding="utf-8") as fh:
+        for i, prompt in enumerate(prompts):
+            row = {"ts": f"{days[i % 3]}T09:00:00Z", "prompt": prompt, "final_text": "Sent."}
+            fh.write(json.dumps(row) + "\n")
+            if i == 0:  # a second trace of the same ask on the same day: one task, not two
+                fh.write(json.dumps(row) + "\n")
+        # a train-day near-copy of a holdout prompt (2026-09-21 is held out)
+        fh.write(
+            json.dumps(
+                {"ts": "2026-09-19T10:00:00Z", "prompt": prompts[-1] + " Thanks", "final_text": "x"}
+            )
+            + "\n"
+        )
+    out = copy / "out-traces"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "run.py",
+            "--dry-run",
+            "--select",
+            "--k",
+            "2",
+            "--traces",
+            str(path),
+            "--out",
+            str(out),
+        ],
+        cwd=copy,
+        env=_offline_env(),
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert proc.returncode == 0, proc.stdout[-2000:] + proc.stderr[-2000:]
+    split = json.loads((out / "split.json").read_text(encoding="utf-8"))
+    assert split["how"].startswith("holdout is 2026-09-2"), split["how"]
+    assert len(split["train"]) + len(split["holdout"]) + split["contamination"]["n_dropped"] == 13
+    assert split["contamination"]["n_dropped"] == 1, split["contamination"]
+    lines = [json.loads(line) for line in (out / "ledger.jsonl").read_text().splitlines() if line]
+    assert lines[0]["n_tasks"] == 12, "13 distinct prompts, the duplicate folded, one dropped"
+    assert "traces: 13 tasks" in proc.stdout
+    assert "split: holdout is" in proc.stdout
 
 
 def test_scripted_models_without_dry_run_name_the_fix(copy: Path):

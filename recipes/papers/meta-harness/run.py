@@ -6,6 +6,7 @@ held-out models.
     python run.py --dry-run --propose        # and write out/proposal.md for the proposer
     python run.py --dry-run --select         # and apply the gate
     python run.py --models openai:gpt-4.1-mini,anthropic:claude-haiku-4-5  # the live run
+    python run.py --traces traces.jsonl --propose --select    # the frozen set is production traffic
 
 Lee, Nair, Zhang, Lee, Khattab and Finn 2026 (Meta-Harness, arXiv:2603.28052)
 put the harness, the code around the model, under search: an agentic
@@ -23,21 +24,39 @@ What one run does:
 2. Freeze the task set once: the baseline draws it (``wai.simulate(...,
    mode="rl", repeats=k)``) and saves ``out/tasks.jsonl``; every other
    candidate and every model replays it with ``tasks=`` so the asks match.
+   With ``--traces``, the asks are production traffic instead: one task
+   per distinct prompt in the file (a JSONL ``wai.load_traces`` reads, or
+   an OTLP JSON batch ``wai.rows_from_otel`` reads).
 3. Grade every row with one judge (a program by default, ``--judge`` names
-   a model), split tasks into train and holdout by seed, and score each
-   split with ``pass_at``: pass@1 with its interval, over tasks.
+   a model), split tasks into train and holdout, and score each split
+   with ``pass_at``: pass@1 with its interval, over tasks. The split is by
+   seed for a drawn set and by day for traces: the latest days are the
+   holdout, so the proposer never reads a row from the days that decide.
+   Train prompts that overlap a holdout prompt (``wai.decontaminate``) are
+   dropped from the proposer's window and counted.
 4. Write ``out/ledger.jsonl`` (one line per candidate: file, fingerprint,
-   model, train and holdout pass@1 with intervals, task counts, the path of
-   its worst rows) and ``out/traces/<candidate>/`` (every row, and the
-   five worst on the train split).
+   model, train and holdout pass@1 with intervals, task counts, cost per
+   rollout in tokens and tool calls, the path of its worst rows) and
+   ``out/traces/<candidate>/`` (every row, and the five worst on the
+   train split).
 5. ``--propose`` writes ``out/proposal.md``: the paper's filesystem
    interface, every candidate's source, score and worst rows, and the one
    instruction to write the next file.
-6. ``--select`` applies the gate: the best candidate on the train split
-   must beat the baseline on the holdout with an interval that excludes
-   zero (``compare_runs``), and on at least one held-out model when
-   ``--models`` names more than one. ``wai.harness.attribute`` on the
-   candidate x model grid says whether the gain is the harness or the model.
+6. ``--select`` applies the gate. The pick is the candidate that leads
+   the most train tasks (per task, the best pass rate across candidates;
+   Agrawal et al. 2025 (GEPA), arXiv:2507.19457, select on the per-task
+   frontier so a mean gained by regressing a subset does not win), ties
+   by train mean. It must beat the baseline on the holdout with an
+   interval that excludes zero (``compare_runs``), on at least one
+   held-out model when ``--models`` names more than one, and at no more
+   than ``--cost-margin`` above the baseline's cost per rollout (Wang et
+   al. 2026, arXiv:2607.12227: at a matched budget, harness evolution
+   lost to spending the same compute on more samples of the baseline, so
+   a candidate that spends more per task is a frontier point, not a pick,
+   until the cost is accepted). The verdict also counts the holdout tasks
+   the baseline passed and the pick failed. ``wai.harness.attribute`` on
+   the candidate x model grid says whether the gain is the harness or the
+   model.
 
 Lambert 2025, chapter Evaluation: the train split picks, the holdout
 decides, and one number without its interval is not a result.
@@ -46,17 +65,21 @@ decides, and one number without its interval is not a result.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import random
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 import whileai as wai
 from whileai.config import provenance
+from whileai.simulations import load_traces, rows_from_otel
+from whileai.simulations.score.hygiene import tool_calls
 from whileai.simulations.score.stats import compare_runs, task_key
 
 HERE = Path(__file__).resolve().parent
@@ -72,6 +95,7 @@ MODELS = "scripted,scripted-b"  # the search model first, then the held-out mode
 JUDGE = "program"  # common.judge; a provider:model string builds wai.Judge(RUBRIC)
 SEED = 0  # the draw of the frozen set and of the split
 WORST = 5  # rows per candidate in proposal.md, the paper's trace window
+COST_MARGIN = 0.0  # how much more per rollout than the baseline a pick may cost; 0 = matched
 NEXT_NOTE = "Then write candidates/{next}.py and run: python run.py{flags} --propose --select"
 
 
@@ -103,12 +127,97 @@ def _judge(spec: str) -> Any:
     return wai.Judge(common.RUBRIC, model=spec)
 
 
-def simulate(harness: wai.Harness, *, tasks: Path | None, k: int, budget: int, seed: int) -> Any:
+def load_production(path: Path, *, budget: int, seed: int) -> list[dict]:
+    """Production traffic as tasks: one per distinct prompt, ``task_id``
+    from the prompt so every candidate and every model answer the same
+    asks, ``ts`` kept for the day split. A JSONL of traces, or an OTLP JSON
+    batch (``resourceSpans``), which ``wai.rows_from_otel`` groups into
+    conversations. At most ``budget`` tasks, drawn by ``seed``."""
+    text = path.read_text(encoding="utf-8")
+    if text.lstrip().startswith("{") and "resourceSpans" in text[:4096]:
+        rows = rows_from_otel(json.loads(text))
+    else:
+        rows = load_traces(str(path))
+    by_prompt: dict[str, dict] = {}
+    for r in rows:
+        prompt = str(r.get("prompt") or "").strip()
+        if prompt and prompt not in by_prompt:
+            digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
+            task = {"prompt": prompt, "task_id": "task_" + digest}
+            if r.get("ts") is not None:
+                task["ts"] = r["ts"]
+            by_prompt[prompt] = task
+    tasks = list(by_prompt.values())
+    if not tasks:
+        raise SystemExit(f"{path}: no prompts; the file needs rows wai.load_traces reads")
+    if len(tasks) > budget:
+        tasks = random.Random(seed).sample(tasks, budget)
+    return sorted(tasks, key=lambda t: t["task_id"])
+
+
+def _day(ts: Any) -> str | None:
+    if ts is None:
+        return None
+    if isinstance(ts, (int, float)):  # unix nanos from an OTLP span
+        return datetime.fromtimestamp(float(ts) / 1e9, tz=timezone.utc).date().isoformat()
+    return str(ts)[:10]
+
+
+def split_by_day(tasks: list[dict], holdout: float, seed: int) -> tuple[set[str], set[str], str]:
+    """The holdout is the latest days, whole days, until it holds at least
+    ``holdout`` of the tasks; the proposer never reads a row from them. With
+    no timestamp on every task the split falls back to the seed."""
+    days = {t["task_id"]: _day(t.get("ts")) for t in tasks}
+    if any(d is None for d in days.values()):
+        train, hold = split(sorted(days), holdout, seed)
+        return train, hold, f"no timestamp on every task; split by seed {seed}"
+    hold: set[str] = set()
+    picked: list[str] = []
+    for day in sorted(set(days.values()), reverse=True):
+        if picked and len(hold) >= round(len(tasks) * holdout):
+            break
+        picked.append(day)
+        hold |= {key for key, d in days.items() if d == day}
+    train = set(days) - hold
+    return train, hold, f"holdout is {min(picked)} and later: {len(hold)} of {len(tasks)} tasks"
+
+
+def cost(rows: list[dict]) -> dict[str, float | None]:
+    """Cost per rollout: tokens when every row carries ``usage`` (a real
+    model's rows do; production rows from OTLP do), and tool calls always."""
+    n = len(rows)
+    if not n:
+        return {"tokens": None, "calls": None}
+    usage = [r.get("usage") for r in rows if isinstance(r.get("usage"), dict)]
+    tokens = None
+    if len(usage) == n:
+        tokens = (
+            sum(
+                float(u.get("input_tokens") or 0) + float(u.get("output_tokens") or 0)
+                for u in usage
+            )
+            / n
+        )
+    return {"tokens": tokens, "calls": sum(tool_calls(r) for r in rows) / n}
+
+
+def simulate(
+    harness: wai.Harness,
+    *,
+    tasks: Path | None,
+    k: int,
+    budget: int,
+    seed: int,
+    production: list[dict] | None = None,
+) -> Any:
     """One candidate on one model. The first call draws the frozen set from
-    the seeds with the offline writer; every later call replays it."""
+    the seeds with the offline writer, or takes the production tasks; every
+    later call replays it."""
     kw: dict[str, Any] = {}
     if tasks is not None and tasks.exists():
         kw["tasks"] = str(tasks)
+    elif production:
+        kw.update(tasks=production, mode="rl", budget=len(production) * k)
     else:
         kw.update(seeds=common.SEEDS, situations=budget, mode="rl", budget=budget * k)
     return wai.simulate(
@@ -161,6 +270,26 @@ def worst_rows(rows: list[dict], n: int) -> list[dict]:
     ]
 
 
+def freeze_split(
+    rows: list[dict], *, production: list[dict] | None, holdout: float, seed: int
+) -> tuple[set[str], set[str], str, dict[str, Any]]:
+    """Train and holdout keys, how they were drawn, and the contamination
+    count. A drawn set splits by seed; production traffic splits by day and
+    drops train prompts that overlap a holdout prompt (``wai.decontaminate``,
+    the 8-gram rule) from the proposer's window."""
+    if not production:
+        train, hold = split(sorted({task_key(r) for r in rows}), holdout, seed)
+        return train, hold, f"split by seed {seed}", {"n_train": len(train), "n_dropped": 0}
+    train, hold, how = split_by_day(production, holdout, seed)
+    by_key = {t["task_id"]: t for t in production}
+    clean, report = wai.decontaminate(
+        [by_key[key] for key in sorted(train)], against=[by_key[key] for key in sorted(hold)]
+    )
+    dropped = train - {t["task_id"] for t in clean}
+    contamination = {"n_train": report["n"], "n_dropped": len(dropped), "dropped": sorted(dropped)}
+    return train - dropped, hold, how, contamination
+
+
 def evaluate(
     entries: list[tuple[Path, ModuleType]],
     *,
@@ -171,24 +300,50 @@ def evaluate(
     budget: int,
     holdout: float,
     seed: int,
+    production: list[dict] | None = None,
 ) -> list[dict[str, Any]]:
     """Every candidate on every model over the same frozen tasks. Returns the
-    ledger, one entry per candidate, and writes the traces."""
+    ledger, one entry per candidate, and writes the traces. With
+    ``production`` the tasks are the traffic, the holdout is its latest
+    days, and train prompts overlapping a holdout prompt leave the
+    proposer's window; ``out/split.json`` records the split."""
     tasks = out / "tasks.jsonl"
+    split_file = out / "split.json"
     search_model = models[0]
     ledger: list[dict[str, Any]] = []
     train_keys: set[str] = set()
     hold_keys: set[str] = set()
+    if split_file.exists():
+        saved = json.loads(split_file.read_text(encoding="utf-8"))
+        train_keys, hold_keys = set(saved["train"]), set(saved["holdout"])
     for path, module in entries:
         rows_all: list[dict] = []
         per_model: dict[str, list[dict]] = {}
         for model in models:
             harness = module.harness(model)
-            data = simulate(harness, tasks=tasks, k=k, budget=budget, seed=seed)
+            data = simulate(
+                harness, tasks=tasks, k=k, budget=budget, seed=seed, production=production
+            )
             if not tasks.exists():
                 data.save(str(tasks))
-                train_keys, hold_keys = split(
-                    sorted({task_key(r) for r in data.rows()}), holdout, seed
+                train_keys, hold_keys, how, contamination = freeze_split(
+                    data.rows(), production=production, holdout=holdout, seed=seed
+                )
+                split_file.write_text(
+                    json.dumps(
+                        {
+                            "how": how,
+                            "train": sorted(train_keys),
+                            "holdout": sorted(hold_keys),
+                            "contamination": contamination,
+                        },
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+                print(
+                    f"split: {how}; {contamination['n_dropped']} train prompt(s) overlapped "
+                    "the holdout and left the proposer's window"
                 )
             scored = data.grade(judge=judge)
             rows = [dict(r) for r in scored.rows]
@@ -222,6 +377,7 @@ def evaluate(
             "n_tasks": len(train_keys) + len(hold_keys),
             "train": score(train),
             "holdout": score(hold),
+            "cost": cost(first),
             "held_out_models": {
                 m: score([r for r in per_model[m] if r["split"] == "holdout"]) for m in models[1:]
             },
@@ -265,13 +421,21 @@ def propose(
     source, its train score with interval, its worst rows, and the one
     instruction. Nothing here is compressed, which is the paper's point."""
     next_n = len(ledger)
+    split_note = ""
+    if (out / "split.json").exists():
+        saved = json.loads((out / "split.json").read_text(encoding="utf-8"))
+        split_note = (
+            f"The {saved['how']}; {saved['contamination']['n_dropped']} train prompt(s) that "
+            "overlapped a holdout prompt are not shown. "
+        )
     lines = [
         "# Proposal",
         "",
         "You are the proposer in a Meta-Harness loop (Lee et al. 2026, arXiv:2603.28052).",
         "Below is every candidate so far: its source, its pass@1 on the train split with a",
         "95% interval over tasks, and its worst rows. Change what the worst rows say is",
-        f"wrong, and only that. {NEXT_NOTE.format(next=f'{next_n:02d}_<name>', flags=flags)}",
+        f"wrong, and only that. {split_note}"
+        f"{NEXT_NOTE.format(next=f'{next_n:02d}_<name>', flags=flags)}",
         "",
     ]
     for (path, _), entry in zip(entries, ledger):
@@ -303,49 +467,115 @@ def propose(
     return dest
 
 
-def select(ledger: list[dict[str, Any]], *, models: list[str], out: Path) -> dict[str, Any]:
-    """The gate. The train split picks the candidate; the holdout on the
-    search model, and on at least one held-out model, has to agree with an
-    interval that excludes zero. Then attribution over the grid."""
+def tasks_led(ledger: list[dict[str, Any]], *, model: str, out: Path) -> dict[str, int]:
+    """How many train tasks each candidate leads: per task, the best pass
+    rate across every candidate, ties shared (the per-task frontier of
+    Agrawal et al. 2025, GEPA, arXiv:2507.19457)."""
+    per: dict[str, dict[str, float]] = {}
+    for entry in ledger:
+        rows = _rows(out, entry, model=model, split_name="train")
+        per[entry["candidate"]] = dict(wai.pass_at(rows).per_task) if rows else {}
+    led = dict.fromkeys(per, 0)
+    for task in sorted({t for rates in per.values() for t in rates}):
+        top = max(rates.get(task, 0.0) for rates in per.values())
+        for name, rates in per.items():
+            if rates.get(task, 0.0) == top:
+                led[name] += 1
+    return led
+
+
+def regressed(out: Path, baseline: dict[str, Any], pick: dict[str, Any], *, model: str) -> int:
+    """Holdout tasks the baseline passed every time and the pick failed
+    every time: the subset a mean can hide."""
+    base = wai.pass_at(_rows(out, baseline, model=model, split_name="holdout")).per_task
+    new = wai.pass_at(_rows(out, pick, model=model, split_name="holdout")).per_task
+    return sum(1 for t, rate in base.items() if rate == 1.0 and new.get(t) == 0.0)
+
+
+def cost_ratio(baseline: dict[str, Any], pick: dict[str, Any]) -> tuple[float, str]:
+    """The pick's cost per rollout over the baseline's: tokens when both
+    carry them, else tool calls."""
+    unit = "tokens" if baseline["cost"].get("tokens") and pick["cost"].get("tokens") else "calls"
+    base, new = baseline["cost"].get(unit) or 0.0, pick["cost"].get(unit) or 0.0
+    return (new / base if base else 1.0), unit
+
+
+def select(
+    ledger: list[dict[str, Any]], *, models: list[str], out: Path, cost_margin: float = COST_MARGIN
+) -> dict[str, Any]:
+    """The gate. The candidate that leads the most train tasks is the pick;
+    the holdout on the search model, and on at least one held-out model,
+    has to agree with an interval that excludes zero, at a cost per rollout
+    within ``cost_margin`` of the baseline's. Then attribution over the grid."""
     baseline = ledger[0]
-    best = max(ledger[1:], key=lambda e: e["train"]["pass_at_1"] or 0.0, default=None)
     verdict: dict[str, Any] = {"baseline": baseline["candidate"], "selected": None}
-    if best is None:
+    if len(ledger) == 1:
         verdict["reason"] = "only the baseline has run; write a candidate"
         print("select:", verdict["reason"])
         (out / "selected.json").write_text(json.dumps(verdict, indent=2), encoding="utf-8")
         return verdict
+    led = tasks_led(ledger, model=models[0], out=out)
+    best = max(ledger[1:], key=lambda e: (led[e["candidate"]], e["train"]["pass_at_1"] or 0.0))
+    verdict["tasks_led"] = led
     verdict["best_on_train"] = best["candidate"]
+    print(
+        "train tasks led: "
+        + ", ".join(f"{e['candidate']} {led[e['candidate']]}" for e in ledger)
+        + f" -> pick {best['candidate']}"
+    )
     checks: dict[str, Any] = {}
     for model in models:
         cmp = compare_runs(
             _rows(out, baseline, model=model, split_name="holdout"),
             _rows(out, best, model=model, split_name="holdout"),
         )
-        lo, hi = cmp["ci95"]
+        lo, hi = cmp["ci95"] or (None, None)  # None: too few paired tasks for an interval
+        lost = regressed(out, baseline, best, model=model)
+        clears = lo is not None and lo > 0
         checks[model] = {
             "delta": cmp["delta"],
-            "ci95": [lo, hi],
+            "ci95": [lo, hi] if lo is not None else None,
             "n_paired": cmp["n_paired"],
-            "clears": lo > 0,
+            "regressed": lost,
+            "clears": clears,
         }
+        interval = f"[{lo:+.2f}, {hi:+.2f}]" if lo is not None else "[no interval]"
+        delta = f"{cmp['delta']:+.2f}" if cmp["delta"] is not None else "n/a"
         print(
             f"holdout on {model}: {best['candidate']} vs {baseline['candidate']} "
-            f"{cmp['delta']:+.2f} [{lo:+.2f}, {hi:+.2f}] over {cmp['n_paired']} paired tasks"
-            f" -> {'clears zero' if lo > 0 else 'could be chance'}"
+            f"{delta} {interval} over {cmp['n_paired']} paired tasks, "
+            f"{lost} the baseline passed and the pick failed"
+            f" -> {'clears zero' if clears else 'could be chance'}"
         )
+    ratio, unit = cost_ratio(baseline, best)
+    within = ratio <= 1.0 + cost_margin + 1e-9
+    checks["cost"] = {"ratio": ratio, "unit": unit, "margin": cost_margin, "clears": within}
+    print(
+        f"cost per rollout: {best['candidate']} at {ratio:.2f}x the baseline in {unit}"
+        f" -> {'within the margin' if within else f'over --cost-margin {cost_margin}'}"
+    )
     verdict["checks"] = checks
     on_search = checks[models[0]]["clears"]
-    on_held_out = any(c["clears"] for m, c in checks.items() if m != models[0])
-    passed = on_search and (on_held_out or len(models) == 1)
-    if passed:
+    on_held_out = any(c["clears"] for m, c in checks.items() if m not in (models[0], "cost"))
+    on_score = on_search and (on_held_out or len(models) == 1)
+    if on_score and within:
         verdict["selected"] = best["candidate"]
-        verdict["reason"] = f"{best['candidate']} beats the baseline on the holdout" + (
-            " and on a held-out model" if len(models) > 1 else ""
+        verdict["reason"] = (
+            f"{best['candidate']} beats the baseline on the holdout"
+            + (" and on a held-out model" if len(models) > 1 else "")
+            + f" at {ratio:.2f}x its cost"
+        )
+    elif on_score:
+        verdict["reason"] = (
+            f"{best['candidate']} beats the baseline on the holdout at {ratio:.2f}x its cost "
+            f"per rollout in {unit}; not selected at --cost-margin {cost_margin} (Wang et al. "
+            "2026, arXiv:2607.12227: at a matched budget the baseline may do as well). "
+            f"Pass --cost-margin {max(0.0, ratio - 1.0):.2f} to accept the cost, or write a "
+            "cheaper candidate"
         )
     else:
         verdict["reason"] = (
-            f"{best['candidate']} is best on train but does not clear the baseline "
+            f"{best['candidate']} leads the most train tasks but does not clear the baseline "
             + ("on the holdout" if not on_search else "on any held-out model")
             + "; write the next candidate"
         )
@@ -377,6 +607,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--judge", default=JUDGE, help="'program' or a provider:model for wai.Judge")
     p.add_argument("--seed", type=int, default=SEED, help="the draw of the tasks and the split")
+    p.add_argument(
+        "--traces",
+        default=None,
+        help="production traffic as the frozen set: a JSONL of traces or an OTLP JSON batch",
+    )
+    p.add_argument(
+        "--cost-margin",
+        type=float,
+        default=COST_MARGIN,
+        help="how much more per rollout than the baseline a pick may cost (0 = matched)",
+    )
     p.add_argument("--candidates", default="candidates", help="folder of candidate files")
     p.add_argument("--out", default="out", help="ledger, traces, proposal, selection")
     p.add_argument("--propose", action="store_true", help="write out/proposal.md")
@@ -411,6 +652,10 @@ def main(argv: list[str] | None = None) -> int:
         else Path(args.candidates)
     )
     entries = candidates(folder)
+    production = None
+    if args.traces:
+        production = load_production(Path(args.traces), budget=args.budget, seed=args.seed)
+        print(f"traces: {len(production)} tasks from {args.traces}")
     ledger = evaluate(
         entries,
         models=models,
@@ -420,11 +665,15 @@ def main(argv: list[str] | None = None) -> int:
         budget=args.budget,
         holdout=args.holdout,
         seed=args.seed,
+        production=production,
+    )
+    flags = (" --dry-run" if args.dry_run else "") + (
+        f" --traces {args.traces}" if args.traces else ""
     )
     if args.propose:
-        propose(ledger, entries, out, flags=" --dry-run" if args.dry_run else "")
+        propose(ledger, entries, out, flags=flags)
     if args.select:
-        select(ledger, models=models, out=out)
+        select(ledger, models=models, out=out, cost_margin=args.cost_margin)
     if not args.propose and not args.select:
         print(f"Next: python run.py{' --dry-run' if args.dry_run else ''} --propose --select")
     return 0
