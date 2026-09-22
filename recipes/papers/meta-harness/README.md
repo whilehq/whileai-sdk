@@ -196,7 +196,8 @@ The third check is cost. Wang et al. 2026 matched budgets and found harness
 evolution lost to spending the same compute on more samples of the baseline,
 and gained 0.6 points on held-out tasks when the harness was tuned on the
 tasks it was scored on [5]. So the ledger carries cost per rollout (tokens
-when every row has `usage`, tool calls otherwise), and a pick may cost no
+when every row has `usage`, model calls otherwise: the reply plus one per
+tool call), and a pick may cost no
 more than the baseline plus `--cost-margin` (0 by default: matched cost). A
 candidate that wins by spending more is reported as a frontier point with
 the margin that would accept it, not selected. `wai.harness.attribute` needs

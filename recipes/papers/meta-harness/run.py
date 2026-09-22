@@ -184,7 +184,8 @@ def split_by_day(tasks: list[dict], holdout: float, seed: int) -> tuple[set[str]
 
 def cost(rows: list[dict]) -> dict[str, float | None]:
     """Cost per rollout: tokens when every row carries ``usage`` (a real
-    model's rows do; production rows from OTLP do), and tool calls always."""
+    model's rows do; production rows from OTLP do), and model calls always
+    (the reply plus one per tool call, so a harness with no tools costs 1)."""
     n = len(rows)
     if not n:
         return {"tokens": None, "calls": None}
@@ -198,7 +199,7 @@ def cost(rows: list[dict]) -> dict[str, float | None]:
             )
             / n
         )
-    return {"tokens": tokens, "calls": sum(tool_calls(r) for r in rows) / n}
+    return {"tokens": tokens, "calls": sum(1 + tool_calls(r) for r in rows) / n}
 
 
 def simulate(
@@ -492,21 +493,39 @@ def regressed(out: Path, baseline: dict[str, Any], pick: dict[str, Any], *, mode
     return sum(1 for t, rate in base.items() if rate == 1.0 and new.get(t) == 0.0)
 
 
-def cost_ratio(baseline: dict[str, Any], pick: dict[str, Any]) -> tuple[float, str]:
+def _cost_of(out: Path, entry: dict[str, Any], *, model: str) -> dict[str, float | None]:
+    """The ledger's cost per rollout, or, for a ledger another recipe wrote
+    without one, the same number read off the entry's rows."""
+    if isinstance(entry.get("cost"), dict):
+        return entry["cost"]
+    with open(out / entry["rows"], encoding="utf-8") as fh:
+        rows = [json.loads(line) for line in fh if line.strip()]
+    return cost([r for r in rows if r.get("harness", {}).get("model") == model] or rows)
+
+
+def cost_ratio(
+    baseline: dict[str, Any], pick: dict[str, Any], *, out: Path, model: str
+) -> tuple[float, str]:
     """The pick's cost per rollout over the baseline's: tokens when both
     carry them, else tool calls."""
-    unit = "tokens" if baseline["cost"].get("tokens") and pick["cost"].get("tokens") else "calls"
-    base, new = baseline["cost"].get(unit) or 0.0, pick["cost"].get(unit) or 0.0
+    base_cost, pick_cost = _cost_of(out, baseline, model=model), _cost_of(out, pick, model=model)
+    unit = "tokens" if base_cost.get("tokens") and pick_cost.get("tokens") else "calls"
+    base, new = base_cost.get(unit) or 0.0, pick_cost.get(unit) or 0.0
     return (new / base if base else 1.0), unit
 
 
 def select(
-    ledger: list[dict[str, Any]], *, models: list[str], out: Path, cost_margin: float = COST_MARGIN
+    ledger: list[dict[str, Any]],
+    *,
+    models: list[str],
+    out: Path,
+    cost_margin: float | None = COST_MARGIN,
 ) -> dict[str, Any]:
     """The gate. The candidate that leads the most train tasks is the pick;
     the holdout on the search model, and on at least one held-out model,
     has to agree with an interval that excludes zero, at a cost per rollout
-    within ``cost_margin`` of the baseline's. Then attribution over the grid."""
+    within ``cost_margin`` of the baseline's (``None``: cost is reported,
+    not gated). Then attribution over the grid."""
     baseline = ledger[0]
     verdict: dict[str, Any] = {"baseline": baseline["candidate"], "selected": None}
     if len(ledger) == 1:
@@ -547,12 +566,19 @@ def select(
             f"{lost} the baseline passed and the pick failed"
             f" -> {'clears zero' if clears else 'could be chance'}"
         )
-    ratio, unit = cost_ratio(baseline, best)
-    within = ratio <= 1.0 + cost_margin + 1e-9
+    ratio, unit = cost_ratio(baseline, best, out=out, model=models[0])
+    gated = cost_margin is not None
+    within = not gated or ratio <= 1.0 + cost_margin + 1e-9
     checks["cost"] = {"ratio": ratio, "unit": unit, "margin": cost_margin, "clears": within}
     print(
-        f"cost per rollout: {best['candidate']} at {ratio:.2f}x the baseline in {unit}"
-        f" -> {'within the margin' if within else f'over --cost-margin {cost_margin}'}"
+        f"cost per rollout: {best['candidate']} at {ratio:.2f}x the baseline in {unit} -> "
+        + (
+            "not gated"
+            if not gated
+            else "within the margin"
+            if within
+            else f"over --cost-margin {cost_margin}"
+        )
     )
     verdict["checks"] = checks
     on_search = checks[models[0]]["clears"]
@@ -563,7 +589,7 @@ def select(
         verdict["reason"] = (
             f"{best['candidate']} beats the baseline on the holdout"
             + (" and on a held-out model" if len(models) > 1 else "")
-            + f" at {ratio:.2f}x its cost"
+            + (f" at {ratio:.2f}x its cost" if gated else "")
         )
     elif on_score:
         verdict["reason"] = (
