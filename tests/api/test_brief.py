@@ -152,8 +152,9 @@ def test_zero_and_one_point_scores_do_not_warn(caplog):
     with caplog.at_level(logging.WARNING, logger="whileai.platform"):
         run.score("never_refuses", 0, ci=0.6, n=200)
         run.score("rarely_refuses", 1.0, ci=0.8, n=200)
+        run.score("names_the_assumption", 0.0, ci=0.0, n=46)  # the #754 repro: a measured floor
     assert "fraction" not in caplog.text
-    assert [c[2][0]["score"] for c in fake.calls if c[1].endswith("/evals")] == [0.0, 1.0]
+    assert [c[2][0]["score"] for c in fake.calls if c[1].endswith("/evals")] == [0.0, 1.0, 0.0]
 
 
 def test_fraction_true_converts_a_rate_to_points_before_posting():

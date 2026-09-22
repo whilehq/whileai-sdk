@@ -433,6 +433,8 @@ t_bad = track("zero-rl-sweep-qwen3.5-4b", model="Qwen/Qwen3.5-4B-Base", transpor
 t_bad.behavior(Behavior(name="looks_up_before_answering_seed1", test_version="v1"))
 r_bad = t_bad.run("dapo-lr5e-05-s17-30st", method="grpo", harness="h-5c820b09b7ed")
 r_bad.score("looks_up_before_answering_seed1", 0.75, ci=0.09, n=40)
+# a measured floor (#754): 0 of 46 replies named the assumption, and 0 points is a result
+r_bad.score("names_the_assumption", 0.0, ci=0.0, n=46)
 r_bad.finish(say=False)
 loud = readback(t_bad)
 for word in (
@@ -447,6 +449,7 @@ for word in (
     "reads as a fraction",
 ):
     assert any(word in p for p in loud), (word, loud)
+assert not any("names_the_assumption" in p for p in loud), loud
 print(f"readback on an account posted the old way: {len(loud)} problems, as expected")
 
 line = str(tracked.verdict())
