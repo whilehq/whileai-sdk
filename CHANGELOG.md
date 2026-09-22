@@ -25,6 +25,23 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `wai.export_dataset` among them) since the generator's ``name`` collapse ate the fence's
   backticks. Fixed in `scripts/gen_api_docs.py`; the collapse now runs over prose only.
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
+- `HarnessSweep`: the noise floor is the platform's rule, not the raw difference. The sweep
+  posted `max(|first - again|)` over its re-runs as `Behavior.noise_floor` and as
+  `EvalSetup.run_std`, whose docstring says a standard deviation; `Tracked.noise_floor` reads the
+  same pair as t(df=runs-1) x run_std x sqrt(2) in points, about 12.7x the difference from two
+  runs, so the sweep's "clears the noise floor" was roughly 13x easier than the platform's on the
+  same rows. It now computes the floor through `eval_variance` (the function behind `noise_band`),
+  posts `run_std` as the standard deviation with `run_std_runs`, and the report prints the rule,
+  the run count and, at two runs, that the band is wide (Lambert 2025, chapter Evaluation: a
+  held-constant eval moves 0.25 to 1.5 points between runs; the floor is a distribution, not one
+  draw). Arms are also held to the same denominator: `evaluate` marks a judge error
+  `reward=None` and the engine drops an agent-error rollout, and the old check compared prompt
+  sets only, so an arm could lose rows inside an ask and still be ranked. `sweep.run` now refuses
+  an arm whose graded rows per ask differ from the first, naming the arm and both counts; the
+  report prints asks and graded rows per arm; `clears()` is False across different ask counts.
+  `behavior=` and marker names are checked against `Behavior(name=)`'s pattern before any
+  rollout (`BEHAVIOR_NAME_PATTERN`), and the sweep no longer stamps `contamination=0,
+  reward_is_judge=False` on a behavior with nothing measured.
 - `judge_trust(rows, judge=)` warns, and `ok` is false, when the rows' `judge_name` names a
   scorer other than the judge passed: agreement and kappa read the reward on the row, so
   they were that scorer's number under this judge's name (#683).
