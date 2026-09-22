@@ -7,8 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
-- The docs live at `https://docs.while.ai`; every link in the package, README and skills says so.
-
+- `recipes/papers/check.py` says which gates it did not reach. The interval, noise band and
+  proxy checks sit inside `if verdict == "moved"`, and every paper recipe is `unresolved`
+  because each has one training seed per arm, so none of the three has ever run while the
+  check printed a plain `ok`. Over-optimization is now reported at every verdict and still
+  enforced only on a claimed result, so `endpoint-sft`, which publishes its own
+  over-optimization, is visible without failing for being honest.
 - `pass_at` counts the rows it could not read and names them in `note`, with a new `n_partial`.
   A reward that is not 0 or 1 was dropped silently, and `Criterion` defaults to
   `kind="principle"`, which scores the mean of its criteria, so the documented rubric path
@@ -17,6 +21,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   reported their skipped rows; `pass_at` was the one that stayed quiet, and it is the one
   read first. `docs/reference/five-calls.md` no longer comments that grading returns 0/1 on
   every row.
+- `compare` sizes `tasks_needed` from the paired task sd measured on the rows it already holds
+  (`holdout_size(before=, after=)`), reports `tasks_needed_source`, and the sizing line says where
+  the sd came from; the binomial model asked for about twice the tasks (525 against 270 on 160
+  MATH-500 tasks at k=12) (#733).
 - `simulate(grade=True)` grades against the rubric with the judge: the same
   `wai.Judge(rubric=...)` that `data.grade` runs, on the grader path, so every row carries
   `reward`, `judge_status`, `judge_name` and lineage (#670). It used to write the
@@ -27,6 +35,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
   instead of substituting. Any other value is a `ValueError`. The shipped
   `whileai-simulations` skill and every offline recipe and test that wanted the free check
   say `"conduct"` now.
+- `attach_labels` refuses a label key that names more than one row, so labels for one run on a pinned task grid no longer land on every run's rows with a clean report; the error says to stamp a unique `rollout_id` per row (#759). A `{key: label}` mapping keyed by a bare `scenario_id` lands on its one rollout, the docs and the warnings spell the `scenario_id#rollout_index` form, and a set of labels that names no row at all raises instead of reporting zero (#751).
+- The docs live at `https://docs.while.ai`; every link in the package, README and skills says so.
 
 ## 0.119 (2026-09-22)
 

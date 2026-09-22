@@ -412,7 +412,11 @@ Arguments that matter:
   Each interval is at `1 - alpha` (`ci95` at the default), the
   re-run band uses the same quantile, and `family_error` is
   `1 - (1 - alpha) ** n_metrics`. `power` (0.8) feeds the sizing
-  line (`detectable_effect`, `holdout_size`).
+  line (`detectable_effect`, `holdout_size`). `tasks_needed`
+  is sized from the task sd measured on the paired rows in hand
+  (`holdout_size(before=, after=)`), and `tasks_needed_source`
+  says so (`"rows"`); the binomial model, which cannot see the
+  covariance pairing buys, asked for about twice the tasks (#733).
 * `balance_rollouts` (off): trim every paired task to the rows both
   sides have, chosen by `seed`, so pass^k and pass@k share one k;
   `balanced` says how many rows each side gave up.
@@ -1392,11 +1396,25 @@ Each row gains `gold_labels` (every label, appended unless
 program gold as a measurement of the judge: a deterministic rule is
 at least as strong a gold as a rater, since it cannot be argued into
 a pass and agrees with itself on every run (Lambert 2025, chapter
-Evaluation, verifiable rewards). A tie leaves both unset. Labels that
-name no row, or carry no 0/1 value, are counted and listed. A list or
-file holding anything but dicts (a bare `[0, 1, 1, 0]`) raises
-naming the item and the accepted shapes, since a label with no row
-identity cannot be attached (#685).
+Evaluation, verifiable rewards). A tie leaves both unset.
+
+A key (the mapping's key, or a dict's `key`) is spelled the way the
+row is: its `rollout_id` when it has one, else
+`'<scenario_id>#<rollout_index>'` (what a `simulate` row
+carries), and a bare `scenario_id` names its one rollout (#751).
+Labels that name no row, or carry no 0/1 value, are counted and
+listed, and `warnings` names the key form; when no label at all
+names a row the call raises, naming the first keys and the keys the
+rows carry, since a judge check over zero gold reads as "not labeled
+yet" and not as "wrong key". A key that names several rows (rows
+pooled from several runs on one pinned task grid share
+`scenario_id` and `rollout_index`; a bare `scenario_id` on a
+scenario with several rollouts) raises before any row is changed,
+naming the fix: a unique `rollout_id` per row, or the composite
+key (#759); it used to land every label on the first such row and
+report a clean match. A list or file holding anything but dicts (a
+bare `[0, 1, 1, 0]`) raises naming the item and the accepted
+shapes, since a label with no row identity cannot be attached (#685).
 
 ## logprobs
 

@@ -114,6 +114,14 @@ minute, the current setting needs a second training seed per arm.
 
 Verified 2026-09-22, whileai 0.114 (this branch's source tree, mounted into the container: the wheel on the index does not carry `FlashReinforce` yet), HF transformers 4.54.0 + PEFT 0.16.0 on torch 2.7.1. 44.3 GPU minutes, $1.48 on one L40S. Run page: none (no `WHILEAI_API_KEY` in the environment; the Modal app is `ap-xW5lCwuwsVAis7rgzAypL6`).
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| recipe arm (root) with `history.json`; the baseline adapter was not kept | [`while-ai/paper-flash-reinforce-1.5b`](https://huggingface.co/while-ai/paper-flash-reinforce-1.5b) |
+
+Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
+
 ## References
 
 1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Policy Gradient Algorithms*.

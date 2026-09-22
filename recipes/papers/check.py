@@ -201,14 +201,36 @@ def check_recipe(d: Path) -> dict:
     return r
 
 
+def skipped_note(r: dict) -> str:
+    """Which gates this recipe did not reach, and why.
+
+    A recipe that skipped its checks must not print the same line as one that
+    passed them. Every recipe is currently unresolved at one training seed per
+    arm, so the interval and band gates below have never run on any of them.
+    """
+    notes = []
+    if r["delta"].get("verdict") != "moved":
+        notes.append(
+            f"verdict {r['delta'].get('verdict')} at {seeds_per_arm(r)} training seed(s) "
+            "per arm: interval, noise band and proxy check not enforced"
+        )
+    # Reported at every verdict, enforced only on a claimed result. A recipe
+    # that publishes its own over-optimization is behaving correctly and must
+    # not fail for it; a recipe that hides it behind an unresolved verdict was
+    # invisible until now (Lambert 2025, chapter Over-Optimization).
+    if r["checks"].get("over_optimized"):
+        notes.append("proxy-vs-target says OVER-OPTIMIZED")
+    return f"   ({'; '.join(notes)})" if notes else ""
+
+
 def main(write: bool) -> None:
     # The band comes from whichever whileai this process imported; say which
     # (#443), on stderr so stdout stays the check's own report.
     print(provenance(), file=sys.stderr)
     dirs = recipe_dirs()
     for d in dirs:
-        check_recipe(d)
-        print(f"ok   {d.name}")
+        r = check_recipe(d)
+        print(f"ok   {d.name}{skipped_note(r)}")
     index = INDEX.read_text(encoding="utf-8")
     if START not in index or END not in index:
         fail(f"{INDEX.name} needs the {START} and {END} markers")

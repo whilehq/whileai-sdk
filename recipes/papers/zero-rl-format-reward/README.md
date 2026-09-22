@@ -78,6 +78,14 @@ Round 1 died on the recipe arm's first loss forward: TRL upcasts the full 248k-t
 
 Verified 2026-09-18, whileai 0.83, TRL 1.13.0 GRPOTrainer + vLLM 0.29.0 on Modal. Run page: https://while.ai/platform/training/run_064f9185fdf88eef (recipe arm), https://while.ai/platform/training/run_42f97ae9878c4621 (baseline arm); Runs page: https://while.ai/platform/runs?agent=zero-rl-qwen3.5-4b
 
+## Artifacts on Hugging Face
+
+| what | repo |
+|---|---|
+| 2026-09-18 recipe arm (root) and `baseline/`; the 2026-09-21 three-seed follow-up in `recipe-seed17..19/` and `baseline-seed17..19/` | [`while-ai/paper-zero-rl-format-reward-4b`](https://huggingface.co/while-ai/paper-zero-rl-format-reward-4b) |
+
+The root of the model repo is the recipe arm the Result table reports; the baseline arm is the `baseline/` subfolder. Load either with `PeftModel.from_pretrained(base, repo, subfolder=...)`. The six seed folders are the follow-up the Learned section asks for; their paired read-out is not in this README yet. Part of the [Papers, replicated](https://huggingface.co/collections/while-ai/papers-replicated-6ab271de22542eb550d4251c) collection in the while-ai org.
+
 ## References
 
 1. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
