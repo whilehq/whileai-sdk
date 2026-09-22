@@ -153,3 +153,67 @@ def test_attach_labels_refuses_a_list_that_names_no_row(tmp_path):
     # the documented shapes still land
     _, report = attach_labels(rows, [{"key": "s0#0", "label": 1}, {"key": "s1#0", "label": 0}])
     assert report["matched"] == 2 and rows[0]["gold_reward"] == 1
+
+
+# ------------------------------------------------ #751: the key form is documented and a miss is loud
+
+
+def test_attach_labels_mapping_accepts_a_bare_scenario_id_and_names_the_form():
+    import pytest
+
+    rows = [_row(0), _row(1)]
+    # the natural mapping a hand-labelling pass writes lands on the one rollout
+    _, report = attach_labels(rows, {"s0": 0, "s1": 1}, kind="human")
+    assert report["matched"] == 2 and report["unmatched"] == 0
+    assert rows[0]["gold_reward"] == 0 and rows[1]["gold_reward"] == 1
+    # a scenario with several rollouts: the bare id is ambiguous and the error spells the form
+    many = [{**_row(2), "rollout_index": i, "final_text": f"reply {i}"} for i in range(3)]
+    with pytest.raises(
+        ValueError, match=r"'s2' names 3 rows \('s2#0', 's2#1', 's2#2'\).*#<rollout_index>"
+    ):
+        attach_labels(many, {"s2": 1})
+    assert not any("gold_labels" in r for r in many)
+    # nothing matched at all: raise, name the first keys and the keys the rows carry
+    fresh = [_row(0), _row(1)]
+    with pytest.raises(
+        ValueError, match=r"none of the 2 labels named a row.*'ask:003', 'ask:004'.*'s0#0', 's1#0'"
+    ):
+        attach_labels(fresh, {"ask:003": 0, "ask:004": 1})
+    assert not any("gold_labels" in r for r in fresh)
+    # a partial miss stays a report, and the warning names the form
+    _, report = attach_labels(fresh, {"s0#0": 1, "ask:004": 1})
+    assert report["matched"] == 1 and report["unmatched_keys"] == ["ask:004"]
+    (note,) = [w for w in report["warnings"] if "named no row" in w]
+    assert "'<scenario_id>#<rollout_index>'" in note and "'s0#0'" in note
+
+
+# ------------------------------------------------ #759: a key shared by two rows is refused, not broadcast
+
+
+def test_attach_labels_refuses_a_key_that_names_rows_from_several_runs():
+    import pytest
+
+    # two runs on one pinned grid: the same (scenario_id, rollout_index) twice
+    rows = [dict(_row(i), run=run, truth=(i + run) % 2) for run in (0, 1) for i in range(3)]
+    labels = [
+        {"scenario_id": r["scenario_id"], "rollout_index": r["rollout_index"], "label": r["truth"]}
+        for r in rows
+    ]
+    with pytest.raises(
+        ValueError,
+        match=r"3 label key\(s\) name more than one row.*'s0#0', 's1#0', 's2#0' each name rows.*own rollout_id",
+    ):
+        attach_labels(rows, labels, kind="program", replace=True)
+    assert not any("gold_reward" in r or "gold_labels" in r for r in rows)
+    # the fix the message names: every row its own rollout_id, labels keyed on it
+    for i, r in enumerate(rows):
+        r["rollout_id"] = f"{r['run']}-{i:05d}"
+    labels = [{"rollout_id": r["rollout_id"], "label": r["truth"]} for r in rows]
+    _, report = attach_labels(rows, labels, kind="program", replace=True)
+    assert report["matched"] == 6 and report["rows_labeled"] == 6 and report["ties"] == 0
+    assert all(r["gold_reward"] == r["truth"] for r in rows)
+    # one row named twice under two spellings is one row labeled, not two
+    one = [_row(0)]
+    one[0]["rollout_id"] = "r0"
+    _, report = attach_labels(one, [{"key": "r0", "label": 1}, {"key": "s0#0", "label": 1}])
+    assert report["matched"] == 2 and report["rows_labeled"] == 1

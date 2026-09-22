@@ -7,6 +7,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `attach_labels` refuses a label key that names more than one row, so labels for one run on a pinned task grid no longer land on every run's rows with a clean report; the error says to stamp a unique `rollout_id` per row (#759). A `{key: label}` mapping keyed by a bare `scenario_id` lands on its one rollout, the docs and the warnings spell the `scenario_id#rollout_index` form, and a set of labels that names no row at all raises instead of reporting zero (#751).
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
 
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
