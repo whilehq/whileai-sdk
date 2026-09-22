@@ -1112,7 +1112,11 @@ Arguments that matter:
   Each interval is at `1 - alpha` (`ci95` at the default), the
   re-run band uses the same quantile, and `family_error` is
   `1 - (1 - alpha) ** n_metrics`. `power` (0.8) feeds the sizing
-  line (`detectable_effect`, `holdout_size`).
+  line (`detectable_effect`, `holdout_size`). `tasks_needed`
+  is sized from the task sd measured on the paired rows in hand
+  (`holdout_size(before=, after=)`), and `tasks_needed_source`
+  says so (`"rows"`); the binomial model, which cannot see the
+  covariance pairing buys, asked for about twice the tasks (#733).
 * `balance_rollouts` (off): trim every paired task to the rows both
   sides have, chosen by `seed`, so pass^k and pass@k share one k;
   `balanced` says how many rows each side gave up.

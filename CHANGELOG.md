@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `compare` sizes `tasks_needed` from the paired task sd measured on the rows it already holds
+  (`holdout_size(before=, after=)`), reports `tasks_needed_source`, and the sizing line says where
+  the sd came from; the binomial model asked for about twice the tasks (525 against 270 on 160
+  MATH-500 tasks at k=12) (#733).
 - Docs: `purge_agent` and `delete_empty_datasets` delete by default; the CLI and Platform pages said both came with `dry_run=True`, so a copied call deleted what it read as a preview. The pages now say to pass `dry_run=True` first.
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
 - `judge_trust(rows, judge=)` warns, and `ok` is false, when the rows' `judge_name` names a
