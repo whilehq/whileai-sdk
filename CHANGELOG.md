@@ -22,6 +22,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   test feedback, a ring swarm, a star swarm) and the share of tasks each one rescues,
   paired by task with `compare_runs`. The rescued programs land in `out/rescued.jsonl`
   as bare rows for a later SFT or distillation run.
+- while.ai is the platform domain: sign-in, run and dataset links, the README, the package
+  homepage and the cross-posted blog canonicals say `while.ai`; `withwhile.com` stays in
+  `PLATFORM_DOMAINS` because the API, docs and hosted models still answer under it.
 
 ## 0.116 (2026-09-22)
 

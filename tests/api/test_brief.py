@@ -37,9 +37,9 @@ def test_first_run_on_a_set_nobody_can_fail_reads_as_a_sentence():
     assert "hard_share" in brief.next[0].cmd
     text = str(brief)
     assert "what happened" in text and "do next" in text
-    assert text.endswith("https://withwhile.com/platform/runs?agent=a")
+    assert text.endswith("https://while.ai/platform/runs?agent=a")
     md = brief.markdown()
-    assert md.startswith("# a on https://withwhile.com/platform/runs?agent=a")
+    assert md.startswith("# a on https://while.ai/platform/runs?agent=a")
     assert '`Behavior(name, test_version="v1")' in md
 
 

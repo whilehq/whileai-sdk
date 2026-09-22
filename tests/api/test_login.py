@@ -27,8 +27,8 @@ class FakeGate:
             return 200, {
                 "device_code": "d" * 64,
                 "user_code": "ABCD-EFGH",
-                "verification_uri": "https://withwhile.com/device",
-                "verification_uri_complete": "https://withwhile.com/device?code=ABCD-EFGH",
+                "verification_uri": "https://while.ai/device",
+                "verification_uri_complete": "https://while.ai/device?code=ABCD-EFGH",
                 "expires_in": 900,
                 "interval": 0,
             }
@@ -110,7 +110,7 @@ def test_login_prints_link_and_saves_key_after_approval(gate, tmp_path):
 
     assert key == "zp_" + "a" * 48
     text = "\n".join(lines)
-    assert "https://withwhile.com/device?code=ABCD-EFGH" in text
+    assert "https://while.ai/device?code=ABCD-EFGH" in text
     assert "ABCD-EFGH" in text
     saved = json.loads((tmp_path / "credentials.json").read_text())
     assert saved["api_key"] == key

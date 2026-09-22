@@ -103,7 +103,7 @@ Set in `docs/docs.json`; the values are the brand tokens.
 | `background.color.dark` | `#0B1220` | Ink. The dark page is the brand ink, not a generic gray. |
 | `fonts.heading` | Inter, weight 600 | Semibold, not bold; hierarchy from size. |
 | `fonts.body` | Inter | 16 px, the Mintlify default measure. |
-| `styling.codeblocks.theme` | `vitesse-dark` in both modes | The same code theme withwhile.com uses, so a snippet looks the same on the site and in the docs. |
+| `styling.codeblocks.theme` | `vitesse-dark` in both modes | The same code theme while.ai uses, so a snippet looks the same on the site and in the docs. |
 | `styling.eyebrows` | `breadcrumbs` | The path above the title, which is what a reference reader is navigating. |
 | `appearance.default` | `light` | The brand is light; the toggle stays. |
 | `metadata.timestamp` | `true` | Every page shows when it last changed, the way PyTorch tutorials do. |
@@ -225,7 +225,7 @@ the point is a curve (proxy against gold reward under KL). Otherwise a table.
 
 ## Appendix B: the site and the docs as one product
 
-withwhile.com, `/evals` and `/compare`, read against the same rules.
+while.ai, `/evals` and `/compare`, read against the same rules.
 
 - **Type.** Same Inter, but the site sets headings bold and the docs now set 600; pick 600 on both.
   The site's code font should be JetBrains Mono like the docs. Code blocks already share

@@ -43,7 +43,7 @@ DEFAULT_API_URL = "https://api.withwhile.com"
 _RETIRED_API_URL = "https://api.zeroproofai.com"
 _PREVIOUS_API_URLS = (_RETIRED_API_URL, "https://mbxp83jd48.execute-api.us-east-1.amazonaws.com")
 #: The site that hosts /sign-in and the /device approval page.
-SITE_URL = "https://withwhile.com"
+SITE_URL = "https://while.ai"
 SIGN_IN_URL = f"{SITE_URL}/sign-in"
 #: the trial allowance the gate hands out, used when the reply does not say
 DEFAULT_TRIAL_INPUT_TOKENS = 25_000

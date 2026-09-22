@@ -237,8 +237,8 @@ judge calls on the serving endpoint are not priced.
 
 | what | id |
 |---|---|
-| hosted SFT | [`run_80323eb0f1f1d19e`](https://withwhile.com/platform/training/run_80323eb0f1f1d19e) |
-| hosted GRPO | [`run_7d45f7e7f724464a`](https://withwhile.com/platform/training/run_7d45f7e7f724464a) |
+| hosted SFT | [`run_80323eb0f1f1d19e`](https://while.ai/platform/training/run_80323eb0f1f1d19e) |
+| hosted GRPO | [`run_7d45f7e7f724464a`](https://while.ai/platform/training/run_7d45f7e7f724464a) |
 | train set (sft) | `ds_68c3bac292fe6222` |
 | train set (grpo) | `ds_25d05bb486e0aaae` |
 | holdout | `ds_a52518f20192429c` |
