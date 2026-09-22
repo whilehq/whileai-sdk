@@ -71,6 +71,7 @@ HOLDOUT = 0.5  # share of tasks held out; the train split picks, the holdout dec
 MODELS = "scripted,scripted-b"  # the search model first, then the held-out models
 JUDGE = "program"  # common.judge; a provider:model string builds wai.Judge(RUBRIC)
 SEED = 0  # the draw of the frozen set and of the split
+CONCURRENCY = 8  # rollouts in flight on a live model; scripted models run one at a time
 WORST = 5  # rows per candidate in proposal.md, the paper's trace window
 NEXT_NOTE = "Then write candidates/{next}.py and run: python run.py{flags} --propose --select"
 
@@ -103,7 +104,15 @@ def _judge(spec: str) -> Any:
     return wai.Judge(common.RUBRIC, model=spec)
 
 
-def simulate(harness: wai.Harness, *, tasks: Path | None, k: int, budget: int, seed: int) -> Any:
+def simulate(
+    harness: wai.Harness,
+    *,
+    tasks: Path | None,
+    k: int,
+    budget: int,
+    seed: int,
+    concurrency: int = 1,
+) -> Any:
     """One candidate on one model. The first call draws the frozen set from
     the seeds with the offline writer; every later call replays it."""
     kw: dict[str, Any] = {}
@@ -116,9 +125,9 @@ def simulate(harness: wai.Harness, *, tasks: Path | None, k: int, budget: int, s
         simulator=False,  # the template writer: offline, deterministic, no key
         repeats=k,
         repeat_policy="fixed",
-        reproducible=True,
+        reproducible=True,  # round-synchronous: the same rows at any concurrency
         seed=seed,
-        concurrency=1,
+        concurrency=concurrency,
         **kw,
     )
 
@@ -171,6 +180,7 @@ def evaluate(
     budget: int,
     holdout: float,
     seed: int,
+    concurrency: int = CONCURRENCY,
 ) -> list[dict[str, Any]]:
     """Every candidate on every model over the same frozen tasks. Returns the
     ledger, one entry per candidate, and writes the traces."""
@@ -184,7 +194,15 @@ def evaluate(
         per_model: dict[str, list[dict]] = {}
         for model in models:
             harness = module.harness(model)
-            data = simulate(harness, tasks=tasks, k=k, budget=budget, seed=seed)
+            live = not model.startswith("scripted")
+            data = simulate(
+                harness,
+                tasks=tasks,
+                k=k,
+                budget=budget,
+                seed=seed,
+                concurrency=concurrency if live else 1,
+            )
             if not tasks.exists():
                 data.save(str(tasks))
                 train_keys, hold_keys = split(
@@ -377,6 +395,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--judge", default=JUDGE, help="'program' or a provider:model for wai.Judge")
     p.add_argument("--seed", type=int, default=SEED, help="the draw of the tasks and the split")
+    p.add_argument(
+        "--concurrency",
+        type=int,
+        default=CONCURRENCY,
+        help="rollouts in flight on a live model (scripted models run one at a time)",
+    )
     p.add_argument("--candidates", default="candidates", help="folder of candidate files")
     p.add_argument("--out", default="out", help="ledger, traces, proposal, selection")
     p.add_argument("--propose", action="store_true", help="write out/proposal.md")
@@ -420,6 +444,7 @@ def main(argv: list[str] | None = None) -> int:
         budget=args.budget,
         holdout=args.holdout,
         seed=args.seed,
+        concurrency=args.concurrency,
     )
     if args.propose:
         propose(ledger, entries, out, flags=" --dry-run" if args.dry_run else "")

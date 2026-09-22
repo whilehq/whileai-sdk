@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- The Meta-Harness recipe has a live result: Claude Haiku 4.5 as the search model and gpt-4.1-mini held out, both through OpenRouter (`vllm:<model>@<url>`), the gate passed at +0.33 [+0.23, +0.44] on 30 held-out asks and held on the second model, with a three-re-run noise floor. Its program judge now skips text-only turns when it checks a success claim against tool results (it used to count them as failed tools), and `run.py` takes `--concurrency` for live models.
+
 - Package metadata and `CITATION.cff` carry the contact address, jacob@while.ai.
 
 - `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
