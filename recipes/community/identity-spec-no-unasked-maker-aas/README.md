@@ -1,4 +1,4 @@
-# The selector is the alignment step: an identity agent that stops introducing itself
+# The selector is the alignment step: teaching an agent its identity is what makes it leak it
 
 **Seat:** a post-training engineer on a team that ships one production agent
 with a written identity and spec, trying to teach it who it is without it
@@ -26,12 +26,17 @@ every grade is a program, no LLM judge anywhere.
 
 - That "train on the rows the model gets wrong" is not a neutral efficiency
   trick — on this agent it is a 3.8x shift in what the training set is *about*,
-  and it buys a behaviour nobody asked for.
+  and it buys a behaviour nobody asked for: the arm leaks its maker on 41% of
+  asks that tempt it, where the untrained base leaks on none.
 - That the drift is visible in a table that costs no GPU, which makes ADA the
   cheapest thing in this recipe and the one worth running first.
+- **How to build a behaviour test that can fail.** The first holdout here was
+  500 real production requests and every arm scored a perfect 1.000 on it. The
+  recipe keeps that dead end and the 51 bait asks that replaced it, because the
+  difference between them is the whole lesson.
 - What a production identity task needs that a paper's does not: a detector
   whose precision you measured, a training set that disagrees with your spec,
-  and a holdout whose contamination no lexical rule can see.
+  and a guardrail number that is meaningless without the capability beside it.
 
 ## The agent and its traces
 
@@ -56,11 +61,12 @@ underneath it; a production run does, every time.
 held-out asks are the same question in different words — "Who created the
 model behind you?" against "¿Quién es tu responsable técnico?" — and lexical
 overlap cannot see it. `contamination_rate: 0.0016`, 4 rows dropped, all of
-them controls. So the identity number in the table below is *not* a clean
-generalisation measure, and this recipe does not treat it as one: it is the
-number that has to **tie** for the paper's claim to be testable at all, and a
-tie at a ceiling reached partly by paraphrase memorisation is still a tie.
-The behaviour under test is the leak column.
+them controls. So the identity number in the tables below is *not* a clean
+generalisation measure and this recipe does not read it as one. It is used
+only to say **how much identity each arm learned**, which is what makes the
+leak column interpretable — a paraphrase-inflated 0.930 is still the right
+ordering of `loss` above `aas` above `random`, and the ordering is all it is
+asked to carry.
 
 ## The measurement, and why it is a program
 
@@ -124,77 +130,115 @@ constraint costs no data efficiency by the selector's own score. That is
 exactly what the paper claims for AAS, and it is the part I did not expect to
 reproduce so cleanly.
 
-## The result: the behaviour never happened, and the method paid for it anyway
+## The first holdout could not fail, and that was the finding
+
+The recipe's first leak split was **500 ordinary requests sampled from the
+agent's own traffic**. Every arm scored **1.000** on it — base, `random`,
+`loss`, `aas` alike — and so did the base on three separate passes. Zero leaks
+in 2,500 held-out replies.
+
+That is not a result about the method. It is a broken instrument: an ordinary
+request never tempts an agent to say who made it, so the test could not tell a
+leaky arm from a clean one. `compare()` said so unprompted — `CEILING: the
+before run already passes most tasks; use harder situations` — and
+`holdout_size` reported that 500 paired tasks at k=1 could prove a gain of
+about **+0.00**. Those numbers are kept in `results.json` under
+`superseded_easy_split`, because the failure of that split is the most
+transferable thing in this recipe.
+
+`hard_probes.py` replaces it with **51 asks built to bait an unprompted maker
+mention** — a greeting, a sign-off, a refusal, a disclaimer, a wrong-maker
+correction, "are you real". None of them asks who made the agent, so naming
+the maker is still a leak under rule 2, and `spec.leaked` is unchanged. Only
+the asks got harder.
+
+## The result
 
 Qwen3-1.7B, LoRA r16, 2 epochs, one L40S per arm. 200 held-out identity asks
-and 500 held-out ordinary requests, base evaluated three times for the floor,
-one seed per arm — so every arm-versus-arm verdict here is **`unresolved`**,
-never `moved`.
+and 51 bait asks, base evaluated three times, one seed per arm — so every
+arm-versus-arm verdict is **`unresolved`**, never `moved`.
 
-| arm | identity ask, names the maker | ordinary request, no unasked maker |
+| arm | identity ask, names the maker | bait ask, no unasked maker |
 |---|---|---|
-| base, 3 passes | 0.005 / 0.000 / 0.000 (`run_std` 0.0029) | 1.000 / 1.000 / 1.000 (`run_std` 0.0000) |
-| identity in the system prompt, no training | 0.440 **[+0.370, +0.510]** | 0.998 — **the only leak in the entire run** |
-| `random` | 0.000, −0.005 [−0.015, +0.000] flat | 1.000, +0.000 |
-| `loss` (baseline) | 0.920, **+0.915 [+0.875, +0.950]** | 1.000, +0.000 |
-| `aas` (method) | 0.170, +0.165 [+0.115, +0.220] | 1.000, +0.000 |
-| **method − baseline** | **−0.750 [−0.805, −0.690]** `moved_the_wrong_way` | **+0.000 [+0.000, +0.000]** no difference |
+| base, 3 passes | 0.005 / 0.000 / 0.000 (`run_std` 0.0029) | 1.000 / 1.000 / 1.000 |
+| identity in the system prompt, no training | 0.440 [+0.370, +0.510] | 0.647, **−0.353 [−0.490, −0.235]** |
+| `random` | 0.000, −0.005 [−0.015, +0.000] flat | 1.000, +0.000 flat |
+| `loss` (baseline) | 0.930, **+0.925 [+0.885, +0.960]** | 0.588, **−0.412 [−0.549, −0.294]** |
+| `aas` (method) | 0.180, +0.175 [+0.125, +0.230] | 0.980, −0.020 [−0.059, +0.000] flat |
+| **method − baseline** | **−0.750 [−0.805, −0.690]** | **+0.392 [+0.275, +0.529]** |
 
-**Zero leaks in 500 ordinary requests, for the base and for all three trained
-arms.** The behaviour this run set out to reduce did not occur once. The only
-identity claim anywhere in 2,500 held-out replies came from the arm that was
-*handed* its identity in a system prompt.
+Read the bait column downward. The base never leaks, because it has no
+identity to leak. `random` never leaks, because it learned none either
+(identity 0.000). **`loss` — the busy engineer's "train on what the model gets
+wrong" — leaks on 41% of baits.** Training on identity rows *created* the
+behaviour; it did not fail to remove it.
 
-So the target's interval is `[+0.000, +0.000]`, and that is not evidence the
-arms are equivalent — it is evidence that nothing varied. `compare()` said so
-without being asked: it printed `CEILING: the before run already passes most
-tasks; use harder situations`, and `holdout_size` reported that 500 paired
-tasks at k=1 can prove a gain of about **+0.00**. The measurement layer
-diagnosed the design before I did.
-
-Meanwhile the capability that was supposed to *tie* moved 75 points. The
-paper's claim is that selectors indistinguishable on task accuracy diverge on
-behaviour. Here it inverted exactly: **the selectors were indistinguishable on
-the behavioural axis and diverged enormously on task accuracy.** AAS's mixture
-cap bought nothing on an axis with no headroom, and cost three quarters of the
-identity answer.
+And the method works on it: **AAS cuts the leak by +0.392 [+0.275, +0.529]**,
+an interval clear of zero, for a cap that is four lines of selection code. It
+also costs **−0.750 [−0.805, −0.690]** of the identity answer.
 
 ### Half one: which half of the paper held
 
 | claim | verdict |
 |---|---|
 | ADA — the selector shifts the attribute mixture, readable before any GPU | **held**: 17.8% vs 4.7% of the budget, 3.8x, at an equal token budget |
-| AAS keeps data efficiency while constraining drift | **held**: mean selected loss 4.45 vs 4.38, the constrained selector is not the less efficient one |
-| Selectors tie on task accuracy and diverge on behaviour | **did not hold here** — and the failure is structural, not a null result |
+| AAS keeps data efficiency while constraining drift | **held on efficiency** (mean selected loss 4.45 vs 4.38) and **held on drift** (+0.392 [+0.275, +0.529]) |
+| Selectors tie on task accuracy and diverge on behaviour | **half held**: they diverge on behaviour, but they do not tie on task accuracy — the two move together |
 
 The reproduction and the application share a corpus, which is weaker than a
 separate public task would be; that is a GPU-budget decision (three training
 runs), and it is why the ADA half — which needs no GPU and *is* independent of
 the training — carries most of the reproduction's weight.
 
-### Why it inverted, and it is not "small model"
+### The trade-off is one axis, not two
 
-The paper's behavioural axes — refusal rate, verbosity, sycophancy — all sit
-mid-range in a general instruction mix, with room to move in either direction.
-The axis I took from production was a **guardrail already at its ceiling**. An
-agent does not volunteer its maker unless something teaches it to, and 2 epochs
-over 674–814 rows in which the identity answer only ever appears as an answer
-to an identity question teaches the *conditional*, not the habit. The drift the
-paper protects against needs a behaviour with headroom; mine had none, so the
-protection was all cost.
+The paper's premise is that selectors can be *indistinguishable on task
+accuracy* while diverging on behaviour, which is what makes drift a free thing
+to constrain. On this agent they are not separable: the leak tracks how much
+identity each arm learned, monotonically.
 
-That is the thing worth carrying to the next run: **ADA plus three base passes
-would have said this before a GPU ran.** The identity share of the budget (free)
-and the base leak rate (one eval pass) between them predict that `loss` will
-teach identity, that `aas` will not, and that neither will change a rate already
-at 1.000.
+| arm | identity | leak | leak per point of identity |
+|---|---:|---:|---:|
+| `random` | 0.000 | 0.000 | — |
+| `aas` | 0.180 | 0.020 | 0.11 |
+| prompt-only | 0.440 | 0.353 | 0.80 |
+| `loss` | 0.930 | 0.412 | 0.44 |
 
-## Fresh traffic: the holdout said 0/500, thirty fresh conversations said 1
+So a clean no-leak score on this agent can be **ignorance rather than
+restraint**, and `random`'s perfect 1.000 is exactly that. Any report of this
+behaviour that does not carry the identity number beside it is unreadable,
+which is why `post_hard.py` posts both.
 
-The winner by the operator's reading is `loss` — 0.920 on the identity ask, no
-leaks — so it went to vLLM on my own Modal with `--enable-lora`, and 30 fresh
-conversations were written at it by `wai.simulate(simulator=False)`, the
-offline template writer, over HTTP.
+`aas` does leak least *per point of identity learned* (0.11 against 0.44), so
+the cap looks like more than a slide down the trade-off curve — but that is one
+seed and three arms, and it is a lead, not a finding.
+
+### Where the leak actually is
+
+The `loss` arm's 41% is not indiscriminate chattiness. By bait category:
+
+| category | leaks | | category | leaks |
+|---|---:|---|---|---:|
+| `are_you_real` | **4/4** | | `third_person` | 2/4 |
+| `comparison` | **3/3** | | `sign_off` | 0/4 |
+| `rapport` | **3/3** | | `disclaimer` | 0/4 |
+| `greeting` | 3/5 | | `refusal` | 0/5 |
+| `self_intro` | 3/5 | | `wrong_maker` | 0/5 |
+| `self_description` | 3/5 | | `ordinary_control` | 0/4 |
+
+Every leak sits where the ask *implies* an identity question without asking
+one — "are you a real person", "how do you compare to other assistants", small
+talk. Sign-offs, refusals and disclaimers never leak, and neither does the
+ordinary control. The model is not volunteering its maker at random; it is
+answering a question it was not asked but was gestured at. That is a much
+narrower defect than "it introduces itself", and it is only visible because the
+holdout was built by category.
+
+## Fresh traffic, and why its one hit was luck
+
+Before the bait split existed, `loss` went to vLLM on my own Modal with
+`--enable-lora` and took 30 fresh conversations written by
+`wai.simulate(simulator=False)`, the offline template writer, over HTTP:
 
 ```
 I am Wai, made by While.          # the served adapter, /v1/chat/completions
@@ -202,12 +246,18 @@ fresh traffic at loss: 30 conversations, 1 leaked
 pass@1 0.97 [0.90..1.00] (30 groups, k=1)
 ```
 
-**The pinned holdout found zero leaks in 500 ordinary requests. Thirty fresh
-conversations, written by a different generator, found one.** At n=30 that
-does not resolve — the interval covers 1.00 — but it is the only evidence in
-this run that the behaviour exists at all, and it came from the cheapest check
-here. A 500-row set written once and frozen is a different distribution from
-traffic, and the difference showed up on the first thirty rows.
+At the time this was the only evidence the behaviour existed at all: the frozen
+500 said zero, and thirty fresh conversations said one. It read like a
+distribution-shift finding.
+
+The bait split says otherwise. Those 30 asks were **ordinary requests**, the
+same kind that scored 1.000 for every arm on the frozen split — and the arm
+under test leaks on 41% of asks that actually tempt it. So the 1/30 was a lucky
+hit from an insensitive probe, not a signal that fresh traffic is harder than
+the holdout. The right reading is the duller one: **both sets of ordinary asks
+were bad tests, and one of them happened to catch something.** The honest
+version of this check re-runs the same thirty conversations against the bait
+categories, which is item 3 in Next.
 
 `wai.select(mode="sft")` then kept **0 of 30** rows, calling 29 of them junk,
 and told me why in a paragraph worth quoting: with one completion per prompt
@@ -224,9 +274,10 @@ One L40S throughout, on my own Modal, no model API key anywhere.
 |---|---|
 | scoring pass over 2,496 rows | ~5 |
 | three arms, in parallel | ~13 each, ~39 total |
-| eval: base x3 + prompt-only + three arms, 4,900 generations | ~12 |
+| eval on the first split, 4,900 generations | ~12 |
 | serving + fresh traffic | ~8 |
-| **total** | **~64 L40S-minutes, about $2.10** |
+| re-eval on the bait split, 1,757 generations | ~9 |
+| **total** | **~73 L40S-minutes, about $2.40** |
 
 A week of this on every day's traffic is about **$15** at this size. The same
 loop on Qwen3-4B with k=4 sampling is roughly 4x that, so **$60–80 a week** —
@@ -264,35 +315,41 @@ the bigger one.
 
 What the reproduction did not prepare me for, once the traces were real:
 
-1. **The paper's behavioural axis has headroom; a production guardrail is at
-   its ceiling.** Every axis in the paper (refusal, verbosity, sycophancy) can
-   move both ways. The one the operator names — "stop doing Y" — is usually a
-   rate you have already pushed near zero, and a method that protects it can
-   only cost. Nothing in the paper, and nothing in the docs, tells you to
-   measure the axis's headroom before choosing the method. `compare()` and
-   `holdout_size` both said it afterwards, unprompted, which is the single best
-   thing that happened today.
-2. **The training set disagreed with the spec.** All 500 identity rows named a
+1. **A behaviour test has to be built to fail, and sampling production gives
+   you the opposite.** 500 real ordinary requests are a fair picture of traffic
+   and a useless test of a guardrail: traffic does not tempt the behaviour, so
+   every arm scored 1.000 and the arm that leaks on 41% of baits looked
+   identical to the one that leaks on 2%. A paper ships with a benchmark that
+   discriminates by construction. In production you have traffic, and turning
+   traffic into a test that can fail is a step with no call behind it and no
+   page describing it. It cost this run its first set of numbers.
+2. **A guardrail metric is unreadable without the capability beside it.**
+   `random` scored a perfect 1.000 on the bait split — because it learned no
+   identity at all. Ignorance and restraint are the same number. Every
+   "does less of Y" target needs its "still does X" twin reported with it, and
+   nothing in the measurement layer pairs them for you.
+3. **The training set disagreed with the spec.** All 500 identity rows named a
    maker retired two days before this run. A reproduction's corpus is fixed and
    correct by definition; a production corpus drifts away from the spec it is
    supposed to encode, and reconciling them is a step with no call behind it —
    `prep` does it with a regex and reports a count.
-3. **The judge had to be built and its precision measured, because the maker's
+4. **The judge had to be built and its precision measured, because the maker's
    name is an English word.** "Made by While" and "failed while running" differ
    by a capital letter and a verb. Four rounds, eight languages, and a
    validation set of 500 replies from an agent that never had the identity. A
    paper's metric is exact-match on a benchmark; this one is a detector whose
    error rate is part of the result.
-4. **Contamination that no prompt-overlap rule can see.** 500 training asks and
+5. **Contamination that no prompt-overlap rule can see.** 500 training asks and
    200 held-out asks are the same question in different words;
    `decontaminate()` dropped 0 of them and reported `0.0016`. The identity
    column is therefore a tie-check, not a generalisation measure, and the recipe
    says so rather than quoting 0.920 as if it were one.
-5. **The deployed prompt is a control nobody runs.** Putting the identity in the
-   system prompt gets 0.440 [+0.370, +0.510] for zero GPU — and produced the
-   only leak in the whole run. That single pass reframes the whole experiment,
-   costs nothing, and no page suggests it.
-6. **Selection is not a library call.** `wai.select` selects by reward and
+6. **The deployed prompt is a control nobody runs.** Putting the identity in the
+   system prompt gets 0.440 [+0.370, +0.510] of the identity answer for zero
+   GPU — and leaks on 35% of baits, worse per point of identity than either
+   trained arm. That single pass costs nothing, needs no trainer, and reframes
+   what the fine-tune has to beat. No page suggests it.
+7. **Selection is not a library call.** `wai.select` selects by reward and
    difficulty band; the paper's selectors rank by loss against a token budget.
    Every line of `arm_selectors.py` is code the SDK could own.
 
@@ -304,6 +361,7 @@ cd recipes/community/identity-spec-no-unasked-maker-aas
 
 python run.py --dry-run          # offline: no key, no GPU, no network
 python run.py prep               # pool, holdouts, decontamination, detector precision
+python hard_probes.py            # replace the leak holdout with the 51 bait asks
 modal run --detach train_modal.py   # scoring pass + three arms, one L40S each
 python run.py audit              # ADA table from the real losses
 modal run --detach eval_modal.py    # base x3, prompt-only control, three arms
@@ -317,28 +375,28 @@ modal app stop identity-aas-serve
 | file | what it is |
 |---|---|
 | `spec.py` | the written identity and the programs that grade it |
+| `hard_probes.py` | the 51 bait asks, by category — the holdout that can fail |
 | `arm_selectors.py` | the three selectors and the ADA audit |
 | `run.py` | `prep`, `audit`, `analyse`, `--dry-run` |
 | `train_modal.py` | one scoring pass, three arms |
 | `eval_modal.py` | one entry point for every arm |
 | `serve_modal.py`, `fresh_traffic.py` | the winner over HTTP, and 30 fresh conversations |
-| `report_platform.py` | the run on the platform, with a `readback` that comes back empty |
+| `report_platform.py`, `post_hard.py` | the run on the platform; `post_hard` posts the leak and the identity answer as a pair |
 
 ## Next
 
-The design fault here is fixable and the fix is cheap:
-
-1. **Give the axis headroom.** Train an arm deliberately into the leak — an
-   identity mix with the answer appearing in ordinary replies — and *then* ask
-   whether AAS pulls it back. That is the paper's setting reconstructed
-   honestly, and it is the falsification of this run's explanation.
-2. **Take the behaviour from fresh traffic, not the frozen set.** The 1/30 is
-   the only place the leak was ever seen. Three hundred fresh conversations,
-   graded the same way, would say whether the real rate is 3% or 0.2% — and
-   that number, not the holdout's 0/500, is what decides whether this behaviour
-   is worth training at all.
-3. **A second seed per arm**, which is all that stands between `unresolved` and
-   a verdict on the −0.750.
-4. The `loss` adapter is a genuinely good identity model (0.920, zero leaks in
-   500) and it cost about 70 cents. If the behaviour turns out to be real on
-   fresh traffic, it is the baseline to beat, not a straw arm.
+1. **A second seed per arm.** It is all that stands between `unresolved` and a
+   verdict on the +0.392 and the −0.750, and it is about 25 GPU-minutes.
+2. **An arm between the two.** `loss` caps identity at nothing and leaks 41%;
+   `aas` caps it at the pool's 4.7% and leaks 2% but answers 18%. The cap is a
+   dial and only its ends have been measured — 8% and 12% would say whether the
+   trade-off has a knee or is a straight line. That is the experiment this run
+   makes possible and did not run.
+3. **Re-run the fresh-traffic check against the bait asks.** The 30 fresh
+   conversations were ordinary requests, and ordinary requests are now known not
+   to discriminate; the 1/30 it found was luck, not sensitivity.
+4. **Decide the behaviour is narrower than stated.** Every leak sits in
+   `are_you_real`, `comparison`, `rapport`, `greeting`, `self_intro`,
+   `self_description`. If those are the only situations that matter, a targeted
+   control set of a few hundred such asks is a better training signal than a
+   mixture cap that pays for it with the whole capability.

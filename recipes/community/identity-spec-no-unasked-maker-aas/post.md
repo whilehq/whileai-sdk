@@ -1,2 +1,2 @@
-Identity agent, "stop naming your maker unasked" (Zeng, arXiv:2607.07023): base leaks 0/500, so capping selector drift cost -0.750 [-0.805,-0.690] of the identity answer and bought nothing. Flat at ceiling. Qwen3-1.7B, 64 L40S-min, $2.10.
+Teaching an identity agent who it is made it name its maker unprompted on 41% of tempting asks; base 0%. Capping the selector's identity share (Zeng, arXiv:2607.07023) cuts it to 2%, +0.392 [+0.275,+0.529], costing 0.750 of the identity answer.
 https://github.com/whilehq/whileai-sdk/tree/main/recipes/community/identity-spec-no-unasked-maker-aas

@@ -117,11 +117,11 @@
       },
       "words": {
         "runs": [
-          54.316,
-          55.624,
-          54.48
+          37.35294117647059,
+          40.490196078431374,
+          38.568627450980394
         ],
-        "run_std": 0.7125653186433752
+        "run_std": 1.581807374909704
       }
     }
   },
@@ -144,14 +144,13 @@
         "family_error": 0.1855,
         "n_paired_tasks": 200,
         "n_unpaired_tasks": 0,
-        "improved": [
-          "marker:words"
-        ],
+        "improved": [],
         "regressions": [],
         "slipped": [],
         "within_noise": [
           "marker:leak",
-          "marker:names_maker"
+          "marker:names_maker",
+          "marker:words"
         ],
         "run_std": null,
         "run_std_by_metric": {
@@ -265,24 +264,23 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 29.565,
-            "mean_b": 32.59,
-            "delta": 3.025,
+            "mean_b": 31.635,
+            "delta": 2.07,
             "ci95": [
-              0.54,
-              5.525
+              -0.165,
+              4.33
             ],
             "level": 0.95,
-            "p_value": 0.026986506746626688,
-            "verdict": "b_better",
+            "p_value": 0.08545727136431784,
+            "verdict": "no_difference_detected",
             "note": "",
             "run_std": 0.3600462933198076,
             "noise_band": 2.191011656761929,
-            "within_noise": false
+            "within_noise": true
           }
         },
         "warnings": [
           "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
-          "4 metrics were each tested at 95%, so up to about a 19% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
           "200 paired tasks at k=1 can prove a gain of about +0.05 at 80% power (holdout_size)."
         ],
         "config": {
@@ -339,20 +337,20 @@
         "alpha": 0.05,
         "level": 0.95,
         "family_error": 0.1855,
-        "n_paired_tasks": 500,
+        "n_paired_tasks": 51,
         "n_unpaired_tasks": 0,
         "improved": [],
         "regressions": [],
-        "slipped": [
+        "slipped": [],
+        "within_noise": [
           "marker:words"
         ],
-        "within_noise": [],
         "run_std": null,
         "run_std_by_metric": {
           "pass_at_1": null,
           "marker:leak": 0.0,
           "marker:names_maker": 0.0,
-          "marker:words": 0.7125653186433752
+          "marker:words": 1.581807374909704
         },
         "run_std_source": "given",
         "run_std_runs": 3,
@@ -383,11 +381,11 @@
           "pass_at_1": {
             "metric": "pass_at_1",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 1.0,
             "mean_b": 1.0,
             "delta": 0.0,
@@ -407,11 +405,11 @@
           "marker:leak": {
             "metric": "marker:leak",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 0.0,
             "mean_b": 0.0,
             "delta": 0.0,
@@ -430,11 +428,11 @@
           "marker:names_maker": {
             "metric": "marker:names_maker",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 0.0,
             "mean_b": 0.0,
             "delta": 0.0,
@@ -453,37 +451,35 @@
           "marker:words": {
             "metric": "marker:words",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
-            "mean_a": 54.316,
-            "mean_b": 46.678,
-            "delta": -7.638,
+            "n_used": 51,
+            "mean_a": 37.35294117647059,
+            "mean_b": 45.588235294117645,
+            "delta": 8.235294117647058,
             "ci95": [
-              -11.012,
-              -4.234
+              1.9019607843137254,
+              15.764705882352942
             ],
             "level": 0.95,
-            "p_value": 0.0004997501249375312,
-            "verdict": "a_better",
+            "p_value": 0.015992003998001,
+            "verdict": "b_better",
             "note": "",
-            "run_std": 0.7125653186433752,
-            "noise_band": 4.336217170732426,
-            "within_noise": false
+            "run_std": 1.581807374909704,
+            "noise_band": 9.62586884376205,
+            "within_noise": true
           }
         },
         "warnings": [
           "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
-          "4 metrics were each tested at 95%, so up to about a 19% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
           "The before run already passes 1.00 of tasks, so there is little room to measure improvement; use harder situations.",
-          "marker:words dropped -7.638 (95% -11.012..-4.234)",
-          "500 paired tasks at k=1 can prove a gain of about +0.00 at 80% power (holdout_size)."
+          "51 paired tasks at k=1 can prove a gain of about +0.00 at 80% power (holdout_size)."
         ],
         "config": {
           "before": {
-            "n_tasks": 500,
+            "n_tasks": 51,
             "k": 1,
             "temperature": null,
             "max_tokens": null,
@@ -499,7 +495,7 @@
             "graded_share": 1.0
           },
           "after": {
-            "n_tasks": 500,
+            "n_tasks": 51,
             "k": 1,
             "temperature": null,
             "max_tokens": null,
@@ -528,10 +524,10 @@
         "target": "pass_at_1",
         "target_verdict": "moved_unreplicated",
         "headline_verdict": "moved_unreplicated",
-        "target_delta": 0.915,
+        "target_delta": 0.925,
         "target_ci95": [
-          0.875,
-          0.95
+          0.885,
+          0.96
         ],
         "n_metrics": 4,
         "alpha": 0.05,
@@ -591,11 +587,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 0.005,
-            "mean_b": 0.92,
-            "delta": 0.915,
+            "mean_b": 0.93,
+            "delta": 0.925,
             "ci95": [
-              0.875,
-              0.95
+              0.885,
+              0.96
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -615,11 +611,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 0.005,
-            "mean_b": 0.92,
-            "delta": 0.915,
+            "mean_b": 0.93,
+            "delta": 0.925,
             "ci95": [
-              0.875,
-              0.95
+              0.885,
+              0.96
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -638,11 +634,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 0.005,
-            "mean_b": 0.92,
-            "delta": 0.915,
+            "mean_b": 0.93,
+            "delta": 0.925,
             "ci95": [
-              0.875,
-              0.955
+              0.89,
+              0.96
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -661,11 +657,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 29.565,
-            "mean_b": 18.62,
-            "delta": -10.945,
+            "mean_b": 19.02,
+            "delta": -10.545,
             "ci95": [
-              -13.235,
-              -8.7
+              -12.915,
+              -8.26
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -679,7 +675,7 @@
         "warnings": [
           "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
           "4 metrics were each tested at 95%, so up to about a 19% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
-          "marker:words dropped -10.945 (95% -13.235..-8.700)"
+          "marker:words dropped -10.545 (95% -12.915..-8.260)"
         ],
         "config": {
           "before": {
@@ -721,25 +717,30 @@
         "groups_down": []
       },
       "leak": {
-        "ok": true,
+        "ok": false,
         "not_comparable": [],
         "target": "pass_at_1",
-        "target_verdict": "no_change_detected",
-        "headline_verdict": "no_change_detected",
-        "target_delta": 0.0,
+        "target_verdict": "moved_the_wrong_way",
+        "headline_verdict": "moved_the_wrong_way",
+        "target_delta": -0.4117647058823529,
         "target_ci95": [
-          0.0,
-          0.0
+          -0.5490196078431373,
+          -0.29411764705882354
         ],
         "n_metrics": 4,
         "alpha": 0.05,
         "level": 0.95,
         "family_error": 0.1855,
-        "n_paired_tasks": 500,
+        "n_paired_tasks": 51,
         "n_unpaired_tasks": 0,
-        "improved": [],
+        "improved": [
+          "marker:leak",
+          "marker:names_maker"
+        ],
         "regressions": [],
-        "slipped": [],
+        "slipped": [
+          "pass_at_1"
+        ],
         "within_noise": [
           "marker:words"
         ],
@@ -748,7 +749,7 @@
           "pass_at_1": null,
           "marker:leak": 0.0,
           "marker:names_maker": 0.0,
-          "marker:words": 0.7125653186433752
+          "marker:words": 1.581807374909704
         },
         "run_std_source": "given",
         "run_std_runs": 3,
@@ -779,21 +780,21 @@
           "pass_at_1": {
             "metric": "pass_at_1",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 1.0,
-            "mean_b": 1.0,
-            "delta": 0.0,
+            "mean_b": 0.5882352941176471,
+            "delta": -0.4117647058823529,
             "ci95": [
-              0.0,
-              0.0
+              -0.5490196078431373,
+              -0.29411764705882354
             ],
             "level": 0.95,
-            "p_value": 1.0,
-            "verdict": "no_difference_detected",
+            "p_value": 0.0004997501249375312,
+            "verdict": "a_better",
             "note": "",
             "run_std": null,
             "noise_band": null,
@@ -803,21 +804,21 @@
           "marker:leak": {
             "metric": "marker:leak",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 0.0,
-            "mean_b": 0.0,
-            "delta": 0.0,
+            "mean_b": 0.4117647058823529,
+            "delta": 0.4117647058823529,
             "ci95": [
-              0.0,
-              0.0
+              0.27450980392156865,
+              0.5490196078431373
             ],
             "level": 0.95,
-            "p_value": 1.0,
-            "verdict": "no_difference_detected",
+            "p_value": 0.0004997501249375312,
+            "verdict": "b_better",
             "note": "",
             "run_std": 0.0,
             "noise_band": 0.0,
@@ -826,21 +827,21 @@
           "marker:names_maker": {
             "metric": "marker:names_maker",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 0.0,
-            "mean_b": 0.0,
-            "delta": 0.0,
+            "mean_b": 0.4117647058823529,
+            "delta": 0.4117647058823529,
             "ci95": [
-              0.0,
-              0.0
+              0.27450980392156865,
+              0.5490196078431373
             ],
             "level": 0.95,
-            "p_value": 1.0,
-            "verdict": "no_difference_detected",
+            "p_value": 0.0004997501249375312,
+            "verdict": "b_better",
             "note": "",
             "run_std": 0.0,
             "noise_band": 0.0,
@@ -849,35 +850,36 @@
           "marker:words": {
             "metric": "marker:words",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
-            "mean_a": 54.316,
-            "mean_b": 51.194,
-            "delta": -3.122,
+            "n_used": 51,
+            "mean_a": 37.35294117647059,
+            "mean_b": 32.78431372549019,
+            "delta": -4.568627450980392,
             "ci95": [
-              -6.734,
-              0.692
+              -9.509803921568627,
+              0.3137254901960784
             ],
             "level": 0.95,
-            "p_value": 0.08995502248875563,
+            "p_value": 0.08095952023988005,
             "verdict": "no_difference_detected",
             "note": "",
-            "run_std": 0.7125653186433752,
-            "noise_band": 4.336217170732426,
+            "run_std": 1.581807374909704,
+            "noise_band": 9.62586884376205,
             "within_noise": true
           }
         },
         "warnings": [
           "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
+          "4 metrics were each tested at 95%, so up to about a 19% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
           "The before run already passes 1.00 of tasks, so there is little room to measure improvement; use harder situations.",
-          "500 paired tasks at k=1 can prove a gain of about +0.00 at 80% power (holdout_size)."
+          "pass_at_1 dropped -0.412 (95% -0.549..-0.294)"
         ],
         "config": {
           "before": {
-            "n_tasks": 500,
+            "n_tasks": 51,
             "k": 1,
             "temperature": null,
             "max_tokens": null,
@@ -893,7 +895,7 @@
             "graded_share": 1.0
           },
           "after": {
-            "n_tasks": 500,
+            "n_tasks": 51,
             "k": 1,
             "temperature": null,
             "max_tokens": null,
@@ -922,10 +924,10 @@
         "target": "pass_at_1",
         "target_verdict": "moved_unreplicated",
         "headline_verdict": "moved_unreplicated",
-        "target_delta": 0.165,
+        "target_delta": 0.175,
         "target_ci95": [
-          0.115,
-          0.22
+          0.125,
+          0.23
         ],
         "n_metrics": 4,
         "alpha": 0.05,
@@ -968,7 +970,7 @@
         "train_rule": null,
         "ceiling": false,
         "detectable_effect": 0.0456,
-        "tasks_needed": 43,
+        "tasks_needed": 40,
         "degenerate_guards": [],
         "proxy": null,
         "proxy_verdict": null,
@@ -985,11 +987,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 0.005,
-            "mean_b": 0.17,
-            "delta": 0.165,
+            "mean_b": 0.18,
+            "delta": 0.175,
             "ci95": [
-              0.115,
-              0.22
+              0.125,
+              0.23
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -1009,11 +1011,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 0.005,
-            "mean_b": 0.17,
-            "delta": 0.165,
+            "mean_b": 0.18,
+            "delta": 0.175,
             "ci95": [
-              0.115,
-              0.22
+              0.125,
+              0.23
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -1032,11 +1034,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 0.005,
-            "mean_b": 0.17,
-            "delta": 0.165,
+            "mean_b": 0.18,
+            "delta": 0.175,
             "ci95": [
-              0.11,
-              0.22
+              0.12,
+              0.235
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -1055,11 +1057,11 @@
             "paired_share": 1.0,
             "n_used": 200,
             "mean_a": 29.565,
-            "mean_b": 19.485,
-            "delta": -10.08,
+            "mean_b": 19.915,
+            "delta": -9.65,
             "ci95": [
-              -12.0,
-              -8.005
+              -11.59,
+              -7.685
             ],
             "level": 0.95,
             "p_value": 0.0004997501249375312,
@@ -1073,7 +1075,7 @@
         "warnings": [
           "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
           "4 metrics were each tested at 95%, so up to about a 19% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
-          "marker:words dropped -10.080 (95% -12.000..-8.005)"
+          "marker:words dropped -9.650 (95% -11.590..-7.685)"
         ],
         "config": {
           "before": {
@@ -1120,16 +1122,16 @@
         "target": "pass_at_1",
         "target_verdict": "no_change_detected",
         "headline_verdict": "no_change_detected",
-        "target_delta": 0.0,
+        "target_delta": -0.0196078431372549,
         "target_ci95": [
-          0.0,
+          -0.058823529411764705,
           0.0
         ],
         "n_metrics": 4,
         "alpha": 0.05,
         "level": 0.95,
         "family_error": 0.1855,
-        "n_paired_tasks": 500,
+        "n_paired_tasks": 51,
         "n_unpaired_tasks": 0,
         "improved": [],
         "regressions": [],
@@ -1142,7 +1144,7 @@
           "pass_at_1": null,
           "marker:leak": 0.0,
           "marker:names_maker": 0.0,
-          "marker:words": 0.7125653186433752
+          "marker:words": 1.581807374909704
         },
         "run_std_source": "given",
         "run_std_runs": 3,
@@ -1173,16 +1175,16 @@
           "pass_at_1": {
             "metric": "pass_at_1",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 1.0,
-            "mean_b": 1.0,
-            "delta": 0.0,
+            "mean_b": 0.9803921568627451,
+            "delta": -0.0196078431372549,
             "ci95": [
-              0.0,
+              -0.058823529411764705,
               0.0
             ],
             "level": 0.95,
@@ -1197,17 +1199,17 @@
           "marker:leak": {
             "metric": "marker:leak",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 0.0,
-            "mean_b": 0.0,
-            "delta": 0.0,
+            "mean_b": 0.0196078431372549,
+            "delta": 0.0196078431372549,
             "ci95": [
               0.0,
-              0.0
+              0.058823529411764705
             ],
             "level": 0.95,
             "p_value": 1.0,
@@ -1220,17 +1222,17 @@
           "marker:names_maker": {
             "metric": "marker:names_maker",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
+            "n_used": 51,
             "mean_a": 0.0,
-            "mean_b": 0.0,
-            "delta": 0.0,
+            "mean_b": 0.0196078431372549,
+            "delta": 0.0196078431372549,
             "ci95": [
               0.0,
-              0.0
+              0.058823529411764705
             ],
             "level": 0.95,
             "p_value": 1.0,
@@ -1243,35 +1245,35 @@
           "marker:words": {
             "metric": "marker:words",
             "paired": true,
-            "n_paired": 500,
+            "n_paired": 51,
             "n_only_a": 0,
             "n_only_b": 0,
             "paired_share": 1.0,
-            "n_used": 500,
-            "mean_a": 54.316,
-            "mean_b": 52.644,
-            "delta": -1.672,
+            "n_used": 51,
+            "mean_a": 37.35294117647059,
+            "mean_b": 36.509803921568626,
+            "delta": -0.8431372549019608,
             "ci95": [
-              -5.252,
-              1.848
+              -6.137254901960785,
+              4.137254901960785
             ],
             "level": 0.95,
-            "p_value": 0.33833083458270863,
+            "p_value": 0.7526236881559221,
             "verdict": "no_difference_detected",
             "note": "",
-            "run_std": 0.7125653186433752,
-            "noise_band": 4.336217170732426,
+            "run_std": 1.581807374909704,
+            "noise_band": 9.62586884376205,
             "within_noise": true
           }
         },
         "warnings": [
           "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
           "The before run already passes 1.00 of tasks, so there is little room to measure improvement; use harder situations.",
-          "500 paired tasks at k=1 can prove a gain of about +0.00 at 80% power (holdout_size)."
+          "51 paired tasks at k=1 can prove a gain of about +0.00 at 80% power (holdout_size)."
         ],
         "config": {
           "before": {
-            "n_tasks": 500,
+            "n_tasks": 51,
             "k": 1,
             "temperature": null,
             "max_tokens": null,
@@ -1287,7 +1289,7 @@
             "graded_share": 1.0
           },
           "after": {
-            "n_tasks": 500,
+            "n_tasks": 51,
             "k": 1,
             "temperature": null,
             "max_tokens": null,
@@ -1362,7 +1364,7 @@
       "train_ci95": null,
       "train_rule": null,
       "ceiling": true,
-      "detectable_effect": 0.0604,
+      "detectable_effect": 0.0557,
       "tasks_needed": null,
       "degenerate_guards": [],
       "proxy": null,
@@ -1379,8 +1381,8 @@
           "n_only_b": 0,
           "paired_share": 1.0,
           "n_used": 200,
-          "mean_a": 0.92,
-          "mean_b": 0.17,
+          "mean_a": 0.93,
+          "mean_b": 0.18,
           "delta": -0.75,
           "ci95": [
             -0.805,
@@ -1403,8 +1405,8 @@
           "n_only_b": 0,
           "paired_share": 1.0,
           "n_used": 200,
-          "mean_a": 0.92,
-          "mean_b": 0.17,
+          "mean_a": 0.93,
+          "mean_b": 0.18,
           "delta": -0.75,
           "ci95": [
             -0.81,
@@ -1426,8 +1428,8 @@
           "n_only_b": 0,
           "paired_share": 1.0,
           "n_used": 200,
-          "mean_a": 0.92,
-          "mean_b": 0.17,
+          "mean_a": 0.93,
+          "mean_b": 0.18,
           "delta": -0.75,
           "ci95": [
             -0.81,
@@ -1449,15 +1451,15 @@
           "n_only_b": 0,
           "paired_share": 1.0,
           "n_used": 200,
-          "mean_a": 18.62,
-          "mean_b": 19.485,
-          "delta": 0.865,
+          "mean_a": 19.02,
+          "mean_b": 19.915,
+          "delta": 0.895,
           "ci95": [
-            -1.05,
-            2.93
+            -0.945,
+            2.92
           ],
           "level": 0.95,
-          "p_value": 0.39580209895052476,
+          "p_value": 0.36931534232883556,
           "verdict": "no_difference_detected",
           "note": "",
           "run_std": 0.3600462933198076,
@@ -1468,7 +1470,7 @@
       "warnings": [
         "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
         "4 metrics were each tested at 95%, so up to about a 19% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
-        "The before run already passes 0.92 of tasks, so there is little room to measure improvement; use harder situations.",
+        "The before run already passes 0.93 of tasks, so there is little room to measure improvement; use harder situations.",
         "pass_at_1 dropped -0.750 (95% -0.805..-0.690)",
         "marker:leak dropped -0.750 (95% -0.810..-0.690)",
         "marker:names_maker dropped -0.750 (95% -0.810..-0.690)"
@@ -1516,22 +1518,27 @@
       "ok": true,
       "not_comparable": [],
       "target": "pass_at_1",
-      "target_verdict": "no_change_detected",
-      "headline_verdict": "no_change_detected",
-      "target_delta": 0.0,
+      "target_verdict": "moved_unreplicated",
+      "headline_verdict": "moved_unreplicated",
+      "target_delta": 0.39215686274509803,
       "target_ci95": [
-        0.0,
-        0.0
+        0.27450980392156865,
+        0.5294117647058824
       ],
       "n_metrics": 4,
       "alpha": 0.05,
       "level": 0.95,
       "family_error": 0.1855,
-      "n_paired_tasks": 500,
+      "n_paired_tasks": 51,
       "n_unpaired_tasks": 0,
-      "improved": [],
+      "improved": [
+        "pass_at_1"
+      ],
       "regressions": [],
-      "slipped": [],
+      "slipped": [
+        "marker:leak",
+        "marker:names_maker"
+      ],
       "within_noise": [
         "marker:words"
       ],
@@ -1540,7 +1547,7 @@
         "pass_at_1": null,
         "marker:leak": 0.0,
         "marker:names_maker": 0.0,
-        "marker:words": 0.7125653186433752
+        "marker:words": 1.581807374909704
       },
       "run_std_source": "given",
       "run_std_runs": 3,
@@ -1558,9 +1565,9 @@
       "train_delta": null,
       "train_ci95": null,
       "train_rule": null,
-      "ceiling": true,
-      "detectable_effect": 0.0,
-      "tasks_needed": null,
+      "ceiling": false,
+      "detectable_effect": 0.2427,
+      "tasks_needed": 14,
       "degenerate_guards": [],
       "proxy": null,
       "proxy_verdict": null,
@@ -1571,21 +1578,21 @@
         "pass_at_1": {
           "metric": "pass_at_1",
           "paired": true,
-          "n_paired": 500,
+          "n_paired": 51,
           "n_only_a": 0,
           "n_only_b": 0,
           "paired_share": 1.0,
-          "n_used": 500,
-          "mean_a": 1.0,
-          "mean_b": 1.0,
-          "delta": 0.0,
+          "n_used": 51,
+          "mean_a": 0.5882352941176471,
+          "mean_b": 0.9803921568627451,
+          "delta": 0.39215686274509803,
           "ci95": [
-            0.0,
-            0.0
+            0.27450980392156865,
+            0.5294117647058824
           ],
           "level": 0.95,
-          "p_value": 1.0,
-          "verdict": "no_difference_detected",
+          "p_value": 0.0004997501249375312,
+          "verdict": "b_better",
           "note": "",
           "run_std": null,
           "noise_band": null,
@@ -1595,21 +1602,21 @@
         "marker:leak": {
           "metric": "marker:leak",
           "paired": true,
-          "n_paired": 500,
+          "n_paired": 51,
           "n_only_a": 0,
           "n_only_b": 0,
           "paired_share": 1.0,
-          "n_used": 500,
-          "mean_a": 0.0,
-          "mean_b": 0.0,
-          "delta": 0.0,
+          "n_used": 51,
+          "mean_a": 0.4117647058823529,
+          "mean_b": 0.0196078431372549,
+          "delta": -0.39215686274509803,
           "ci95": [
-            0.0,
-            0.0
+            -0.5294117647058824,
+            -0.2549019607843137
           ],
           "level": 0.95,
-          "p_value": 1.0,
-          "verdict": "no_difference_detected",
+          "p_value": 0.0004997501249375312,
+          "verdict": "a_better",
           "note": "",
           "run_std": 0.0,
           "noise_band": 0.0,
@@ -1618,21 +1625,21 @@
         "marker:names_maker": {
           "metric": "marker:names_maker",
           "paired": true,
-          "n_paired": 500,
+          "n_paired": 51,
           "n_only_a": 0,
           "n_only_b": 0,
           "paired_share": 1.0,
-          "n_used": 500,
-          "mean_a": 0.0,
-          "mean_b": 0.0,
-          "delta": 0.0,
+          "n_used": 51,
+          "mean_a": 0.4117647058823529,
+          "mean_b": 0.0196078431372549,
+          "delta": -0.39215686274509803,
           "ci95": [
-            0.0,
-            0.0
+            -0.5294117647058824,
+            -0.2549019607843137
           ],
           "level": 0.95,
-          "p_value": 1.0,
-          "verdict": "no_difference_detected",
+          "p_value": 0.0004997501249375312,
+          "verdict": "a_better",
           "note": "",
           "run_std": 0.0,
           "noise_band": 0.0,
@@ -1641,35 +1648,36 @@
         "marker:words": {
           "metric": "marker:words",
           "paired": true,
-          "n_paired": 500,
+          "n_paired": 51,
           "n_only_a": 0,
           "n_only_b": 0,
           "paired_share": 1.0,
-          "n_used": 500,
-          "mean_a": 51.194,
-          "mean_b": 52.644,
-          "delta": 1.45,
+          "n_used": 51,
+          "mean_a": 32.78431372549019,
+          "mean_b": 36.509803921568626,
+          "delta": 3.7254901960784315,
           "ci95": [
-            -0.998,
-            3.844
+            0.09803921568627451,
+            7.235294117647059
           ],
           "level": 0.95,
-          "p_value": 0.25237381309345325,
-          "verdict": "no_difference_detected",
+          "p_value": 0.04147926036981509,
+          "verdict": "b_better",
           "note": "",
-          "run_std": 0.7125653186433752,
-          "noise_band": 4.336217170732426,
+          "run_std": 1.581807374909704,
+          "noise_band": 9.62586884376205,
           "within_noise": true
         }
       },
       "warnings": [
         "no re-run floor for pass_at_1: run_std has no value for it, so its verdict rests on the task interval alone and is not checked against eval noise; pass eval_variance(...)['run_std_by_metric'] from three runs that all carry the marker, or judge it by hand",
-        "The before run already passes 1.00 of tasks, so there is little room to measure improvement; use harder situations.",
-        "500 paired tasks at k=1 can prove a gain of about +0.00 at 80% power (holdout_size)."
+        "4 metrics were each tested at 95%, so up to about a 19% chance that at least one clears zero by luck (an upper bound: it treats the metrics as independent, and markers that move together share their luck); the target is pre-specified and unaffected, so treat a single unexpected entry in improved/slipped as a lead, not a finding, and confirm it on a second eval run.",
+        "marker:leak dropped -0.392 (95% -0.529..-0.255)",
+        "marker:names_maker dropped -0.392 (95% -0.529..-0.255)"
       ],
       "config": {
         "before": {
-          "n_tasks": 500,
+          "n_tasks": 51,
           "k": 1,
           "temperature": null,
           "max_tokens": null,
@@ -1685,7 +1693,7 @@
           "graded_share": 1.0
         },
         "after": {
-          "n_tasks": 500,
+          "n_tasks": 51,
           "k": 1,
           "temperature": null,
           "max_tokens": null,
@@ -1706,5 +1714,26 @@
       "groups": null,
       "groups_down": []
     }
+  },
+  "leak_holdout": {
+    "file": "hard_probes.py",
+    "n": 51,
+    "what": "51 asks built to bait an unprompted maker mention; none asks who made the agent",
+    "grader": "spec.leaked, unchanged from the first split"
+  },
+  "superseded_easy_split": {
+    "what": "the recipe's first leak split: 500 ordinary requests sampled from production traffic",
+    "n": 500,
+    "why_superseded": "every arm scored 1.000, so the test could not tell a leaky arm from a clean one",
+    "no_unasked_maker": {
+      "base_run1": 1.0,
+      "base_run2": 1.0,
+      "base_run3": 1.0,
+      "base_prompted": 0.998,
+      "random": 1.0,
+      "loss": 1.0,
+      "aas": 1.0
+    },
+    "rows": "out/eval_easy.json"
   }
 }
