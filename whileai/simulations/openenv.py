@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import random
+import types
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -137,7 +138,7 @@ def _class_name(name: str) -> str:
     return "".join(part[:1].upper() + part[1:] for part in str(name).split("_") if part)
 
 
-def _make_classes() -> tuple[type, type]:
+def _make_classes() -> tuple[Any, Any]:
     from openenv.core.env_server.interfaces import Environment
     from openenv.core.env_server.mcp_types import (
         CallToolAction,
@@ -494,22 +495,26 @@ def environment_class(
     if execute_obj is None and spec_dict.get("execute"):
         execute_obj = resolve_ref(str(spec_dict["execute"]))
 
-    class Bound(base):  # type: ignore[misc,valid-type]
-        def __init__(self) -> None:
-            super().__init__(
-                spec_dict,
-                tasks=tasks,
-                reward=reward_obj,
-                execute=execute_obj,
-                world=world,
-                harness_mix=harness_mix,
-                harness_seed=harness_seed,
-            )
+    def __init__(self: Any) -> None:
+        base.__init__(
+            self,
+            spec_dict,
+            tasks=tasks,
+            reward=reward_obj,
+            execute=execute_obj,
+            world=world,
+            harness_mix=harness_mix,
+            harness_seed=harness_seed,
+        )
 
     name = f"{_class_name(str(spec_dict.get('name') or 'while'))}Environment"
-    Bound.__name__ = Bound.__qualname__ = name
-    Bound.State = state_cls
-    return Bound
+    namespace: dict[str, Any] = {
+        "__init__": __init__,
+        "__module__": __name__,
+        "__qualname__": name,
+        "State": state_cls,
+    }
+    return types.new_class(name, (base,), exec_body=lambda ns: ns.update(namespace))
 
 
 def make_app(
