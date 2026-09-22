@@ -19,6 +19,7 @@ import requests
 from transformers import AutoTokenizer
 
 import whileai as wai
+from whileai.config import provenance
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import support
@@ -46,6 +47,7 @@ def stratified(tasks, n, seed=0):
 
 
 def main():
+    print(provenance(), file=sys.stderr)
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", required=True)
     ap.add_argument("--arm", default="both")

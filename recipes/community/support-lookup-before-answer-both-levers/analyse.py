@@ -8,9 +8,11 @@ attribution the method is actually about.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import whileai as wai
+from whileai.config import provenance
 
 OUT = Path("out")
 
@@ -23,6 +25,7 @@ def load(name):
 
 
 def main():
+    print(provenance(), file=sys.stderr)
     search = load("search.json")
     searched = search["searched_harness"]
     neither = [load(f"cell_neither_run{i}.json") for i in range(3)]

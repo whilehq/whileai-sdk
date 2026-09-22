@@ -365,7 +365,7 @@ FALLBACK = os.environ.get("SUPPORT_FALLBACK_HARNESS", "01_skills")
 
 @app.local_entrypoint()
 def main(stage: str = "all"):
-    print(provenance())
+    print(provenance(), file=sys.stderr)
     searched = os.environ.get("SUPPORT_SEARCHED", "")
     if stage in ("all", "search"):
         out = search.remote()
