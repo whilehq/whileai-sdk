@@ -24,6 +24,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
   dropping Train. Two dead links fixed: the RLHF book's Evaluation chapter and a
   `.md` suffix in a docs.while.ai page link; the style guide's signature example
   cites the file `class Judge` is actually in.
+- The style ratchet pins how far over the eight-parameter cap a call is, not only how
+  many calls are over it. `wide_calls` has read 27 since the standard landed while
+  `simulate` went 43 -> 45, `delta_report` 17 -> 18 and `judge_trust` 14 -> 15 underneath
+  it, so an already-failing call could keep taking arguments silently. Two new pins,
+  `widest_call` (45) and `wide_call_overage` (194, the total parameters over the cap), and
+  `docs/reference/style.md`'s "What the ratchet checks" table is now asserted against the
+  pins instead of being kept by hand: four of its numbers had drifted (#459, #460).
+
 - Docs no longer tell a reader to type a path that raises. `docs/reference/what-to-run.md`
   wrote `wai.score.eval_power` and `wai.recommend`, and `docs/reference/five-calls.md`
   opened `import whileai as wai` and then called `wai.delta_report` and re-imported the

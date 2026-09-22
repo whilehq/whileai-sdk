@@ -135,8 +135,10 @@ scored = data.grade(judge)
 **3. Eight parameters.** A public function, method or constructor takes
 at most eight, keyword-only past the first. If it needs more, it is two
 things: split the object, or accept a typed options object. `simulate`
-takes forty-three today; that is the ratchet's starting line, not a
-licence. *(optim.AdamW has eight; dspy.Predict has three.)*
+takes forty-five today; that is the ratchet's starting line, not a
+licence, and a call already over the cap does not get to keep growing:
+the ratchet pins the widest signature and the total overage as well as
+the count. *(optim.AdamW has eight; dspy.Predict has three.)*
 
 **4. One noun flows through every stage.** `Rows` (today `SimulationData`
 and `ScoredData`) is the tensor. Every stage takes it and returns it, or
@@ -236,17 +238,25 @@ grows:
 
 | Count | Rule | Today |
 |---|---|---|
-| names in `whileai.simulations.__all__` | 1 | 212 |
+| names in `whileai.simulations.__all__` | 1 | 208 |
 | names in `whileai.__all__` (the front door) | 1 | 31 |
 | front-door calls returning a bare `dict` or tuple | 5 | 3 |
 | public calls or constructors with more than 8 parameters (record dataclasses exempt) | 3 | 27 |
-| public names starting `format_` | 5 | 13 |
+| parameters on the widest public call (`simulate`) | 3 | 45 |
+| parameters over the cap, summed across those 27 calls | 3 | 194 |
+| public names starting `format_` | 5 | 12 |
 | public names starting `attach_` or `stamp_` | 4 | 6 |
 | public names starting `build_`, `load_`, `run_` or ending `_of`, `_rows` | 6 | 17 |
 | imports that are not `import whileai as wai` (`tests/api/test_alias_surface.py`) | 1 | 98 |
 
 Lower a number in the test when you retire a name. Never raise one. A PR
 that has to raise one says why in the body and gets a second reviewer.
+
+The numbers in this table are read off the test, not maintained by hand.
+Four of them had drifted by the time #459 and #460 were re-checked on
+0.123: `simulate` had gone 43 -> 45 and `delta_report` 17 -> 18 without
+moving the count of wide calls, which is why the widest-signature and
+total-overage rows exist.
 
 ## Migration
 

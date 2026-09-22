@@ -33,6 +33,16 @@ PINS = {
     # `Selection` off, #712). See #456.
     "front_door": 31,
     "wide_calls": 27,  # rule 3: public calls with more than MAX_PARAMS parameters
+    # rule 3, the other direction. `wide_calls` counts HOW MANY calls are over
+    # the cap and says nothing about how far over, so a call that is already
+    # failing can keep taking arguments without moving a pin. Between #459
+    # being filed (2026-09-18) and 0.123, `simulate` went 43 -> 45,
+    # `delta_report` 17 -> 18 and `judge_trust` 14 -> 15, and the count stayed
+    # at 27 the whole time. These two pin the size of the problem, not just
+    # its shape: the widest signature, and the total number of parameters over
+    # the cap across all of them.
+    "widest_call": 45,  # parameters on the widest public call (`simulate`)
+    "wide_call_overage": 194,  # sum of (params - MAX_PARAMS) over every wide call
     "format_twins": 12,  # rule 5: format_* functions instead of __str__ on a report
     "bare_returns": 3,  # rule 5: front-door calls returning a bare dict or tuple
     "in_place_mutators": 6,  # rule 4: attach_* / stamp_* free functions over rows
@@ -93,6 +103,12 @@ def _counts() -> dict[str, int]:
         "front_door": len(whileai.__all__),
         "bare_returns": len(_bare_return_calls()),
         "wide_calls": sum(1 for obj in calls.values() if _param_count(obj) > MAX_PARAMS),
+        "widest_call": max((_param_count(obj) for obj in calls.values()), default=0),
+        "wide_call_overage": sum(
+            _param_count(obj) - MAX_PARAMS
+            for obj in calls.values()
+            if _param_count(obj) > MAX_PARAMS
+        ),
         "format_twins": sum(1 for n in names if n.startswith("format_")),
         "in_place_mutators": sum(1 for n in names if n.startswith(("attach_", "stamp_"))),
         "implementation_names": sum(
@@ -107,10 +123,18 @@ def _counts() -> dict[str, int]:
 def test_surface_does_not_grow(key: str) -> None:
     now = _counts()[key]
     pin = PINS[key]
-    assert now <= pin, (
-        f"{key}: {now} public names, pin is {pin}. docs/reference/style.md retires this "
-        f"shape; put the new name one dot down, or make it a method on the rows object."
-    )
+    if key in ("widest_call", "wide_call_overage"):
+        assert now <= pin, (
+            f"{key}: {now}, pin is {pin}. docs/reference/style.md rule 3 caps a public "
+            f"call at {MAX_PARAMS} parameters. A call already over the cap does not get "
+            f"to keep growing: put the new argument on a typed options object (rule 2) "
+            f"or take one off. test_wide_calls_are_named prints every call and its count."
+        )
+    else:
+        assert now <= pin, (
+            f"{key}: {now} public names, pin is {pin}. docs/reference/style.md retires this "
+            f"shape; put the new name one dot down, or make it a method on the rows object."
+        )
     if now < pin:
         pytest.fail(
             f"{key}: {now} < pin {pin}. Good: lower PINS[{key!r}] to {now} in this PR "
@@ -169,3 +193,55 @@ def test_wide_calls_are_named() -> None:
         if _param_count(obj) > MAX_PARAMS
     )
     assert len(wide) <= PINS["wide_calls"], wide
+    # The widest one is the migration's target: style.md's migration section
+    # puts `simulate`'s kwargs behind `world=`, `sampling=` and `budget=`.
+    widest = max(wide, key=lambda pair: pair[1])
+    assert widest[1] <= PINS["widest_call"], widest
+
+
+def test_the_standard_quotes_the_numbers_the_ratchet_holds() -> None:
+    """``docs/reference/style.md`` has a "What the ratchet checks" table and
+    a rule 3 sentence naming ``simulate``'s parameter count. Both are written
+    by hand and both had drifted by 0.123: the table said 212 exports and 13
+    ``format_*`` twins against 208 and 12, and rule 3 said forty-three
+    parameters against forty-five. #459 and #460 were filed off those numbers
+    and arrived stale. The standard quotes the test now, and this fails when
+    it stops."""
+    import re
+    from pathlib import Path
+
+    from tests.api.test_alias_surface import LEGACY_IMPORTS
+
+    page = (Path(__file__).resolve().parents[2] / "docs" / "reference" / "style.md").read_text(
+        encoding="utf-8"
+    )
+
+    rows = {
+        "names in `whileai.simulations.__all__`": PINS["exports"],
+        "names in `whileai.__all__` (the front door)": PINS["front_door"],
+        "front-door calls returning a bare `dict` or tuple": PINS["bare_returns"],
+        "public calls or constructors with more than 8 parameters": PINS["wide_calls"],
+        "parameters on the widest public call": PINS["widest_call"],
+        "parameters over the cap, summed across": PINS["wide_call_overage"],
+        "public names starting `format_`": PINS["format_twins"],
+        "public names starting `attach_` or `stamp_`": PINS["in_place_mutators"],
+        "public names starting `build_`, `load_`, `run_`": PINS["implementation_names"],
+        "imports that are not `import whileai as wai`": LEGACY_IMPORTS,
+    }
+    wrong = []
+    for label, pin in rows.items():
+        line = next((ln for ln in page.split("\n") if ln.startswith("|") and label in ln), None)
+        if line is None:
+            wrong.append(f"{label!r}: no row in the table")
+            continue
+        printed = int(line.rstrip("| ").rsplit("|", 1)[-1].strip())
+        if printed != pin:
+            wrong.append(f"{label!r}: the page says {printed}, the pin is {pin}")
+    assert not wrong, "docs/reference/style.md drifted from the pins:\n" + "\n".join(wrong)
+
+    words = {8: "eight", 43: "forty-three", 44: "forty-four", 45: "forty-five", 46: "forty-six"}
+    said = re.search(r"`simulate`\s*\ntakes ([a-z-]+) today", page)
+    assert said, "rule 3 no longer names simulate's parameter count"
+    assert said.group(1) == words.get(PINS["widest_call"], "?"), (
+        f"rule 3 says simulate takes {said.group(1)}; the pin is {PINS['widest_call']}"
+    )
