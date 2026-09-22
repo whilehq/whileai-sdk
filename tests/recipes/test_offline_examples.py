@@ -71,6 +71,7 @@ CLI_EXAMPLES = [
     "community/what-trl-does-with-the-loss-mask/run.py",
     "community/airline-voice-concise-under-probe-outcome-filter/run.py",
     "community/process-vs-outcome-reward/run.py",
+    "community/process-vs-outcome-reward/report_platform.py",
     "community/identity-spec-no-unasked-maker-aas/run.py",
     "community/grpo-group-size-at-fixed-budget/run.py",
     # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)
