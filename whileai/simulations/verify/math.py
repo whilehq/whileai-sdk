@@ -9,6 +9,7 @@ common answer envelopes: ``\\boxed{...}``, "the answer is X", trailing number.
 
 from __future__ import annotations
 
+import os
 import re
 import threading
 from typing import Any
@@ -18,6 +19,13 @@ from .base import Verifier
 #: Two floats closer than this are the same number: rounding in a printed
 #: answer, not a wrong answer. (convention, untested)
 NUMERIC_TOLERANCE = 1e-6
+
+#: Seconds Math-Verify may spend parsing one expression or deciding one
+#: comparison before the row counts as unparsed: Math-Verify's own default,
+#: kept so its published agreement numbers hold. Its clock is signal.alarm,
+#: which only the main thread on POSIX may set; worker threads and Windows
+#: run with no clock (Windows would otherwise spawn a process per call).
+MATH_VERIFY_TIMEOUT_S = 5
 
 _ANSWER_IS = re.compile(r"(?:answer|result|solution)\s*(?:is|=|:)\s*\$?([^\n.]+)", re.I)
 _NUMBER = re.compile(r"-?\d[\d,]*\.?\d*(?:[eE][-+]?\d+)?")
@@ -123,15 +131,22 @@ class MathEqual(Verifier):
     def check(self, candidate: str, reference: Any, row: dict) -> Any:
         if reference is None:
             return None
-        # Math-Verify's timeouts use signal.alarm, which only the main thread
-        # may set; graders run in worker threads, so there they run without one.
-        main = threading.current_thread() is threading.main_thread()
-        kw: dict[str, Any] = {} if main else {"parsing_timeout": None}
+        timeout = _timeout()
+        kw: dict[str, Any] = {"parsing_timeout": timeout}
         gold = self._parse(f"${reference}$", **kw)
         if not gold:
             return None, f"reference {reference!r} is not a math expression"
         got = self._parse(str(candidate or ""), **kw)
         if not got:
             return 0, "no answer found"
-        ok = bool(self._verify(gold, got, timeout_seconds=5 if main else None))
+        ok = bool(self._verify(gold, got, timeout_seconds=timeout))
         return (1 if ok else 0), f"math-verify: {'equal' if ok else 'not equal'}"
+
+
+def _timeout() -> int | None:
+    """``MATH_VERIFY_TIMEOUT_S`` where Math-Verify can set its alarm (the main
+    thread on POSIX), else ``None``: the graders run in worker threads, and
+    Windows has no ``signal.alarm``."""
+    if os.name != "posix" or threading.current_thread() is not threading.main_thread():
+        return None
+    return MATH_VERIFY_TIMEOUT_S

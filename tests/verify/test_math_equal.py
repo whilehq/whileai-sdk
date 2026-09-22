@@ -63,6 +63,19 @@ def test_grades_from_worker_threads():
         )
 
 
+def test_the_clock_runs_only_where_math_verify_can_set_it(monkeypatch):
+    """signal.alarm exists on POSIX and only the main thread may arm it;
+    everywhere else Math-Verify runs with no clock."""
+    from whileai.simulations.verify import math as m
+
+    monkeypatch.setattr(m.os, "name", "posix")
+    assert m._timeout() == m.MATH_VERIFY_TIMEOUT_S
+    with ThreadPoolExecutor(1) as ex:
+        assert ex.submit(m._timeout).result() is None
+    monkeypatch.setattr(m.os, "name", "nt")
+    assert m._timeout() is None
+
+
 def test_words_compare_as_symbols_and_an_empty_reference_is_unjudged():
     assert _reward("\\boxed{Tuesday}", "Tuesday") == 1
     assert _reward("\\boxed{Monday}", "Tuesday") == 0
