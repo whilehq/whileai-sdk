@@ -761,6 +761,63 @@ def three_sets(p):
     return c.render()
 
 
+def harness_loop(p):
+    c = Canvas(
+        300,
+        p,
+        "Harness optimization: traces split by day, the agent writes a candidate, the gate "
+        "checks holdout, a second model and cost, the pick serves, the next day is scored",
+    )
+    row(
+        c,
+        24,
+        [
+            ("--traces yesterday.jsonl", "one task per distinct ask", False),
+            ("split by day", ["latest days = holdout", "near-copies dropped"], True),
+            ("proposal.md", "worst rows on train days", False),
+        ],
+        mono=True,
+    )
+    c.path("M 580 80 L 580 100 L 116 100 L 116 122", green=True)
+    xs = row(
+        c,
+        124,
+        [
+            ("candidates/01_x.py", "the agent changes one thing", True),
+            ("the gate", ["holdout clears zero", "second model agrees", "cost <= baseline"], False),
+            ("serve, then next day", "same judge, one LiveDay", False),
+        ],
+        h=72,
+        mono=True,
+    )
+    c.path(
+        f"M {xs[2] + 100} 196 L {xs[2] + 100} 240 L {xs[0] + 100} 240 L {xs[0] + 100} 196",
+        dashed=True,
+    )
+    c.text(
+        xs[0] + 112,
+        234,
+        "flagged well above the holdout: that day is the new traces",
+        size=11.5,
+        color="warm",
+    )
+    c.text(
+        16,
+        270,
+        "the agent reads and writes; every number it shows you came from the gate",
+        size=11.5,
+        color="muted",
+    )
+    c.text(
+        16,
+        288,
+        "tuned on the scored tasks, harness evolution gained 0.6 points held out (Wang et al. 2026)",
+        size=11.5,
+        color="muted",
+    )
+    return c.render()
+
+
 FIGURES = {
     "simulations-pipeline": simulations_pipeline,
     "engine-eight-steps": engine_eight_steps,
@@ -774,6 +831,7 @@ FIGURES = {
     "loop": loop,
     "difficulty-band": difficulty_band,
     "three-sets": three_sets,
+    "harness-loop": harness_loop,
 }
 
 

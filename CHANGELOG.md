@@ -17,7 +17,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
   plus `--cost-margin` (0 by default; Wang et al. 2026, arXiv:2607.12227: at a matched budget
   harness evolution lost to more samples of the baseline). `skills/harness-search` 1.1.0 runs
   the loop on traces and ends by scoring the next day's traffic on the pick with the same judge
-  and posting one `LiveDay`.
+  and posting one `LiveDay`. New guide [Harness optimization](https://docs.while.ai/harness-optimization): what the
+  agent reads, what it writes, the three checks, the next day.
 
 ## 0.120 (2026-09-22)
 

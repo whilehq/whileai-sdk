@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" role="img" aria-label="Harness optimization: traces split by day, the agent writes a candidate, the gate checks holdout, a second model and cost, the pick serves, the next day is scored">
+<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6B7280"/></marker><marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3F8F6B"/></marker></defs>
+<rect width="720" height="300" rx="6" fill="#FFFFFF"/>
+<rect x="16" y="24" width="200" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="116.0" y="47.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">--traces yesterday.jsonl</text>
+<text x="116.0" y="63.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">one task per distinct ask</text>
+<path d="M 216 52.0 L 248 52.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="248" y="24" width="200" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="348.0" y="41.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">split by day</text>
+<text x="348.0" y="57.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">latest days = holdout</text>
+<text x="348.0" y="71.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">near-copies dropped</text>
+<path d="M 448 52.0 L 480 52.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="480" y="24" width="200" height="56" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="580.0" y="47.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">proposal.md</text>
+<text x="580.0" y="63.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">worst rows on train days</text>
+<path d="M 580 80 L 580 100 L 116 100 L 116 122" fill="none" stroke="#3F8F6B" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+<rect x="16" y="124" width="200" height="72" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="116.0" y="155.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">candidates/01_x.py</text>
+<text x="116.0" y="171.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">the agent changes one thing</text>
+<path d="M 216 160.0 L 248 160.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="248" y="124" width="200" height="72" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="348.0" y="143.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">the gate</text>
+<text x="348.0" y="159.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">holdout clears zero</text>
+<text x="348.0" y="173.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">second model agrees</text>
+<text x="348.0" y="187.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">cost &lt;= baseline</text>
+<path d="M 448 160.0 L 480 160.0" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="480" y="124" width="200" height="72" rx="6" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="580.0" y="155.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#0B1220" text-anchor="middle">serve, then next day</text>
+<text x="580.0" y="171.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">same judge, one LiveDay</text>
+<path d="M 580 196 L 580 240 L 116 240 L 116 196" fill="none" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4 3"/>
+<text x="128" y="234" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#B5602A" text-anchor="start">flagged well above the holdout: that day is the new traces</text>
+<text x="16" y="270" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#6B7280" text-anchor="start">the agent reads and writes; every number it shows you came from the gate</text>
+<text x="16" y="288" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11.5" font-weight="400" fill="#6B7280" text-anchor="start">tuned on the scored tasks, harness evolution gained 0.6 points held out (Wang et al. 2026)</text>
+</svg>
