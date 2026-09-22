@@ -13,6 +13,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
   check printed a plain `ok`. Over-optimization is now reported at every verdict and still
   enforced only on a claimed result, so `endpoint-sft`, which publishes its own
   over-optimization, is visible without failing for being honest.
+- `Example` cuts text past what the platform stores instead of raising, so `run.score(rows=)`
+  posts a reasoning trace (#734). `Example(reply="y" * 1300)` used to fail validation at 1200
+  characters; the platform stores 2000 a row (`ROW_TEXT_MAX`, read off the API's `evalrows.js`)
+  and 1200 on the card's 20-row sample (`EXAMPLE_TEXT_MAX`), `why` 400 on both. Past a cap the
+  middle goes and `[... N chars cut ...]` marks the place, the head and the tail kept, with one
+  warning per field naming the cap. `docs/reference/platform.md` lists every cap in one place.
 - `pass_at` counts the rows it could not read and names them in `note`, with a new `n_partial`.
   A reward that is not 0 or 1 was dropped silently, and `Criterion` defaults to
   `kind="principle"`, which scores the mean of its criteria, so the documented rubric path
