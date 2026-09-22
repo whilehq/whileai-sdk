@@ -43,8 +43,16 @@ from whileai.simulations import load_traces
 
 rows = load_traces(
     [
-        {"ts": "2026-09-19T09:00:00Z", "input": "Where is my refund for ORD-5412?", "output": "Certainly! It went through."},
-        {"ts": "2026-09-21T09:00:00Z", "input": "Refund ORD-8821, the jacket arrived torn.", "output": "Done."},
+        {
+            "ts": "2026-09-19T09:00:00Z",
+            "input": "Where is my refund for ORD-5412?",
+            "output": "Certainly! It went through.",
+        },
+        {
+            "ts": "2026-09-21T09:00:00Z",
+            "input": "Refund ORD-8821, the jacket arrived torn.",
+            "output": "Done.",
+        },
     ]
 )
 print(len(rows), sorted(rows[0]))
@@ -101,14 +109,20 @@ TOOLS = [
         "function": {
             "name": "lookup_order",
             "description": "Look up an order by id.",
-            "parameters": {"type": "object", "properties": {"order_id": {"type": "string"}}, "required": ["order_id"]},
+            "parameters": {
+                "type": "object",
+                "properties": {"order_id": {"type": "string"}},
+                "required": ["order_id"],
+            },
         },
     }
 ]
 BASE = "Look the order up before you act."
 scripted = wai.seeded_agent(TOOLS, rate=0.3, seed=0)  # stands in for the model offline
 
-baseline = wai.Harness(agent=scripted, instructions=BASE, tools=TOOLS, label="baseline", model="scripted")
+baseline = wai.Harness(
+    agent=scripted, instructions=BASE, tools=TOOLS, label="baseline", model="scripted"
+)
 candidate = wai.Harness(
     agent=scripted,
     instructions=BASE + " Report what the tool returned; never claim success on an error.",
@@ -117,7 +131,13 @@ candidate = wai.Harness(
     model="scripted",
     disclosure=Disclosure(max_turns=4),
 )
-print(baseline.version, baseline.fingerprint, candidate.version, candidate.fingerprint, baseline.fingerprint != candidate.fingerprint)
+print(
+    baseline.version,
+    baseline.fingerprint,
+    candidate.version,
+    candidate.fingerprint,
+    baseline.fingerprint != candidate.fingerprint,
+)
 ```
 
 ```text
