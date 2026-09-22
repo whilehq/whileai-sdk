@@ -91,6 +91,12 @@ SYSTEM = (
     "```python code block containing the whole program."
 )
 
+# A bigger model with thinking off reasons inside the code block as comments,
+# without end; this line stops that (a harness change, recorded in results).
+NO_COMMENTS = (
+    " Write the program only: no comments inside the code, no explanation before or after it."
+)
+
 CODE_FENCE = re.compile(r"```(?:python|py)?\s*(.+?)```", re.S)
 OPEN_FENCE = re.compile(r"```(?:python|py)?[ \t]*\n")
 INTERACTIVE = re.compile(r"interactive problem|interactor|flush the output|fflush", re.I)
@@ -317,13 +323,21 @@ class Model:
     """One OpenAI-compatible chat endpoint. Thinking is off: the fitness
     signal is the tests, and 1,500 tokens is enough for a program."""
 
-    def __init__(self, base_url: str, model: str, api_key: str | None, *, thinking: bool = False):
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        api_key: str | None,
+        *,
+        thinking: bool = False,
+        max_tokens: int | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.thinking = thinking
         # Thinking needs room: Qwen3 reasons for a few thousand tokens first.
-        self.max_tokens = THINK_TOKENS if thinking else MAX_TOKENS
+        self.max_tokens = max_tokens or (THINK_TOKENS if thinking else MAX_TOKENS)
         self.calls = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
@@ -891,6 +905,17 @@ def main(argv: list[str] | None = None) -> int:
         "--thinking", action="store_true", help="Qwen3 thinking on (6,144 tokens a reply)"
     )
     p.add_argument(
+        "--no-comments",
+        action="store_true",
+        help="append the no-comments line to the system prompt (for a model that reasons in comments)",
+    )
+    p.add_argument(
+        "--max-tokens",
+        type=int,
+        default=None,
+        help=f"reply cap (default {MAX_TOKENS}, {THINK_TOKENS} with --thinking); a bigger model rambles",
+    )
+    p.add_argument(
         "--band",
         choices=["all", "near-miss"],
         default="all",
@@ -905,7 +930,9 @@ def main(argv: list[str] | None = None) -> int:
         if a not in ARMS:
             sys.exit(f"unknown arm {a!r}; choose from {', '.join(ARMS)}")
 
-    global OUT
+    global OUT, SYSTEM
+    if args.no_comments:
+        SYSTEM = SYSTEM + NO_COMMENTS
     if args.out:
         OUT = HERE / args.out
     if args.dry_run:
@@ -925,6 +952,7 @@ def main(argv: list[str] | None = None) -> int:
             args.model,
             key if args.base_url == HOSTED_URL else os.environ.get("OPENAI_API_KEY"),
             thinking=args.thinking,
+            max_tokens=args.max_tokens,
         )
     by_id = {t.id: t for t in tasks}
     print(f"{len(tasks)} tasks, model {model.model} at {model.base_url}", file=sys.stderr)
@@ -979,6 +1007,8 @@ def main(argv: list[str] | None = None) -> int:
     rep["model"] = model.model
     rep["seed"] = args.seed
     rep["thinking"] = bool(args.thinking)
+    rep["max_tokens"] = model.max_tokens
+    rep["no_comments"] = bool(args.no_comments)
     rep["band"] = args.band
     cost = {
         "calls": model.calls,
