@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Bedrock: a model that refuses `temperature` (Claude Sonnet 5 answers 400 "`temperature` is
+  deprecated for this model") is called once more without the field, on both the API-key and the
+  boto3 path, instead of failing every rollout. `recipes/papers/meta-harness`: the gate's row
+  filter matched the model spec (`bedrock:us...`, `openai:gpt-4.1-mini`) against the bare model
+  name the rows carry, so `--select` compared empty row lists on those providers; it now accepts
+  either spelling (#798).
+
 - `recipes/papers/meta-harness` searches the harness on the agent's own traffic: `--traces` takes
   a JSONL of traces or an OTLP JSON batch as the frozen set (one task per distinct prompt), the
   holdout is the latest days so the proposer never reads a row from the days that decide, train

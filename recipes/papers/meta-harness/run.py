@@ -78,6 +78,7 @@ from typing import Any
 
 import whileai as wai
 from whileai.config import provenance
+from whileai.harness import _model_name
 from whileai.simulations import load_traces, rows_from_otel
 from whileai.simulations.score.hygiene import tool_calls
 from whileai.simulations.score.stats import compare_runs, task_key
@@ -412,7 +413,8 @@ def _show(path: Path) -> str:
 def _rows(out: Path, entry: dict[str, Any], *, model: str, split_name: str) -> list[dict]:
     with open(out / entry["rows"], encoding="utf-8") as fh:
         rows = [json.loads(line) for line in fh if line.strip()]
-    return [r for r in rows if r["harness"]["model"] == model and r.get("split") == split_name]
+    names = {model, _model_name(model)}  # rows carry the bare model name, not the spec
+    return [r for r in rows if r["harness"]["model"] in names and r.get("split") == split_name]
 
 
 def propose(
@@ -504,7 +506,8 @@ def _cost_of(out: Path, entry: dict[str, Any], *, model: str) -> dict[str, float
         return entry["cost"]
     with open(out / entry["rows"], encoding="utf-8") as fh:
         rows = [json.loads(line) for line in fh if line.strip()]
-    return cost([r for r in rows if r.get("harness", {}).get("model") == model] or rows)
+    names = {model, _model_name(model)}
+    return cost([r for r in rows if r.get("harness", {}).get("model") in names] or rows)
 
 
 def cost_ratio(
