@@ -4,14 +4,21 @@ from whileai.simulations.generate import agents
 from whileai.simulations.score import grade_llm
 
 
-def test_default_judge_is_a_different_model_family_from_the_policy(monkeypatch):
+def test_default_judge_is_a_different_checkpoint_from_the_policy(monkeypatch):
+    # Until 2026-09-21 the default judge was a different family (phi-4 against
+    # Qwen). Both hosted models are Qwen now: Qwen3-8B grades Qwen3-4B. Same
+    # family is a weaker form of self-preference bias (Panickssery et al.
+    # 2024, arXiv:2404.13076), accepted on purpose as a floor, not a
+    # recommendation. What still has to hold is that the judge is not the
+    # policy checkpoint, so grade_llm's self_judged check can fire.
     monkeypatch.delenv("WHILEAI_JUDGE", raising=False)
     monkeypatch.delenv("WHILEAI_AGENT", raising=False)
     _, policy = agents.parse_backend_spec(agents.default_agent_spec())
     judge_url, judge = agents.parse_backend_spec(agents.default_judge_spec())
     assert judge != policy
-    assert judge.split("/")[0].lower() != policy.split("/")[0].lower()
-    assert "whileai-judge" in judge_url
+    # the judge is the 8B function of whileai-serve, behind the same token
+    # gate as the agent: the separate whileai-judge app is no longer a route
+    assert "whileai-serve-qwen3-8b" in judge_url
     assert grade_llm.judge_spec() == agents.default_judge_spec()
     assert grade_llm.hosted_judge_endpoint()["model"] == judge
     monkeypatch.setenv("WHILEAI_JUDGE", "openai:gpt-4o-mini")

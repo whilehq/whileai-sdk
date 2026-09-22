@@ -652,7 +652,7 @@ METHODS = ("sft", "grpo", "dpo", "rm")
 #: The bases the serving app runs. An adapter trained on any other base is a
 #: file on a volume that ``serve`` cannot host; the trainer's defaults
 #: (Qwen2.5-0.5B for SFT, 1.5B for GRPO and DPO) are not on this list.
-SERVED_BASES = ("Qwen/Qwen3-4B", "microsoft/phi-4")
+SERVED_BASES = ("Qwen/Qwen3-4B", "Qwen/Qwen3-8B")
 
 
 def _measured_temperature(
