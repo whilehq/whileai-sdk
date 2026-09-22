@@ -1,0 +1,53 @@
+{
+  "_comment": "apps: deployed Modal apps, read from `modal app list`. This is the ground truth the check compares against, and it never comes from the SDK's own constants. defaults: what each hosted default resolves to right now, recorded so a reviewer can diff the function segment, which the Modal CLI cannot verify. Refresh in the same PR as any deployment change. known_dead: hosts with no deployed replacement, each naming the issue that tracks it. The list may shrink and never grow; a dead host outside it fails CI.",
+  "apps": [
+    "coding-reasoning-rl",
+    "t2s-serve-nvidia-llama-3-1-nemotron-nano-8b-v1",
+    "t2s-serve-qwen-qwen3-4b",
+    "t2s-serve-qwen-qwen3-5-4b",
+    "t2s-serve-qwen-qwen3-5-9b",
+    "while-bedrock-import",
+    "whileai-analyzer",
+    "whileai-eval",
+    "whileai-hf-push",
+    "whileai-judge",
+    "whileai-serve",
+    "whileai-train",
+    "zeroproof-analyzer",
+    "zeroproof-eval",
+    "zeroproof-hf-push",
+    "zeroproof-serve",
+    "zeroproof-train"
+  ],
+  "defaults": {
+    "DEFAULT_AGENT": {
+      "host": "zeroproofai--whileai-serve-qwen3-4b.modal.run",
+      "app": "whileai-serve",
+      "function": "qwen3-4b"
+    },
+    "DEFAULT_SIMULATOR": {
+      "host": "zeroproofai--whileai-serve-qwen3-4b.modal.run",
+      "app": "whileai-serve",
+      "function": "qwen3-4b"
+    },
+    "DEFAULT_JUDGE": {
+      "host": "zeroproofai--whileai-serve-qwen3-8b.modal.run",
+      "app": "whileai-serve",
+      "function": "qwen3-8b"
+    },
+    "ACCOUNT_AGENT": {
+      "host": "zeroproofai--whileai-serve-qwen3-4b.modal.run",
+      "app": "whileai-serve",
+      "function": "qwen3-4b"
+    },
+    "ACCOUNT_JUDGE": {
+      "host": "zeroproofai--whileai-serve-qwen3-8b.modal.run",
+      "app": "whileai-serve",
+      "function": "qwen3-8b"
+    }
+  },
+  "known_dead": {
+    "DEFAULT_STUDIO_URL": "app zeroproof-studio was never redeployed; probed 404; tracked in #804",
+    "DEFAULT_EMBED_URL": "app zeroproof-embed was never redeployed; probed 404; tracked in #804"
+  }
+}

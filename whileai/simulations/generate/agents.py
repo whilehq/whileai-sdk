@@ -52,24 +52,30 @@ from .usage_meter import report_usage
 
 log = logging.getLogger("whileai.simulations")
 
-DEFAULT_AGENT = (
-    "vllm:Qwen/Qwen3-4B-Instruct-2507@https://zeroproofai--stressd-vllm-serve.modal.run/v1"
-)
+DEFAULT_AGENT = "vllm:Qwen/Qwen3-4B@https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
 DEFAULT_SIMULATOR = DEFAULT_AGENT
-# The judge is a different model family from the policy on purpose: a
-# judge grading its own writing prefers it (self-preference bias,
-# Panickssery et al. 2024, arXiv:2404.13076). Phi-4
-# on its own vLLM app in the same Modal workspace, same VLLM_API_KEY.
-DEFAULT_JUDGE = "vllm:microsoft/phi-4@https://zeroproofai--zeroproof-judge-serve.modal.run/v1"
-# The account route. These two endpoints sit behind the zeroproof-serve
+# Judge and policy are the same family for now: Qwen3-8B grades Qwen3-4B.
+# A judge grading its own writing prefers it (self-preference bias,
+# Panickssery et al. 2024, arXiv:2404.13076), and same-family is a weaker
+# version of that, so the default is a floor and not a recommendation:
+# bring your own judge, and audit it (``wai.judge_agreement``). The 8B runs
+# as the qwen3_8b function of whileai-serve, behind the same token gate as
+# the agent: one route, one key, one app.
+DEFAULT_JUDGE = "vllm:Qwen/Qwen3-8B@https://zeroproofai--whileai-serve-qwen3-8b.modal.run/v1"
+# The account route. These two endpoints sit behind the whileai-serve
 # proxy (backend/modal/serve.py on the platform), which takes the account's
 # own zp_ key, refuses an exhausted daily allowance with 429, and records
-# every token on the account's usage. No VLLM_API_KEY: a signup or a login
-# is enough. VLLM_API_KEY, when set, still wins and goes to the shared pool
-# above, which is faster (warm, Instruct model) but shared and unmetered.
-ACCOUNT_AGENT = "vllm:Qwen/Qwen3-4B@https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
-ACCOUNT_JUDGE = "vllm:microsoft/phi-4@https://zeroproofai--zeroproof-serve-phi-4.modal.run/v1"
-_ACCOUNT_HOST_PREFIX = "zeroproofai--zeroproof-serve-"
+# every token on the account's usage. A signup or a login is enough, and
+# is now the only way in: the token gate rejects any key without the zp_
+# prefix, so VLLM_API_KEY no longer reaches While's hosts at all. These are
+# the same two endpoints as DEFAULT_AGENT and DEFAULT_JUDGE; the pair of
+# names is kept because callers import both.
+ACCOUNT_AGENT = "vllm:Qwen/Qwen3-4B@https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
+ACCOUNT_JUDGE = "vllm:Qwen/Qwen3-8B@https://zeroproofai--whileai-serve-qwen3-8b.modal.run/v1"
+#: The account-route host prefixes: the renamed apps, and the pre-rename
+#: zeroproof-serve-* hosts kept for one release (CONSTITUTION.md: never
+#: big-bang).
+_ACCOUNT_HOST_PREFIXES = ("zeroproofai--whileai-serve-", "zeroproofai--zeroproof-serve-")
 _tls = threading.local()
 
 
@@ -167,23 +173,28 @@ def is_fireworks_url(base_url: str | None) -> bool:
 
 
 def _account_url(base_url: str | None) -> bool:
-    """True for the zeroproof-serve endpoints, which take the account key."""
+    """True for the whileai-serve endpoints (and the pre-rename hosts, for one release), which take the account key."""
     if not base_url:
         return False
     raw = base_url if "://" in str(base_url) else "https://" + str(base_url)
     host = (urlparse(raw).hostname or "").lower()
-    return host.startswith(_ACCOUNT_HOST_PREFIX)
+    return host.startswith(_ACCOUNT_HOST_PREFIXES)
 
 
 def _account_route() -> bool:
-    """Use the account endpoints: no VLLM_API_KEY, but an account key exists."""
-    return not os.environ.get("VLLM_API_KEY", "").strip() and bool(_account_key())
+    """Use the account endpoints: an account key exists.
+
+    Until 2026-09-21 a VLLM_API_KEY sent hosted calls to a shared, unmetered
+    vLLM pool instead, and that pool is gone. While's own hosts take a
+    ``zp_`` key and nothing else (the platform's token_gate rejects any
+    other prefix), so VLLM_API_KEY now means only "my own endpoint".
+    """
+    return bool(_account_key())
 
 
 def default_agent_spec() -> str:
     """Tool-using rollout model. ``wai.configure(agent=)`` if set; else
-    WHILEAI_AGENT; else the shared pool with VLLM_API_KEY; else the account
-    endpoint on the account key."""
+    WHILEAI_AGENT; else the hosted endpoint on the account key."""
     return (
         _settings().agent
         or getenv("AGENT")
@@ -193,8 +204,8 @@ def default_agent_spec() -> str:
 
 def default_judge_spec() -> str:
     """Grader model. ``wai.configure(judge=)`` if set; else WHILEAI_JUDGE;
-    else hosted Phi-4 on the same route as the agent. Never the policy
-    model by default: see DEFAULT_JUDGE."""
+    else hosted Qwen3-8B on the same route as the agent. Never the policy
+    checkpoint by default: see DEFAULT_JUDGE."""
     return (
         _settings().judge
         or getenv("JUDGE")
@@ -441,9 +452,9 @@ def missing_hosted_key(base_url: str | None = None, api_key: str | None = None) 
 
 
 MISSING_HOSTED_KEY = (
-    "Hosted models need a key: run `wai login` (or `wai signup "
-    "--email you@example.com`) so the run uses your account key, or set "
-    "VLLM_API_KEY for the shared pool."
+    "Hosted models need an account key: run `wai login` (or `wai signup "
+    "--email you@example.com`). VLLM_API_KEY reaches your own vLLM endpoint, "
+    "not While's: pass it with agent='vllm:<model>@<your-url>'."
 )
 QUOTA_MARK = "quota exceeded"
 #: What to do about a spent daily allowance. A trial day is about 12
@@ -526,9 +537,13 @@ def _follow_redirects(
 
 
 def _request_extras(base_url: str | None, model: str) -> dict[str, Any]:
-    """Per-endpoint request fields. The account Qwen is the thinking base
-    (`Qwen/Qwen3-4B`): without this it reasons before every reply, which
-    the writer's JSON parse and the rollout's turn cap were not built for."""
+    """Per-endpoint request fields. The hosted Qwen bases think by default,
+    and without this they reason before every reply, which the writer's JSON
+    parse and the rollout's turn cap were not built for. It matches both
+    hosted functions since 2026-09-21: `Qwen/Qwen3-4B` (the agent) and
+    `Qwen/Qwen3-8B` (the judge). The judge is already started thinking-off
+    server side, so for it this is the same instruction sent twice, not a
+    new one; an Instruct checkpoint does not think and is excluded."""
     if _account_url(base_url) and str(model).startswith("Qwen/Qwen3") and "Instruct" not in model:
         return {"chat_template_kwargs": {"enable_thinking": False}}
     return {}
@@ -579,9 +594,40 @@ def _wire_tools(tools: list[dict] | None) -> list[dict]:
     return out
 
 
+#: What Modal answers for an app that is not deployed. It is a 404 with this
+#: body, and it is permanent: the app was stopped or renamed. Retrying cannot
+#: help, and on 2026-09-21 a run against a stopped app sat at "0/1000
+#: rollouts" for 7m14s because nothing said so (#816).
+MODAL_NO_SUCH_APP = "modal-http: invalid function call"
+
+
+def _is_dead_modal_app(text: str) -> bool:
+    low = str(text or "").lower()
+    return MODAL_NO_SUCH_APP in low and "modal.run" in low
+
+
+def dead_app_error(url: str) -> str:
+    """Name the app that is gone, and the two ways out."""
+    raw = url if "://" in url else "https://" + url
+    host = (urlparse(raw).hostname or url).lower()
+    app = host.split("--", 1)[-1].removesuffix(".modal.run") if "--" in host else host
+    return (
+        f"{host} is not deployed: Modal has no app '{app}'. This is permanent, not a "
+        "cold start, so the run stops instead of retrying. Either the app was stopped "
+        "or renamed and a default still names it (upgrade whileai), or point the call "
+        "at an endpoint you run with agent='vllm:<model>@<your-url>'."
+    )
+
+
 def public_llm_error(exc: BaseException | str | None) -> str:
     """Studio/JSONL-safe message. Strip Modal internals from dropped requests."""
     text = str(exc or "").strip()
+    if _is_dead_modal_app(text):
+        url = next(
+            (w.strip("',\"()") for w in text.split() if ".modal.run" in w),
+            "the hosted endpoint",
+        )
+        return dead_app_error(url)
     if _is_lost_track(text) or str(exc) == _TRANSIENT_RETRY:
         return HOSTED_DROPPED
     return text

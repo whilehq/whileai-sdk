@@ -11,7 +11,9 @@ PREFIX = "WHILEAI_"
 #: Hosts the platform answers on: the token gate and the site, old and new
 #: domains, and the hosted-model endpoints it serves from Modal.
 PLATFORM_DOMAINS = ("while.ai", "withwhile.com", "zeroproofai.com")
-PLATFORM_MODAL_PREFIX = "zeroproofai--zeroproof-serve-"
+PLATFORM_MODAL_PREFIX = "zeroproofai--whileai-serve-"
+#: The host prefix before the Modal apps were renamed (2026-09-21); read for one release.
+PLATFORM_MODAL_PREFIX_OLD = "zeroproofai--zeroproof-serve-"
 
 
 @overload
@@ -32,7 +34,7 @@ def is_platform_host(url: str | None) -> bool:
     """Does ``url`` point at While's own platform (gate, site or hosted model)?
 
     True for a host that is, or sits under, ``while.ai``, ``withwhile.com``
-    or ``zeroproofai.com``, and for the ``zeroproofai--zeroproof-serve-*``
+    or ``zeroproofai.com``, and for the ``zeroproofai--whileai-serve-*``
     Modal endpoints the platform serves models from. A bare host with no
     scheme is read as one. Those are the URLs a ``zp_`` key is sent to.
     """
@@ -46,7 +48,9 @@ def is_platform_host(url: str | None) -> bool:
         return False
     if any(host == d or host.endswith("." + d) for d in PLATFORM_DOMAINS):
         return True
-    return host.startswith(PLATFORM_MODAL_PREFIX) and host.endswith(".modal.run")
+    return host.startswith((PLATFORM_MODAL_PREFIX, PLATFORM_MODAL_PREFIX_OLD)) and host.endswith(
+        ".modal.run"
+    )
 
 
 def env_name(name: str) -> str | None:

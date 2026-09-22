@@ -111,11 +111,13 @@ def test_a_full_key_runs_without_the_note(home, caplog):
     assert "trial key" not in caplog.text
 
 
-def test_the_shared_pool_spends_no_trial_so_it_says_nothing(home, monkeypatch, caplog):
-    # VLLM_API_KEY routes the writer to the shared pool, which the trial
-    # allowance does not meter
+def test_vllm_api_key_no_longer_diverts_the_writer_off_the_account(home, monkeypatch, caplog):
+    # Until 2026-09-21 VLLM_API_KEY routed the writer to a shared, unmetered
+    # pool, so the trial allowance said nothing. That pool is gone and
+    # While's hosts take a zp_ key only, so the writer stays on the account
+    # route and the trial note has to fire even with VLLM_API_KEY set.
     _save(home, tier="trial", daily_input_tokens=25000)
     monkeypatch.setenv("VLLM_API_KEY", "pool-key")
     with caplog.at_level(logging.WARNING, logger="whileai.simulations"):
         _run_against_blocked_writer()
-    assert "trial key" not in caplog.text
+    assert "trial key" in caplog.text

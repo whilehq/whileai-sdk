@@ -29,7 +29,7 @@ from whileai.simulations.generate.agents import (
 )
 from whileai.simulations.run.engine import _auth_error, _stop_reason
 
-ACCOUNT_URL = "https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
+ACCOUNT_URL = "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
 POOL_URL = "https://zeroproofai--stressd-vllm-serve.modal.run/v1"
 
 

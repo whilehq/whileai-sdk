@@ -30,7 +30,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROWS = HERE / "rows"
 STATE = HERE / "state.json"
 
-ENDPOINT = "https://zeroproofai--zeroproof-serve-qwen3-4b.modal.run/v1"
+ENDPOINT = "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
 BASE_MODEL = "Qwen/Qwen3-4B"
 BASE_SERVED = "qwen3-4b-think"
 
