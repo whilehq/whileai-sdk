@@ -7,6 +7,23 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `export_environment` warns `empty_holdout` when a holdout was asked for and no task landed
+  in it, and the README it writes then points `vf-eval` at `train` and says that number is
+  not a held-out result. The band drops most prompts on a small run, so a first export often
+  writes every surviving task to train; the package installed and trained, and the only
+  notice was `load_environment(split="holdout")` raising on the trainer, after the GPU was
+  up. Decontamination has nothing to compare either (Lambert 2025, chapter Evaluation).
+- `load_environment`'s missing-`verifiers` error names the interpreter range the `whileai[rl]`
+  extra is marked for (`python_version >= '3.11' and python_version < '3.14'`, because
+  `verifiers` is) when it is run outside it. pip and uv drop an extra whose marker does not
+  match and report nothing, so on Python 3.14 `pip install 'whileai[rl]'` exits 0 having
+  installed no `verifiers`, and an error that repeated that line sent the reader round again.
+- `prime_rl_config` on an `export_environment` directory says what actually happens rather
+  than "if the trainer cannot find it": verifiers v1 resolves a taskset id by importing the
+  module and reading its `__all__` for a `Taskset` subclass, and the export declares neither,
+  so `vf-eval <name>` works and `uv run rl` does not find the taskset (#841). It also no
+  longer points at #564, which is the OPD/OPSD design proposal and not a taskset port.
+
 - The `wide_call_overage` ratchet pin is 195, not 194. #842 measured it at its
   branch point and #843 landed `compare(lower_is_better=)` after it, so the two
   were never counted together and `main` went red on the merge. The argument is

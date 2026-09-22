@@ -1571,9 +1571,12 @@ def _taskset_id(env: Any) -> tuple[str, list[str]]:
         m = re.search(r'^name\s*=\s*"([^"]+)"', pyproject, re.M)
         name = m.group(1) if m else path.name
         warnings.append(
-            f"{path} is a whileai export in the verifiers load_environment shape; prime-rl main "
-            f"addresses installed verifiers v1 tasksets by id, so `pip install {path}` and, if "
-            "the trainer cannot find it, port the package to a v1 Taskset (tracked in issue 564)."
+            f"{path} is a whileai export in the verifiers load_environment shape, which vf-eval "
+            f"reads and prime-rl does not: verifiers v1 resolves a taskset id by importing the "
+            f"module and reading its __all__ for a Taskset subclass, and this package declares "
+            f"no __all__ and no Taskset. `pip install {path}` then `vf-eval {name}` works; "
+            f"`uv run rl` on this config will not find the taskset. Point prime-rl at an "
+            "installed v1 taskset id instead, or write the Taskset subclass yourself (#841)."
         )
         return name, warnings
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", text):

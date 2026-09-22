@@ -9,11 +9,14 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import json
+from pathlib import Path
+from unittest import mock
 
 import pytest
 
 import whileai.simulations as wai
 from whileai.harness import Disclosure, Harness
+from whileai.simulations import environment as environment_mod
 from whileai.simulations.environment import (
     _ref_of,
     _row_from_state,
@@ -195,7 +198,10 @@ def test_export_without_reward_defaults_to_the_checklist_and_warns_without_metad
         r["scenario_dimensions"] = {"tool": "lookup_order", "stance": "ordinary"}
     report = wai.export_environment(rows, tmp_path / "env", tools=TOOLS, system_prompt=POLICY)
     assert report["reward"].endswith(":task_checklist")
-    assert report["outcome_checkable"] == report["tasks"] and report["warnings"] == []
+    assert report["outcome_checkable"] == report["tasks"]
+    # four prompts at the default holdout of 0.2 round to none held out, which
+    # is a package that trains and cannot be measured; that is the only warning
+    assert [w.split(":")[0] for w in report["warnings"]] == ["empty_holdout"]
     task = json.loads(
         (tmp_path / "env" / "env" / "data" / "train.jsonl").read_text().splitlines()[0]
     )
@@ -580,3 +586,58 @@ def test_export_says_when_no_group_is_mixed(tmp_path):
     )
     assert report["graded_mixed"] == 2
     assert not any(w.startswith("no_mixed_groups") for w in report["warnings"])
+
+
+def test_an_export_with_no_holdout_says_so_and_does_not_advertise_one(tmp_path):
+    """The band drops most prompts on a small run, so the first export a
+    reader makes can land every surviving task in train. The package still
+    installs; it just cannot be measured, and nothing said so until the
+    trainer machine called load_environment(split="holdout") and it raised."""
+    rows = [{"prompt": f"p{i}", "steps": [], "final_text": "done"} for i in range(3)]
+    report = wai.export_environment(
+        rows, tmp_path / "env", tools=TOOLS, system_prompt=POLICY, holdout=0.01
+    )
+    assert report["holdout"] == 0 and report["train"]
+    warning = next(w for w in report["warnings"] if w.startswith("empty_holdout"))
+    assert "cannot be measured" in warning and "decontamination" in warning
+    readme = (tmp_path / "env" / "README.md").read_text()
+    assert '"split": "train"' in readme and '"split": "holdout"' not in readme
+    assert "not a held-out result" in readme
+    # and the same export with a holdout keeps the holdout quickstart
+    ok = wai.export_environment(
+        _rows(), tmp_path / "ok", tools=TOOLS, system_prompt=POLICY, holdout=0.5, band=None
+    )
+    assert ok["holdout"] and not any(w.startswith("empty_holdout") for w in ok["warnings"])
+    assert '"split": "holdout"' in (tmp_path / "ok" / "README.md").read_text()
+    # holdout=0 is a choice, not an accident: no warning
+    none_asked = wai.export_environment(
+        rows, tmp_path / "none", tools=TOOLS, system_prompt=POLICY, holdout=0.0
+    )
+    assert not any(w.startswith("empty_holdout") for w in none_asked["warnings"])
+
+
+def test_the_rl_extra_hint_names_the_python_range_it_is_marked_for():
+    """`pip install 'whileai[rl]'` on an interpreter outside the marker
+    resolves to nothing and exits 0. An error that repeats that line sends
+    the reader round the loop again, so it names the range instead."""
+    import tomllib
+
+    from whileai.simulations.defaults import RL_EXTRA_PYTHON_MAX, RL_EXTRA_PYTHON_MIN
+    from whileai.simulations.environment import _rl_extra_install
+
+    # the constants are the marker in pyproject.toml, so the two cannot drift
+    root = Path(__file__).resolve().parents[2]
+    extras = tomllib.loads((root / "pyproject.toml").read_text())["project"][
+        "optional-dependencies"
+    ]
+    marker = next(r for r in extras["rl"] if r.startswith("verifiers")).split(";", 1)[1]
+    lo = ".".join(str(p) for p in RL_EXTRA_PYTHON_MIN)
+    hi = ".".join(str(p) for p in RL_EXTRA_PYTHON_MAX)
+    assert f"python_version >= '{lo}'" in marker and f"python_version < '{hi}'" in marker
+
+    inside = _rl_extra_install()
+    assert "pip install 'whileai[rl]'" in inside
+    with mock.patch.object(environment_mod.sys, "version_info", (3, 99, 0)):
+        outside = _rl_extra_install()
+    assert "Python 3.99" in outside and f"python_version < '{hi}'" in outside
+    assert "resolves to nothing" in outside
