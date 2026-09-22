@@ -7,6 +7,24 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Docs, facts: `reference/harness.md` said the Meta-Harness live replication had
+  not been run, three weeks after #783 landed +0.38 [+0.27, +0.47] on 30 held-out
+  asks; it now carries the number, the held-out model and the missing-artifacts
+  caveat (#812, #808). `reference/overview.md` told a cold-start reader to
+  `export VLLM_API_KEY=...` for a "warm and faster" shared pool whose hosts were
+  stopped on 2026-09-21 and 404 on 0.121 (#805, #816); the section is now the two
+  routes there actually are, hosted Qwen on your account key or a model you name,
+  plus what a run with no key at all does. Same correction in the
+  `03-select/prime-intellect-rl` recipe README.
+
+- Docs, CONSTITUTION §6: the landing page leads with the five-line loop instead of
+  a positioning line; `concepts/engine.mdx` loses its three-fragment hook;
+  `reference/design.md`, `platform/index.mdx` and `index.mdx` name the five steps
+  as Simulate, Grade, Measure, Select, Train rather than renaming Measure or
+  dropping Train. Two dead links fixed: the RLHF book's Evaluation chapter and a
+  `.md` suffix in a docs.while.ai page link; the style guide's signature example
+  cites the file `class Judge` is actually in.
+
 ## 0.123 (2026-09-22)
 
 - `simulate(grade=True)` checks for a judge key with `require_judge_key`, the resolver

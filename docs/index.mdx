@@ -4,7 +4,19 @@ sidebarTitle: "Overview"
 description: "A scientific post-training library for language models: SFT and RL on open models, with the measurement that says whether training helped. Your models, your keys, your compute."
 ---
 
-**What you learn:** the loop, simulate to export, as one program. **Needs:** nothing. **Takes:** about twenty seconds on a laptop.
+- **Simulate.** Give it your agent's tools and prompt. It writes the
+  situations the agent will meet and runs them against a fake world that
+  fails on purpose.
+- **Grade.** Your judge or a verifier scores every rollout. The judge is
+  checked against people before its scores count.
+- **Measure.** One run proves nothing. Ask whether a change is real or
+  noise before you ship it or train on it.
+- **Select.** Keep the rows that carry signal: the 20 to 80% band for RL,
+  the best completion for SFT, nothing that leaks into your eval set.
+- **Train.** Export to TRL or a `verifiers` environment, or train and
+  serve on the While platform.
+
+**What you learn:** the loop, simulate to train, as one program. **Needs:** nothing. **Takes:** about twenty seconds on a laptop.
 
 `whileai` is a post-training library for language models: SFT and RL on
 open models, with the measurement that says whether training helped. It is
@@ -76,7 +88,7 @@ decontamination against your eval set, and a scan for rewards the policy
 can game.
 
 Two domains, kept apart. `import whileai as wai` is the library: simulate,
-grade, measure, select, export, on your machine against your models, no
+grade, measure, select, train, on your machine against your models, no
 account needed. `whileai.platform` is the While platform: sign in, push
 datasets, train and serve on hosted GPUs, track versions. Everything that
 talks to while.ai lives there and nowhere else.
@@ -99,7 +111,7 @@ talks to while.ai lives there and nowhere else.
   </Card>
 </CardGroup>
 
-Never trained a model? [Learn](/learn) is seven lessons from zero, each
+Never trained a model? [Learn](/learn) is nine lessons from zero, each
 offline in under a minute, ending at the quickstart above.
 
 ## The defaults this run used
