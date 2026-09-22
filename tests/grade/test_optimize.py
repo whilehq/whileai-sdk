@@ -311,3 +311,121 @@ def test_no_tool_agent_keeps_refusal_demonstrations():
     unlabeled.pop("reward")
     assert drop_reason(unlabeled) == "do_nothing"
     assert drop_reason(unlabeled, has_tools=False) != "do_nothing"
+
+
+def _rate_only(spec):
+    """``{task: [labels]}`` to the rows a trainer's state holds: a task and a
+    binary reward per sample, no reply."""
+    rows = []
+    for task, labels in spec.items():
+        rows += [{"prompt": task, "reward": r, "rollout_index": i} for i, r in enumerate(labels)]
+    return rows
+
+
+def test_select_for_rl_takes_pass_rate_only_rows_without_the_text_gates():
+    import pytest
+
+    from whileai.simulations.score.optimize import select_for_rl
+
+    spec = {
+        "hard": [1, 0, 0, 0, 0, 0, 0, 0],
+        "mid": [1, 1, 1, 1, 0, 0, 0, 0],
+        "high": [1, 1, 1, 1, 1, 1, 0, 0],
+        "solved": [1] * 8,
+        "flat": [0] * 8,
+    }
+    picked, report = select_for_rl(_rate_only(spec), target=100)
+    assert {row["prompt"] for row in picked} == {"mid", "high"}
+    assert report["gates"]["incomplete_junk"] == 0
+    assert report["text_gates"] == {
+        "mode": "auto",
+        "applied": False,
+        "reason": "no row carries a reply",
+    }
+    # the duplicate trim keys on the reply too, so it did not run either
+    assert report["duplicates"]["n_dropped"] == 0
+    assert report["unanimous_groups_dropped"] == 2
+    assert report["band_dropped"] == {"too_easy": 0, "too_hard": 1}
+    assert any(
+        "text gates" in w and "text_gates='require'" in w for w in report["hygiene_warnings"]
+    )
+    # the older refusal is one keyword away
+    picked, report = select_for_rl(_rate_only(spec), target=100, text_gates="require")
+    assert picked == [] and report["gates"]["incomplete_junk"] == 40
+    assert report["text_gates"]["applied"] is True
+    with pytest.raises(ValueError, match="text_gates must be one of"):
+        select_for_rl(_rate_only(spec), text_gates="maybe")
+
+
+def test_select_for_rl_keeps_the_text_gates_when_any_row_has_a_reply():
+    from whileai.simulations.score.optimize import select_for_rl
+
+    rows = _asks({"a": [1, 0, 1, 0]}) + _rate_only({"b": [1, 0, 1, 0]})
+    picked, report = select_for_rl(rows, target=100)
+    assert report["text_gates"]["applied"] is True
+    assert {row["prompt"] for row in picked} == {"a"}
+    assert report["gates"]["incomplete_junk"] == 4
+    picked, report = select_for_rl(rows, target=100, text_gates="skip")
+    assert {row["prompt"] for row in picked} == {"a", "b"}
+    assert report["text_gates"]["reason"] == "text_gates='skip'"
+
+
+def test_next_round_and_band_take_a_per_task_rate_table():
+    import whileai.simulations as wai
+    from whileai.simulations.score.optimize import trim_out_of_band
+
+    table = [
+        {"prompt": "hard", "pass_rate": 0.1, "n": 16},
+        {"prompt": "mid", "pass_rate": 0.5, "n": 16},
+        {"prompt": "solved", "pass_rate": 0.9, "n": 16},
+        {"prompt": "thin", "pass_rate": 0.5, "n": 1},  # under min_k for the band
+        {"prompt": "stamped", "calibration": {"pass_rate": 0.05, "n": 16}},
+        {"prompt": "unsaid", "pass_rate": 0.95},  # no n: taken at its word
+    ]
+    plan = wai.next_round(table)
+    assert plan["pass_rates"] == {
+        "hard": 0.1,
+        "mid": 0.5,
+        "solved": 0.9,
+        "thin": 0.5,
+        "stamped": 0.05,
+        "unsaid": 0.95,
+    }
+    assert plan["kept"] == 2 and plan["dropped_solved"] == 2 and plan["dropped_unsolved"] == 2
+    assert [t["calibration"]["n"] for t in plan["tasks"]] == [16, 1]
+    kept, report = trim_out_of_band(table)
+    assert [r["prompt"] for r in kept] == ["mid", "thin"]
+    assert report["from_rates"] == 6 and report["too_easy"] == 2 and report["too_hard"] == 2
+
+
+def test_next_round_warns_when_the_prior_carries_no_measurement():
+    import pytest
+
+    import whileai.simulations as wai
+
+    prior = [{"prompt": "a", "reward": 0.5}, {"prompt": "b"}]
+    with pytest.warns(UserWarning, match="none of the 2 prior rows carries a binary reward"):
+        plan = wai.next_round(prior, tasks=["a", "c"])
+    assert plan["kept"] == 0 and plan["unknown"] == 2
+
+
+def test_task_pass_rates_read_rollouts_first_and_a_stamp_only_without_them():
+    from whileai.simulations.score.optimize import _task_pass_rates, select_for_rl
+
+    # graded rollouts carrying a stale stamp: the rollouts are the measurement
+    rows = [
+        {"prompt": "b", "reward": r, "calibration": {"pass_rate": 1.0, "n": 16}}
+        for r in (1, 0, 0, 0)
+    ]
+    assert _task_pass_rates(rows) == {"b": (0.25, 4)}
+    # a row with no binary reward is read from its stamp
+    assert _task_pass_rates([{"prompt": "c", "calibration": {"pass_rate": 0.5, "n": 8}}]) == {
+        "c": (0.5, 8)
+    }
+    # select_for_rl stamps its selection in place, so a second call on the
+    # same rows sees the stamp; the second measurement must not change
+    rows = _asks({"a": [1, 1, 1, 1, 0], "b": [1, 0]})
+    first, _ = select_for_rl(rows, target=100)
+    assert "calibration" in first[0]
+    second, _ = select_for_rl(rows, target=100)
+    assert [r["prompt"] for r in second] == [r["prompt"] for r in first]

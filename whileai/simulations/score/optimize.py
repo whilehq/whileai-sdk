@@ -22,6 +22,7 @@ import math
 import random
 import re
 import statistics
+import warnings
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -224,7 +225,7 @@ def is_verified_zero(row: dict) -> bool:
     return src.startswith(_VERIFIED_SOURCES)
 
 
-def drop_reason(row: dict, *, has_tools: bool = True) -> str | None:
+def drop_reason(row: dict, *, has_tools: bool = True, text_gates: bool = True) -> str | None:
     """First matching drop tag, or None to keep.
 
     A verified zero bypasses the behavioral gates: dropping it deletes
@@ -232,16 +233,21 @@ def drop_reason(row: dict, *, has_tools: bool = True) -> str | None:
     (measured: the old gates deleted 13.2% of verified zeros, skewed
     toward incomplete and over-clarification failures). It must still
     contain something to train on.
+
+    ``text_gates=False`` skips the two gates that read the reply
+    (``is_incomplete_junk``, ``is_do_nothing``) and keeps only the label
+    gate: the call ``select_for_rl`` makes when no row carries a reply,
+    where an empty ``final_text`` is the shape of the data, not a finding.
     """
     if is_verified_zero(row) and _has_trainable_content(row):
         return None
-    if is_incomplete_junk(row):
+    if text_gates and is_incomplete_junk(row):
         return INCOMPLETE_JUNK
     # The do-nothing gate is pre-judge hygiene. A row the judge already
     # scored is the judge's call: an ask the grid thought needed a tool
     # is often answerable from policy text, and the airline walk showed
     # this gate deleting 131 judge-passed correct answers.
-    if _binary_label(row) is None and is_do_nothing(row, has_tools=has_tools):
+    if text_gates and _binary_label(row) is None and is_do_nothing(row, has_tools=has_tools):
         return DO_NOTHING
     if is_unusable_label(row):
         return UNUSABLE_LABEL
@@ -249,14 +255,15 @@ def drop_reason(row: dict, *, has_tools: bool = True) -> str | None:
 
 
 def filter_rl_rows(
-    rows: Sequence[dict], *, has_tools: bool = True
+    rows: Sequence[dict], *, has_tools: bool = True, text_gates: bool = True
 ) -> tuple[list[dict], dict[str, Any]]:
-    """Split keep/drop. Does not mutate ``rows``."""
+    """Split keep/drop. Does not mutate ``rows``. ``text_gates`` as in
+    ``drop_reason``."""
     kept: list[dict] = []
     counts = {DO_NOTHING: 0, INCOMPLETE_JUNK: 0, UNUSABLE_LABEL: 0}
     kept_verified = 0
     for row in rows:
-        reason = drop_reason(row, has_tools=has_tools)
+        reason = drop_reason(row, has_tools=has_tools, text_gates=text_gates)
         if reason is None:
             if is_verified_zero(row) and (
                 is_incomplete_junk(row) or is_do_nothing(row, has_tools=has_tools)
@@ -339,6 +346,56 @@ def _group_label_lists(rows: Sequence[dict]) -> dict[str, list[int]]:
             continue
         groups.setdefault(task_key(row), []).append(label)
     return groups
+
+
+def _stamped_rate(row: dict) -> tuple[float | None, int | None]:
+    """A per-task pass rate carried on the row itself: ``pass_rate`` at
+    the top level or under ``calibration``, with ``n`` beside it when the
+    row says how many rollouts it summarizes."""
+    cal = row.get("calibration")
+    for src in (row, cal if isinstance(cal, dict) else {}):
+        rate = src.get("pass_rate")
+        if rate is None or isinstance(rate, bool):
+            continue
+        try:
+            value = float(rate)
+        except (TypeError, ValueError):
+            continue
+        if not 0.0 <= value <= 1.0:
+            continue
+        n = src.get("n")
+        count = (
+            int(n) if isinstance(n, (int, float)) and not isinstance(n, bool) and n > 0 else None
+        )
+        return value, count
+    return None, None
+
+
+def _task_pass_rates(rows: Sequence[dict]) -> dict[str, tuple[float, int | None]]:
+    """Per-task ``(pass_rate, n)`` from either shape a caller has.
+
+    Per-rollout rows with a binary ``reward`` give the mean over the
+    rollouts of one task (``task_key``). One row per task carrying
+    ``pass_rate`` and ``n`` (at the top level or under ``calibration``,
+    the stamp ``select_for_rl`` and ``next_round`` write) gives that rate
+    as it stands, ``n`` None when the row does not say. This is what a
+    trainer's state holds, and the difficulty band needs nothing more
+    (Lambert 2025, chapter Reasoning; Yu et al. 2025, arXiv:2503.14476).
+    A task with labelled rollouts is measured from them and its stamp is
+    ignored: ``select_for_rl`` stamps its selection in place, so the
+    stamp on a graded row is a past measurement, not this one.
+    """
+    labels = _group_label_lists(rows)
+    out: dict[str, tuple[float, int | None]] = {
+        key: (sum(v) / len(v), len(v)) for key, v in labels.items() if v
+    }
+    for row in rows:
+        if not isinstance(row, dict) or task_key(row) in out:
+            continue
+        rate, n = _stamped_rate(row)
+        if rate is not None:
+            out[task_key(row)] = (rate, n)
+    return out
 
 
 def group_signal(
@@ -451,6 +508,14 @@ def _binary_label(row: dict) -> int | None:
 SFT_SELECTIONS = ("top_per_prompt", "random_per_prompt", "top_k_overall", "random_k_overall")
 #: what select_for_rl does with a rollout cut at the token cap
 TRUNCATED_POLICIES = ("drop", "keep", "penalize")
+#: whether select_for_rl runs the gates that read the reply text
+TEXT_GATE_MODES = ("auto", "require", "skip")
+
+
+def _any_reply_text(rows: Sequence[dict]) -> bool:
+    """Whether any row carries a reply the text gates could read: a
+    ``final_text``, an assistant ``messages`` turn, or a tool step."""
+    return any(isinstance(r, dict) and _has_trainable_content(r) for r in rows)
 
 
 def _scalar_reward(row: dict) -> float | None:
@@ -674,16 +739,25 @@ def trim_out_of_band(
 
     Unanimous asks are ``trim_unanimous_groups``'s job and are left alone
     here; singles always stay.
+
+    Rows are per-rollout rows with a binary ``reward``, or one row per
+    task carrying ``pass_rate`` and ``n`` (a trainer's state, or the
+    ``calibration`` stamp); ``min_k`` reads ``n``, and a rate row that
+    does not say its ``n`` is taken at its word. The report's ``from_rates``
+    counts the tasks measured from a carried rate rather than rollouts.
     """
     if not 0.0 <= lo <= hi <= 1.0:
         raise ValueError(f"band must satisfy 0 <= lo <= hi <= 1, got ({lo}, {hi})")
-    groups = _group_label_lists(rows)
+    labelled = _group_label_lists(rows)
+    rates = _task_pass_rates(rows)
     too_easy: set[str] = set()
     too_hard: set[str] = set()
-    for prompt, labels in groups.items():
-        if len(labels) < max(2, int(min_k)):
+    from_rates = 0
+    for prompt, (p, n) in rates.items():
+        if prompt not in labelled:
+            from_rates += 1
+        if n is not None and n < max(2, int(min_k)):
             continue
-        p = sum(labels) / len(labels)
         if not 0.0 < p < 1.0:
             continue
         if p > hi:
@@ -699,6 +773,7 @@ def trim_out_of_band(
         "n_groups_dropped": len(dead),
         "too_easy": len(too_easy),
         "too_hard": len(too_hard),
+        "from_rates": from_rates,
         "band": [lo, hi],
     }
 
@@ -754,6 +829,13 @@ def next_round(
     strings); a task with no prior rollouts is ``unknown`` and kept, since
     nothing says it is flat.
 
+    ``prior`` takes either shape: per-rollout rows with a binary
+    ``reward``, or one row per task carrying ``pass_rate`` and ``n`` (a
+    trainer's per-task table, or the ``calibration`` stamp this function
+    and ``select_for_rl`` write). No reply text is read. A ``prior`` that
+    carries neither is a ``UserWarning`` and an all-unknown plan, not a
+    silent empty one.
+
     Returns ``tasks`` (one representative row per kept task: the prior
     row, with ``calibration.pass_rate`` and the band), the counts
     ``kept``, ``dropped_solved``, ``dropped_unsolved``, ``unknown``,
@@ -764,8 +846,17 @@ def next_round(
     """
     if not 0 <= lo < hi <= 1:
         raise ValueError("band is 0 <= lo < hi <= 1")
-    labels = _group_label_lists(prior)
-    rates = {key: sum(v) / len(v) for key, v in labels.items() if v}
+    measured = _task_pass_rates(prior)
+    rates = {key: rate for key, (rate, _n) in measured.items()}
+    n_prior_rows = sum(1 for r in prior if isinstance(r, dict))
+    if n_prior_rows and not rates:
+        warnings.warn(
+            f"next_round: none of the {n_prior_rows} prior rows carries a binary reward "
+            "or a pass_rate (top level or under calibration), so no task was measured "
+            "and every candidate is unknown; pass graded rollouts or a per-task rate table",
+            UserWarning,
+            stacklevel=2,
+        )
     first: dict[str, dict] = {}
     policies: set[str] = set()
     for row in prior:
@@ -801,7 +892,7 @@ def next_round(
             continue
         report: dict[str, Any] = dict(first.get(key) or given.get(key) or {"prompt": key})
         cal = dict(report.get("calibration") or {})
-        cal.update({"pass_rate": round(rate, 4), "n": len(labels[key]), "band": [lo, hi]})
+        cal.update({"pass_rate": round(rate, 4), "n": measured[key][1], "band": [lo, hi]})
         report["calibration"] = cal
         kept.append(report)
     sha = hashlib.sha256("\n".join(sorted(task_key(r) for r in kept)).encode()).hexdigest()[:16]
@@ -834,8 +925,23 @@ def select_for_rl(
     order: str = "spread",
     prior: Sequence[dict] | None = None,
     audit: dict[str, Any] | None = None,
+    text_gates: str = "auto",
 ) -> tuple[list[dict], dict[str, Any]]:
     """Whole mixed groups up to roughly ``target`` rows. Groups never split.
+
+    ``text_gates`` says whether the gates that read the reply run: the
+    junk and do-nothing checks and the duplicate trim, which key on
+    ``final_text``. ``"auto"`` (the default) runs them when any row carries
+    a reply (``final_text``, an assistant ``messages`` turn, or a tool
+    step) and skips them when none does, because a trainer's state holds
+    a task and a binary reward per sample and nothing else, and an empty
+    reply there is the shape of the data, not a finding; the report's
+    ``text_gates`` block and a ``hygiene_warnings`` line say the gates
+    were skipped. ``"require"`` runs them regardless (a row with no reply
+    is ``incomplete_junk``, the behavior before 0.121), ``"skip"`` never
+    runs them. The label gate, the unanimous trim, the difficulty band
+    and the ranking run in every mode: they read the reward alone
+    (Lambert 2025, chapter Reasoning; Yu et al. 2025, arXiv:2503.14476).
 
     ``audit`` is an ``audit_grades`` report on these rows' verifier; when
     it found the verifier rejecting right answers more than ``FN_WARN``
@@ -910,6 +1016,10 @@ def select_for_rl(
         )
     if order not in RL_ORDERS:
         raise ValueError(f"order must be one of {', '.join(RL_ORDERS)}; got {order!r}")
+    if text_gates not in TEXT_GATE_MODES:
+        raise ValueError(
+            f"text_gates must be one of {', '.join(TEXT_GATE_MODES)}; got {text_gates!r}"
+        )
     if not drop_truncated and truncated == "drop":
         truncated = "keep"
     prior_report: dict[str, Any] | None = None
@@ -967,13 +1077,23 @@ def select_for_rl(
             marked.append(row)
         rows = marked
 
-    kept, base_report = filter_rl_rows(rows, has_tools=has_tools)
+    # The duplicate trim keys on the reply too: without one, every rollout
+    # of a task is the same "duplicate" and the group collapses to one row.
+    gates_on = text_gates == "require" or (text_gates == "auto" and _any_reply_text(rows))
+    text_gate_report = {
+        "mode": text_gates,
+        "applied": gates_on,
+        "reason": None
+        if gates_on
+        else ("no row carries a reply" if text_gates == "auto" else "text_gates='skip'"),
+    }
+    kept, base_report = filter_rl_rows(rows, has_tools=has_tools, text_gates=gates_on)
     original_sizes: dict[str, int] = {}
     for row in kept:
         key = task_key(row)
         original_sizes[key] = original_sizes.get(key, 0) + 1
     dup_report: dict[str, Any] = {"n_dropped": 0, "groups_affected": 0, "conflicting_rewards": 0}
-    if dedupe:
+    if dedupe and gates_on:
         kept, dup_report = dedupe_groups(kept)
     trunc_report: dict[str, Any] = {"n_dropped": 0}
     if truncated == "drop":
@@ -1072,6 +1192,7 @@ def select_for_rl(
         "privileged_leaks": leak_rep,
         "n_after_gates": base_report["n_kept"],
         "gates": base_report["dropped"],
+        "text_gates": text_gate_report,
         "n_after_trim": len(kept),
         "unanimous_groups_dropped": trim_report["n_groups_dropped"],
         "collapsed_groups_dropped": trim_report["collapsed_groups_dropped"],
@@ -1109,6 +1230,12 @@ def select_for_rl(
     audit_note = audit_warning(audit)
     if audit_note:
         report["hygiene_warnings"].append(audit_note)
+    if not gates_on:
+        report["hygiene_warnings"].append(
+            f"The text gates (junk, do-nothing, duplicate) did not run ({text_gate_report['reason']}), "
+            "so this selection is by reward and difficulty band alone; nothing checked the replies. "
+            "Pass text_gates='require' to refuse rows with no reply."
+        )
     report["audit"] = (
         {k: audit.get(k) for k in ("fn_rate", "fn_ci95", "n_checked", "verifier")}
         if isinstance(audit, dict)
