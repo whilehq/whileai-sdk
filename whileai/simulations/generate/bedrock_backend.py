@@ -490,6 +490,18 @@ def _retry_after(headers: Any, attempt: int) -> float:
 # --- the two transports -----------------------------------------------------
 
 
+def _drop_rejected_temperature(body: dict[str, Any], status: int, detail: str) -> bool:
+    """Some models refuse ``temperature`` outright (Claude Sonnet 5 on Bedrock
+    answers 400 "`temperature` is deprecated for this model"). When the 400
+    names the field and the body still carries it, drop it and say the
+    request should be sent again; the model then samples at its own default."""
+    inference = body.get("inferenceConfig") or {}
+    if status == HTTPStatus.BAD_REQUEST and "temperature" in detail and "temperature" in inference:
+        del inference["temperature"]
+        return True
+    return False
+
+
 def converse_url(url: str, model: str) -> str:
     """``POST /model/{modelId}/converse``; ARNs carry ``:`` and ``/``, so the id is escaped."""
     root = str(url).rstrip("/")
@@ -502,7 +514,8 @@ def _one_bearer_call(
     url: str, body: dict[str, Any], token: str, *, model: str, timeout: float
 ) -> dict:
     """One Converse call over HTTPS with a Bedrock API key, with the transient
-    retries and the 400 max_tokens walk-down the other backends do."""
+    retries, the 400 max_tokens walk-down the other backends do, and one
+    retry without ``temperature`` for a model that refuses the field."""
     headers = {"Authorization": f"Bearer {token}", "content-type": "application/json"}
     transient = 0
     for _ in range(8):
@@ -519,6 +532,8 @@ def _one_bearer_call(
             body["inferenceConfig"]["maxTokens"] = max(
                 MIN_REPLY_TOKENS, int(body["inferenceConfig"]["maxTokens"]) // 2
             )
+            continue
+        if _drop_rejected_temperature(body, status, detail):
             continue
         if (
             name in _TRANSIENT_ERRORS
@@ -664,6 +679,8 @@ def _one_signed_call(region: str, body: dict[str, Any], *, model: str, timeout: 
             body["inferenceConfig"]["maxTokens"] = max(
                 MIN_REPLY_TOKENS, int(body["inferenceConfig"]["maxTokens"]) // 2
             )
+            return _one_signed_call(region, body, model=model, timeout=timeout)
+        if _drop_rejected_temperature(body, status, detail):
             return _one_signed_call(region, body, model=model, timeout=timeout)
         _raise_for_status(
             status or HTTPStatus.BAD_REQUEST, name, detail, model, tries=TRANSIENT_TRIES + 1

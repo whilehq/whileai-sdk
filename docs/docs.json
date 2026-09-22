@@ -98,6 +98,7 @@
             "group": "Guides",
             "pages": [
               "evals",
+              "harness-optimization",
               "reward-hacking",
               "safety-evals",
               "character-training",

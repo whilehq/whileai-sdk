@@ -9,6 +9,26 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 - The Meta-Harness recipe has a live result: Claude Haiku 4.5 as the search model and gpt-4.1-mini held out, both through OpenRouter (`vllm:<model>@<url>`), the gate passed at +0.33 [+0.23, +0.44] on 30 held-out asks and held on the second model, with a three-re-run noise floor. Its program judge now skips text-only turns when it checks a success claim against tool results (it used to count them as failed tools), and `run.py` takes `--concurrency` for live models.
 
+- Bedrock: a model that refuses `temperature` (Claude Sonnet 5 answers 400 "`temperature` is
+  deprecated for this model") is called once more without the field, on both the API-key and the
+  boto3 path, instead of failing every rollout. `recipes/papers/meta-harness`: the gate's row
+  filter matched the model spec (`bedrock:us...`, `openai:gpt-4.1-mini`) against the bare model
+  name the rows carry, so `--select` compared empty row lists on those providers; it now accepts
+  either spelling (#798).
+
+- `recipes/papers/meta-harness` searches the harness on the agent's own traffic: `--traces` takes
+  a JSONL of traces or an OTLP JSON batch as the frozen set (one task per distinct prompt), the
+  holdout is the latest days so the proposer never reads a row from the days that decide, train
+  prompts that overlap a holdout prompt leave the proposer's window (`wai.decontaminate`), and
+  `out/split.json` records all three. The gate picks the candidate that leads the most train
+  tasks (Agrawal et al. 2025, GEPA, arXiv:2507.19457), counts the held-out tasks the baseline
+  passed and the pick failed, and refuses a pick that costs more per rollout than the baseline
+  plus `--cost-margin` (0 by default; Wang et al. 2026, arXiv:2607.12227: at a matched budget
+  harness evolution lost to more samples of the baseline). `skills/harness-search` 1.1.0 runs
+  the loop on traces and ends by scoring the next day's traffic on the pick with the same judge
+  and posting one `LiveDay`. New guide [Harness optimization](https://docs.while.ai/harness-optimization): what the
+  agent reads, what it writes, the three checks, the next day.
+
 ## 0.120 (2026-09-22)
 
 - `compare` counts the row sets `train_runs` names as eval draws when it sets the re-run band, so

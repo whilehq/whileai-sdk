@@ -722,7 +722,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         flags = " --dry-run" if args.dry_run else " --smoke" if args.smoke else ""
         mh.propose(ledger, entries, out, flags=flags)
-        verdict = mh.select(ledger, models=["base"], out=out)
+        # cost_margin=None: the cost per rollout is reported, not gated; this
+        # recipe asks which lever moved the score, not whether the pick is cheap
+        verdict = mh.select(ledger, models=["base"], out=out, cost_margin=None)
         picked = verdict.get("selected") or verdict.get("best_on_train")
         selected_label = by_label[Path(picked).stem].version if picked else baseline_label
         gate_passed = verdict.get("selected") is not None

@@ -92,6 +92,8 @@ Two ways in, both your own:
 | a Bedrock API key (console, *API keys*) | `AWS_BEARER_TOKEN_BEDROCK`, or `api_key=` on `wai.models.Bedrock` | nothing; the calls go over `requests` |
 | AWS credentials (`aws configure`, `AWS_PROFILE`, a role) | nothing more | `pip install "whileai[bedrock]"` for boto3, which signs the calls |
 
+A model that refuses `temperature` (Claude Sonnet 5 answers 400 "`temperature` is deprecated for this model") is called once more without the field and samples at its own default.
+
 ```python
 import whileai as wai
 
