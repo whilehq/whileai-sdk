@@ -6,6 +6,8 @@
     modal run recipes/04-train/grpo/train_modal.py --loss-type dr_grpo --no-scale-rewards     # Dr.GRPO
     modal run recipes/04-train/grpo/train_modal.py --epsilon-high 0.28 --mask-truncated        # DAPO's clip and overlong mask
     modal run recipes/04-train/grpo/train_modal.py --monitor-every 5 --stop-on feature         # end the run on a named reward hack
+    modal run recipes/04-train/grpo/train_modal.py --from-run refund-grpo-v1 --run-name refund-grpo-v2   # round two off round one's adapter
+    modal run recipes/04-train/grpo/train_modal.py --temperature 1.0 --sample-seed 5 --base-runs 5       # move the sampling defaults from the call
 
 What happens:
 
@@ -14,8 +16,11 @@ What happens:
    set and the same split on every run. The reward is the policy's one
    testable rule, in ``reward.py``: look the order up first, never invent an
    id, ask when none is given. It is a function, not a judge.
-2. The holdout is sampled 4 times per prompt before training and scored:
-   that is pass@1 before.
+2. The train set is decontaminated against the holdout, then the holdout is
+   sampled 4 times per prompt before training and scored: that is pass@1
+   before. The base is evaluated ``--base-runs`` times (3), from a seeded
+   sampler, so the spread across those re-runs is the eval's own noise and
+   the delta is read against it rather than against zero.
 3. TRL's ``GRPOTrainer`` with a LoRA adapter, 8 generations per prompt.
    ``wai.TrainerCallback`` puts reward, KL and the progress bar on
    while.ai/platform/training as it goes. ``wai.HackMonitor``
@@ -46,6 +51,20 @@ from whileai.config import provenance, requirement
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+# Every sampling number this file used to spell inline. Named, sourced and
+# movable from the call (CONSTITUTION.md, belief 3; #788).
+from defaults import (
+    BASE_EVAL_RUNS,
+    SAMPLE_SEED,
+    SAMPLE_TEMPERATURE,
+    SAMPLE_TOP_P,
+)
+
+# PROBE_SEED_OFFSET = 500: round two's one sampling pass over the train
+# prompts draws at a seed no eval uses, so the band it measures and the
+# pass@1 it is compared against are independent draws (convention, untested).
+PROBE_SEED_OFFSET = 500
+
 BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 # ``--gpu`` at the command line, or ZP_GRPO_GPU in the environment.
 DEFAULT_GPU = os.environ.get("ZP_GRPO_GPU", "A10G")
@@ -67,6 +86,7 @@ image = (
     .env({"HF_HOME": "/root/.cache/huggingface", "TOKENIZERS_PARALLELISM": "false"})
     .add_local_file(str(HERE / "reward.py"), "/root/reward.py")
     .add_local_file(str(HERE / "prompts.py"), "/root/prompts.py")
+    .add_local_file(str(HERE / "defaults.py"), "/root/defaults.py")
     # From inside this repo the checkout's SDK rides along and shadows the
     # PyPI one, so an unreleased SDK change works here first.
     .add_local_python_source("whileai")
@@ -80,14 +100,32 @@ dashboard_secret = modal.Secret.from_dict(
 
 
 def _sample(
-    model, tokenizer, prompts: list[dict], *, n: int, max_new_tokens: int, batch: int = 16
+    model,
+    tokenizer,
+    prompts: list[dict],
+    *,
+    n: int,
+    max_new_tokens: int,
+    batch: int = 16,
+    temperature: float = SAMPLE_TEMPERATURE,
+    top_p: float = SAMPLE_TOP_P,
+    seed: int = SAMPLE_SEED,
 ) -> list[list[str]]:
-    """``n`` replies per prompt, batched, temperature 0.8."""
+    """``n`` replies per prompt, batched, at the recipe's named sampling
+    defaults and from a seeded generator.
+
+    The sampler was unseeded until #788, so pass@1 before and pass@1 after
+    were two draws from whatever torch's global state happened to be and
+    neither could be reproduced. Belief 1: a number is a result only with
+    its seed. Pass a different ``seed`` to get an independent draw, which is
+    how the base re-runs measure the eval's own noise."""
     import torch
+    from transformers import set_seed
 
     sys.path.insert(0, "/root")
     from reward import messages_for
 
+    set_seed(seed)
     model.eval()
     tokenizer.padding_side = "left"
     out: list[list[str]] = []
@@ -104,8 +142,8 @@ def _sample(
             gen = model.generate(
                 **enc,
                 do_sample=True,
-                temperature=0.8,
-                top_p=0.95,
+                temperature=temperature,
+                top_p=top_p,
                 max_new_tokens=max_new_tokens,
                 num_return_sequences=n,
                 pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
@@ -168,6 +206,11 @@ def train(
     mask_truncated: bool = False,
     monitor_every: int = 10,
     stop_on: str = "",
+    temperature: float = SAMPLE_TEMPERATURE,
+    top_p: float = SAMPLE_TOP_P,
+    seed: int = SAMPLE_SEED,
+    base_runs: int = BASE_EVAL_RUNS,
+    from_run: str = "",
     gpu: str = DEFAULT_GPU,
 ) -> dict:
     import json
@@ -189,6 +232,19 @@ def train(
     model = AutoModelForCausalLM.from_pretrained(
         base_model, torch_dtype=torch.bfloat16, device_map="cuda"
     )
+    if from_run:
+        # Round two (or n): the previous round's adapter is merged into the
+        # weights, so this round samples its own rollouts from that policy
+        # and the KL reference (adapter off) is that policy, not the base.
+        # The same shape dpo/train_modal.py has had; the GRPO README used to
+        # send readers there for a second round (#788).
+        from peft import PeftModel
+
+        prev = os.path.join(VOLUME_ROOT, from_run, "adapter")
+        if not os.path.isdir(prev):
+            raise FileNotFoundError(f"no adapter at {prev}; run names are volume folders")
+        model = PeftModel.from_pretrained(model, prev).merge_and_unload()
+        print(f"round two from {from_run}: {prev} merged into the base weights")
 
     config = {
         "base_model": base_model,
@@ -207,6 +263,11 @@ def train(
         "train_prompts": len(train_prompts),
         "holdout_prompts": len(holdout_prompts),
         "gpu": gpu,
+        "temperature": temperature,
+        "top_p": top_p,
+        "seed": seed,
+        "base_eval_runs": base_runs,
+        "from_run": from_run or None,
         "reward": "reward.py: lookup before refund, never invent an id, ask when none given",
     }
     run = None
@@ -221,12 +282,43 @@ def train(
         print(f"dashboard: {run.url}")
 
     # pass@1 before: the same holdout prompts the after-eval uses, so the
-    # delta is paired by prompt.
-    before_replies = _sample(
-        model, tokenizer, holdout_prompts, n=eval_samples, max_new_tokens=max_completion_length
-    )
-    before_rows = wai.mark_grounding(_stamp(reward_rows(holdout_prompts, before_replies)))
+    # delta is paired by prompt. The base is evaluated ``base_runs`` times,
+    # not once (#788): the spread across those re-runs is the eval's own
+    # noise, and a delta smaller than it is not a result (Lambert 2025,
+    # chapter Evaluation). Each re-run is an independent draw from the same
+    # policy, which is what a different sampler seed buys.
+    base_evals = [
+        wai.mark_grounding(
+            _stamp(
+                reward_rows(
+                    holdout_prompts,
+                    _sample(
+                        model,
+                        tokenizer,
+                        holdout_prompts,
+                        n=eval_samples,
+                        max_new_tokens=max_completion_length,
+                        temperature=temperature,
+                        top_p=top_p,
+                        seed=seed + i,
+                    ),
+                )
+            )
+        )
+        for i in range(max(1, base_runs))
+    ]
+    before_rows = base_evals[0]
     before = wai.pass_at(before_rows)
+    run_std: float | None = None
+    run_std_runs: int | None = None
+    if len(base_evals) >= 2:  # two runs before a standard deviation exists
+        noise = wai.eval_variance(*base_evals)
+        run_std = float(noise["run_std"])
+        run_std_runs = int(noise["n_runs"])
+        print(f"base re-runs: {[round(wai.pass_at(r).pass_at_1, 3) for r in base_evals]}")
+        print(f"eval noise over {run_std_runs} base runs: run_std {run_std:.4f}")
+    else:
+        print("base evaluated once: no noise floor, so no delta here is above noise by measurement")
     print(f"before: {before}")
 
     def rule_reward(completions, case, **kwargs):
@@ -236,6 +328,36 @@ def train(
             text = completion[0]["content"] if isinstance(completion, list) else str(completion)
             out.append(score(text, c))
         return out
+
+    if from_run:
+        # Round two trains on the prompts this policy is still uncertain
+        # about. A round that reuses round one's file keeps paying for
+        # groups with no contrast: every rollout passes or every rollout
+        # fails, the group-relative advantage is zero, and the step is
+        # free of gradient (Lambert 2025, chapter Reasoning, the 20-80%
+        # band; Yu et al. 2025 (DAPO), dynamic sampling). ``next_round``
+        # applies the band to what THIS policy does, so it needs one
+        # sampling pass over the train prompts first.
+        probe = _sample(
+            model,
+            tokenizer,
+            train_prompts,
+            n=eval_samples,
+            max_new_tokens=max_completion_length,
+            temperature=temperature,
+            top_p=top_p,
+            seed=seed + PROBE_SEED_OFFSET,
+        )
+        plan = wai.next_round(reward_rows(train_prompts, probe), tasks=train_prompts)
+        kept = {str(t.get("prompt") or "") for t in plan["tasks"]}
+        train_prompts = [p for p in train_prompts if p["prompt"] in kept] or train_prompts
+        print(
+            f"next_round: {plan['kept']} kept in the {plan['band']} band, "
+            f"{plan['dropped_solved']} solved, {plan['dropped_unsolved']} unsolved, "
+            f"{plan['unknown']} unknown; prompt set {plan['prompt_set_sha']}"
+        )
+        config["train_prompts"] = len(train_prompts)
+        config["prompt_set_sha"] = plan["prompt_set_sha"]
 
     dataset = Dataset.from_list(
         [{"prompt": messages_for(p["prompt"]), "case": p["case"]} for p in train_prompts]
@@ -263,12 +385,12 @@ def train(
         mask_truncated_completions=mask_truncated,
         max_completion_length=max_completion_length,
         max_prompt_length=768,
-        temperature=0.8,  # the same temperature the rollouts were measured at
+        temperature=temperature,  # the same temperature the rollouts were measured at
         bf16=True,
         logging_steps=1,
         save_strategy="no",
         report_to=[],
-        seed=17,
+        seed=seed,
     )
     lora = LoraConfig(
         r=lora_rank,
@@ -322,7 +444,14 @@ def train(
 
     policy = trainer.model
     after_replies = _sample(
-        policy, tokenizer, holdout_prompts, n=eval_samples, max_new_tokens=max_completion_length
+        policy,
+        tokenizer,
+        holdout_prompts,
+        n=eval_samples,
+        max_new_tokens=max_completion_length,
+        temperature=temperature,
+        top_p=top_p,
+        seed=seed,
     )
     after_rows = wai.mark_grounding(_stamp(reward_rows(holdout_prompts, after_replies)))
     after = wai.pass_at(after_rows)
@@ -350,10 +479,25 @@ def train(
         "eval_samples": eval_samples,
         "by_category_before": _by_category(before_rows),
         "by_category_after": _by_category(after_rows),
+        "base_runs": len(base_evals),
+        "run_std": run_std,
+        "temperature": temperature,
+        "top_p": top_p,
+        "seed": seed,
     }
-    delta = None
+    # The local report is the one that carries the noise floor the base
+    # re-runs measured; ``run.delta`` draws the page and takes no run_std.
+    delta = wai.delta_report(
+        before_rows,
+        after_rows,
+        target="pass_at_1",
+        must_not_regress=["well_formed", "argument_grounding"],
+        by="category",
+        run_std=run_std,
+        run_std_runs=run_std_runs,
+    )
     if run is not None:
-        delta = run.delta(
+        run.delta(
             before_rows,
             after_rows,
             target="pass_at_1",
@@ -362,14 +506,6 @@ def train(
         )
         run.finish("done", summary=summary, adapter=f"whileai-grpo-runs:/{run_name}/adapter")
         summary["run_url"] = run.url
-    else:
-        delta = wai.delta_report(
-            before_rows,
-            after_rows,
-            target="pass_at_1",
-            must_not_regress=["well_formed", "argument_grounding"],
-            by="category",
-        )
     print(wai.format_delta_report(delta))
     print(wai.format_hack_monitor(monitor.summary()))
     summary["delta_verdict"] = delta["target_verdict"]
@@ -398,10 +534,17 @@ def main(
     mask_truncated: bool = False,
     monitor_every: int = 10,
     stop_on: str = "",
+    temperature: float = SAMPLE_TEMPERATURE,
+    top_p: float = SAMPLE_TOP_P,
+    sample_seed: int = SAMPLE_SEED,
+    base_runs: int = BASE_EVAL_RUNS,
+    from_run: str = "",
     gpu: str = DEFAULT_GPU,
 ):
     print(provenance(), file=sys.stderr)
     from reward import build_prompts, split_holdout
+
+    import whileai as wai
 
     if prompts_file:
         from prompts import load_prompts
@@ -424,6 +567,12 @@ def main(
     else:
         items = build_prompts(prompts, seed=seed)
         train_items, held = split_holdout(items, holdout)
+    # A held-out prompt that also sits in the training set measures memory,
+    # not the change (Lambert 2025, chapter Evaluation). The split is by
+    # scenario id, so this should drop nothing; it runs anyway and prints the
+    # count, because "should" is not a measurement (#788).
+    train_items, decon = wai.decontaminate(train_items, against=held)
+    print(f"decontaminate: {decon['n_contaminated']} of {decon['n']} train rows dropped")
     with_id = sum(1 for p in items if p["case"]["order_id"])
     print(
         f"{len(items)} prompts ({with_id} name an order id): {len(train_items)} train, {len(held)} holdout"
@@ -446,6 +595,11 @@ def main(
         mask_truncated=mask_truncated,
         monitor_every=monitor_every,
         stop_on=stop_on,
+        temperature=temperature,
+        top_p=top_p,
+        seed=sample_seed,
+        base_runs=base_runs,
+        from_run=from_run,
         gpu=gpu,
     )
     print("done:", summary)

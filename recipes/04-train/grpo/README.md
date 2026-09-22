@@ -203,7 +203,18 @@ stays paired.
 | `--run-name` | refund-grpo-v1 | the run's name on the dashboard and its folder on the volume |
 | `--base-model` | Qwen/Qwen2.5-1.5B-Instruct | any chat model TRL's `GRPOTrainer` loads |
 | `--seed` | 0 | the template writer's seed; the same seed builds the same prompt set and holdout |
+| `--sample-seed` | 17 | the eval sampler's seed; base re-run *i* draws at `--sample-seed + i` |
+| `--temperature` | 0.8 | sampling temperature, for the rollouts and the eval alike |
+| `--top-p` | 0.95 | nucleus sampling cutoff |
+| `--base-runs` | 3 | times the base is evaluated; their spread is the eval's noise floor |
+| `--from-run` | | round two: merge that run's adapter into the weights first |
 | `--gpu` | A10G | or `ZP_GRPO_GPU`; the default run fits an A10G |
+
+`--temperature`, `--top-p`, `--sample-seed` and `--base-runs` are named
+constants in [`defaults.py`](defaults.py), each with the source it comes
+from, not literals inside the sampler (CONSTITUTION.md, belief 3). They were
+literals until #788, and the sampler was unseeded, so a pass@1 could not be
+reproduced.
 
 ## Variants as flags
 
@@ -309,8 +320,9 @@ off_topic 0.99 to 1.00. Balance did nothing for DPO, and that is the
 method: it learns only from prompts with a pass and a fail, and the base
 policy almost never invents an id on a no-id prompt, so repeating those
 prompts adds no pairs. The contrast exists after round one, which is what
-`recipes/04-train/dpo --from-run` is for: round two samples the round-one policy,
-finds the invented ids, and pairs them against the replies that asked.
+`--from-run` is for, here and in `recipes/04-train/dpo`: round two merges the
+round-one adapter into the weights, samples that policy, finds the invented
+ids, and trains on them.
 GRPO samples every prompt every step, so frequency is its lever; DPO's is
 another round.
 

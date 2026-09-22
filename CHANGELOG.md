@@ -7,6 +7,22 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Paper recipes stamp their `.cache/<arm>.json` with the grader that decided its verdicts and
+  the whileai version behind it (`recipes/papers/cache_stamp.py`). `--reuse` re-grades the
+  stored rollouts when either has changed, or refuses the reuse and says what changed
+  (`--no-regrade`). A cached row is a rollout and a verdict is not a rollout, now in
+  `recipes/papers/README.md`'s contract; `_template/recipe.py` stamps `results.json` with its
+  grader. `zero-rl-format-reward`'s published numbers were decided by `MathEqual`'s retired
+  string-and-number rule and are marked void pending a re-grade rather than restated (#737).
+- `recipes/04-train/grpo` grades the rule instead of the wire format: the reward reads a row's
+  structured `steps` when it has them and falls back to the `<tool_call>` block when it does
+  not, so a correct prose answer on an SDK row scores 1.0 where it scored 0.0. Sampling
+  temperature, top_p, the sampler seed and the number of base re-runs are named, sourced
+  defaults in `recipes/04-train/grpo/defaults.py` and flags on the call; the eval sampler is
+  seeded; the train set is decontaminated against the holdout; the base is evaluated three
+  times for a noise floor; `--from-run` runs a second round off round one's adapter and picks
+  its prompts with `next_round` (#788).
+
 - The `wide_call_overage` ratchet pin is 195, not 194. #842 measured it at its
   branch point and #843 landed `compare(lower_is_better=)` after it, so the two
   were never counted together and `main` went red on the merge. The argument is

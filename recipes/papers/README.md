@@ -27,6 +27,16 @@ what it claims, the steps, one command, what happened.
 The table is generated: `python recipes/papers/check.py --write` reads every
 `results.json`. Do not edit it by hand.
 
+**One row above is void, not measured.** `zero-rl-format-reward` was verified
+on 2026-09-18 under whileai 0.83, whose `MathEqual` used a string-and-number
+rule. 788c553 replaced that rule with Math-Verify, and #737 re-graded the six
+cached arms (5,760 rollouts): 402 verdicts moved, every arm by 2 to 4 points.
+Its `results.json` carries a `grader` block saying so and the re-grade is
+owed; the numbers in its row are the old rule's and are not a result under
+belief 1. The `.cache/` those rollouts live in is not committed
+(`.gitignore`), so the re-grade needs the machine that has it: one
+`python recipe.py --reuse` re-grades from disk and rewrites `results.json`.
+
 One paper here is a loop, not a trained arm:
 [`meta-harness`](meta-harness) (Lee et al. 2026, arXiv:2603.28052) searches
 over harness code, scores every candidate on one frozen task set, and gates
@@ -70,6 +80,15 @@ and you run it yourself.
 - Public data or a seeded environment that lives in the recipe directory. No customer data.
 - A flat result is a result. Say so in the table.
 - One training seed per arm is never "moved": the verdict is "unresolved" until both arms have `MIN_TRAIN_SEEDS` (2) independent seeds, and the README's result line says in one sentence what would resolve it. `results.json` records the seeds per arm in `checks.train_seeds`.
+- **A cached row is a rollout, and a verdict is not a rollout.** A recipe that
+  caches arms under `--reuse` writes the grader's name and the whileai version
+  beside the rows (`cache_stamp.write(path, out, grader=GRADER)`), and on reuse
+  re-grades the stored rollouts when either has changed, or refuses the reuse
+  and says what changed (`cache_stamp.read(..., regrade=)`). The rollouts are
+  the expensive part and they stay good; the verdict is cheap and is recomputed.
+  A verdict-shaped marker (`markers.<proxy>`) is under the same rule: it was
+  written by the grader at rollout time, so a `wai.compare(proxy=)` over a
+  re-graded target and a stale proxy compares two different rules (#737).
 - `python recipes/papers/check.py --write` passes (`tests/recipes/test_papers.py` runs it in CI).
 - `post.md`: the result as a post, once the recipe is verified. Under 280
   characters, plain words, the metric with its interval, the arXiv link

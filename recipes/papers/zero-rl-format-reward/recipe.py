@@ -50,12 +50,21 @@ import modal
 from whileai.config import provenance, requirement
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))  # recipes/papers, for cache_stamp
+
+import cache_stamp
+
 BASE_MODEL = "Qwen/Qwen3.5-4B-Base"
 METRIC = "pass@1"
 BOOK = "Reasoning Reasoning"  # zero RL on a base model with a verifiable reward
 # The baseline trains on the strict reward and is scored on the lenient one;
 # delta_report(proxy=) names that gap so an over-optimized verdict can fire.
 PROXY = "strict_reward"
+# Who decides a verdict here, stamped into .cache/<arm>.json beside the rows
+# and checked on --reuse (#737). Change the reader or the equality rule and
+# this name changes with it, so a cache written by the old one is re-graded
+# rather than believed: a cached row is a rollout, a verdict is not.
+GRADER = "lenient-math-equal-read+strict-box-marker"
 EVAL_RUNS = 3  # re-runs of the base eval that set the noise floor (chapter Evaluation)
 NO_BOX_PENALTY = -1.0  # section 3.1: "a reward of -1 if they fail to adhere to the required format"
 
@@ -200,6 +209,54 @@ def graded_rows(holdout: list[dict], replies: list[list[str]]) -> list[dict]:
                 }
             )
     return rows
+
+
+def regrade_rows(rows: list[dict]) -> list[dict]:
+    """The same rollouts, judged again by the grader in this tree.
+
+    Every graded row keeps the text it produced and the gold it was held to
+    (`privileged.reference`), so the verdict is a pure function of what is
+    already on disk: no GPU, no key, no sampling. `markers.strict_reward` is
+    recomputed too, because the proxy was written by the same rule at
+    rollout time and a `delta_report(proxy=)` that compares a re-graded
+    target against a stale proxy is the same bug one level down (#737)."""
+    fresh: list[dict] = []
+    for row in rows:
+        gold = str((row.get("privileged") or {}).get("reference") or "")
+        if not gold:
+            raise cache_stamp.StaleCache(
+                "a cached row carries no privileged.reference, so its verdict cannot "
+                "be recomputed; delete .cache/ and roll the arm again"
+            )
+        text = str(row.get("final_text") or "")
+        fresh.append(
+            {
+                **row,
+                "reward": outcome_of(text, gold),
+                "markers": {
+                    **(row.get("markers") or {}),
+                    "strict_reward": strict_reward(text, gold),
+                },
+            }
+        )
+    return fresh
+
+
+def regrade(payload: dict) -> dict:
+    """One cached arm re-graded in place: the after rows and every base
+    re-run. Prints what moved, in #737's shape, so a reused arm never
+    reports a changed number quietly."""
+    fresh = dict(payload)
+    before_rows = list(payload.get("after_rows") or [])
+    fresh["after_rows"] = regrade_rows(before_rows)
+    fresh["base_runs"] = [regrade_rows(rows) for rows in (payload.get("base_runs") or [])]
+    counts = cache_stamp.moved(before_rows, fresh["after_rows"])
+    print(
+        f"  re-graded {counts['rows']} rollouts: {counts['unchanged']} unchanged, "
+        f"{counts['now_correct']} now correct, {counts['now_wrong']} now wrong "
+        f"({counts['moved']} moved)"
+    )
+    return fresh
 
 
 # --------------------------------------------------------------------------
@@ -685,6 +742,40 @@ def selftest() -> None:
 
     rows = [{"final_text": boxed_right}, {"final_text": unboxed_right}]
     assert boxed_share(rows) == 0.5
+
+    # The cache carries rollouts, not verdicts (#737). A file stamped by
+    # another grader is re-graded from the rollouts it holds; one stamped by
+    # this grader is reused as it is.
+    import tempfile
+
+    cached_rows = [
+        {
+            "prompt": "q",
+            "final_text": unboxed_right,
+            "reward": 0.0,  # what the old string rule said about "the answer is 1/2"
+            "markers": {"strict_reward": 0.0},
+            "scenario_id": "s0",
+            "rollout_index": 0,
+            "privileged": {"reference": gold},
+        }
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "recipe.json"
+        cache_stamp.write(path, {"after_rows": cached_rows, "base_runs": []}, grader="old-rule")
+        out, note = cache_stamp.read(path, grader=GRADER, regrade=regrade)
+        assert note, "a cache from another grader must not come back unannounced"
+        assert out["after_rows"][0]["reward"] == 1.0, out["after_rows"][0]["reward"]
+        assert out["after_rows"][0]["markers"]["strict_reward"] == NO_BOX_PENALTY
+        _, note = cache_stamp.read(path, grader=GRADER, regrade=regrade)
+        assert note == "", "an unchanged grader must reuse the cache, not pay for it twice"
+        try:
+            cache_stamp.write(path, {"after_rows": cached_rows}, grader="old-rule")
+            cache_stamp.read(path, grader=GRADER, regrade=None)
+        except cache_stamp.StaleCache:
+            pass
+        else:  # pragma: no cover - the selftest fails loudly instead
+            raise AssertionError("--no-regrade must refuse a cache another grader wrote")
+    print("cache: stamped by grader; another grader's rows are re-graded, not believed")
     print("lenient: 1/2 in a box 1.0, 1/2 in a sentence 1.0, wrong 0.0")
     print(f"strict:  1/2 in a box 1.0, 1/2 in a sentence {NO_BOX_PENALTY}, boxed wrong 0.0")
     print(f"prompt:\n{prompt_for('What is 1 + 1?')}")
@@ -712,6 +803,12 @@ def main() -> None:
         "--reuse",
         action="store_true",
         help="take an arm from .cache/<arm>.json when it is there instead of training it again",
+    )
+    ap.add_argument(
+        "--no-regrade",
+        action="store_true",
+        help="under --reuse, refuse a cache the current grader did not write instead of "
+        "re-grading its rollouts",
     )
     args = ap.parse_args()
 
@@ -759,15 +856,23 @@ def main() -> None:
 
     # Every arm's rows land in .cache/<arm>.json the moment it returns, so a
     # crash in the second arm never costs the first, and `--reuse` rebuilds
-    # the delta from disk.
+    # the delta from disk. The file is stamped with the grader that decided
+    # its verdicts; on --reuse a stamp that is not this tree's means the
+    # rollouts are reused and the verdicts are recomputed from them, never
+    # believed (#737). --no-regrade turns the re-grade into a refusal.
     cache = HERE / ".cache"
     cache.mkdir(exist_ok=True)
+    results["grader"] = cache_stamp.stamp(GRADER)
     with modal.enable_output(), app.run():
         for i, arm in enumerate(arms):
             cached = cache / f"{arm}.json"
             if args.reuse and cached.exists():
-                out = json.loads(cached.read_text())
-                print(f"{arm}: reused {cached}")
+                out, note = cache_stamp.read(
+                    cached,
+                    grader=GRADER,
+                    regrade=None if args.no_regrade else regrade,
+                )
+                print(f"{arm}: reused {cached}{' ' + note if note else ''}")
             else:
                 out = run_arm.remote(
                     arm,
@@ -784,7 +889,7 @@ def main() -> None:
                     eval_samples=args.k,
                     eval_base=(i == 0),
                 )
-                cached.write_text(json.dumps(out))
+                cache_stamp.write(cached, out, grader=GRADER)
             gpu_minutes += out["gpu_minutes"]
             run_url = out["run_url"] or run_url
             checks["pins"] = out["pins"]
