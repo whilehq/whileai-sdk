@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.124 (2026-09-22)
+
 - The hosted defaults name Modal apps that exist, and CI now proves it. `stressd-vllm`
   was stopped on 2026-09-21 and `zeroproof-serve`'s `phi_4` function was replaced by
   `qwen3_8b`; `DEFAULT_AGENT`, `DEFAULT_SIMULATOR`, `DEFAULT_JUDGE` and `ACCOUNT_JUDGE`
