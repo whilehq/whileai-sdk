@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/harness-and-weights` posts the grid the platform can read (#712): every arm pins
+  `model` as `base` or `trained` beside its `harness` fingerprint (before, all four said `base`,
+  so the page saw one model and wrote a two-arm question), the test is declared `graded_by="program"`
+  with the CodeExec rubric (the page called it an unchecked model judge), every graded row goes up
+  with `run.score(rows=)` tagged by harness, weights and task family, each iteration carries a
+  Changed line, and `--reuse` with every stage cached never opens Modal.
 - Docs: [The methods, in symbols](https://docs.withwhile.com/reference/methods), one block of
   arithmetic per method the library names: the hosted four (SFT, GRPO with its `loss_type`
   variants, DPO, RM), the distillation pair (OPD, OPSD with its anchor), the three `Async`
