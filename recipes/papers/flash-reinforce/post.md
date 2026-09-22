@@ -1,0 +1,1 @@
+FlashREINFORCE (Hu et al.) with whileai, 44 min: pass@1 0.47->0.41 (-0.069 [-0.115, -0.025], unresolved) on 120 GSM8K, Qwen2.5-1.5B. https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/flash-reinforce https://yifanzhang-pro.github.io/FlashREINFORCE/FlashREINFORCE.pdf
