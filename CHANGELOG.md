@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- The docs live at `https://docs.while.ai`; every link in the package, README and skills says so.
+
 - `pass_at` counts the rows it could not read and names them in `note`, with a new `n_partial`.
   A reward that is not 0 or 1 was dropped silently, and `Criterion` defaults to
   `kind="principle"`, which scores the mean of its criteria, so the documented rubric path

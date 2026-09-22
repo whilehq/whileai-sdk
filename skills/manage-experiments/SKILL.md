@@ -26,7 +26,7 @@ in under a second; its setup defines `MODEL`, `OPEN_MODEL`, `TOOLS`,
 `POLICY`, `PROMPT_POLICY`, `DATES_LINE`, `PROMPT_DATES`, `ASKS`, `NOISE`,
 `STEPS`, `CHECKPOINT_EVERY`, `score_on`, `score_checkpoint`,
 `train_reward`, `worst_of` (20 rows, failures first) and `fake`.
-Names follow [platform/naming](https://docs.withwhile.com/platform/naming);
+Names follow [platform/naming](https://docs.while.ai/platform/naming);
 that part is easy.
 
 ## 1. The question, before the first run

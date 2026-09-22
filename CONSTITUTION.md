@@ -75,7 +75,7 @@ service for hosted training and serving. The library needs no account.
 9. **One name.** The company is While, the package is `whileai`, the import
    is `import whileai as wai`, the command is `wai` (`whileai` runs the
    same entry point; `zp` is gone), the hosts are while.ai (site and
-   platform), api.while.ai and docs.withwhile.com, the variables are
+   platform), api.while.ai and docs.while.ai, the variables are
    `WHILEAI_*`, the config dir is `~/.whileai`. app.withwhile.com was
    retired the same day; nothing links to it. ZeroProof
    was the name before 2026-09-16; the cutover finished on 2026-09-19 and

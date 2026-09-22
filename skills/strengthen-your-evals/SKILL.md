@@ -197,7 +197,7 @@ model do. Promote the version in production so the next one is the
 candidate. The platform's verdict uses the rule this file uses: the
 difference interval excludes zero and clears the noise floor.
 
-**Names are the team's; the test's is its content.** `refund-agent`, `refund_policy` and `v1` are this playbook's examples. In a real repo name the agent after the product, the behaviors as the policy doc phrases them, and the versions as the team ships them (tag, PR, date, prompt label); the platform shows exactly what you send. Rules and a table: [docs.withwhile.com/platform/naming](https://docs.withwhile.com/platform/naming).
+**Names are the team's; the test's is its content.** `refund-agent`, `refund_policy` and `v1` are this playbook's examples. In a real repo name the agent after the product, the behaviors as the policy doc phrases them, and the versions as the team ships them (tag, PR, date, prompt label); the platform shows exactly what you send. Rules and a table: [docs.while.ai/platform/naming](https://docs.while.ai/platform/naming).
 
 ```python
 tracked = track(
