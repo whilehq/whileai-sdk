@@ -79,6 +79,7 @@ FEEDBACK_CHARS = 300
 # asks for a public spelling of this).
 HOSTED_MODEL, HOSTED_URL = ACCOUNT_AGENT.split(":", 1)[1].split("@", 1)
 MAX_TOKENS = 2048
+THINK_TOKENS = 6144  # with thinking on: reasoning plus the program
 TEMPERATURE = 1.0
 CONCURRENCY = 48
 GRADERS = 8
@@ -316,10 +317,13 @@ class Model:
     """One OpenAI-compatible chat endpoint. Thinking is off: the fitness
     signal is the tests, and 1,500 tokens is enough for a program."""
 
-    def __init__(self, base_url: str, model: str, api_key: str | None):
+    def __init__(self, base_url: str, model: str, api_key: str | None, *, thinking: bool = False):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
+        self.thinking = thinking
+        # Thinking needs room: Qwen3 reasons for a few thousand tokens first.
+        self.max_tokens = THINK_TOKENS if thinking else MAX_TOKENS
         self.calls = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
@@ -327,13 +331,17 @@ class Model:
         self._lock = threading.Lock()
 
     def chat(self, messages: list[dict], *, seed: int) -> str:
+        # Streamed: the hosted endpoint closes an idle request at 150 s, and a
+        # thinking reply takes longer than that; a stream keeps it open.
         body = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": MAX_TOKENS,
+            "max_tokens": self.max_tokens,
             "temperature": TEMPERATURE,
             "seed": seed,
-            "chat_template_kwargs": {"enable_thinking": False},
+            "stream": True,
+            "stream_options": {"include_usage": True},
+            "chat_template_kwargs": {"enable_thinking": self.thinking},
         }
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -343,18 +351,33 @@ class Model:
         )
         for attempt in range(5):
             try:
-                with _slots, urllib.request.urlopen(req, timeout=600) as resp:
-                    data = json.load(resp)
-                usage = data.get("usage") or {}
+                parts: list[str] = []
+                usage: dict = {}
+                finish = None
+                with _slots, urllib.request.urlopen(req, timeout=900) as resp:
+                    for raw in resp:
+                        line = raw.decode("utf-8", errors="replace").strip()
+                        if not line.startswith("data:"):
+                            continue
+                        payload = line[5:].strip()
+                        if payload == "[DONE]":
+                            break
+                        chunk = json.loads(payload)
+                        if chunk.get("usage"):
+                            usage = chunk["usage"]
+                        for choice in chunk.get("choices") or []:
+                            parts.append((choice.get("delta") or {}).get("content") or "")
+                            finish = choice.get("finish_reason") or finish
                 with self._lock:
                     self.calls += 1
                     self.prompt_tokens += int(usage.get("prompt_tokens") or 0)
                     self.completion_tokens += int(usage.get("completion_tokens") or 0)
-                choice = data["choices"][0]
-                if choice.get("finish_reason") == "length":
-                    with self._lock:
+                    if finish == "length":
                         self.truncated += 1
-                return choice["message"]["content"] or ""
+                text = "".join(parts)
+                # Thinking arrives inside the content on this route; the
+                # program is what follows the closing tag.
+                return text.rsplit("</think>", 1)[-1] if "</think>" in text else text
             except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
                 if attempt == 4:
                     raise
@@ -634,6 +657,8 @@ def measure(
         }
         if ref is not None and arm != "resample":
             c = wai.simulations.compare_runs(ref, rows)
+            if c.get("delta") is None:
+                continue
             report["deltas"][arm] = {
                 "vs": "resample",
                 "delta": round(100 * c["delta"], 1),
@@ -858,6 +883,18 @@ def main(argv: list[str] | None = None) -> int:
         "--reuse", action="store_true", help="read out/*.json instead of calling the model"
     )
     p.add_argument("--post", action="store_true", help="post the arms as runs on the platform")
+    p.add_argument(
+        "--thinking", action="store_true", help="Qwen3 thinking on (6,144 tokens a reply)"
+    )
+    p.add_argument(
+        "--band",
+        choices=["all", "near-miss"],
+        default="all",
+        help="which all-fail tasks get the arms: all, or near-miss (some visible test passed at base)",
+    )
+    p.add_argument(
+        "--out", default=None, help="output directory (default out/, out-dry/ for a dry run)"
+    )
     args = p.parse_args(argv)
     arms_wanted = [a for a in args.arms.split(",") if a]
     for a in arms_wanted:
@@ -865,9 +902,11 @@ def main(argv: list[str] | None = None) -> int:
             sys.exit(f"unknown arm {a!r}; choose from {', '.join(ARMS)}")
 
     global OUT
+    if args.out:
+        OUT = HERE / args.out
     if args.dry_run:
         # Never over a real run's files: the toy run gets its own directory.
-        OUT = HERE / "out-dry"
+        OUT = HERE / (args.out or "out-dry")
         tasks = DRY_TASKS
         model: Model = FakeModel()
     else:
@@ -881,6 +920,7 @@ def main(argv: list[str] | None = None) -> int:
             args.base_url,
             args.model,
             key if args.base_url == HOSTED_URL else os.environ.get("OPENAI_API_KEY"),
+            thinking=args.thinking,
         )
     by_id = {t.id: t for t in tasks}
     print(f"{len(tasks)} tasks, model {model.model} at {model.base_url}", file=sys.stderr)
@@ -896,6 +936,15 @@ def main(argv: list[str] | None = None) -> int:
         by_id[tid] for tid, batch in base.items() if not any(s["grade"]["correct"] for s in batch)
     ]
     print(f"all-fail tasks: {len(all_fail)} of {len(base)}", file=sys.stderr)
+    if args.band == "near-miss":
+        # The band where fitness is graded: no base rollout passed every
+        # test, but at least one passed a visible test, so a swarm has a
+        # direction to move in.
+        all_fail = [t for t in all_fail if max(s["grade"]["fitness"] for s in base[t.id]) > 0]
+        print(f"near-miss band: {len(all_fail)} tasks", file=sys.stderr)
+    if not all_fail:
+        print("no tasks in the band; nothing for the arms to rescue", file=sys.stderr)
+        return 0
 
     arms: dict[str, dict[str, dict]] = {}
     for arm in arms_wanted:
@@ -925,6 +974,8 @@ def main(argv: list[str] | None = None) -> int:
     rep = measure(base, arms, noise)
     rep["model"] = model.model
     rep["seed"] = args.seed
+    rep["thinking"] = bool(args.thinking)
+    rep["band"] = args.band
     cost = {
         "calls": model.calls,
         "truncated": model.truncated,
