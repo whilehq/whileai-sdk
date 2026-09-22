@@ -62,7 +62,7 @@ in angle brackets, and open a pull request. The rest is in
 
 ```bash
 cp -r recipes/_template recipes/03-select/my-recipe
-sh recipes/03-select/my-recipe/smoke.sh
+uv run sh recipes/03-select/my-recipe/smoke.sh
 ```
 
 A recipe that trains on Modal we run on our own account before merging: a

@@ -103,7 +103,7 @@ service for hosted training and serving. The library needs no account.
 | Replicated papers | `recipes/papers/README.md`: one paper, one recipe, one command, one `post.md` |
 | Sourced defaults | `scripts/check_no_hardcoding.py` in CI; `tests/api/test_readme_defaults.py` |
 | Ergonomics | `docs/reference/style.md`; `tests/api/test_style_ratchet.py` pins the retired shapes |
-| Docs order | `docs/` on Mintlify; the docs routine's one PR a day; the five-line loop list on the website home (`components/quickstart.tsx` in whilehq/website) is the reference wording |
+| Docs order | `docs/` on Mintlify; the docs routine's one PR a day; the five-line loop list in `README.md` is the reference wording, mirrored on the website home (`whilehq/platform`, private; it holds no `components/quickstart.tsx`, so the repo here is the source, #803) |
 | README skeleton | `tests/api/test_readme_skeleton.py` pins the section order, the five-line loop before the first heading, and the 900-word prose budget; `tests/api/test_readme_offline_quickstart.py` runs the quick start as written |
 | Bring your own keys | `wai.configure(agent=, judge=, api_key=)`, backend objects whose repr names the key source; the Modal and Prime Intellect researcher routines run on their own accounts twice a day |
 | One name | `scripts/check_old_name.py` in CI lint pins the count of the old name per file from `scripts/old_name_baseline.json`; the docs, site and style routines fix any old-name string in a file they touch |

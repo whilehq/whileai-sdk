@@ -29,7 +29,7 @@ wai.simulate(tools=my_tools, system_prompt=my_system_prompt, mode="adaptive", un
 Ask before you guess. `recommend()` sizes the run from the agent's own covering grid and from published post-training practice (FireAct, LIMA, AgentTuning for SFT; DAPO, Skywork-OR1 for RL). No key, no network.
 
 ```python
-rec = wai.recommend(tools=my_tools, system_prompt=my_system_prompt, mode="sft")
+rec = wai.simulations.recommend(tools=my_tools, system_prompt=my_system_prompt, mode="sft")
 print("\n".join(rec["reasoning"]))
 data = wai.simulate(tools=my_tools, system_prompt=my_system_prompt, **rec["simulate_kwargs"])
 ```
@@ -161,7 +161,7 @@ show a difference at all:
 
 ```python
 base = wai.evaluate(data, judge)  # the base run, graded, before any training
-rep = wai.score.eval_power(base.rows())
+rep = wai.simulations.score.eval_power(base.rows())
 print(rep)  # verdict usable / underpowered / saturated / floored, in_band, resolvable, n_needed
 ```
 

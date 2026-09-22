@@ -224,7 +224,11 @@ def test_logout_and_status(gate, capsys):
     assert cli.main(["logout"]) == 0
     assert auth.stored_api_key() is None
     assert cli.main(["status"]) == 0
-    assert json.loads(capsys.readouterr().out.split("Logged out.\n")[-1])["source"] is None
+    # after a logout, status is JSON plus the keyless note (#790), not an error
+    out = capsys.readouterr().out.split("Logged out.\n")[-1]
+    body, note = out.rsplit("\n}\n", 1)
+    assert json.loads(body + "\n}")["source"] is None
+    assert note.startswith("no API key: the library runs without one")
 
 
 def test_status_records_the_tier_on_an_older_credentials_file(gate, tmp_path):

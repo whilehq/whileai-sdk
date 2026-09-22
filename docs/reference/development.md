@@ -94,7 +94,7 @@ the `Recipes` nav group in `docs/docs.json`. Skip it and the job
 Then run the offline path and the linters the recipe jobs run:
 
 ```bash
-sh recipes/03-select/my-recipe/smoke.sh
+uv run sh recipes/03-select/my-recipe/smoke.sh
 uv run ruff check recipes/ && uv run ruff format --check recipes/
 ```
 

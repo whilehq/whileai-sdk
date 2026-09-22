@@ -148,7 +148,7 @@ python run.py                      # traffic -> graded -> split -> out/train_sft
 modal run train_modal.py           # 3 base passes, LoRA SFT, 1 trained pass  (~$0.09)
 python analyze.py                  # grade the generations, print the verdicts, write out/results.json
 
-sh smoke.sh                        # offline, no GPU, no key: the split only
+uv run sh smoke.sh                        # offline, no GPU, no key: the split only
 ```
 
 No model API key is needed anywhere. The incumbent is `wai.seeded_agent`, the

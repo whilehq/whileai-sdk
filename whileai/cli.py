@@ -183,9 +183,14 @@ def main(argv: list[str] | None = None) -> int:
         shown["repo"] = init_repo.status(".")
         print(json.dumps(shown, indent=2))
         if not shown.get("configured"):
+            # Not an error: the library runs without an account (CONSTITUTION
+            # belief 4). A key buys the hosted writer, judge and run page only,
+            # so this goes to stdout as a note, not to stderr as a failure
+            # (#790).
             print(
-                "no API key configured: run `wai login` or set WHILEAI_API_KEY",
-                file=sys.stderr,
+                "no API key: the library runs without one. A key adds the hosted writer "
+                "and judge and the run page: `wai login`, or set WHILEAI_API_KEY. "
+                "Without one, pass simulator=False and your own agent and judge."
             )
         return 0
 
