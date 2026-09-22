@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `01-simulate/swarm-rescue`: seed 1 of the additive positive control replicates the flat
+  result (`results-mbpp-s1.json`, `rescued-mbpp-s1.jsonl`); the swarm doubles the share of programs
+  passing the shown asserts on both seeds and the hidden pass does not follow.
+
 - Recipe `01-simulate/swarm-rescue` gains the pre-flight that explains its flat results:
   `calibrate.py` and `sql_calibrate.py` regrade saved rollouts and print P(pass | fitness
   bucket). On code_contests (4B and 27B) and text-to-SQL (4B) partial credit is a cliff, zero
