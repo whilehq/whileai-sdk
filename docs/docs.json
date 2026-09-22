@@ -204,6 +204,7 @@
                   "recipes/community/the-step-the-course-skips",
                   "recipes/community/what-trl-does-with-the-loss-mask",
                   "recipes/community/which-half-can-a-small-model-take",
+                  "recipes/community/which-turns-the-mask-supervises",
                   "recipes/community/who-protects-the-holdout"
                 ]
               }
