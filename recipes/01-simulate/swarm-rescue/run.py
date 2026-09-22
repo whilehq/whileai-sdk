@@ -249,24 +249,33 @@ def run_tests(code: str, tests: list[tuple[str, str]]) -> tuple[int, dict | None
             env["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "")
         for i, (inp, exp) in enumerate(tests):
             with _grade_slots:
-                try:
-                    proc = subprocess.run(
-                        [sys.executable, "-I", "-S", path],
-                        input=inp,
-                        cwd=tmp,
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace",
-                        timeout=TEST_TIMEOUT,
-                    )
-                except subprocess.TimeoutExpired:
-                    return i, {
-                        "input": inp,
-                        "expected": exp,
-                        "got": f"timed out after {TEST_TIMEOUT:.0f}s",
-                    }
+                for attempt in range(4):
+                    try:
+                        proc = subprocess.run(
+                            [sys.executable, "-I", "-S", path],
+                            input=inp,
+                            cwd=tmp,
+                            env=env,
+                            capture_output=True,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
+                            timeout=TEST_TIMEOUT,
+                        )
+                        break
+                    except subprocess.TimeoutExpired:
+                        return i, {
+                            "input": inp,
+                            "expected": exp,
+                            "got": f"timed out after {TEST_TIMEOUT:.0f}s",
+                        }
+                    except OSError:
+                        # Windows "paging file is too small" (1455) under many
+                        # concurrent spawns: a transient of the grader, not of
+                        # the program. Back off and try again.
+                        if attempt == 3:
+                            raise
+                        time.sleep(2.0 * (attempt + 1))
             if proc.returncode != 0:
                 tail = (proc.stderr or "").strip().splitlines()
                 got = "error: " + (tail[-1] if tail else f"exit {proc.returncode}")
@@ -738,6 +747,7 @@ def post(
     tracked.behavior(
         "rescued",
         graded_by="program",
+        reward_is_judge=False,
         test_version=test_version,
         n=all_fail,
         noise_floor=noise_floor,
@@ -758,7 +768,7 @@ def post(
             examples.append(
                 Example(
                     prompt=tasks[tid].name,
-                    reply=extract_code(best["text"])[:4000],
+                    reply=extract_code(best["text"])[:1200],  # Example.reply cap
                     ok=bool(res["rescued"]),
                     why=(
                         f"rescued in round {res['round']}"
@@ -851,7 +861,10 @@ def main(argv: list[str] | None = None) -> int:
         if a not in ARMS:
             sys.exit(f"unknown arm {a!r}; choose from {', '.join(ARMS)}")
 
+    global OUT
     if args.dry_run:
+        # Never over a real run's files: the toy run gets its own directory.
+        OUT = HERE / "out-dry"
         tasks = DRY_TASKS
         model: Model = FakeModel()
     else:

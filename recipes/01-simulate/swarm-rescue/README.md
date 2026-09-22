@@ -5,13 +5,13 @@ rollouts, whether a particle swarm of rollouts that share their best attempts
 finds a passing answer that resampling alone does not, at the same budget.
 **Needs:** `WHILEAI_API_KEY` for the hosted Qwen3-4B (`wai login`), or any
 OpenAI-compatible endpoint via `--base-url`; `pyarrow` for the dataset.
-Offline with `--dry-run`. **Takes:** seconds offline; about two hours for
-every task on the hosted model.
+Offline with `--dry-run`. **Takes:** seconds offline; about three and a half
+hours for every task and two noise re-runs on the hosted model.
 
 ```bash
 python run.py --dry-run        # three toy tasks, a fake model, no key
 python run.py --limit 20       # twenty code_contests tasks, hosted Qwen3-4B
-python run.py                  # all 282 tasks
+python run.py --noise-runs 2   # all 275 tasks, four arms, the noise band
 python run.py --reuse --post   # the numbers again from out/, then the Runs page
 ```
 
@@ -35,15 +35,16 @@ global best, which is faster and collapses the swarm onto one idea [3].
 
 ## The recipe
 
-1. Tasks: `deepmind/code_contests` test and valid splits [4], 282
-   Codeforces-style problems, median rating 1900. The visible tests are
-   the public tests plus 8 generated ones; the hidden tests are the
-   private tests plus 32 more generated ones. Pass = the program's output,
-   split on whitespace, matches on every test within 6 seconds.
+1. Tasks: `deepmind/code_contests` test and valid splits [4], 275
+   Codeforces-style problems after dropping the interactive ones, median
+   rating 1900. The visible tests are the public tests plus 8 generated
+   ones; the hidden tests are the private tests plus 32 more generated
+   ones. Pass = the program's output, split on whitespace, matches on every
+   test within 6 seconds, numbers within 1e-6.
 2. Base: 8 rollouts per task from the hosted Qwen3-4B, thinking off,
-   temperature 1, 1,500 tokens. A task where all 8 fail every test is an
+   temperature 1, 2,048 tokens. A task where all 8 fail every test is an
    all-fail task. The script prints the per-task histogram, not the mean,
-   because the mean hides the U shape.
+   because the mean hides the shape.
 3. Every all-fail task gets 24 more samples four ways:
    - **resample**: 24 fresh independent samples.
    - **solo**: 8 particles, 3 rounds. Round 0 is 8 fresh samples. In each
@@ -72,11 +73,68 @@ global best, which is faster and collapses the swarm onto one idea [3].
 
 ## Result
 
-Pending the full run. `python run.py --reuse` prints the table from `out/`.
+Run 2026-09-21 on the hosted Qwen3-4B. 275 tasks, 223 all-fail at 8
+rollouts (81%). Per-task passes out of 8: 223 tasks at 0, then 17, 14, 4,
+3, 1, 3, 4, 6.
+
+| Arm | Rescued | 95% band | Rescued by round 0 / 1 / 2 | vs resample |
+|---|---|---|---|---|
+| resample | 7.2% | 4.1 to 10.3 | 8 / 4 / 4 | |
+| solo | 6.7% | 3.3 to 10.1 | 6 / 6 / 3 | -0.4 [-4.0, +2.7], p 1.00 |
+| ring | 9.9% | 6.1 to 13.7 | 5 / 12 / 5 | +2.7 [-1.3, +6.7], p 0.28 |
+| star | 9.9% | 6.1 to 13.7 | 6 / 13 / 3 | +2.7 [-0.9, +6.3], p 0.24 |
+
+**Flat.** Both swarms rescued 22 tasks to resampling's 16, and the gap sits
+inside its interval. The noise band says the same thing louder: the
+resample arm re-run with two more seeds rescued 20 and 24 tasks (9.0% and
+10.8%), so its run-to-run spread is 1.8 points and a delta under 10.9
+points is the eval re-running. The swarms' 9.9% is where resampling lands
+on an average seed.
+
+What did move is the training set. Across the six runs (four arms and two
+re-runs, 144 extra samples a task), 43 of the 223 all-fail tasks got at
+least one program passing every hidden test, 19% of the prompts a single
+8-rollout group would have dropped. The four arms alone wrote 112
+distinct passing programs on 37 tasks into `out/rescued.jsonl`.
+
+| Rating | Tasks | resample | ring | star |
+|---|---|---|---|---|
+| under 1500 | 70 | 10 | 13 | 15 |
+| 1500 to 2199 | 57 | 2 | 3 | 4 |
+| 2200 and up | 96 | 4 | 6 | 3 |
+
+| Cost | Value |
+|---|---|
+| Model calls | 15,368 for the base pass and the first three arms; about 24,000 in all |
+| Tokens | 15.8M prompt, 9.8M completion in the first process |
+| Replies cut at 2,048 tokens | 1,192 of 15,368 (7.8%) |
+| Wall clock | about 3.5 hours at 64 concurrent requests, one L40S |
 
 ## Learned
 
-Pending the full run.
+- Feedback alone did nothing here. Solo refinement, the swarm with the
+  social term off, matched resampling exactly. On the unrescued tasks the
+  best program passes 8% of the visible tests on average, so the fitness
+  signal the swarm moves on is almost always zero, and a particle shown a
+  neighbour's zero-fitness program has no direction to move in. A swarm
+  needs a graded fitness; pass or fail on a task the model cannot touch
+  is not one.
+- The rescues that did happen came in the refinement rounds for the
+  swarms (17 of 22 for ring, 16 of 22 for star) and in round 0 for
+  resampling (8 of 16), which is the pattern the design predicts. It is
+  the size that is missing: `wai.holdout_size` says a +5 point gap at a
+  7% base needs 547 paired tasks and a +3 point gap needs 1,382. 223 was
+  never going to resolve a gap this small.
+- The dataset angle survives the flat result. On tasks the model gets
+  right 1 time in 30 or less, how you structure the extra samples did not
+  matter; that you spend them did. Six runs of 24 turned 43 zero-gradient
+  prompts into learnable ones. The next recipe trains on those rows
+  (rejection-sampled SFT or on-policy distillation from the bare prompt,
+  since the swarm rows are off-policy for it) against plain GRPO at
+  matched rollouts.
+
+Verified 2026-09-21. `results.json` in this directory is the run's report;
+`python run.py --reuse` reprints it from `out/`.
 
 ## References
 
