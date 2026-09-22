@@ -76,6 +76,7 @@ CLI_EXAMPLES = [
     "community/identity-spec-no-unasked-maker-aas/run.py",
     "community/grpo-group-size-at-fixed-budget/run.py",
     "community/can-the-markers-be-trusted/run.py",
+    "community/which-half-can-a-small-model-take/run.py",
     # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)
     "papers/meta-harness/run.py",
     "papers/harness-and-weights/recipe.py",
@@ -89,6 +90,7 @@ NEEDS_MODAL = {
     # boto3 is the ``whileai[bedrock]`` extra, not a dev dependency; compiled, not run
     "05-export/bedrock-import/presign.py",
     "04-train/sft/train_modal.py",
+    "community/which-half-can-a-small-model-take/train_modal.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic
