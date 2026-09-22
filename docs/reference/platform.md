@@ -142,9 +142,10 @@ wai keys                   # names and prefixes; create or revoke under Account
 
 All take `--json` and `--api-key`; errors exit 1 with the reason on stderr.
 Thin calls into `whileai.platform`. The old `wai purge` (traces and
-datasets on the data platform) is gone; `wai.purge_agent("demo-agent")` and
-`wai.delete_empty_datasets(max_rows=2)` remain in Python, both with
-`dry_run=True`.
+datasets on the data platform) is gone; `wai.simulations.purge_agent("demo-agent")`
+and `wai.simulations.delete_empty_datasets(max_rows=2)` remain in Python.
+Both delete by default, permanently; pass `dry_run=True` first, which only
+counts.
 
 ### Train, holdout, eval
 

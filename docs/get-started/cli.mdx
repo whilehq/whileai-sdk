@@ -95,7 +95,8 @@ the spend, so the platform can compare production with the held-out
 score.
 
 <Note>
-The old `wai purge` command is gone. `wai.purge_agent("name")` and
-`wai.delete_empty_datasets(max_rows=2)` remain in Python, both with
-`dry_run=True`.
+The old `wai purge` command is gone. `wai.simulations.purge_agent("name")`
+and `wai.simulations.delete_empty_datasets(max_rows=2)` remain in Python.
+Both delete by default, permanently; pass `dry_run=True` first, which only
+counts.
 </Note>
