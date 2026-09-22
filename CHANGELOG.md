@@ -7,6 +7,18 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
+  is the report rather than a dict literal: a line per marker with its interval, the phrases that
+  fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and
+  `mark_grounding` stamp and this report does not. A row clean on every style marker can still have
+  faked the work; an evals seat measured 24.2% [22.6%, 25.9%] of the rows a green style report
+  passed carrying a planted failure the other families name. A marker that came out the same on
+  every row is `degenerate`: no interval, the reason next to the mean, and a `notes` entry saying a
+  detector that cannot fire and a behavior that never happened look identical (#270). It is still a
+  dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
+  `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
+  the part it does not cover.
+
 ## 0.117 (2026-09-22)
 
 - `export_environment` warns `no_mixed_groups` when `graded_mixed` is 0, whether no prompt has
@@ -27,18 +39,6 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - while.ai is the platform domain: sign-in, run and dataset links, the README, the package
   homepage and the cross-posted blog canonicals say `while.ai`; `withwhile.com` stays in
   `PLATFORM_DOMAINS` because the API, docs and hosted models still answer under it.
-
-- `style_report` prints itself and says what it did not measure (#760). `print(wai.style_report(rows))`
-  is the report rather than a dict literal: a line per marker with its interval, the phrases that
-  fired, the reward correlation, and a last line naming the 8 markers `trace_markers` and
-  `mark_grounding` stamp and this report does not. A row clean on every style marker can still have
-  faked the work; an evals seat measured 24.2% [22.6%, 25.9%] of the rows a green style report
-  passed carrying a planted failure the other families name. A marker that came out the same on
-  every row is `degenerate`: no interval, the reason next to the mean, and a `notes` entry saying a
-  detector that cannot fire and a behavior that never happened look identical (#270). It is still a
-  dict, every key reads as before, and `warnings` stays the reward-pays-for-a-tic list.
-  `docs/reference/style.md` rule 5 gains the sentence: a report that covers part of a space names
-  the part it does not cover.
 
 ## 0.116 (2026-09-22)
 
