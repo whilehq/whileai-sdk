@@ -537,8 +537,17 @@ for day in wai.platform.hosted.usage("nemotron-8b-t2s-r1", days=7):
 | `register(name, url=, model=, auth=)` | any OpenAI-compatible `/v1` server; `auth="caller"` forwards your While key to it, `"none"` sends nothing |
 | `list()`, `get(name)`, `delete(name)` | the rows; deleting a row leaves the model itself alone |
 | `endpoint(name)` | `wai.Endpoint(name, url="https://models.withwhile.com/v1", api_key=<your key>)` |
-| `usage(name, days=7)` | per day: calls, errors, tokens in and out; nothing else is kept |
+| `usage(name, days=7)` | per day: calls, errors, tokens in and out, and the five-minute windows the model answered in; nothing else is kept |
 | `subdomain(slug)`, `subdomain()`, `release_subdomain()` | claim, read, or give up `<slug>.models.withwhile.com` |
+
+A model While hosts (made by `publish`) bills three lines, monthly through
+Stripe: $0.12 per unit-minute while it answers, in the five-minute windows
+Bedrock bills; $5 per unit per month while it is kept; $10 per import. A
+unit is a Bedrock Custom Model Unit, 2 for an 8B. A model in your own
+account or a server you run is routed for free. Without a card on file,
+`publish` and calls to a hosted model raise `PlatformError` with status
+402 and `code: billing_required`; the card is added once under Account on
+withwhile.com.
 
 The Bedrock import path from a LoRA adapter to a registered ARN is the
 [Bedrock import recipe](/recipes/05-export/bedrock-import).
