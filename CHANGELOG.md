@@ -7,6 +7,26 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `trace_report` says why a row is unlabelled instead of calling every silence "ungraded".
+  `ungraded` is now only "no readable column"; a value that is present and is not 0 or 1 is
+  counted as `non_binary_labels`, the numbers on the rows that nothing read are named in
+  `unread_numeric_columns`, and each `warnings` line names the call that changes it. 60 traces
+  carrying a `score` column reported `graded: 0, ungraded: 60, warnings: []`, and a `0.75` from a
+  multi-criterion rubric judge read as never graded (#668).
+- `load_traces`, `trace_report`, `mine_traces` and `dimensions_from_traces` take `reward_key=`
+  (the column your grader wrote) and `threshold=` (the bar a fractional reward is read at, `>=`
+  is a pass). Both are the caller's: no column name is guessed and no binarisation threshold is
+  picked for you. `REWARD_KEYS` is `("reward",)`; `qwen_reward` moves to `LEGACY_REWARD_KEYS`,
+  is still read for one release, and now says `reward_key='qwen_reward'` in a `DeprecationWarning`
+  and in the report.
+- A label on a source trace steers the search like a tool fault. `mutation_worthy` reads a 0
+  label the row arrived with, so a row scored 0 where every tool call succeeded is a mutation
+  parent; `dimensions_from_traces` ranks the tool and world axes by the rows that failed, so 60
+  traces of which 30 are scored 0 no longer produce a grid byte-identical to the same rows with
+  the reward column deleted. A reward this run's own grader wrote still goes down the
+  graded-failure path (#285), which aims at the criterion that broke. `traces=` is the input a
+  closed-model customer arrives on, and their grader is that column (#667).
+
 - The `wide_call_overage` ratchet pin is 195, not 194. #842 measured it at its
   branch point and #843 landed `compare(lower_is_better=)` after it, so the two
   were never counted together and `main` went red on the merge. The argument is

@@ -15,7 +15,7 @@ description: "Local trace loading, OTLP rows, and the dataset calls."
 | [`datasets`](#datasets) | List your datasets plus storage used, newest first. |
 | [`delete_dataset`](#delete_dataset) | Permanently delete a dataset from your account. |
 | [`delete_empty_datasets`](#delete_empty_datasets) | Delete datasets with no stored bytes, or with `max_rows` rows or fewer when that is set (smoke runs). |
-| [`dimensions_from_traces`](#dimensions_from_traces) | Coverage axes aimed at behaviors seen in `rows`. |
+| [`dimensions_from_traces`](#dimensions_from_traces) | Coverage axes aimed at the rows that failed, however they failed. |
 | [`drop_leaky_rows`](#drop_leaky_rows) | Kept rows plus the report. |
 | [`flaw_rows`](#flaw_rows) | Rows with an observed fault or a 0 label: the next round's traces. |
 | [`format_trace_report`](#format_trace_report) | The trace report as a text block, aiming stated in plain words. |
@@ -486,21 +486,36 @@ dimensions_from_traces(
     policy: str = '',
     broaden: bool = True,
     fault_to_axis: Mapping[str, tuple[str, str]] | None = None,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
 ) -> dict[str, list[str]]
 ```
 
 Defined in [`whileai/simulations/ingest/traces.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/ingest/traces.py).
 
-Coverage axes aimed at behaviors seen in `rows`.
+Coverage axes aimed at the rows that failed, however they failed.
 
 Starts from `build_dimensions` for this agent so every value is one
-the writer and sandbox understand. The tool axis puts observed failing
-tools first; `broaden=False` drops tools the traces never touched
-(keeping the base specials such as `unrelated`), so a run spends its
-budget near the flaws instead of boiling the ocean. Fault and world
-axes always keep their clean value: contrast needs passing rows too.
-`fault_to_axis` maps an observed fault chip to the axis value that
-reproduces it (`FAULT_TO_AXIS` by default).
+the writer and sandbox understand. The tool and world axes are ranked
+by where the agent failed; `broaden=False` drops tools the traces
+never touched (keeping the base specials such as `unrelated`), so a
+run spends its budget near the flaws instead of boiling the ocean.
+Fault and world axes always keep their clean value: contrast needs
+passing rows too. `fault_to_axis` maps an observed fault chip to the
+axis value that reproduces it (`FAULT_TO_AXIS` by default).
+
+A 0 label counts as a failure exactly as a tool fault does (#667).
+Before that, "failed" meant a sandbox fault alone, so a trace set
+where every tool call succeeded and half the rows were scored 0
+produced a grid byte-identical to the same rows with the label column
+deleted: the rubric's failures steered nothing, and the customer who
+arrives on `traces=` is precisely the one whose grader IS that
+column. Difficulty and failure signal are what decide whether the
+generated data carries gradient at all (Lambert 2025, chapters Policy
+Gradients and Reasoning). `reward_key` and `threshold` say where
+the label lives and how to read a fractional one; with neither, only
+an unambiguous 0/1 counts, because a binarisation threshold is an
+opinion and the SDK holds none.
 
 ### drop_leaky_rows
 
@@ -603,7 +618,11 @@ prompt strings, or a single row. Each shape gives the same report.
 ### load_traces
 
 ```python
-load_traces(source) -> list[dict]
+load_traces(
+    source,
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+) -> list[dict]
 ```
 
 Defined in [`whileai/simulations/ingest/traces.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/ingest/traces.py).
@@ -628,6 +647,22 @@ carries through untouched, and ungraded traces are first-class.
   the spellings read); `reward` is kept only when it coerces cleanly
   to 0 or 1, and its absence is fine. Rows that are not dicts or carry
   neither an ask nor any steps are dropped.
+* `reward_key`: the column the label actually lives in, when it is
+  not `reward` - `score`, `label`, `grade`, `rating`,
+  `pass`, whatever the grader wrote. Naming it means that column:
+  it replaces the defaults rather than being added to them.
+* `threshold`: how to read a label that is not 0 or 1. `>=` is a
+  pass. A multi-criterion rubric judge emits a mean, so `0.75` is
+  its ordinary output; without a threshold such a row keeps no label,
+  because choosing the bar is the caller's decision and not the
+  SDK's. `trace_report` counts and names every label dropped this
+  way instead of reporting the row as ungraded (#668).
+
+```python
+>>> graded = [{"prompt": "cancel my order", "score": 0.75}]
+>>> wai.load_traces(graded, reward_key="score", threshold=0.5)[0]["reward"]
+1
+```
 
 ```python
 >>> rows = wai.load_traces([{"question": "Where is order 4473?", "output": "Shipped."}])
@@ -638,7 +673,11 @@ carries through untouched, and ungraded traces are first-class.
 ### mine_traces
 
 ```python
-mine_traces(rows: Sequence[dict]) -> dict[str, Any]
+mine_traces(
+    rows: Sequence[dict],
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
+) -> dict[str, Any]
 ```
 
 Defined in [`whileai/simulations/ingest/traces.py`](https://github.com/whilehq/whileai-sdk/blob/main/whileai/simulations/ingest/traces.py).
@@ -647,6 +686,12 @@ What the deployed agent actually did, counted for grid focusing.
 
 `flaw_rows` is any row with an observed fault or a 0 label. Those are
 the behaviors worth simulating more of.
+
+`label_fails`, `label_fail_tools` and `flaw_world_states` count
+the same rows by where they failed, so a label can aim the grid the
+way a fault already does (#667). `reward_key` names the column the
+label lives in and `threshold` binarises a fractional one; both are
+the caller's, never guessed here.
 
 ### opening_share
 
@@ -731,6 +776,8 @@ trace_report(
     traces,
     tools: list[dict] | None = None,
     policy: str = '',
+    reward_key: str | Sequence[str] | None = None,
+    threshold: float | None = None,
 ) -> dict[str, Any]
 ```
 
@@ -742,7 +789,14 @@ Run before `simulate(traces=...)`. With `tools` (and optionally
 `policy`) the report also computes the actual grid emphasis: which
 axis values move forward in the coverage grid because of these traces.
 Reward stays optional; ungraded counts are reported, never required.
-`advisory_labels` counts rows carrying only a `qwen_reward`: those
-labels do steer trace mining, so they are disclosed, not hidden under
-"ungraded". `dropped` counts input rows that carried no usable
-signal and were discarded by normalization.
+`dropped` counts input rows that carried no usable signal and were
+discarded by normalization.
+
+The label counts distinguish why a row is unlabelled, so `ungraded` means
+"no readable column" and nothing else: a fractional label is counted
+as `non_binary_labels`, a numeric column nothing read is named in
+`unread_numeric_columns`, and `warnings` says the call that fixes
+each. `advisory_labels` counts rows labelled only by a legacy
+model-specific key; those labels do steer trace mining, so they are
+disclosed, not hidden. `reward_key` names the column the grader
+wrote and `threshold` says how to read a fractional one.
