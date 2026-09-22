@@ -1,0 +1,871 @@
+{
+  "recipe": "support-lookup-before-answer-both-levers",
+  "title": "Both levers on a support agent's lookup behaviour",
+  "method_recipe": "recipes/papers/harness-and-weights",
+  "paper": "https://arxiv.org/abs/2607.03935",
+  "book": "Evaluation",
+  "base_model": "Qwen/Qwen3-4B",
+  "metric": "marker:right_first_action",
+  "n_holdout": 640,
+  "k": 2,
+  "gpu": "L40S",
+  "whileai": "0.121",
+  "searched_harness": "01_skills",
+  "gate_passed": false,
+  "arms": {
+    "base": {
+      "score": 0.790625,
+      "stays_in_scope": 0.7611940298507462,
+      "steps": 0
+    },
+    "harness": {
+      "score": 0.784375,
+      "stays_in_scope": 0.7014925373134329,
+      "steps": 0
+    },
+    "baseline": {
+      "score": 0.815625,
+      "stays_in_scope": 0.582089552238806
+    },
+    "recipe": {
+      "score": 0.8015625,
+      "stays_in_scope": 0.5223880597014925
+    }
+  },
+  "delta": {
+    "recipe_vs_baseline": -0.0140625,
+    "ci": [
+      -0.046875,
+      0.0203125
+    ],
+    "verdict": "unresolved",
+    "why_unresolved": "one training seed per arm"
+  },
+  "checks": {
+    "run_std": {
+      "pass_at_1": 0.0018,
+      "marker:args_match": 0.0,
+      "marker:called_a_tool": 0.0036,
+      "marker:looks_up_when_it_should": 0.0023,
+      "marker:malformed_call": 0.0,
+      "marker:right_first_action": 0.0018,
+      "marker:stays_in_scope": 0.0
+    },
+    "run_std_runs": 3,
+    "noise_band": 0.011,
+    "stability": "very_stable",
+    "decontaminate": {
+      "n_contaminated": 10,
+      "kept": 508,
+      "rules_skipped": {},
+      "notes": [],
+      "with_policy_in_prompt": 515
+    },
+    "reward_is_judge": false
+  },
+  "full": {
+    "searched_harness": "01_skills",
+    "candidates": {
+      "00_deployed": {
+        "right_first_action": 0.83125,
+        "looks_up": 0.8275862068965517,
+        "stays_in_scope": 0.8409090909090909,
+        "called_a_tool": 0.75
+      },
+      "01_skills": {
+        "right_first_action": 0.825,
+        "looks_up": 0.8362068965517241,
+        "stays_in_scope": 0.7954545454545454,
+        "called_a_tool": 0.775,
+        "gate": {
+          "delta": -0.00625,
+          "ci95": [
+            -0.0375,
+            0.01875
+          ],
+          "verdict": "no_difference_detected"
+        }
+      },
+      "02_skills_toolnames": {
+        "right_first_action": 0.78125,
+        "looks_up": 0.8362068965517241,
+        "stays_in_scope": 0.6363636363636364,
+        "called_a_tool": 0.81875,
+        "gate": {
+          "delta": -0.05,
+          "ci95": [
+            -0.1,
+            0.0
+          ],
+          "verdict": "no_difference_detected"
+        }
+      }
+    },
+    "run_std": {
+      "pass_at_1": 0.0018,
+      "marker:args_match": 0.0,
+      "marker:called_a_tool": 0.0036,
+      "marker:looks_up_when_it_should": 0.0023,
+      "marker:malformed_call": 0.0,
+      "marker:right_first_action": 0.0018,
+      "marker:stays_in_scope": 0.0
+    },
+    "eval_variance": {
+      "means": {
+        "run_1": 0.7906,
+        "run_2": 0.7937,
+        "run_3": 0.7906
+      },
+      "run_std_by_metric": {
+        "pass_at_1": 0.0018,
+        "marker:args_match": 0.0,
+        "marker:called_a_tool": 0.0036,
+        "marker:looks_up_when_it_should": 0.0023,
+        "marker:malformed_call": 0.0,
+        "marker:right_first_action": 0.0018,
+        "marker:stays_in_scope": 0.0
+      },
+      "noise_band": 0.011,
+      "stability": "very_stable",
+      "tasks_in_every_run": 320
+    },
+    "cells": {
+      "neither": {
+        "n": 640,
+        "right_first_action": 0.790625,
+        "looks_up_when_it_should": 0.7984189723320159,
+        "stays_in_scope": 0.7611940298507462,
+        "called_a_tool": 0.821875,
+        "args_match": 0.565625
+      },
+      "harness": {
+        "n": 640,
+        "right_first_action": 0.784375,
+        "looks_up_when_it_should": 0.8063241106719368,
+        "stays_in_scope": 0.7014925373134329,
+        "called_a_tool": 0.846875,
+        "args_match": 0.56875
+      },
+      "weights": {
+        "n": 640,
+        "right_first_action": 0.815625,
+        "looks_up_when_it_should": 0.8774703557312253,
+        "stays_in_scope": 0.582089552238806,
+        "called_a_tool": 0.871875,
+        "args_match": 0.659375
+      },
+      "both": {
+        "n": 640,
+        "right_first_action": 0.8015625,
+        "looks_up_when_it_should": 0.8754940711462451,
+        "stays_in_scope": 0.5223880597014925,
+        "called_a_tool": 0.8859375,
+        "args_match": 0.65625
+      }
+    },
+    "deltas": {
+      "harness vs neither": {
+        "delta": -0.00625,
+        "ci95": [
+          -0.03125,
+          0.01875
+        ],
+        "verdict": "no_difference_detected",
+        "headline": "no_change_detected",
+        "groups": {
+          "CALL": {
+            "delta": 0.007905138339920948,
+            "ci95": [
+              -0.015810276679841896,
+              0.03162055335968379
+            ]
+          },
+          "NO_CALL": {
+            "delta": -0.05970149253731343,
+            "ci95": [
+              -0.13432835820895522,
+              0.014925373134328358
+            ]
+          }
+        }
+      },
+      "weights vs neither": {
+        "delta": 0.025,
+        "ci95": [
+          -0.025,
+          0.075
+        ],
+        "verdict": "no_difference_detected",
+        "headline": "no_change_detected",
+        "groups": {
+          "CALL": {
+            "delta": 0.07905138339920949,
+            "ci95": [
+              0.019762845849802372,
+              0.1383399209486166
+            ]
+          },
+          "NO_CALL": {
+            "delta": -0.1791044776119403,
+            "ci95": [
+              -0.26865671641791045,
+              -0.08955223880597014
+            ]
+          }
+        }
+      },
+      "both vs neither": {
+        "delta": 0.0109375,
+        "ci95": [
+          -0.04375,
+          0.0625
+        ],
+        "verdict": "no_difference_detected",
+        "headline": "no_change_detected",
+        "groups": {
+          "CALL": {
+            "delta": 0.07707509881422925,
+            "ci95": [
+              0.019762845849802372,
+              0.1383399209486166
+            ]
+          },
+          "NO_CALL": {
+            "delta": -0.23880597014925373,
+            "ci95": [
+              -0.34328358208955223,
+              -0.13432835820895522
+            ]
+          }
+        }
+      },
+      "both vs weights  (method vs baseline)": {
+        "delta": -0.0140625,
+        "ci95": [
+          -0.046875,
+          0.0203125
+        ],
+        "verdict": "no_difference_detected",
+        "headline": "no_change_detected",
+        "groups": {
+          "CALL": {
+            "delta": -0.001976284584980237,
+            "ci95": [
+              -0.041501976284584984,
+              0.039525691699604744
+            ]
+          },
+          "NO_CALL": {
+            "delta": -0.05970149253731343,
+            "ci95": [
+              -0.11940298507462686,
+              -0.014925373134328358
+            ]
+          }
+        }
+      },
+      "both vs harness  (did the weights add anything)": {
+        "delta": 0.0171875,
+        "ci95": [
+          -0.0328125,
+          0.0671875
+        ],
+        "verdict": "no_difference_detected",
+        "headline": "no_change_detected",
+        "groups": {
+          "CALL": {
+            "delta": 0.0691699604743083,
+            "ci95": [
+              0.011857707509881422,
+              0.12648221343873517
+            ]
+          },
+          "NO_CALL": {
+            "delta": -0.1791044776119403,
+            "ci95": [
+              -0.2835820895522388,
+              -0.08955223880597014
+            ]
+          }
+        }
+      }
+    },
+    "attribution": {
+      "metric": "marker:right_first_action",
+      "harnesses": [
+        "00_deployed",
+        "01_skills"
+      ],
+      "models": [
+        "base",
+        "trained"
+      ],
+      "n_tasks": 320,
+      "cells": {
+        "00_deployed@base": 79.1,
+        "00_deployed@trained": 81.6,
+        "01_skills@base": 78.4,
+        "01_skills@trained": 80.2
+      },
+      "share_harness": 0.1831,
+      "share_model": 0.7898,
+      "share_interaction": 0.0271,
+      "ci_share_harness": [
+        0.00017771459036784834,
+        0.9143672692673659
+      ],
+      "ci_share_model": [
+        0.004566210045662218,
+        0.9930611155591138
+      ],
+      "ci_difference": [
+        -0.9888383629599008,
+        0.8729139922978136
+      ],
+      "spread_harness_pts": 1.0,
+      "spread_model_pts": 2.1,
+      "best_cell": "00_deployed@trained",
+      "top_model_by_harness": {
+        "00_deployed": "trained",
+        "01_skills": "trained"
+      },
+      "ranking_reversal": false,
+      "verdict": "unresolved",
+      "sentence": "which lever moved the score more could be chance: the interval on the difference in shares covers zero",
+      "level": 0.95,
+      "n_boot": 2000,
+      "note": null
+    },
+    "hack_scan": {
+      "weights": {
+        "regime": "pool_exhausted",
+        "n_rows": 640,
+        "n_graded": 640,
+        "n_groups": 261,
+        "n_groups_multi": 261,
+        "rollouts_per_group": 2,
+        "effective_rollouts": 12,
+        "support": {
+          "sat": 0.8199233716475096,
+          "dead": 0.1685823754789272,
+          "mixed": 0.011494252873563218,
+          "capacity": 0.011494252873563218
+        },
+        "tau": 0.6667,
+        "n_perm": 100,
+        "n_features": 124,
+        "n_above_floor": 2,
+        "features": [
+          {
+            "name": "marker:right_first_action",
+            "aliases": [],
+            "rho": 1.0,
+            "pooled": 1.0,
+            "n_obs": 522,
+            "above_floor": true,
+            "endorsed": false
+          },
+          {
+            "name": "marker:looks_up_when_it_should",
+            "aliases": [],
+            "rho": 0.8165,
+            "pooled": 0.7156,
+            "n_obs": 444,
+            "above_floor": true,
+            "endorsed": false
+          },
+          {
+            "name": "marker:args_match",
+            "aliases": [],
+            "rho": 0.6667,
+            "pooled": 0.6615,
+            "n_obs": 422,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:!",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1292,
+            "n_obs": 44,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" get_reservation_details",
+            "aliases": [
+              "contains:get_reservation_details",
+              "contains:get_reservation_details \""
+            ],
+            "rho": 0.5774,
+            "pooled": 0.0617,
+            "n_obs": 56,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" list_all_airports",
+            "aliases": [
+              "contains:list_all_airports",
+              "contains:list_all_airports \""
+            ],
+            "rho": -0.5774,
+            "pooled": -0.1757,
+            "n_obs": 22,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" reservation_id",
+            "aliases": [
+              "contains:reservation_id",
+              "contains:reservation_id \""
+            ],
+            "rho": 0.5774,
+            "pooled": 0.0659,
+            "n_obs": 58,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:'",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1745,
+            "n_obs": 76,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:' have",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.126,
+            "n_obs": 42,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:' like",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1017,
+            "n_obs": 28,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:, \"",
+            "aliases": [],
+            "rho": -0.5774,
+            "pooled": -0.131,
+            "n_obs": 560,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:.",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1683,
+            "n_obs": 164,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains::",
+            "aliases": [],
+            "rho": -0.5774,
+            "pooled": -0.1215,
+            "n_obs": 566,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:don",
+            "aliases": [
+              "contains:don '"
+            ],
+            "rho": 0.5774,
+            "pooled": 0.1292,
+            "n_obs": 44,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:for",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.0784,
+            "n_obs": 50,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:help",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1119,
+            "n_obs": 52,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:if",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1247,
+            "n_obs": 76,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:if you",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1639,
+            "n_obs": 68,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:information about",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1126,
+            "n_obs": 34,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:like",
+            "aliases": [],
+            "rho": 0.5774,
+            "pooled": 0.1126,
+            "n_obs": 34,
+            "above_floor": false,
+            "endorsed": false
+          }
+        ],
+        "top_feature": "marker:right_first_action",
+        "rho_max": 1.0,
+        "endorsed": [],
+        "endorsed_matched": 0,
+        "endorsed_on_top": null,
+        "integrity": null,
+        "inverted": [],
+        "continuous_reward": false,
+        "degenerate": false,
+        "collinear": [
+          "marker:right_first_action"
+        ],
+        "distinct_per_ask": 1,
+        "warnings": [
+          "214 of 261 asks are already all-pass (82%); those groups carry no gradient, raise difficulty or drop them (select(mode=\"rl\") does)",
+          "2 rollouts per ask at the median; the floor is coarse below 4, re-scan at repeats>=8 before acting on a close call"
+        ]
+      },
+      "both": {
+        "regime": "degenerate",
+        "n_rows": 640,
+        "n_graded": 640,
+        "n_groups": 261,
+        "n_groups_multi": 261,
+        "rollouts_per_group": 2,
+        "effective_rollouts": 12,
+        "support": {
+          "sat": 0.8045977011494253,
+          "dead": 0.1839080459770115,
+          "mixed": 0.011494252873563218,
+          "capacity": 0.01053639846743295
+        },
+        "tau": 0.6364,
+        "n_perm": 100,
+        "n_features": 104,
+        "n_above_floor": 3,
+        "features": [
+          {
+            "name": "marker:looks_up_when_it_should",
+            "aliases": [],
+            "rho": 1.0,
+            "pooled": 0.7461,
+            "n_obs": 443,
+            "above_floor": true,
+            "endorsed": false
+          },
+          {
+            "name": "marker:right_first_action",
+            "aliases": [],
+            "rho": 1.0,
+            "pooled": 1.0,
+            "n_obs": 513,
+            "above_floor": true,
+            "endorsed": false
+          },
+          {
+            "name": "marker:args_match",
+            "aliases": [],
+            "rho": 0.8528,
+            "pooled": 0.6875,
+            "n_obs": 420,
+            "above_floor": true,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" get_reservation_details",
+            "aliases": [
+              "contains:get_reservation_details",
+              "contains:get_reservation_details \""
+            ],
+            "rho": 0.603,
+            "pooled": 0.0665,
+            "n_obs": 54,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" reservation_id",
+            "aliases": [
+              "contains:reservation_id",
+              "contains:reservation_id \""
+            ],
+            "rho": 0.603,
+            "pooled": 0.0709,
+            "n_obs": 56,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\"",
+            "aliases": [
+              "contains:, \""
+            ],
+            "rho": 0.5222,
+            "pooled": -0.1383,
+            "n_obs": 569,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" }",
+            "aliases": [],
+            "rho": 0.5222,
+            "pooled": -0.0798,
+            "n_obs": 525,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:,",
+            "aliases": [],
+            "rho": 0.5222,
+            "pooled": 0.0893,
+            "n_obs": 635,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains::",
+            "aliases": [],
+            "rho": 0.5222,
+            "pooled": -0.1383,
+            "n_obs": 569,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:is",
+            "aliases": [],
+            "rho": 0.5222,
+            "pooled": 0.1003,
+            "n_obs": 25,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:name",
+            "aliases": [],
+            "rho": 0.5222,
+            "pooled": -0.1215,
+            "n_obs": 579,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:user",
+            "aliases": [],
+            "rho": 0.5222,
+            "pooled": 0.1003,
+            "n_obs": 25,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:you",
+            "aliases": [],
+            "rho": -0.5222,
+            "pooled": 0.1416,
+            "n_obs": 73,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "marker:called_a_tool",
+            "aliases": [
+              "contains:\" ,",
+              "contains:\" :",
+              "contains:\" arguments",
+              "contains:\" name",
+              "contains:/",
+              "contains:/ tool_call",
+              "contains:: \"",
+              "contains:: {",
+              "contains:<",
+              "contains:< /",
+              "contains:< tool_call",
+              "contains:>",
+              "contains:> {",
+              "contains:arguments",
+              "contains:arguments \"",
+              "contains:name \"",
+              "contains:tool_call",
+              "contains:tool_call >",
+              "contains:{",
+              "contains:{ \"",
+              "contains:}",
+              "contains:} <",
+              "contains:} }"
+            ],
+            "rho": 0.5222,
+            "pooled": -0.1416,
+            "n_obs": 567,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "frac:upper",
+            "aliases": [],
+            "rho": -0.5211,
+            "pooled": -0.1379,
+            "n_obs": 126,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" get_user_details",
+            "aliases": [
+              "contains:get_user_details",
+              "contains:get_user_details \""
+            ],
+            "rho": -0.4264,
+            "pooled": -0.0436,
+            "n_obs": 46,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:\" user_id",
+            "aliases": [
+              "contains:user_id",
+              "contains:user_id \""
+            ],
+            "rho": -0.4264,
+            "pooled": -0.0181,
+            "n_obs": 54,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "contains:to",
+            "aliases": [],
+            "rho": -0.4045,
+            "pooled": 0.1232,
+            "n_obs": 62,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "n:punct",
+            "aliases": [],
+            "rho": 0.4031,
+            "pooled": -0.1246,
+            "n_obs": 640,
+            "above_floor": false,
+            "endorsed": false
+          },
+          {
+            "name": "n:digits",
+            "aliases": [],
+            "rho": -0.3744,
+            "pooled": -0.1825,
+            "n_obs": 410,
+            "above_floor": false,
+            "endorsed": false
+          }
+        ],
+        "top_feature": null,
+        "rho_max": 1.0,
+        "endorsed": [],
+        "endorsed_matched": 0,
+        "endorsed_on_top": null,
+        "integrity": null,
+        "inverted": [],
+        "continuous_reward": false,
+        "degenerate": true,
+        "collinear": [
+          "marker:looks_up_when_it_should",
+          "marker:right_first_action"
+        ],
+        "distinct_per_ask": 1,
+        "warnings": [
+          "too few distinct trajectories to separate features: 1 distinct rollout(s) per ask at the median leaves 2 feature(s) perfectly collinear with reward within ask (|rho| >= 0.999): \"marker:looks_up_when_it_should\", \"marker:right_first_action\". Nothing in the data tells them apart, so no top feature is named and no hack is claimed. Re-scan on rollouts that differ in more than one way (raise temperature or repeats). When you call hack_scan yourself, scan before select(mode=\"rl\"), which drops the duplicate rollouts within an ask (selection runs this scan on its own, before that drop)",
+          "2 rollouts per ask at the median; the floor is coarse below 4, re-scan at repeats>=8 before acting on a close call"
+        ]
+      }
+    },
+    "decontamination": {
+      "n_contaminated": 10,
+      "kept": 508,
+      "rules_skipped": {},
+      "notes": [],
+      "with_policy_in_prompt": 515
+    },
+    "n_train": 508,
+    "pins": {
+      "vllm": "0.29.0",
+      "trl": "1.13.0",
+      "peft": "0.21.0"
+    }
+  },
+  "fresh_traffic": {
+    "arm": "weights",
+    "harness": "00_deployed",
+    "n": 30,
+    "hit": 28,
+    "pass_at_1": 0.9333,
+    "ci95": [
+      0.83,
+      1.0
+    ],
+    "composition": "CALL/ordinary x30 (the frozen sample had drained every rarer tier)",
+    "measures": "the behaviour only; no NO_CALL rows remained, so the twin is not checked here",
+    "select_kept": 0,
+    "select_note": "select() dropped all 30 as incomplete; see issue #854"
+  },
+  "cost": {
+    "gpu": "L40S",
+    "gpu_minutes_billed_approx": 63,
+    "usd_approx": 2.1,
+    "breakdown": "8 search + 32 two arms in parallel + 6 grid eval + 11 serving, plus ~6 on runs that died (see README)"
+  },
+  "issues": {
+    "filed": [
+      "#837 harness fingerprint",
+      "#854 select drops tool calls"
+    ],
+    "commented": [
+      "#636 decontaminate spans"
+    ]
+  }
+}
