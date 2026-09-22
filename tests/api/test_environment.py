@@ -620,17 +620,16 @@ def test_the_rl_extra_hint_names_the_python_range_it_is_marked_for():
     """`pip install 'whileai[rl]'` on an interpreter outside the marker
     resolves to nothing and exits 0. An error that repeats that line sends
     the reader round the loop again, so it names the range instead."""
-    import tomllib
+    import re
 
     from whileai.simulations.defaults import RL_EXTRA_PYTHON_MAX, RL_EXTRA_PYTHON_MIN
     from whileai.simulations.environment import _rl_extra_install
 
     # the constants are the marker in pyproject.toml, so the two cannot drift
+    # (read with a regex, not tomllib: the package supports Python 3.10)
     root = Path(__file__).resolve().parents[2]
-    extras = tomllib.loads((root / "pyproject.toml").read_text())["project"][
-        "optional-dependencies"
-    ]
-    marker = next(r for r in extras["rl"] if r.startswith("verifiers")).split(";", 1)[1]
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    marker = re.search(r'^rl = \["verifiers[^;]*;([^"]*)"\]', pyproject, re.M).group(1)
     lo = ".".join(str(p) for p in RL_EXTRA_PYTHON_MIN)
     hi = ".".join(str(p) for p in RL_EXTRA_PYTHON_MAX)
     assert f"python_version >= '{lo}'" in marker and f"python_version < '{hi}'" in marker
