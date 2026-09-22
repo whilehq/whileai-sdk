@@ -7,6 +7,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `pass_at` counts the rows it could not read and names them in `note`, with a new `n_partial`.
+  A reward that is not 0 or 1 was dropped silently, and `Criterion` defaults to
+  `kind="principle"`, which scores the mean of its criteria, so the documented rubric path
+  produces them by default. A run of 10 tasks where 5 scored 0.67 printed `pass@1 0.60
+  (5 groups)` with nothing saying the other 5 were gone. `judge_trust` and `select` already
+  reported their skipped rows; `pass_at` was the one that stayed quiet, and it is the one
+  read first. `docs/reference/five-calls.md` no longer comments that grading returns 0/1 on
+  every row.
+
 ## 0.119 (2026-09-22)
 
 - The platform API is `https://api.while.ai` and hosted models answer at `models.while.ai`
