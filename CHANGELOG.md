@@ -14,6 +14,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
   file. Checked-in candidates keep their fingerprints. Offline it drops the two `Disclosure` edits
   of `02_check_result` (the scripted agent ignores them). Docs guide step 6 and skill
   `harness-search` 1.2.0 cite it.
+- `wai.methods.ReinforceAda`: Reinforce-Ada adaptive sampling (Xiong et al., arXiv:2510.04996)
+  as a method object. `ReinforceAda()(draw, prompts)` draws in rounds of 8 until a prompt holds
+  2 right and 2 wrong (at most 32), keeps a balanced 4, and returns advantages against the
+  pool's pass rate, with a report of draws per prompt and the share of prompts left without a
+  gradient next to what GRPO at 4 would leave. `exit="positive"` retires a prompt at its first
+  right answer. `ReinforceAda().trainer(GRPOTrainer)` swaps it into TRL's generation step.
+  The math is on the methods reference page; the replication is `recipes/papers/reinforce-ada`.
 
 - Docs share card: `docs/assets/og-card.png`, the wordmark and tagline padded into 1200x630, so
   X and Slack previews stop cropping the whale and the tagline.
