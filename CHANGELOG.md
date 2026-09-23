@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/board-writers` (Park et al. arXiv:2502.18439): notes and readers trained in one
+  GRPO batch on a ring board, MATH levels 3 to 5, Qwen2.5-1.5B, three seeds on H100. Paying each note its
+  two readers' mean reward is flat to negative against readers-only training (-0.017 [-0.048, +0.014]);
+  readers-only training is steady at 0.32 to 0.35 from a 0.26 base.
+
 - Recipe `recipes/papers/message-board` (Park et al. arXiv:2502.18439): four copies of Qwen2.5-1.5B post
   notes to a board, then GRPO trains each reader on its own answer; the reader sees all four notes or
   only its own. Flat +0.029 [-0.023, +0.085] over two seeds; trained readers beat a vote over the
