@@ -7,6 +7,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/meta-harness --prune`: the pruner of Xia et al. 2026 (RRSI, arXiv:2609.24972).
+  Candidates list their changes as named `Edit`s (`common.from_edits`); after the gate, each edit
+  of the pick is taken out in turn on the train split and dropped when removing it costs no score
+  and no cost per rollout; the pruned harness faces the same gate and is written as a candidate
+  file. Checked-in candidates keep their fingerprints. Offline it drops the two `Disclosure` edits
+  of `02_check_result` (the scripted agent ignores them). Docs guide step 6 and skill
+  `harness-search` 1.2.0 cite it.
+
 - Docs share card: `docs/assets/og-card.png`, the wordmark and tagline padded into 1200x630, so
   X and Slack previews stop cropping the whale and the tagline.
 
