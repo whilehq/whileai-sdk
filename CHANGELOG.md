@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Meta-Harness recipe, docs guide and `harness-search` skill: corrected the RRSI numbers. The
+  +14.1 and +4.7 in the abstract are RRSI's own gains, not the overfitting; the overfitting is
+  unconstrained evolution moving unseen benchmarks 39.7 to 40.3 at 3.80M tokens per trial. The
+  recipe now calls `--prune` a one-shot, leave-one-out version of the paper's pruning rule.
+
 - `recipes/papers/meta-harness --prune`: the pruner of Xia et al. 2026 (RRSI, arXiv:2609.24972).
   Candidates list their changes as named `Edit`s (`common.from_edits`); after the gate, each edit
   of the pick is taken out in turn on the train split and dropped when removing it costs no score
