@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Docs share card: `docs/assets/og-card.png`, the wordmark and tagline padded into 1200x630, so
+  X and Slack previews stop cropping the whale and the tagline.
+
 - Recipe `community/judge-aware-hacking`: does a reasoning model learn to write for an LLM
   judge? A probe of three open-reasoning models (no training) and three GRPO arms on
   Qwen3.5-4B, with broken twins of math problems whose honest answer is `\boxed{NONE}`. The
