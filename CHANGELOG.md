@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/message-board` (Park et al. arXiv:2502.18439): four copies of Qwen2.5-1.5B post
+  notes to a board, then GRPO trains each reader on its own answer; the reader sees all four notes or
+  only its own. Flat +0.029 [-0.023, +0.085] over two seeds; trained readers beat a vote over the
+  board by 13 to 20 points. Base evals run in their own container and `--reuse` reruns only failed calls.
+
 - Meta-Harness recipe, docs guide and `harness-search` skill: corrected the RRSI numbers. The
   +14.1 and +4.7 in the abstract are RRSI's own gains, not the overfitting; the overfitting is
   unconstrained evolution moving unseen benchmarks 39.7 to 40.3 at 3.80M tokens per trial. The
