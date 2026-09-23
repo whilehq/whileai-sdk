@@ -23,6 +23,7 @@ what it claims, the steps, one command, what happened.
 | [hint-distill](hint-distill) | [learning-from-real-world-experience](https://www.perplexity.ai/hub/blog/learning-from-real-world-experience) | Qwen/Qwen3-4B | pass@1 | 0.53 -> 0.52 (-0.01 [-0.04, +0.02], unresolved, 1 seed per arm) | 2026-09-22 |
 | [reinforce-ada](reinforce-ada) | [2510.04996](https://arxiv.org/abs/2510.04996) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.66 -> 0.70 (+0.04 [-0.01, +0.09], flat, 2 seeds per arm) | 2026-09-22 |
 | [sao-single-rollout](sao-single-rollout) | [2607.07508](https://arxiv.org/abs/2607.07508) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.46 -> 0.46 (-0.00 [-0.04, +0.03], unresolved, 1 seed per arm) | 2026-09-22 |
+| [team-talk](team-talk) | [2609.22682](https://arxiv.org/abs/2609.22682) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.65 -> 0.65 (+0.00 [-0.04, +0.05], flat, 2 seeds per arm) | 2026-09-23 |
 | [zero-rl-format-reward](zero-rl-format-reward) | [2503.18892](https://arxiv.org/abs/2503.18892) | Qwen/Qwen3.5-4B-Base | pass@1 | 0.63 -> 0.72 (+0.09 [+0.05, +0.14], unresolved, 1 seed per arm) | 2026-09-18 |
 <!-- table:end -->
 
