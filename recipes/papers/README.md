@@ -14,6 +14,7 @@ what it claims, the steps, one command, what happened.
 | Recipe | Paper | Base | Metric | Baseline -> Recipe | Verified |
 |---|---|---|---|---|---|
 | [adaptive-clip](adaptive-clip) | [2609.00444](https://arxiv.org/abs/2609.00444) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.47 -> 0.52 (+0.05 [+0.00, +0.10], unresolved, 1 seed per arm) | 2026-09-18 |
+| [board-writers](board-writers) | [2502.18439](https://arxiv.org/abs/2502.18439) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.32 -> 0.30 (-0.02 [-0.05, +0.01], flat, 3 seeds per arm) | 2026-09-23 |
 | [bpco-bounded-critic](bpco-bounded-critic) | [2608.23566](https://arxiv.org/abs/2608.23566) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.43 -> 0.41 (-0.02 [-0.07, +0.04], unresolved, 1 seed per arm) | 2026-09-22 |
 | [endpoint-sft](endpoint-sft) | [2609.07103](https://arxiv.org/abs/2609.07103) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.29 -> 0.28 (-0.01 [-0.07, +0.05], unresolved, 1 seed per arm) | 2026-09-17 |
 | [filter-metric](filter-metric) | [2609.13866](https://arxiv.org/abs/2609.13866) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.39 -> 0.46 (+0.07 [+0.02, +0.11], unresolved, 1 seed per arm) | 2026-09-17 |
