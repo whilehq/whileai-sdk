@@ -1,0 +1,1 @@
+Reinforce-Ada (Xiong et al.) on GSM8K, Qwen2.5-1.5B, 2 seeds per arm: pass@1 +0.047 [-0.047, +0.140], flat. Flat groups halved at 2.5x the GPU. https://arxiv.org/abs/2510.04996 https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/reinforce-ada

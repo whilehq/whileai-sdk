@@ -1,0 +1,82 @@
+# Reinforce-Ada: keep sampling a prompt until its group can teach something
+
+**Paper:** Reinforce-Ada: An Adaptive Sampling Framework under Non-linear RL Objectives, Wei Xiong et al., arXiv:2510.04996, October 2025. https://arxiv.org/abs/2510.04996
+**Book:** GRPO's advantage is a reward minus its group's mean, so a group where every rollout scored the same has zero advantage everywhere and contributes no gradient [1][2]; DAPO's dynamic sampling drops those groups and draws new prompts [3].
+**Claim:** a prompt whose group came back all-right or all-wrong is undersampled, not unlearnable; drawing more rollouts for exactly those prompts, then training on a balanced group of the same size, recovers the signal and reaches the accuracy of GRPO at 16 rollouts while training on 4.
+**The change:** the rollouts the update trains on. The baseline draws 4 per prompt. The recipe draws 8 at a time until a prompt has 2 right and 2 wrong (at most 32), keeps 2 of each, and measures the advantage against the pass rate of everything it drew.
+
+## Recipe
+
+1. Base: `Qwen/Qwen2.5-1.5B-Instruct`. Data: GSM8K, 512 train prompts from the train split, 120 held out from the test split.
+2. Reward, both arms: the binary outcome, `MathEqual` against the GSM8K gold number. A program, not a judge.
+3. Baseline: TRL GRPO + LoRA r=32, 40 steps, 12 prompts x 4 rollouts per step, lr 1e-4, on-policy (one update per batch), no KL, advantage = reward minus the group mean with no std division (the reference script's `norm_adv_by_std_in_grpo=False`).
+4. Recipe: the same trainer and the same 12 x 4 update, with the generation step replaced by Reinforce-Ada-Seq, balanced exit, at the authors' own defaults (`round_repeat=8`, `max_rounds=4`, `positive_threshold=0.7`, `global_stat_est=True`, read from `RLHFlow/Reinforce-Ada`). A prompt that never splits in 32 draws keeps 4 of what it has, at zero advantage, as it would under GRPO.
+5. Eval: pass@1 on the 120 held-out tasks, 4 samples per task. Two training seeds per arm (17 and 18), so the verdict can resolve. Paired delta with a 95% interval (`wai.delta_report`, `train_runs=`).
+
+The backward pass is the same size in both arms: 48 rollouts per step. What the recipe spends more of is generation, and the Result table says how much.
+
+## Run
+
+```bash
+python recipe.py --selftest                 # the sampler on coin flips, offline, no GPU and no key
+python recipe.py --train-seeds 17 18        # both arms, two seeds each, four L40S in parallel, ~$4.60
+python recipe.py --arm recipe --steps 80    # one arm, longer
+```
+
+## Result
+
+| Arm | pass@1 | 95% CI | pass@k | Steps | GPU min |
+|---|---|---|---|---|---|
+| Base, no training | 0.41 | [0.34, 0.48] | 0.63 | 0 | 0 |
+| Baseline, GRPO 4 rollouts (seed 17; seed 18: 0.63) | 0.66 | [0.59, 0.72] | 0.83 | 40 | 16.9 |
+| Recipe, Reinforce-Ada (seed 17; seed 18: 0.68) | 0.70 | [0.63, 0.77] | 0.86 | 40 | 42.6 |
+
+Recipe vs baseline: **+0.042 [-0.008, +0.085]** on the seed-17 pair over 120 paired tasks; **+0.047 [-0.047, +0.140]** across both training seeds. Verdict: **flat**. Both recipe seeds beat both baseline seeds (0.70 and 0.68 against 0.66 and 0.63), and the direction matches the paper's +1.5 to +3.2 points over GRPO at 4 rollouts on MATH500, but two seeds and 120 tasks cannot tell a four-point gain from zero. `holdout_size` puts the bar at about 320 tasks for a gain this size.
+
+The sampler did what the paper says it does, and less of it than the paper needs:
+
+| Per training step, mean over 40 | Baseline | Recipe |
+|---|---|---|
+| Prompts whose kept group has zero advantage | 0.52 to 0.62 | 0.25 to 0.33 |
+| Rollouts drawn per prompt | 4 | 20 to 22 |
+| Prompts retired early (2 right and 2 wrong in hand) | n/a | 0.53 to 0.65 |
+| Pass rate over everything drawn | n/a | 0.73 to 0.78 |
+
+GSM8K is easy for this model: three draws in four are right. The prompts that stay flat are mostly the ones the model always gets right, which need a wrong answer that 32 draws at 0.9 temperature do not produce. That is where the extra generation goes, and why the recipe costs 2.5 times the GPU minutes for half as many flat groups.
+
+## Checks
+
+Nothing in this table is ticked by hand: every cell is written by `recipe.py` into `results.json`.
+
+| Check | Source | Result |
+|---|---|---|
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [4] | run_std 0.034 from 3 re-runs; a single-run delta under 0.148 is noise at t(df = 2). The seed spread (0.022 baseline, 0.015 recipe) is smaller than this |
+| Holdout is clean: `decontaminate(train, against=holdout)` | [5] | 0 of 512 train rows dropped |
+| Reward is a program, not a judge | [5] | `MathEqual` (Math-Verify) against the public GSM8K gold number |
+| Proxy vs target: `wai.compare(proxy=)` | [6] | `proxy=None`: the training reward is the target; over_optimized false |
+| Length: mean completion length before -> after, per arm | [6] | 710 chars base -> 498 baseline, 494 recipe. Neither arm is winning on length |
+| Hack scan on the last training batch: `hack_scan` | [6] | top feature `contains:2 =` on the recipe's last batch, arithmetic surface; nothing endorsed |
+| Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | training seeds 17 and 18, `--seed 0` for the data; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0 |
+
+## Climb
+
+| Round | What changed | pass@1 | vs previous |
+|---|---|---|---|
+| 1 | as the paper's balanced default: 4 kept of up to 32, rounds of 8, pool baseline, 2 seeds per arm | baseline 0.66 / 0.63, recipe 0.70 / 0.68 | +0.047 [-0.047, +0.140] across seeds, flat |
+
+## Learned
+
+- The generation step swaps in without touching TRL's loss. The override calls TRL's own `_generate_and_score_completions` once per round on the prompts still active, keeps 4 rollouts per prompt, re-pads them, and hands back a batch the same shape TRL asked for. On-policy and without KL is a requirement, not a choice: the rebuilt batch carries no old or reference log-probs.
+- Half the flat groups came back. The half that did not are the easy prompts, and on GSM8K at this model size the easy prompts are most of them. The paper trains on competition math where the model is right far less often; the recipe should move more on a harder set, or with the positive-focused exit, which stops at one right answer and leaves the always-right prompts alone.
+- Next: a harder train set (MATH level 3 to 5) where the base pass rate is near 0.3, and 320 held-out tasks so a four-point gain can resolve. Same two seeds.
+
+Verified 2026-09-22, whileai 0.124, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 136.8 GPU minutes over four containers, $4.56 on L40S. Run page: https://while.ai/platform/training/run_be9b5600637ffdf9
+
+## References
+
+1. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+2. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Reinforcement Learning*.
+3. Yu, Q. et al. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. arXiv:2503.14476, 2025.
+4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+5. Lambert, N. et al. Tülu 3: Pushing Frontiers in Open Language Model Post-Training. arXiv:2411.15124, 2024.
+6. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.

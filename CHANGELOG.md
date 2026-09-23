@@ -30,6 +30,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - Recipe `01-simulate/swarm-rescue`: seed 1 of the additive positive control replicates the flat
   result (`results-mbpp-s1.json`, `rescued-mbpp-s1.jsonl`); the swarm doubles the share of programs
   passing the shown asserts on both seeds and the hidden pass does not follow.
+- Recipe `papers/reinforce-ada` replicates Reinforce-Ada (Xiong et al., arXiv:2510.04996): the
+  generation step samples 8 rollouts at a time until a prompt has 2 right and 2 wrong (at most
+  32), keeps 4 balanced ones, and takes the advantage against the pass rate of everything drawn.
+  One override of TRL's `_generate_and_score_completions`, the loss untouched. GSM8K on
+  Qwen2.5-1.5B, two training seeds per arm: pass@1 0.66 / 0.63 -> 0.70 / 0.68, +0.047
+  [-0.047, +0.140] across seeds, flat; flat groups fall from 0.52-0.62 to 0.25-0.33 of prompts
+  at 2.5x the GPU minutes. The recipe's image installs `math-verify`, which `MathEqual` needs.
 
 - Recipe `01-simulate/swarm-rescue` gains the pre-flight that explains its flat results:
   `calibrate.py` and `sql_calibrate.py` regrade saved rollouts and print P(pass | fitness
