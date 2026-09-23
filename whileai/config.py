@@ -348,9 +348,13 @@ def provenance() -> str:
     return _provenance_line(whileai.__version__, where, _editable_root())
 
 
-def requirement() -> str:
+def requirement(*extras: str) -> str:
     """The ``pip`` requirement that gives a remote container at least the
     ``whileai`` this process imported: ``whileai>=<version>``.
+
+    ``extras`` name optional dependency groups from ``pyproject.toml``.
+    ``requirement("math")`` is ``whileai[math]>=<version>``, which a
+    container needs before ``MathEqual`` can grade (it imports Math-Verify).
 
     A bare ``"whileai"`` in a container image is resolved once, when the
     image layer is first built, and cached under that spelling: the
@@ -371,13 +375,16 @@ def requirement() -> str:
         >>> image = modal.Image.debian_slim().pip_install(  # doctest: +SKIP
         ...     "torch==2.7.1", "trl==0.19.1", wai.config.requirement()
         ... )
+        >>> wai.config.requirement("math")  # doctest: +SKIP
+        'whileai[math]>=0.110'
     """
     import whileai
 
+    name = f"whileai[{','.join(extras)}]" if extras else "whileai"
     version = str(whileai.__version__ or "").strip()
     if not version or version == "0.0.0":
-        return "whileai"
-    return f"whileai>={version}"
+        return name
+    return f"{name}>={version}"
 
 
 __all__ = [

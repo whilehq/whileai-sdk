@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.config.requirement()` takes extras: `requirement("math")` is `whileai[math]>=<version>`.
+  The eight paper recipes that grade with `MathEqual` inside a Modal image (adaptive-clip,
+  bpco-bounded-critic, endpoint-sft, filter-metric, flash-reinforce, gmts-token-select,
+  sao-single-rollout, zero-rl-format-reward) now install it. Since #686 moved Math-Verify to the
+  `math` extra, a rerun of any of them raised `ImportError: MathEqual needs Math-Verify` at the
+  first graded eval.
+
 ## 0.125 (2026-09-23)
 
 - `wai.methods.Swarm`: particle swarm optimization over rollouts, the method the swarm-rescue

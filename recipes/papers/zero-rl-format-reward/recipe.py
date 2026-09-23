@@ -221,7 +221,7 @@ image = (
         "peft==0.21.0",
         "flash-linear-attention==0.5.2",
         "datasets>=4.7.0",
-        requirement(),
+        requirement("math"),  # MathEqual imports Math-Verify
     )
     .env(
         {

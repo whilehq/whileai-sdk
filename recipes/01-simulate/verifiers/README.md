@@ -89,6 +89,9 @@ stops with that line when it is missing. On 3,840 held-out MATH-500 completions
 the string-and-number rule it replaced failed 199 correct answers (`\frac 59`
 vs `\frac{5}{9}`, `\text{(C)}` vs `C`, set order) and passed 64 wrong ones whose
 last digit matched the gold (`6\sqrt{3}` against `1+2\sqrt{3}`): 6.8% of verdicts.
+A container that grades with `MathEqual` needs the extra too: put
+`wai.config.requirement("math")` (`whileai[math]>=<your version>`) in the
+image's `pip_install` list.
 
 ## Code execution safety
 

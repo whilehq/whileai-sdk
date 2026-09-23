@@ -379,7 +379,7 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        requirement(),
+        requirement("math"),  # MathEqual imports Math-Verify
     )
     # wai.BPCO is newer than the published wheel: the checkout's own package
     # rides along and PYTHONPATH puts it ahead of site-packages. Harmless
