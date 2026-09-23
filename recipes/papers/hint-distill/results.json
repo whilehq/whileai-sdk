@@ -1,0 +1,106 @@
+{
+  "recipe": "hint-distill",
+  "title": "Hint distillation: imitate what passed, correct what failed with a hint",
+  "paper": "https://www.perplexity.ai/hub/blog/learning-from-real-world-experience",
+  "book": "Rejection Sampling",
+  "base_model": "Qwen/Qwen3-4B",
+  "metric": "pass@1",
+  "n_holdout": 120,
+  "k": 4,
+  "arms": {
+    "base": {
+      "score": 0.5438,
+      "ci": [0.4625, 0.625],
+      "steps": 0,
+      "gpu_minutes": 2.6,
+      "sql_error": 0.3792,
+      "cut_off": 0.369,
+      "mentions_hint": 0.0,
+      "mean_tokens": 1018.2
+    },
+    "baseline": {
+      "name": "rft (lambda 0)",
+      "score": 0.5292,
+      "ci": [0.4438, 0.6083],
+      "steps": 116,
+      "gpu_minutes": 12.0,
+      "sql_error": 0.3979,
+      "cut_off": 0.39,
+      "mentions_hint": 0.0,
+      "mean_tokens": 1020.6
+    },
+    "recipe": {
+      "name": "rft-hint-kl (lambda 1, whole reply)",
+      "score": 0.5208,
+      "ci": [0.4313, 0.6021],
+      "steps": 116,
+      "gpu_minutes": 12.4,
+      "sql_error": 0.4104,
+      "cut_off": 0.412,
+      "mentions_hint": 0.377,
+      "mean_tokens": 1030.4
+    },
+    "recipe_answer_only": {
+      "name": "rft-hint-kl-answer (lambda 1, after </think> only)",
+      "score": 0.5333,
+      "ci": [0.4521, 0.6167],
+      "steps": 116,
+      "gpu_minutes": 12.2,
+      "sql_error": 0.3938,
+      "cut_off": 0.39,
+      "mentions_hint": 0.0,
+      "mean_tokens": 1025.5
+    },
+    "grpo": {
+      "name": "grpo-execution-reward (recipes/04-train/text-to-sql/train_grpo_modal.py)",
+      "score": 0.5583,
+      "ci": [0.4771, 0.6438],
+      "steps": 50,
+      "gpu_minutes": 50.6,
+      "sql_error": 0.3438
+    }
+  },
+  "delta": {
+    "recipe_vs_baseline": -0.0083,
+    "ci": [-0.04, 0.0229],
+    "verdict": "unresolved"
+  },
+  "other_deltas": {
+    "recipe_vs_grpo": {"delta": -0.0375, "ci": [-0.075, -0.0021]},
+    "baseline_vs_grpo": {"delta": -0.0292, "ci": [-0.0583, 0.0]},
+    "recipe_answer_only_vs_baseline": {"delta": 0.0042, "ci": [-0.0292, 0.0354]},
+    "grpo_vs_base": {"delta": 0.0146, "ci": [-0.0167, 0.0479]}
+  },
+  "hint_validation": {
+    "hints_written": 192,
+    "hints_accepted": 46,
+    "dropped": {"not grounded": 84, "not avoidable": 55, "program check": 7},
+    "base_pass_without_hint": 0.283,
+    "base_pass_with_hint": 0.511,
+    "tool_error": {"n": 20, "without": 0.188, "with": 0.35},
+    "wrong_result": {"n": 26, "without": 0.356, "with": 0.635}
+  },
+  "experience": {
+    "replies": 1920,
+    "passed": 870,
+    "wrong_result": 279,
+    "sql_error": 29,
+    "cut_off": 742
+  },
+  "checks": {
+    "run_std": 0.0074,
+    "run_std_runs": 2,
+    "train_seeds": {"baseline": 1, "recipe": 1},
+    "decontaminated_dropped": 0,
+    "over_optimized": false,
+    "length_before": 1018.2,
+    "length_after": {"baseline": 1020.6, "recipe": 1030.4},
+    "hack_scan_top": "not run",
+    "seed": 17
+  },
+  "gpu": "H100",
+  "usd": 5.0,
+  "verified": "2026-09-22",
+  "whileai": "0.125",
+  "run_url": "https://while.ai/platform/runs?agent=text-to-sql-shop"
+}
