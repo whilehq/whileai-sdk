@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.125 (2026-09-23)
+
 - `wai.methods.Swarm`: particle swarm optimization over rollouts, the method the swarm-rescue
   recipe measured, as an object you point at any backend and fitness. `solo`, `ring` or `star`
   topology; the call returns a `SwarmResult` that prints itself; `Swarm.calibration(rows)` prints
