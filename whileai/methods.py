@@ -33,6 +33,11 @@ trainer's own words.
   rollout may lag the policy, and the per-token correction for the gap
   (Noukhovitch et al. 2024, arXiv:2410.18252; Khatri et al. 2025,
   arXiv:2510.13786).
+* ``Swarm``, particle swarm optimization over rollouts (Kennedy and
+  Eberhart 1995): particles share their best attempts under a ring, star
+  or solo topology and the model writes each next attempt. It tied plain
+  resampling on every task family the swarm-rescue recipe tried; its
+  ``calibration`` check says whether a fitness can carry a swarm at all.
 * ``FlashReinforce``, ``SAO`` and ``BPCO``, the single-rollout methods:
   one trajectory per prompt, no group to take a baseline over, so the
   baseline is the batch mean (FlashReinforce, Hu et al. 2026) or a critic
@@ -1869,6 +1874,8 @@ def prime_rl_config(
     )
 
 
+from .swarm import Calibration, Swarm, SwarmResult  # noqa: E402  (one dot down: wai.methods.Swarm)
+
 __all__ = [
     "ANCHORS",
     "BPCO",
@@ -1880,6 +1887,7 @@ __all__ = [
     "PRIVILEGED",
     "SAO",
     "Async",
+    "Calibration",
     "FlashReinforce",
     "GroupwiseGrading",
     "GroupwiseStats",
@@ -1887,6 +1895,8 @@ __all__ = [
     "PrimeRLConfig",
     "SingleRollout",
     "SpreadReport",
+    "Swarm",
+    "SwarmResult",
     "Update",
     "factors_from_ranking",
     "prime_rl_config",

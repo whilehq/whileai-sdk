@@ -24,6 +24,10 @@ python run.py --noise-runs 2   # all 275 tasks, four arms, the noise band
 python run.py --reuse --post   # the numbers again from out/, then the Runs page
 ```
 
+The method itself ships in the SDK as `wai.methods.Swarm`, with
+`Swarm.calibration` for the pre-flight check; `run.py` keeps its own
+frozen copy so these numbers reproduce exactly.
+
 ## The problem
 
 GRPO learns from the spread inside a group of rollouts. On a task where all
