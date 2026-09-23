@@ -184,6 +184,7 @@
                   "recipes/papers/harness-and-weights",
                   "recipes/papers/hint-distill",
                   "recipes/papers/meta-harness",
+                  "recipes/papers/reinforce-ada",
                   "recipes/papers/sao-single-rollout",
                   "recipes/papers/zero-rl-format-reward"
                 ]
