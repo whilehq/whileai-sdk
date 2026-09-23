@@ -100,9 +100,10 @@ one instructions string, so the pick can be pruned. Once `selected` names a
 candidate, run the recipe once more with `--select --prune`: it takes the
 pick's edits out one at a time on the train split and drops each one whose
 removal costs no score and no cost per rollout, then gates what is left
-(Xia et al. 2026, RRSI, arXiv:2609.24972: unregularized harness evolution
-gained up to 14.1 points on its own split and at most 4.7 on unseen
-benchmarks, and pruning is one of the constraints that closes the gap).
+(Xia et al. 2026, RRSI, arXiv:2609.24972: unconstrained harness evolution
+raised its own split 3.4 points and three unseen benchmarks 0.6 at 2.4x
+the tokens; with constraints including pruning, the unseen benchmarks rose
+3.9 on 36% fewer tokens than that).
 If `out/pruned.json` names a pruned file and it cleared the gate, copy it
 into `candidates/` and report that file as the pick; otherwise report the
 pick as selected and list the edits the pruner kept.

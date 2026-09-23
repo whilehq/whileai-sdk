@@ -176,11 +176,13 @@ spread is the harness or the model.
 
 ## 6. Prune the pick
 
-A pick that bundles five edits may owe its gain to two. Unconstrained
-harness evolution gained up to 14.1 points on the split it evolved against
-and at most 4.7 on benchmarks it never saw; one of the constraints that
-fixed it is a pruner that removes edits that are too small, too costly or
-no longer useful, and the pruned harnesses ran on 30% fewer tokens [7].
+A pick that bundles five edits may owe its gain to two. On legal workspace
+tasks, harness evolution with no constraints raised its own split from 89.4
+to 92.8 but moved three unseen benchmarks only from 39.7 to 40.3, at 2.4x
+the tokens. With constraints on what gets proposed and what gets kept, the
+unseen benchmarks reached 43.6 on 36% fewer tokens than the unconstrained
+run. One of those constraints deletes components that stopped earning
+their place [7].
 
 `--prune` does that to the pick. A candidate lists its changes as named
 edits, and the recipe takes each one out in turn and replays the train
@@ -238,4 +240,4 @@ held-out test and judge carry over to training: [evals](/evals), then
 4. Agrawal, L. A. et al. [GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning](https://arxiv.org/abs/2507.19457). ICLR 2026. Selection on the per-task frontier.
 5. Hebbar, P. et al. [SIA: Self Improving AI with Harness and Weight Updates](https://arxiv.org/abs/2605.27276). 2026.
 6. Lambert, N. [Reinforcement Learning from Human Feedback](https://rlhfbook.com), chapter [Evaluation](https://rlhfbook.com/c/16-evaluation). 2025. The train split picks, the holdout decides.
-7. Xia, P. et al. [RRSI: Regularized Recursive Self-Improvement of Agent Harnesses](https://arxiv.org/abs/2609.24972). 2026. Annealed edit budget, novelty, critic and pruner; +14.1 in-split vs +4.7 out of distribution; 30% fewer policy tokens.
+7. Xia, P. et al. [RRSI: Regularized Recursive Self-Improvement of Agent Harnesses](https://arxiv.org/abs/2609.24972). 2026. Edit budget, credit from history, exploration, leakage critic, noise floor, cost rule, pruning. Unseen benchmarks 39.7 to 43.6 against 40.3 for unconstrained evolution, at 2.42M vs 3.80M tokens per trial.

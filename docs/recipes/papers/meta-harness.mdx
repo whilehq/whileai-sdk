@@ -336,12 +336,16 @@ Lambert 2025, chapter Evaluation, is the rule behind the split [2]; Miller
 
 ## Pruning the pick
 
-Xia et al. 2026 found that unregularized harness evolution memorizes: up to
-14.1 points on the split it evolved against, at most 4.7 on five benchmarks
-it did not see. Their fix constrains both halves of the loop, and one of the
-constraints is a pruner that removes changes that are too small, too
-expensive or no longer useful; with it the evolved harness ran on 30% fewer
-policy tokens [6]. `--prune` is that pruner for one pick.
+Xia et al. 2026 ran harness evolution with no constraints on legal
+workspace tasks (Claude Opus 4.8 as the policy). It raised the evolve split
+from 89.4 to 92.8 and moved three unseen benchmarks from 39.7 to 40.3,
+while tokens per trial went from 1.56M to 3.80M. With their constraints on
+the proposer and the selector, the evolve split rose less (90.5), the
+unseen benchmarks rose more (43.6), and the harness used 2.42M tokens [6].
+One of the selector's constraints is structural pruning: a component that
+has produced no positive gain over the last few rounds is handed back to
+the proposer to delete. `--prune` is a one-shot, leave-one-out version of
+that rule for one pick.
 
 It takes the pick's edits out one at a time, in the order the file lists
 them, and replays the frozen tasks on the search model. An edit goes when
