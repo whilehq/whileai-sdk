@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.methods.Swarm`: particle swarm optimization over rollouts, the method the swarm-rescue
+  recipe measured, as an object you point at any backend and fitness. `solo`, `ring` or `star`
+  topology; the call returns a `SwarmResult` that prints itself; `Swarm.calibration(rows)` prints
+  P(correct | fitness bucket) and says when a fitness is a cliff. The docstring carries the
+  recipe's result: it tied plain resampling everywhere it was tried.
+
 - Recipe `01-simulate/swarm-rescue`: seed 1 of the additive positive control replicates the flat
   result (`results-mbpp-s1.json`, `rescued-mbpp-s1.jsonl`); the swarm doubles the share of programs
   passing the shown asserts on both seeds and the hidden pass does not follow.

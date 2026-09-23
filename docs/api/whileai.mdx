@@ -271,6 +271,11 @@ trainer's own words.
   rollout may lag the policy, and the per-token correction for the gap
   (Noukhovitch et al. 2024, arXiv:2410.18252; Khatri et al. 2025,
   arXiv:2510.13786).
+* `Swarm`, particle swarm optimization over rollouts (Kennedy and
+  Eberhart 1995): particles share their best attempts under a ring, star
+  or solo topology and the model writes each next attempt. It tied plain
+  resampling on every task family the swarm-rescue recipe tried; its
+  `calibration` check says whether a fitness can carry a swarm at all.
 * `FlashReinforce`, `SAO` and `BPCO`, the single-rollout methods:
   one trajectory per prompt, no group to take a baseline over, so the
   baseline is the batch mean (FlashReinforce, Hu et al. 2026) or a critic

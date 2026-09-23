@@ -294,6 +294,50 @@ enters $c$. The critic trains alone for `critic_warmup` = 15 updates first.
 Defaults: $\varepsilon$ = `clip` = 0.2, $\alpha$ = `gae_alpha` = 0.4,
 `reward_range` = $(R_{\min}, R_{\max})$ = (0, 1).
 
+## Rollouts that refine each other: `wai.methods.Swarm`
+
+Particle swarm optimization over rollouts (Kennedy and Eberhart 1995).
+Round 0 is `particles` fresh samples. Each later round a particle is shown
+its own best attempt with the fitness's feedback and, by `topology`, a
+neighbour's best, and writes the next attempt: `solo` shows no neighbour,
+`ring` the better of two ring neighbours, `star` the best in the swarm.
+The model is the velocity update. It is a rollout rule, not a trainer: it
+decides which samples get drawn, not how the policy moves.
+
+```python
+import re
+
+import whileai as wai
+
+
+def fitness(text: str) -> dict:
+    m = re.search(r"print\((\d+)\)", text)
+    got = int(m.group(1)) if m else 0
+    return {"fitness": 1 - abs(42 - got) / 42, "correct": got == 42, "feedback": f"printed {got}"}
+
+
+def model(messages: list[dict], seed: int) -> str:
+    """Any (messages, seed) -> text call; or pass a backend such as
+    wai.Endpoint("Qwen/Qwen3-4B", url="http://localhost:8000/v1")."""
+    return "print(42)" if "teammate" in messages[-1]["content"] else "print(41)"
+
+
+result = wai.methods.Swarm(model, topology="ring")("Print 42.", fitness)
+print(result)
+print(wai.methods.Swarm.calibration(result.samples))
+```
+
+It tied plain resampling at the same budget on every task family in
+[`recipes/01-simulate/swarm-rescue`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/01-simulate/swarm-rescue):
+partial credit on tests predicted a pass zero times below three quarters
+of the tests, a model judge ranked passes at chance, and where the fitness
+was a real hill the swarm learned the shown tests instead of the task.
+`Swarm.calibration(rows)` prints P(correct | fitness bucket) over any
+graded rows; a fitness with no correct attempt below full credit is a
+cliff, and a swarm has nothing to climb on it. Defaults: `particles` = 8,
+`rounds` = 3, `temperature` = 1.0, `max_tokens` = 2048, each named and
+justified in `whileai/swarm.py`.
+
 ## From symbol to field
 
 For the three single-rollout methods, `update(batch)` returns an `Update`:
