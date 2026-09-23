@@ -46,7 +46,7 @@ data = wai.simulate(
 | `"anthropic:<model>"` | `ANTHROPIC_API_KEY` | api.anthropic.com |
 | `"fireworks:accounts/fireworks/models/<name>"` | `FIREWORKS_API_KEY` | api.fireworks.ai |
 | `"bedrock:<model-id>[@<region>]"` | `AWS_BEARER_TOKEN_BEDROCK`, else your AWS credentials through boto3 | bedrock-runtime.`<region>`.amazonaws.com |
-| `"vllm:<model>@<url>"` | `OPENAI_API_KEY`; none for localhost or plain http | `<url>` |
+| `"vllm:<model>@<url>"` | `OPENAI_API_KEY` or `VLLM_API_KEY`; none for localhost or plain http | `<url>` |
 | `"ollama:<model>"` | none | localhost:11434 |
 | `"typesafe:<model>"` (judge only) | `TYPESAFE_API_KEY` | TypeSafe's API |
 | `my_agent(message) -> {"steps": [...], "final_text": "..."}` | yours | wherever your code goes |
@@ -97,6 +97,24 @@ asks for `max_completion_tokens`. whileai sends `max_tokens` first, since
 every vLLM, Ollama and pre-GPT-5 endpoint takes it, and renames the key
 once on a 400 that names the other spelling. There is no table of model
 ids to keep current, so the model released next month works too.
+
+## Your own endpoint on Modal
+
+A vLLM you serve yourself on Modal is yours, and `modal.run` in the host
+name does not make it ours:
+
+```python
+data = wai.simulate("vllm:Qwen/Qwen3-4B@https://mylab--my-qwen-serve.modal.run/v1", tools=TOOLS)
+```
+
+The key is `VLLM_API_KEY` or `OPENAI_API_KEY`, the same as any other `vllm:`
+endpoint, and no While account is involved. Only the two Modal app prefixes
+the platform itself serves from take an account key, and the SDK matches on
+those rather than on the suffix. Before this the SDK
+matched the bare `modal.run` suffix, so serving your own Qwen3-4B on your
+own L40S was answered with "Hosted models need an account key: run `wai
+login`" — an error whose own advice was the spelling you had already typed.
+Modal is a first-class partner and nothing in the loop requires our hosting.
 
 ## A host that is gone
 

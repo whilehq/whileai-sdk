@@ -1173,7 +1173,7 @@ def test_complete_lost_track_maps_to_hosted_message(monkeypatch):
     monkeypatch.setattr("whileai.simulations.generate.agents.http.client.HTTPSConnection", FakeConn)
     try:
         _real_complete(
-            "https://zeroproofai--stressd-vllm-serve.modal.run/v1",
+            "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1",
             "m",
             [{"role": "user", "content": "hi"}],
             timeout=1,

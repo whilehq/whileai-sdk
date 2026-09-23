@@ -337,6 +337,19 @@ def split_user_turns(message: str) -> list[str]:
 
 
 def _hosted_qwen_url(base_url: str | None) -> bool:
+    """True only for a model *While* hosts, never for a Modal app you run.
+
+    ``is_platform_host`` carries the pair of Modal app prefixes the
+    platform serves from (``_env.PLATFORM_MODAL_PREFIX`` and its
+    pre-rename twin). Matching the bare ``modal.run``
+    suffix instead claimed every tenant on Modal: a user serving their own
+    Qwen3-4B on their own L40S was told to ``wai login`` for an account
+    key, by an error whose own advice (``vllm:<model>@<your-url>``) was
+    the spelling they had already used. Modal is a first-class partner and
+    nothing in the loop requires our hosting (CONSTITUTION.md §4), so the
+    host has to say whose it is. A user's own endpoint falls through to
+    the ordinary bring-your-own key path.
+    """
     url = base_url
     if not url:
         try:
@@ -344,8 +357,7 @@ def _hosted_qwen_url(base_url: str | None) -> bool:
         except ValueError:
             return False
     raw = url if "://" in str(url) else "https://" + str(url)
-    host = (urlparse(raw).hostname or "").lower()
-    return host.endswith("modal.run") or is_platform_host(raw)
+    return is_platform_host(raw)
 
 
 def _configured_key(base_url: str | None) -> str | None:
@@ -375,8 +387,9 @@ def _configured_key(base_url: str | None) -> str | None:
 def resolve_completion_key(base_url: str | None = None, api_key: str | None = None) -> str:
     """Key for an OpenAI-compatible completion URL.
 
-    Hosted Qwen on *.modal.run uses VLLM_API_KEY (or an explicit api_key).
-    OPENAI_API_KEY is not a fallback there. Other URLs still accept either.
+    While's own hosted Qwen uses VLLM_API_KEY (or an explicit api_key).
+    OPENAI_API_KEY is not a fallback there. Other URLs still accept
+    either, including a vLLM you serve yourself on Modal.
     """
     if api_key:
         return str(api_key).strip()
@@ -446,7 +459,8 @@ def missing_hosted_key(base_url: str | None = None, api_key: str | None = None) 
         host = urlparse(raw).hostname or str(base_url)
         return (
             f"No API key for {host}: set OPENAI_API_KEY "
-            "(and OPENAI_BASE_URL for a non-OpenAI endpoint)."
+            "(or VLLM_API_KEY for a vLLM you serve yourself; "
+            "OPENAI_BASE_URL for a non-OpenAI endpoint)."
         )
     return None
 

@@ -26,6 +26,7 @@ import json
 
 import pytest
 
+from whileai._env import PLATFORM_MODAL_PREFIX
 from whileai.simulations.generate import agents
 
 # Captured at import, before the autouse fixture in tests/conftest.py swaps
@@ -237,8 +238,12 @@ def test_a_hosted_endpoint_keeps_its_window(monkeypatch):
     ``_window_is_known`` is the whole rule, so it is pinned on both sides.
     """
     monkeypatch.delenv("ZP_CONTEXT_TOKENS", raising=False)
-    assert agents._window_is_known("https://example--app-serve.modal.run/v1") is True
+    ours = f"https://{PLATFORM_MODAL_PREFIX}qwen3-4b.modal.run/v1"
+    assert agents._window_is_known(ours) is True
     assert agents._window_is_known("https://api.openai.com/v1") is False
+    # a vLLM someone runs themselves is "anything else", even on Modal: the
+    # 4096 fallback is a guess about another operator's server (#755)
+    assert agents._window_is_known("https://mylab--my-qwen-serve.modal.run/v1") is False
     monkeypatch.setenv("ZP_CONTEXT_TOKENS", "272000")
     assert agents._window_is_known("https://api.openai.com/v1") is True
 

@@ -104,7 +104,11 @@ def test_quota_429_is_named_and_not_retried():
 
 def test_account_calls_are_metered_by_the_proxy_not_the_client(saved_key):
     assert agents._client_metered(ACCOUNT_URL) is False
-    assert agents._client_metered(POOL_URL) is True
+    # POOL_URL is a Modal app that is not ours. The shared pool it stood for
+    # was retired on 2026-09-21, and a host we do not serve from is someone
+    # else's endpoint: we do not count their tokens. `_client_metered` has no
+    # True case left now that it and `_account_url` read the same prefixes.
+    assert agents._client_metered(POOL_URL) is False
     assert agents._client_metered("https://api.openai.com/v1") is False
     assert agents._client_metered("http://localhost:11434/v1") is False
 

@@ -110,7 +110,9 @@ def test_login_prints_link_and_saves_key_after_approval(gate, tmp_path):
 
     assert key == "zp_" + "a" * 48
     text = "\n".join(lines)
-    assert "https://while.ai/device?code=ABCD-EFGH" in text
+    # the approval page is behind the site's auth, so the printed link goes
+    # through /sign-in?redirect=<path>, which answers 200 signed out
+    assert "/sign-in?redirect=" in text and "%2Fdevice" in text
     assert "ABCD-EFGH" in text
     saved = json.loads((tmp_path / "credentials.json").read_text())
     assert saved["api_key"] == key

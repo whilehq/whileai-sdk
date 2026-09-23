@@ -30,8 +30,9 @@ import urllib.request
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import quote, urlsplit, urlunsplit
 
-from whileai._env import env_name, getenv
+from whileai._env import env_name, getenv, is_platform_host
 
 #: The While platform API (whilehq/platform, backend/lambda/token-gate):
 #: serves /device/code,
@@ -50,6 +51,34 @@ _PREVIOUS_API_URLS = (
 #: The site that hosts /sign-in and the /device approval page.
 SITE_URL = "https://while.ai"
 SIGN_IN_URL = f"{SITE_URL}/sign-in"
+
+
+def approval_link(url: str | None) -> str:
+    """A device-approval link a signed-out browser can actually open.
+
+    The gate hands back ``verification_uri_complete`` as a bare protected
+    URL (``while.ai/device?code=...``). That page sits behind the site's
+    auth: opened without a session it answers 404 instead of bouncing
+    through sign-in, so ``wai login`` -- the first command in ``wai
+    --help`` -- was also the first one to fail. ``/sign-in?redirect=<path>``
+    answers 200 signed out and lands on the same approval page after, so
+    the link goes through it. Only a While-hosted link is wrapped; a
+    self-hosted gate's URL is printed exactly as it arrived.
+
+    The other half of this is the site's own middleware, which should let
+    a signed-out ``/device`` request redirect rather than 404. That is a
+    change in whilehq/platform, not here.
+    """
+    raw = str(url or "").strip()
+    if not raw or not is_platform_host(raw):
+        return raw
+    parts = urlsplit(raw)
+    if parts.path.rstrip("/").endswith("/sign-in"):
+        return raw
+    target = urlunsplit(("", "", parts.path or "/", parts.query, parts.fragment))
+    return f"{parts.scheme}://{parts.netloc}/sign-in?redirect={quote(target, safe='')}"
+
+
 #: the trial allowance the gate hands out, used when the reply does not say
 DEFAULT_TRIAL_INPUT_TOKENS = 25_000
 #: Input tokens one hosted situation spends, measured on a 4-tool spec: a
@@ -290,14 +319,15 @@ def login(
         say("Open this link and press Approve:")
     else:
         say("Resuming the login you started. Open this link and press Approve:")
+    link = approval_link(flow["verification_uri_complete"])
     say("")
-    say(f"    {flow['verification_uri_complete']}")
+    say(f"    {link}")
     say("")
     say(f"    code: {flow['user_code']}")
     say("")
     if open_browser:
         with contextlib.suppress(Exception):
-            webbrowser.open(flow["verification_uri_complete"])
+            webbrowser.open(link)
     if not wait:
         say("Run `wai login` again once you have approved.")
         return None

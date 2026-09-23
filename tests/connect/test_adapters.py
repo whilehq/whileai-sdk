@@ -7,7 +7,9 @@ from whileai.simulations.generate.agents import (
     split_user_turns,
 )
 
-HOSTED = "https://zeroproofai--stressd-vllm-serve.modal.run/v1"
+#: While's own hosted model. The app prefix is what makes it ours, not the
+#: ``modal.run`` suffix, which every Modal tenant shares.
+HOSTED = "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
 
 
 def test_split_user_turns():

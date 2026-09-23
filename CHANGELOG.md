@@ -7,6 +7,22 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `simulate(agent="vllm:<model>@https://<you>--<app>.modal.run/v1")` reaches your own Modal endpoint
+  again. `_hosted_qwen_url` matched the bare `modal.run` suffix, so every tenant on Modal was read as
+  While's hosted model and told to `wai login` for an account key -- by an error whose own advice
+  (`vllm:<model>@<your-url>`) was the spelling the caller had already used. It now asks
+  `is_platform_host`, which carries the `zeroproofai--whileai-serve-` / `zeroproofai--zeroproof-serve-`
+  prefixes While actually serves from. Modal is a first-class partner and nothing in the loop requires
+  our hosting (CONSTITUTION.md §4). The no-key error on a self-hosted endpoint now names `VLLM_API_KEY`
+  as well as `OPENAI_API_KEY`, both of which reach it.
+
+- `wai login` prints a link a signed-out browser can open. The gate returns `verification_uri_complete`
+  as a bare protected URL (`while.ai/device?code=...`), which answers 404 without a session, so the
+  first command in `wai --help` was also the first one to fail. `auth.approval_link` wraps a
+  While-hosted link in `/sign-in?redirect=<path>`, which answers 200 signed out and lands on the same
+  approval page; a self-hosted gate's URL is printed unchanged. The other half -- letting a signed-out
+  `/device` request redirect rather than 404 -- is site middleware in whilehq/platform, not here.
+
 - Recipe `recipes/papers/board-writers` (Park et al. arXiv:2502.18439): notes and readers trained in one
   GRPO batch on a ring board, MATH levels 3 to 5, Qwen2.5-1.5B, three seeds on H100. Paying each note its
   two readers' mean reward is flat to negative against readers-only training (-0.017 [-0.048, +0.014]);
