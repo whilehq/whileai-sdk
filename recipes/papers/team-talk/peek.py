@@ -42,6 +42,9 @@ def peek(run_name: str, team: bool, questions: list[str]) -> list[str]:
 if __name__ == "__main__":
     from recipe import data, talks, turns_of
 
+    from whileai.config import provenance
+
+    print(provenance(), file=sys.stderr)
     run_name = sys.argv[1]
     team = "--plain" not in sys.argv
     n = int(sys.argv[sys.argv.index("--n") + 1]) if "--n" in sys.argv else 4

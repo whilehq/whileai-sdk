@@ -13,6 +13,7 @@ import json
 import sys
 from pathlib import Path
 
+from whileai.config import provenance
 from whileai.platform import Harness, track
 
 HERE = Path(__file__).resolve().parent
@@ -36,6 +37,7 @@ CONDITIONS = [
 
 
 def main(question_only: bool) -> None:
+    print(provenance(), file=sys.stderr)
     tracked = track(
         "team-talk",
         model=BASE_MODEL,
