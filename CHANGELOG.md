@@ -27,6 +27,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   right answer. `ReinforceAda().trainer(GRPOTrainer)` swaps it into TRL's generation step.
   The math is on the methods reference page; the replication is `recipes/papers/reinforce-ada`.
 
+- Recipe `recipes/papers/team-talk` (Pappu et al. arXiv:2609.22682, Kim et al. arXiv:2601.10825):
+  GRPO under a Solver/Checker/Lead prompt on Qwen2.5-1.5B, GSM8K, two seeds. Flat against plain GRPO
+  (+0.000 [-0.044, +0.046]); the talk costs 13 points untrained and RL removes it (talk rate 0.21 -> 0.00).
+
 - Docs share card: `docs/assets/og-card.png`, the wordmark and tagline padded into 1200x630, so
   X and Slack previews stop cropping the whale and the tagline.
 
