@@ -99,6 +99,18 @@ def test_requirement_is_a_floor_at_the_imported_version(monkeypatch) -> None:
     assert requirement() == "whileai"
 
 
+def test_requirement_carries_extras(monkeypatch) -> None:
+    """An image that grades with ``MathEqual`` needs Math-Verify, which is
+    the ``math`` extra since #686; ``requirement("math")`` asks for it."""
+    from whileai.config import requirement
+
+    monkeypatch.setattr(whileai, "__version__", "0.119")
+    assert requirement("math") == "whileai[math]>=0.119"
+    assert requirement("math", "dev") == "whileai[math,dev]>=0.119"
+    monkeypatch.setattr(whileai, "__version__", "0.0.0")
+    assert requirement("math") == "whileai[math]"
+
+
 def test_every_recipe_image_installs_the_floor_not_the_bare_name() -> None:
     """No recipe image may list ``"whileai"`` bare: that is the spelling
     that froze a trainer at a 57-release-old wheel (#661)."""

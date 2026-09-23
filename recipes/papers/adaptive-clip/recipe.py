@@ -294,7 +294,7 @@ image = (
         "peft==0.16.0",
         "datasets==3.6.0",
         "accelerate==1.8.1",
-        requirement(),
+        requirement("math"),  # MathEqual imports Math-Verify
     )
     .env({"HF_HOME": "/root/.cache/huggingface", "TOKENIZERS_PARALLELISM": "false"})
     .add_local_file(str(HERE / "recipe.py"), "/root/recipe_mod.py")
