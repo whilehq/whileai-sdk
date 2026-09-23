@@ -93,6 +93,8 @@ NEEDS_MODAL = {
     "05-export/bedrock-import/presign.py",
     "04-train/sft/train_modal.py",
     "community/which-half-can-a-small-model-take/train_modal.py",
+    # judge-aware-hacking: the trainer is a Modal app; the probe and grader need OPENROUTER_API_KEY
+    "community/judge-aware-hacking/recipe.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic
