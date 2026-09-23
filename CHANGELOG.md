@@ -7,6 +7,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `community/judge-aware-hacking`: does a reasoning model learn to write for an LLM
+  judge? A probe of three open-reasoning models (no training) and three GRPO arms on
+  Qwen3.5-4B, with broken twins of math problems whose honest answer is `\boxed{NONE}`. The
+  reported hack did not appear: training against a reference-free judge raised held-out
+  accuracy under both cues alike. Penalizing reasoning that plans around the grader cut that
+  talk 30 points and raised flaw-hiding 15 points while the judge's score did not move
+  (Baker et al. 2025). Telling the model what the grader really reads cut flaw-hiding 17 to
+  50 points on the probe models.
 - `recipes/papers/hint-distill`: Perplexity's Learning from Real-World Experience (RFT on passing
   replies plus forward KL toward the same model reading a grounded hint) on the text-to-SQL shop,
   Qwen3-4B. Recipe vs RFT -0.01 [-0.04, +0.02], unresolved at one seed; GRPO 0.56 is the reference.
