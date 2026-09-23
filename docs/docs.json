@@ -183,6 +183,7 @@
                   "recipes/papers/gmts-token-select",
                   "recipes/papers/harness-and-weights",
                   "recipes/papers/hint-distill",
+                  "recipes/papers/message-board",
                   "recipes/papers/meta-harness",
                   "recipes/papers/reinforce-ada",
                   "recipes/papers/sao-single-rollout",
