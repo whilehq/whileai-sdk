@@ -172,11 +172,40 @@ select: 02_check_result.py beats the baseline on the holdout and on a held-out m
 ```
 
 `wai.harness.attribute` over the candidate by model grid says whether the
-spread is the harness or the model. The agent loops on steps 3 to 5 until
+spread is the harness or the model.
+
+## 6. Prune the pick
+
+A pick that bundles five edits may owe its gain to two. Unconstrained
+harness evolution gained up to 14.1 points on the split it evolved against
+and at most 4.7 on benchmarks it never saw; one of the constraints that
+fixed it is a pruner that removes edits that are too small, too costly or
+no longer useful, and the pruned harnesses ran on 30% fewer tokens [7].
+
+`--prune` does that to the pick. A candidate lists its changes as named
+edits, and the recipe takes each one out in turn and replays the train
+days. An edit goes when the score without it is no lower and the cost per
+rollout is no higher. The pruned harness then faces the same gate, so the
+holdout still decides.
+
+```bash
+python run.py --traces traces-2026-09-21.jsonl --select --prune
+```
+
+```text
+prune one_sentence: train 0.67 without it vs 0.92, 1.00x the cost in calls -> kept: removing it loses score or raises cost
+prune turn_cap: train 0.92 without it vs 0.92, 1.00x the cost in calls -> dropped
+prune retry: train 0.92 without it vs 0.92, 1.00x the cost in calls -> dropped
+prune: 2 of 5 edits dropped (turn_cap, retry); the pruned harness clears the gate; copy out/02_check_result_pruned.py into candidates/ to keep it
+```
+
+The output above is the offline dry run, where the scripted agent ignores
+the turn cap and the retry, so they always go. On a real model the turn cap
+can cut tokens, and then the cost rule keeps it. The agent loops on steps 3 to 5 until
 the gate passes or the rounds run out. A search that never clears is a
 result too.
 
-## 6. Report, serve, next day
+## 7. Report, serve, next day
 
 Every candidate is posted as a harness version, so the Runs page groups the
 dots by harness. Under the pick, five lines from the ledger: Changed, Moved,
@@ -209,3 +238,4 @@ held-out test and judge carry over to training: [evals](/evals), then
 4. Agrawal, L. A. et al. [GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning](https://arxiv.org/abs/2507.19457). ICLR 2026. Selection on the per-task frontier.
 5. Hebbar, P. et al. [SIA: Self Improving AI with Harness and Weight Updates](https://arxiv.org/abs/2605.27276). 2026.
 6. Lambert, N. [Reinforcement Learning from Human Feedback](https://rlhfbook.com), chapter [Evaluation](https://rlhfbook.com/c/16-evaluation). 2025. The train split picks, the holdout decides.
+7. Xia, P. et al. [RRSI: Regularized Recursive Self-Improvement of Agent Harnesses](https://arxiv.org/abs/2609.24972). 2026. Annealed edit budget, novelty, critic and pruner; +14.1 in-split vs +4.7 out of distribution; 30% fewer policy tokens.

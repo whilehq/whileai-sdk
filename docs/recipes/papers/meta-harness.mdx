@@ -67,6 +67,8 @@ python run.py --models "vllm:anthropic/claude-haiku-4.5@https://openrouter.ai/ap
 | `--concurrency` | 8 | rollouts in flight on a live model; scripted models run one at a time, and `reproducible=True` keeps the rows the same at any setting |
 | `--traces` | None | production traffic as the frozen set: a JSONL of traces or an OTLP JSON batch, one task per distinct prompt, the latest days held out |
 | `--cost-margin` | 0.0 | how much more per rollout than the baseline a pick may cost; 0 is matched cost |
+| `--prune` | off | after the gate, drop each edit of the pick that buys nothing on train, and gate what is left |
+| `--prune-tol` | 0.0 | train pass@1 an edit may cost when removed and still be pruned; 0 keeps any edit whose removal loses score |
 | `--candidates` | candidates | the folder of candidate files |
 | `--out` | out | ledger, traces, proposal, selection |
 | `--propose` | off | write `out/proposal.md` for the proposer |
@@ -97,9 +99,14 @@ leaked. The outer loop is you, or the coding agent running
 
 One file, one change. This is `candidates/01_no_filler.py`: the baseline's
 worst rows open with a greeting, an apology or a hedge, so it tells the model
-to answer in one sentence and caps the loop at four turns. `build` in
-`common.py` turns it into the prompted loop on a real model, or the scripted
-stand-in when the model name starts with `scripted`.
+to answer in one sentence and caps the loop at four turns. Each change is a
+named `Edit` (a sentence appended to the baseline's instructions, `Disclosure`
+fields, or both), so `--prune` can take it back out. `from_edits` in
+`common.py` turns the edits into the prompted loop on a real model, or the
+scripted stand-in when the model name starts with `scripted`; `fixes` is the
+stand-in's side only, the planted mistakes that come back when the edit is
+dropped. A candidate can also call `build` with one instructions string; it
+runs and gates the same, and `--prune` skips it.
 
 ```python
 """Candidate 01: cut the filler. The baseline's worst rows open with a
@@ -108,29 +115,32 @@ model to answer in one plain sentence and caps the loop at four turns."""
 
 from __future__ import annotations
 
-from common import BASE_INSTRUCTIONS, build
+from common import Edit, from_edits
 
 import whileai as wai
-from whileai.harness import Disclosure
 
-INSTRUCTIONS = (
-    BASE_INSTRUCTIONS + " Answer in one plain sentence: no greeting, no apology, no hedging."
-)
-DISCLOSURE = Disclosure(max_turns=4)
+# Each change to the baseline, named, so --prune can take it back out.
+EDITS = {
+    "one_sentence": Edit(
+        instructions="Answer in one plain sentence: no greeting, no apology, no hedging.",
+        fixes=("sycophancy", "apology", "boilerplate"),
+    ),
+    "turn_cap": Edit(disclosure={"max_turns": 4}),
+}
 
 # Offline stand-in: the filler kinds are gone, the tool-result mistakes stay.
 SCRIPTED_RATE = 0.35
-SCRIPTED_BEHAVIORS: tuple[str, ...] | None = ("ignore_fault", "leak", "hedging")
+SCRIPTED_BEHAVIORS: tuple[str, ...] = ("ignore_fault", "leak", "hedging")
 
 
-def harness(model: str) -> wai.Harness:
-    return build(
+def harness(model: str, drop: tuple[str, ...] = ()) -> wai.Harness:
+    return from_edits(
         model,
-        instructions=INSTRUCTIONS,
+        EDITS,
         label="01_no_filler",
-        disclosure=DISCLOSURE,
         scripted_rate=SCRIPTED_RATE,
         scripted_behaviors=SCRIPTED_BEHAVIORS,
+        drop=drop,
     )
 ```
 
@@ -192,6 +202,10 @@ Three files carry the state between rounds:
   the train tasks each candidate led, the paired delta and interval per
   model with the count of holdout tasks the baseline passed and the pick
   failed, the cost ratio, and the attribution verdict.
+- `out/pruned.json`, `out/pruned_gate.json`, `out/<pick>_pruned.py`: with
+  `--prune`, each edit's decision (train pass@1 with and without it, cost
+  ratio), the gate on the pruned harness, and the pruned candidate as a
+  file to copy into `candidates/`.
 - `out/split.json`: how the tasks were split (by seed, or by day for
   traces), the keys on each side, and the train prompts dropped for
   overlapping a holdout prompt.
@@ -320,6 +334,56 @@ at least two candidates and two models; with one model it is not printed.
 Lambert 2025, chapter Evaluation, is the rule behind the split [2]; Miller
 2024 is the interval over tasks [3].
 
+## Pruning the pick
+
+Xia et al. 2026 found that unregularized harness evolution memorizes: up to
+14.1 points on the split it evolved against, at most 4.7 on five benchmarks
+it did not see. Their fix constrains both halves of the loop, and one of the
+constraints is a pruner that removes changes that are too small, too
+expensive or no longer useful; with it the evolved harness ran on 30% fewer
+policy tokens [6]. `--prune` is that pruner for one pick.
+
+It takes the pick's edits out one at a time, in the order the file lists
+them, and replays the frozen tasks on the search model. An edit goes when
+the train pass@1 without it is no lower than with it (less `--prune-tol`)
+and the cost per rollout without it is no higher; an edit that saves tokens
+at the same score stays. Drops accumulate, so each test is against the
+harness as pruned so far. The decisions read the train split only, so the
+holdout still decides: the pruned harness is scored on every model and
+faces the same gate as the pick, and its holdout is compared with the
+pick's.
+
+```bash
+python run.py --dry-run --select --prune
+```
+
+```text
+prune one_sentence: train 0.67 without it vs 0.92, 1.00x the cost in calls -> kept: removing it loses score or raises cost
+prune read_result: train 0.83 without it vs 0.92, 1.00x the cost in calls -> kept: removing it loses score or raises cost
+prune no_hidden: train 0.83 without it vs 0.92, 1.00x the cost in calls -> kept: removing it loses score or raises cost
+prune turn_cap: train 0.92 without it vs 0.92, 1.00x the cost in calls -> dropped
+prune retry: train 0.92 without it vs 0.92, 1.00x the cost in calls -> dropped
+...
+select: 02_check_result_pruned.py beats the baseline on the holdout and on a held-out model at 1.00x its cost
+pruned vs pick on the holdout: +0.00 [+0.00, +0.00] over 6 paired tasks, at 1.00x the pick's cost in calls
+prune: 2 of 5 edits dropped (turn_cap, retry); the pruned harness clears the gate; copy out/02_check_result_pruned.py into candidates/ to keep it
+```
+
+Offline the two `Disclosure` edits always go: the scripted agent ignores the
+turn cap and the retry, so they change nothing it does. That is the pruner
+working, not a finding about turn caps. On a real model `max_turns` is
+enforced by the prompted loop and can cut tokens, and then the cost rule
+keeps it. The checked-in 02 was selected live at 0.40x the baseline's
+tokens with both edits in; whether they earned that is what a live
+`--prune` run says. The pruner costs one replay per edit on the search model
+and one full scoring of the pruned harness.
+
+The paper's other constraints are not built here: an edit budget that
+shrinks round by round, a proposer steered toward unexplored edits, and a
+critic that rejects benchmark-specific proposals before they are scored.
+The day holdout, the held-out model and the matched-cost gate cover part of
+what the critic is for, after the fact.
+
 ## Next
 
 Write `candidates/03_<name>.py` from what `out/proposal.md` says is still
@@ -342,3 +406,4 @@ harness as a version on the platform, `harness.pin()` is the record
 3. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640, 2024.
 4. Agrawal, L. A., et al. GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning. arXiv:2507.19457, 2025.
 5. Wang, Y., et al. Rethinking the Evaluation of Harness Evolution for Agents. arXiv:2607.12227, 2026.
+6. Xia, P., Han, R., Wang, Z., et al. RRSI: Regularized Recursive Self-Improvement of Agent Harnesses. arXiv:2609.24972, 2026.

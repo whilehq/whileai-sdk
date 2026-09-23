@@ -129,6 +129,72 @@ def test_frozen_tasks_replay_across_runs(copy: Path, dry_run):
     )
 
 
+def test_prune_drops_the_edits_that_buy_nothing(tmp_path: Path):
+    """``--prune`` (RRSI's pruner): offline, the Disclosure-only edits never
+    change a scripted rollout, so they go; each instruction edit carries a
+    planted fix, so taking it out costs train score and it stays. The pruned
+    harness faces the gate and is written as a candidate file."""
+    dest = tmp_path / "meta-harness"
+    shutil.copytree(RECIPE, dest, ignore=shutil.ignore_patterns("out", "__pycache__"))
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "run.py",
+            "--dry-run",
+            "--select",
+            "--prune",
+            "--budget",
+            "12",
+            "--k",
+            "2",
+        ],
+        cwd=dest,
+        env=_offline_env(),
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert proc.returncode == 0, proc.stdout[-2000:] + proc.stderr[-2000:]
+    report = json.loads((dest / "out" / "pruned.json").read_text(encoding="utf-8"))
+    assert report["pick"] == "02_check_result.py"
+    assert report["dropped"] == ["turn_cap", "retry"]
+    assert report["kept"] == ["one_sentence", "read_result", "no_hidden"]
+    for d in report["decisions"]:
+        assert d["dropped"] == (d["train_without"] >= d["train_with"] and d["cost_without"] <= 1.0)
+    gate = json.loads((dest / "out" / "pruned_gate.json").read_text(encoding="utf-8"))
+    assert gate["baseline"] == "00_baseline.py"
+    assert report["selected"] == gate["selected"]
+    sys.path.insert(0, str(dest))
+    pruned = load_script("meta_harness_pruned", dest / "out" / report["pruned"])
+    pick = load_script("meta_harness_pick", dest / "candidates" / "02_check_result.py")
+    assert list(pruned.EDITS) == report["kept"], "the written file is the pruned harness"
+    assert pruned.harness("scripted").fingerprint == (
+        pick.harness("scripted", drop=("turn_cap", "retry")).fingerprint
+    )
+
+
+def test_edits_rebuild_the_candidate_exactly():
+    """A candidate written as named edits is the same harness as the string
+    it replaced: same instructions, same Disclosure, same fingerprint."""
+    sys.path.insert(0, str(RECIPE))
+    common = load_script("meta_harness_common", RECIPE / "common.py")
+    pick = load_script("meta_harness_02", RECIPE / "candidates" / "02_check_result.py")
+    whole = common.build(
+        "scripted",
+        instructions=common.BASE_INSTRUCTIONS
+        + " Answer in one plain sentence: no greeting, no apology, no hedging."
+        + " Read the tool result first. If it failed, timed out or was denied, say that and stop."
+        + " Never quote anything marked hidden or expected.",
+        label="02_check_result",
+        disclosure=common.Disclosure(max_turns=4, retries=1),
+        scripted_rate=0.10,
+        scripted_behaviors=("hedging",),
+    )
+    assert pick.harness("scripted").fingerprint == whole.fingerprint
+    with pytest.raises(ValueError, match="no edit named"):
+        pick.harness("scripted", drop=("nope",))
+
+
 def test_traces_split_by_day_and_decontaminate(copy: Path, tmp_path: Path):
     """``--traces``: one task per distinct prompt, the latest days held out,
     a near-copy of a holdout prompt dropped from the train split."""

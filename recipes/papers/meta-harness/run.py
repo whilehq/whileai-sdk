@@ -7,6 +7,7 @@ held-out models.
     python run.py --dry-run --select         # and apply the gate
     python run.py --models openai:gpt-4.1-mini,anthropic:claude-haiku-4-5  # the live run
     python run.py --traces traces.jsonl --propose --select    # the frozen set is production traffic
+    python run.py --dry-run --select --prune # and drop the pick's edits that buy nothing
 
 Lee, Nair, Zhang, Lee, Khattab and Finn 2026 (Meta-Harness, arXiv:2603.28052)
 put the harness, the code around the model, under search: an agentic
@@ -57,6 +58,14 @@ What one run does:
    the baseline passed and the pick failed. ``wai.harness.attribute`` on
    the candidate x model grid says whether the gain is the harness or the
    model.
+7. ``--prune`` takes the pick's named edits (``EDITS``, built with
+   ``common.from_edits``) out one at a time and drops every edit whose
+   removal costs no train score and no cost per rollout (Xia et al. 2026,
+   RRSI, arXiv:2609.24972: the pruner removes changes that are too small,
+   too expensive or no longer useful, so the harness keeps reusable
+   mechanisms and not benchmark-specific noise). The decisions read the
+   train split; the pruned harness then faces the same gate, and
+   ``out/<pick>_pruned.py`` is the file to copy into ``candidates/``.
 
 Lambert 2025, chapter Evaluation: the train split picks, the holdout
 decides, and one number without its interval is not a result.
@@ -98,6 +107,7 @@ SEED = 0  # the draw of the frozen set and of the split
 WORST = 5  # rows per candidate in proposal.md, the paper's trace window
 COST_MARGIN = 0.0  # how much more per rollout than the baseline a pick may cost; 0 = matched
 CONCURRENCY = 8  # rollouts in flight on a live model; scripted models run one at a time
+PRUNE_TOL = 0.0  # train pass@1 an edit may cost and still be pruned; 0 = any loss keeps it
 COST_EPS = 1e-9  # float slack so a pick at exactly the baseline's cost passes margin 0
 NANOS_PER_SECOND = 1e9  # an OTLP span's start_time_unix_nano is in nanoseconds
 NEXT_NOTE = "Then write candidates/{next}.py and run: python run.py{flags} --propose --select"
@@ -298,6 +308,53 @@ def freeze_split(
     return train - dropped, hold, how, contamination
 
 
+def ledger_entry(
+    candidate: str,
+    harness: wai.Harness,
+    per_model: dict[str, list[dict]],
+    *,
+    models: list[str],
+    out: Path,
+    k: int,
+    n_tasks: int,
+) -> dict[str, Any]:
+    """One ledger line from a candidate's graded rows, and its traces on
+    disk: every row, and the worst on the train split."""
+    first = per_model[models[0]]
+    train = [r for r in first if r["split"] == "train"]
+    hold = [r for r in first if r["split"] == "holdout"]
+    trace_dir = out / "traces" / Path(candidate).stem
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    with open(trace_dir / "rows.jsonl", "w", encoding="utf-8") as fh:
+        for r in (r for m in models for r in per_model[m]):
+            fh.write(json.dumps(r, default=str) + "\n")
+    with open(trace_dir / "worst.jsonl", "w", encoding="utf-8") as fh:
+        for r in worst_rows(train, WORST):
+            fh.write(json.dumps(r, default=str) + "\n")
+    entry = {
+        "candidate": candidate,
+        "label": harness.version,
+        "fingerprint": harness.fingerprint,
+        "model": models[0],
+        "k": k,
+        "n_tasks": n_tasks,
+        "train": score(train),
+        "holdout": score(hold),
+        "cost": cost(first),
+        "held_out_models": {
+            m: score([r for r in per_model[m] if r["split"] == "holdout"]) for m in models[1:]
+        },
+        "worst": (trace_dir / "worst.jsonl").relative_to(out).as_posix(),
+        "rows": (trace_dir / "rows.jsonl").relative_to(out).as_posix(),
+    }
+    extra = "".join(f"  {m} {fmt(s)}" for m, s in entry["held_out_models"].items())
+    print(
+        f"{Path(candidate).stem:<18} train {fmt(entry['train'])}  "
+        f"holdout {fmt(entry['holdout'])}{extra}"
+    )
+    return entry
+
+
 def evaluate(
     entries: list[tuple[Path, ModuleType]],
     *,
@@ -370,40 +427,16 @@ def evaluate(
             train_keys, hold_keys = split(sorted({task_key(r) for r in rows_all}), holdout, seed)
             for r in rows_all:
                 r["split"] = "holdout" if task_key(r) in hold_keys else "train"
-        first = per_model[search_model]
-        train = [r for r in first if r["split"] == "train"]
-        hold = [r for r in first if r["split"] == "holdout"]
-        trace_dir = out / "traces" / path.stem
-        trace_dir.mkdir(parents=True, exist_ok=True)
-        with open(trace_dir / "rows.jsonl", "w", encoding="utf-8") as fh:
-            for r in rows_all:
-                fh.write(json.dumps(r, default=str) + "\n")
-        worst = worst_rows(train, WORST)
-        with open(trace_dir / "worst.jsonl", "w", encoding="utf-8") as fh:
-            for r in worst:
-                fh.write(json.dumps(r, default=str) + "\n")
-        harness = module.harness(search_model)
-        entry = {
-            "candidate": path.name,
-            "label": harness.version,
-            "fingerprint": harness.fingerprint,
-            "model": search_model,
-            "k": k,
-            "n_tasks": len(train_keys) + len(hold_keys),
-            "train": score(train),
-            "holdout": score(hold),
-            "cost": cost(first),
-            "held_out_models": {
-                m: score([r for r in per_model[m] if r["split"] == "holdout"]) for m in models[1:]
-            },
-            "worst": (trace_dir / "worst.jsonl").relative_to(out).as_posix(),
-            "rows": (trace_dir / "rows.jsonl").relative_to(out).as_posix(),
-        }
-        ledger.append(entry)
-        extra = "".join(f"  {m} {fmt(s)}" for m, s in entry["held_out_models"].items())
-        print(
-            f"{path.stem:<18} train {fmt(entry['train'])}  holdout {fmt(entry['holdout'])}{extra}"
+        entry = ledger_entry(
+            path.name,
+            module.harness(search_model),
+            per_model,
+            models=models,
+            out=out,
+            k=k,
+            n_tasks=len(train_keys) + len(hold_keys),
         )
+        ledger.append(entry)
     with open(out / "ledger.jsonl", "w", encoding="utf-8") as fh:
         for entry in ledger:
             fh.write(json.dumps(entry, default=str) + "\n")
@@ -519,15 +552,18 @@ def _cost_of(out: Path, entry: dict[str, Any], *, model: str) -> dict[str, float
     return cost([r for r in rows if r.get("harness", {}).get("model") in names] or rows)
 
 
+def _ratio(base_cost: dict[str, Any], new_cost: dict[str, Any]) -> tuple[float, str]:
+    unit = "tokens" if base_cost.get("tokens") and new_cost.get("tokens") else "calls"
+    base, new = base_cost.get(unit) or 0.0, new_cost.get(unit) or 0.0
+    return (new / base if base else 1.0), unit
+
+
 def cost_ratio(
     baseline: dict[str, Any], pick: dict[str, Any], *, out: Path, model: str
 ) -> tuple[float, str]:
     """The pick's cost per rollout over the baseline's: tokens when both
     carry them, else tool calls."""
-    base_cost, pick_cost = _cost_of(out, baseline, model=model), _cost_of(out, pick, model=model)
-    unit = "tokens" if base_cost.get("tokens") and pick_cost.get("tokens") else "calls"
-    base, new = base_cost.get(unit) or 0.0, pick_cost.get(unit) or 0.0
-    return (new / base if base else 1.0), unit
+    return _ratio(_cost_of(out, baseline, model=model), _cost_of(out, pick, model=model))
 
 
 def select(
@@ -536,6 +572,7 @@ def select(
     models: list[str],
     out: Path,
     cost_margin: float | None = COST_MARGIN,
+    dest: str = "selected.json",
 ) -> dict[str, Any]:
     """The gate. The candidate that leads the most train tasks is the pick;
     the holdout on the search model, and on at least one held-out model,
@@ -547,7 +584,7 @@ def select(
     if len(ledger) == 1:
         verdict["reason"] = "only the baseline has run; write a candidate"
         print("select:", verdict["reason"])
-        (out / "selected.json").write_text(json.dumps(verdict, indent=2), encoding="utf-8")
+        (out / dest).write_text(json.dumps(verdict, indent=2), encoding="utf-8")
         return verdict
     led = tasks_led(ledger, model=models[0], out=out)
     best = max(ledger[1:], key=lambda e: (led[e["candidate"]], e["train"]["pass_at_1"] or 0.0))
@@ -633,8 +670,194 @@ def select(
             "share_model": report["share_model"],
         }
     print("select:", verdict["reason"])
-    (out / "selected.json").write_text(json.dumps(verdict, indent=2), encoding="utf-8")
+    (out / dest).write_text(json.dumps(verdict, indent=2), encoding="utf-8")
     return verdict
+
+
+def replay(
+    harness: wai.Harness,
+    *,
+    model: str,
+    judge: Any,
+    out: Path,
+    k: int,
+    seed: int,
+    concurrency: int,
+) -> list[dict]:
+    """One harness on the frozen tasks, graded, each row marked with its
+    split from ``out/split.json``."""
+    saved = json.loads((out / "split.json").read_text(encoding="utf-8"))
+    hold_keys = set(saved["holdout"])
+    data = simulate(
+        harness,
+        tasks=out / "tasks.jsonl",
+        k=k,
+        budget=0,
+        seed=seed,
+        concurrency=1 if model.startswith("scripted") else concurrency,
+    )
+    rows = [dict(r) for r in data.grade(judge=judge).rows]
+    for r in rows:
+        r["split"] = "holdout" if task_key(r) in hold_keys else "train"
+    return rows
+
+
+def prune(
+    verdict: dict[str, Any],
+    ledger: list[dict[str, Any]],
+    entries: list[tuple[Path, ModuleType]],
+    *,
+    models: list[str],
+    judge: Any,
+    out: Path,
+    k: int,
+    seed: int,
+    concurrency: int = CONCURRENCY,
+    tol: float = PRUNE_TOL,
+    cost_margin: float | None = COST_MARGIN,
+) -> dict[str, Any] | None:
+    """The pruner of Xia et al. 2026 (RRSI, arXiv:2609.24972): take the
+    pick's edits out one at a time and keep out every edit whose removal
+    costs at most ``tol`` of train pass@1 and no cost per rollout. The
+    decisions read the train split on the search model only, so the
+    holdout still decides: the pruned harness then faces the same gate as
+    the pick, and its holdout is compared with the pick's."""
+    name = verdict.get("selected")
+    if not name:
+        print("prune: nothing was selected; pruning a pick the holdout rejected only fits train")
+        return None
+    module = next(m for p, m in entries if p.name == name)
+    edits = getattr(module, "EDITS", None)
+    if not edits:
+        print(f"prune: {name} declares no EDITS; write it with common.from_edits to prune it")
+        return None
+    pick = next(e for e in ledger if e["candidate"] == name)
+    search = models[0]
+    rows = _rows(out, pick, model=search, split_name="train")
+    current = (wai.pass_at(rows).pass_at_1 or 0.0, cost(rows))
+    dropped: list[str] = []
+    decisions: list[dict[str, Any]] = []
+    for edit in edits:
+        trial = (*dropped, edit)
+        trial_rows = [
+            r
+            for r in replay(
+                module.harness(search, drop=trial),
+                model=search,
+                judge=judge,
+                out=out,
+                k=k,
+                seed=seed,
+                concurrency=concurrency,
+            )
+            if r["split"] == "train"
+        ]
+        without = (wai.pass_at(trial_rows).pass_at_1 or 0.0, cost(trial_rows))
+        ratio, unit = _ratio(current[1], without[1])
+        useless = without[0] >= current[0] - tol - COST_EPS and ratio <= 1.0 + COST_EPS
+        decisions.append(
+            {
+                "edit": edit,
+                "train_with": current[0],
+                "train_without": without[0],
+                "cost_without": ratio,
+                "unit": unit,
+                "dropped": useless,
+            }
+        )
+        print(
+            f"prune {edit}: train {without[0]:.2f} without it vs {current[0]:.2f}, "
+            f"{ratio:.2f}x the cost in {unit} -> "
+            + ("dropped" if useless else "kept: removing it loses score or raises cost")
+        )
+        if useless:
+            dropped.append(edit)
+            current = without
+    report: dict[str, Any] = {"pick": name, "tol": tol, "decisions": decisions}
+    if not dropped:
+        report["pruned"] = None
+        report["reason"] = f"every edit in {name} earns its place on train"
+        print("prune:", report["reason"])
+        (out / "pruned.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        return report
+    pruned_name = f"{Path(name).stem}_pruned.py"
+    per_model = {
+        m: replay(
+            module.harness(m, drop=tuple(dropped)),
+            model=m,
+            judge=judge,
+            out=out,
+            k=k,
+            seed=seed,
+            concurrency=concurrency,
+        )
+        for m in models
+    }
+    entry = ledger_entry(
+        pruned_name,
+        module.harness(search, drop=tuple(dropped)),
+        per_model,
+        models=models,
+        out=out,
+        k=k,
+        n_tasks=pick["n_tasks"],
+    )
+    gate = select(
+        [ledger[0], entry], models=models, out=out, cost_margin=cost_margin, dest="pruned_gate.json"
+    )
+    cmp = compare_runs(
+        _rows(out, pick, model=search, split_name="holdout"),
+        _rows(out, entry, model=search, split_name="holdout"),
+    )
+    ratio, unit = cost_ratio(pick, entry, out=out, model=search)
+    lo, hi = cmp["ci95"] or (None, None)
+    interval = f"[{lo:+.2f}, {hi:+.2f}]" if lo is not None else "[no interval]"
+    delta = f"{cmp['delta']:+.2f}" if cmp["delta"] is not None else "n/a"
+    print(
+        f"pruned vs pick on the holdout: {delta} {interval} over {cmp['n_paired']} paired "
+        f"tasks, at {ratio:.2f}x the pick's cost in {unit}"
+    )
+    kept = {e: edits[e] for e in edits if e not in dropped}
+    source = out / pruned_name
+    listed = "".join(f"    {e!r}: {edit!r},\n" for e, edit in kept.items())
+    source.write_text(
+        f'"""{name} with {", ".join(dropped)} pruned (run.py --prune): the edits left are the\n'
+        'ones whose removal cost train score or raised cost per rollout."""\n\n'
+        "from __future__ import annotations\n\n"
+        "from common import Edit, from_edits\n\n"
+        "import whileai as wai\n\n"
+        f"EDITS = {{\n{listed}}}\n\n"
+        f"SCRIPTED_RATE = {module.SCRIPTED_RATE!r}\n"
+        f"SCRIPTED_BEHAVIORS: tuple[str, ...] = {tuple(module.SCRIPTED_BEHAVIORS)!r}\n\n\n"
+        "def harness(model: str, drop: tuple[str, ...] = ()) -> wai.Harness:\n"
+        "    return from_edits(\n"
+        "        model,\n"
+        "        EDITS,\n"
+        f'        label="{Path(pruned_name).stem}",\n'
+        "        scripted_rate=SCRIPTED_RATE,\n"
+        "        scripted_behaviors=SCRIPTED_BEHAVIORS,\n"
+        "        drop=drop,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    report.update(
+        pruned=pruned_name,
+        dropped=dropped,
+        kept=list(kept),
+        selected=gate["selected"],
+        vs_pick={"delta": cmp["delta"], "ci95": cmp["ci95"], "cost_ratio": ratio, "unit": unit},
+        source=_show(source),
+    )
+    print(
+        f"prune: {len(dropped)} of {len(edits)} edits dropped ({', '.join(dropped)}); "
+        + (
+            f"the pruned harness clears the gate; copy {_show(source)} into candidates/ to keep it"
+            if gate["selected"]
+            else "the pruned harness does not clear the gate; keep the pick"
+        )
+    )
+    (out / "pruned.json").write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    return report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -665,6 +888,17 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=COST_MARGIN,
         help="how much more per rollout than the baseline a pick may cost (0 = matched)",
+    )
+    p.add_argument(
+        "--prune",
+        action="store_true",
+        help="after --select, drop each edit of the pick that buys nothing on train (RRSI)",
+    )
+    p.add_argument(
+        "--prune-tol",
+        type=float,
+        default=PRUNE_TOL,
+        help="train pass@1 an edit may cost when removed and still be pruned",
     )
     p.add_argument("--candidates", default="candidates", help="folder of candidate files")
     p.add_argument("--out", default="out", help="ledger, traces, proposal, selection")
@@ -721,9 +955,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.propose:
         propose(ledger, entries, out, flags=flags)
-    if args.select:
-        select(ledger, models=models, out=out, cost_margin=args.cost_margin)
-    if not args.propose and not args.select:
+    if args.select or args.prune:
+        verdict = select(ledger, models=models, out=out, cost_margin=args.cost_margin)
+        if args.prune:
+            prune(
+                verdict,
+                ledger,
+                entries,
+                models=models,
+                judge=_judge(args.judge),
+                out=out,
+                k=args.k,
+                seed=args.seed,
+                concurrency=args.concurrency,
+                tol=args.prune_tol,
+                cost_margin=args.cost_margin,
+            )
+    if not args.propose and not args.select and not args.prune:
         print(f"Next: python run.py{' --dry-run' if args.dry_run else ''} --propose --select")
     return 0
 

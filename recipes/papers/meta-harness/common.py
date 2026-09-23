@@ -2,7 +2,8 @@
 ways a candidate becomes a runnable harness.
 
 A candidate file changes the harness (instructions, disclosure) and nothing
-here. ``build()`` turns it into a ``wai.Harness``: a prompted loop on a real
+here, either whole or as named ``Edit``s (``from_edits``), which ``--prune``
+can take out one at a time. ``build()`` turns it into a ``wai.Harness``: a prompted loop on a real
 model, or, when the model name starts with ``scripted``, a seeded agent whose
 mistakes are planted at the candidate's ``SCRIPTED`` rate, so the loop runs
 offline with no key and the judge still has something to catch.
@@ -11,6 +12,7 @@ offline with no key and the judge still has something to catch.
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass, field
 from typing import Any
 
 import whileai as wai
@@ -153,6 +155,55 @@ def scripted(model: str, *, rate: float, behaviors: tuple[str, ...] | None) -> A
     way two real ones would on the same harness, in where they fail."""
     seed = int(hashlib.sha256(model.encode("utf-8")).hexdigest()[:8], 16) % 10_000
     return wai.seeded_agent(TOOLS, rate=rate, seed=seed, behaviors=behaviors)
+
+
+@dataclass(frozen=True)
+class Edit:
+    """One change a candidate makes to the baseline, so ``--prune`` can take
+    it back out: a sentence appended to ``BASE_INSTRUCTIONS``, ``Disclosure``
+    fields, or both. ``fixes`` is the offline stand-in only: the scripted
+    behaviors the edit removes, which come back when the edit is dropped."""
+
+    instructions: str = ""
+    disclosure: dict[str, Any] = field(default_factory=dict)
+    fixes: tuple[str, ...] = ()
+
+
+def from_edits(
+    model: str,
+    edits: dict[str, Edit],
+    *,
+    label: str,
+    scripted_rate: float,
+    scripted_behaviors: tuple[str, ...],
+    drop: tuple[str, ...] = (),
+) -> wai.Harness:
+    """A candidate written as named edits, minus the ones in ``drop``. The
+    instructions are the baseline's with each kept edit's sentence appended,
+    in order; the disclosure merges each kept edit's fields. Offline, a
+    dropped edit's ``fixes`` rejoin the scripted behaviors and the planted
+    rate grows by the same share, so an ablation scores like the harness it
+    now is."""
+    unknown = sorted(set(drop) - set(edits))
+    if unknown:
+        raise ValueError(f"no edit named {', '.join(unknown)}; edits are {', '.join(edits)}")
+    kept = [e for name, e in edits.items() if name not in drop]
+    instructions = " ".join([BASE_INSTRUCTIONS, *(e.instructions for e in kept if e.instructions)])
+    fields: dict[str, Any] = {}
+    for e in kept:
+        fields.update(e.disclosure)
+    behaviors = list(scripted_behaviors)
+    for name in drop:
+        behaviors += [b for b in edits[name].fixes if b not in behaviors]
+    rate = min(1.0, scripted_rate * len(behaviors) / max(1, len(scripted_behaviors)))
+    return build(
+        model,
+        instructions=instructions,
+        label=label if not drop else f"{label} minus {', '.join(drop)}",
+        disclosure=Disclosure(**fields),
+        scripted_rate=rate,
+        scripted_behaviors=tuple(behaviors),
+    )
 
 
 def build(

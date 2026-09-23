@@ -11,7 +11,7 @@ description: >
   turn cap, the retry) and not the weights, on a closed model or an open
   one. No GPU, no key for the dry run.
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Harness search
@@ -93,6 +93,19 @@ for _round in range(ROUNDS):
     run("--propose", "--select", "--traces", str(TRACES))
     proposal, ledger, selected = state()
 ```
+
+Write each candidate as named edits (`EDITS` of `common.Edit`, built with
+`common.from_edits`, as `candidates/02_check_result.py` does) rather than
+one instructions string, so the pick can be pruned. Once `selected` names a
+candidate, run the recipe once more with `--select --prune`: it takes the
+pick's edits out one at a time on the train split and drops each one whose
+removal costs no score and no cost per rollout, then gates what is left
+(Xia et al. 2026, RRSI, arXiv:2609.24972: unregularized harness evolution
+gained up to 14.1 points on its own split and at most 4.7 on unseen
+benchmarks, and pruning is one of the constraints that closes the gap).
+If `out/pruned.json` names a pruned file and it cleared the gate, copy it
+into `candidates/` and report that file as the pick; otherwise report the
+pick as selected and list the edits the pruner kept.
 
 ## 3. Report so a person can decide
 

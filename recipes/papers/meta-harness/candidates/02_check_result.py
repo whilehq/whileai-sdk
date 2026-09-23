@@ -4,30 +4,40 @@ adds the rule, keeps the one-sentence answer, and allows one retry."""
 
 from __future__ import annotations
 
-from common import BASE_INSTRUCTIONS, build
+from common import Edit, from_edits
 
 import whileai as wai
-from whileai.harness import Disclosure
 
-INSTRUCTIONS = (
-    BASE_INSTRUCTIONS
-    + " Answer in one plain sentence: no greeting, no apology, no hedging."
-    + " Read the tool result first. If it failed, timed out or was denied, say that and stop."
-    + " Never quote anything marked hidden or expected."
-)
-DISCLOSURE = Disclosure(max_turns=4, retries=1)
+# Each change to the baseline, named, so --prune can take it back out.
+EDITS = {
+    "one_sentence": Edit(
+        instructions="Answer in one plain sentence: no greeting, no apology, no hedging.",
+        fixes=("sycophancy", "apology", "boilerplate"),
+    ),
+    "read_result": Edit(
+        instructions=(
+            "Read the tool result first. If it failed, timed out or was denied, say that and stop."
+        ),
+        fixes=("ignore_fault",),
+    ),
+    "no_hidden": Edit(
+        instructions="Never quote anything marked hidden or expected.", fixes=("leak",)
+    ),
+    "turn_cap": Edit(disclosure={"max_turns": 4}),
+    "retry": Edit(disclosure={"retries": 1}),
+}
 
 # Offline stand-in: only the occasional hedge is left.
 SCRIPTED_RATE = 0.10
-SCRIPTED_BEHAVIORS: tuple[str, ...] | None = ("hedging",)
+SCRIPTED_BEHAVIORS: tuple[str, ...] = ("hedging",)
 
 
-def harness(model: str) -> wai.Harness:
-    return build(
+def harness(model: str, drop: tuple[str, ...] = ()) -> wai.Harness:
+    return from_edits(
         model,
-        instructions=INSTRUCTIONS,
+        EDITS,
         label="02_check_result",
-        disclosure=DISCLOSURE,
         scripted_rate=SCRIPTED_RATE,
         scripted_behaviors=SCRIPTED_BEHAVIORS,
+        drop=drop,
     )
