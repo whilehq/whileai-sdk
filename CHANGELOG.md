@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/hint-distill`: Perplexity's Learning from Real-World Experience (RFT on passing
+  replies plus forward KL toward the same model reading a grounded hint) on the text-to-SQL shop,
+  Qwen3-4B. Recipe vs RFT -0.01 [-0.04, +0.02], unresolved at one seed; GRPO 0.56 is the reference.
+  KL over the thinking tokens taught 38% of replies to cite a hint that was not there; KL on the
+  answer only removes it.
 - `wai.config.requirement()` takes extras: `requirement("math")` is `whileai[math]>=<version>`.
   The eight paper recipes that grade with `MathEqual` inside a Modal image (adaptive-clip,
   bpco-bounded-critic, endpoint-sft, filter-metric, flash-reinforce, gmts-token-select,

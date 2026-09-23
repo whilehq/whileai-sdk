@@ -1,0 +1,1 @@
+Ran Perplexity's hint distillation on Qwen3-4B text-to-SQL: pass@1 0.53 -> 0.52 vs plain RFT (-0.01 [-0.04, +0.02]); GRPO 0.56. KL over the thinking made 38% of replies cite a hint that was not there. https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/hint-distill
