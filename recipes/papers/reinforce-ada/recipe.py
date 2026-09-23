@@ -24,7 +24,7 @@ Shape of the run:
   1. data():      GSM8K, train split for prompts, test split held out
   2. run_arm():   TRL GRPOTrainer + LoRA on Modal, one arm per call
   3. evaluate():  same holdout, k samples per task, graded by MathEqual
-  4. results.json + the paired delta (wai.delta_report) on the run page
+  4. results.json + the paired delta (wai.compare) on the run page
 """
 
 from __future__ import annotations
@@ -215,7 +215,7 @@ def mean_length(rows: list[dict]) -> float:
 
 
 def graded_rows(holdout: list[dict], replies: list[list[str]]) -> list[dict]:
-    """Eval rows in the shape `pass_at` and `delta_report` read: binary
+    """Eval rows in the shape `pass_at` and `compare` read: binary
     `reward`, one row per sample, grouped by task."""
     rows: list[dict] = []
     for task, texts in zip(holdout, replies):
@@ -445,7 +445,8 @@ def run_arm(
         reinforce_ada_trainer,
     )
 
-    import whileai.simulations as wai
+    import whileai as wai
+    from whileai.simulations.training import TrainerCallback, training_run
 
     started = time.time()
     tokenizer = AutoTokenizer.from_pretrained(base_model)
@@ -477,7 +478,7 @@ def run_arm(
     }
     run = None
     if os.environ.get("WHILEAI_API_KEY"):
-        run = wai.training_run(
+        run = training_run(
             run_name,
             base_model=base_model,
             trainer="trl-grpo-lora",
@@ -567,7 +568,7 @@ def run_arm(
         recorder=last_batch,
     )
     if run is not None:
-        trainer.add_callback(wai.TrainerCallback(run, finish=False))
+        trainer.add_callback(TrainerCallback(run, finish=False))
     try:
         trainer.train()
     except Exception as exc:
@@ -656,7 +657,7 @@ def data(seed: int, n_train: int, n_holdout: int) -> tuple[list[dict], list[dict
 
 
 def summarize(rows: list[dict]) -> dict:
-    import whileai.simulations as wai
+    import whileai as wai
 
     p = wai.pass_at(rows)
     return {
@@ -760,7 +761,7 @@ def main() -> None:
         selftest()
         return
 
-    import whileai.simulations as wai
+    import whileai as wai
 
     train_tasks, holdout = data(args.seed, args.n_train, args.n_holdout)
     # GSM8K's train and test splits are already disjoint, so this should drop
@@ -851,7 +852,7 @@ def main() -> None:
         results.setdefault("sampler", {})[arm] = traces[arm]
 
     if "baseline" in seed_rows and "recipe" in seed_rows:
-        d = wai.delta_report(
+        d = wai.compare(
             seed_rows["baseline"][0],
             seed_rows["recipe"][0],
             target="pass_at_1",
@@ -871,7 +872,7 @@ def main() -> None:
         checks["over_optimized"] = bool(d.get("over_optimized"))
         results["verified"] = date.today().isoformat()
         results.pop("partial_run", None)
-        print(wai.format_delta_report(d))
+        print(d)
     else:
         results["partial_run"] = f"{date.today().isoformat()}: {', '.join(arms)} only"
         print(f"one arm only ({', '.join(arms)}): delta and verified left as they were")

@@ -20,7 +20,7 @@ then `cd recipes/papers/reinforce-ada` before running the commands below. [Brows
 2. Reward, both arms: the binary outcome, `MathEqual` against the GSM8K gold number. A program, not a judge.
 3. Baseline: TRL GRPO + LoRA r=32, 40 steps, 12 prompts x 4 rollouts per step, lr 1e-4, on-policy (one update per batch), no KL, advantage = reward minus the group mean with no std division (the reference script's `norm_adv_by_std_in_grpo=False`).
 4. Recipe: the same trainer and the same 12 x 4 update, with the generation step replaced by Reinforce-Ada-Seq, balanced exit, at the authors' own defaults (`round_repeat=8`, `max_rounds=4`, `positive_threshold=0.7`, `global_stat_est=True`, read from `RLHFlow/Reinforce-Ada`). A prompt that never splits in 32 draws keeps 4 of what it has, at zero advantage, as it would under GRPO.
-5. Eval: pass@1 on the 120 held-out tasks, 4 samples per task. Two training seeds per arm (17 and 18), so the verdict can resolve. Paired delta with a 95% interval (`wai.delta_report`, `train_runs=`).
+5. Eval: pass@1 on the 120 held-out tasks, 4 samples per task. Two training seeds per arm (17 and 18), so the verdict can resolve. Paired delta with a 95% interval (`wai.compare`, `train_runs=`).
 
 The backward pass is the same size in both arms: 48 rollouts per step. What the recipe spends more of is generation, and the Result table says how much.
 
