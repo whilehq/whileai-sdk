@@ -38,6 +38,11 @@ trainer's own words.
   or solo topology and the model writes each next attempt. It tied plain
   resampling on every task family the swarm-rescue recipe tried; its
   ``calibration`` check says whether a fitness can carry a swarm at all.
+* ``ReinforceAda``, adaptive sampling for group-relative RL (Xiong et
+  al. 2025, arXiv:2510.04996): draw in rounds until a prompt's pool has
+  right and wrong answers, train on a balanced ``keep`` of them, and take
+  the advantage against the pool's pass rate. A rollout rule with a TRL
+  hook, ``ReinforceAda().trainer(GRPOTrainer)``.
 * ``FlashReinforce``, ``SAO`` and ``BPCO``, the single-rollout methods:
   one trajectory per prompt, no group to take a baseline over, so the
   baseline is the batch mean (FlashReinforce, Hu et al. 2026) or a critic
@@ -1874,6 +1879,11 @@ def prime_rl_config(
     )
 
 
+from .reinforce_ada import (  # noqa: E402  (wai.methods.ReinforceAda)
+    AdaGroup,
+    AdaResult,
+    ReinforceAda,
+)
 from .swarm import Calibration, Swarm, SwarmResult  # noqa: E402  (one dot down: wai.methods.Swarm)
 
 __all__ = [
@@ -1886,6 +1896,8 @@ __all__ = [
     "PRIME_RL_ALGORITHMS",
     "PRIVILEGED",
     "SAO",
+    "AdaGroup",
+    "AdaResult",
     "Async",
     "Calibration",
     "FlashReinforce",
@@ -1893,6 +1905,7 @@ __all__ = [
     "GroupwiseStats",
     "Method",
     "PrimeRLConfig",
+    "ReinforceAda",
     "SingleRollout",
     "SpreadReport",
     "Swarm",

@@ -1,7 +1,7 @@
 ---
 title: "The methods, in symbols"
 sidebarTitle: "Methods"
-description: "Every training method the library names, as one block of arithmetic each: the hosted four (SFT, GRPO, DPO, RM), the distillation pair (OPD, OPSD), the staleness corrections (Async), the group baselines prime-rl runs, and the three single-rollout updates, with a table from each symbol to the field that carries it."
+description: "Every training method the library names, as one block of arithmetic each: the hosted four (SFT, GRPO, DPO, RM), the distillation pair (OPD, OPSD), the staleness corrections (Async), the group baselines prime-rl runs, adaptive sampling (Reinforce-Ada), and the three single-rollout updates, with a table from each symbol to the field that carries it."
 ---
 
 Every method here is one loss over the tokens a model wrote. For the
@@ -293,6 +293,81 @@ sums a sequence's tokens and averages over sequences, so no length weight
 enters $c$. The critic trains alone for `critic_warmup` = 15 updates first.
 Defaults: $\varepsilon$ = `clip` = 0.2, $\alpha$ = `gae_alpha` = 0.4,
 `reward_range` = $(R_{\min}, R_{\max})$ = (0, 1).
+
+## Adaptive sampling: `wai.methods.ReinforceAda`
+
+Reinforce-Ada (Xiong et al. 2025, arXiv:2510.04996) changes which
+rollouts a group-relative update sees, not the loss. With a binary reward
+and a group of $k$, a prompt the policy solves with probability $p$ comes
+back unanimous, and so with $A_i = 0$ for every rollout, with probability
+
+$$
+P_{\text{flat}}(p) = p^{k} + (1-p)^{k},
+\qquad P_{\text{flat}}(0.1) = 0.66 \text{ at } k = 4.
+$$
+
+The paper's reason to care is the objective. Maximizing
+$J_f = \mathbb{E}_x\,[f(p_\theta(x))]$ for a concave $f$ gives
+
+$$
+\nabla_\theta J_f = \mathbb{E}_x\big[f'(p_\theta(x))\,\nabla_\theta p_\theta(x)\big],
+\qquad f = \log \ \Rightarrow\ f'(p) = \frac{1}{p},
+$$
+
+so under $\log p$ the prompts the policy rarely solves weigh the most,
+the same $1/p$ that `max_rl` puts in the advantage. Reinforce-Ada puts it
+in the sampling budget instead. Each round draws $M$ = `round_size`
+rollouts for every prompt still active, and a prompt retires once its
+pool holds $\lfloor k/2 \rfloor$ right and $\lceil k/2 \rceil$ wrong
+(`exit="balanced"`) or one right (`exit="positive"`), for at most
+$N_{\max}$ = `round_size` $\times$ `max_rounds` draws. From the $N_x$
+drawn for prompt $x$ it keeps $k$ = `keep`, balanced where the pool
+allows, and sets
+
+$$
+\hat p_x = \frac{1}{N_x}\sum_{j=1}^{N_x} \mathbb{1}[r_j > \tau],
+\qquad
+A_i = r_i - \hat p_x \quad (i \text{ among the } k \text{ kept}),
+$$
+
+with $\tau$ = `threshold`. The baseline is the whole pool's pass rate,
+not the kept group's mean: the kept group is balanced on purpose, so its
+mean is $1/2$ whatever the prompt's difficulty. There is no division by a
+standard deviation. The coefficient is then GRPO's, and the backward pass
+is the same $k$ rollouts per prompt it always was; the cost is generation,
+$\mathbb{E}[N_x]$ draws per prompt instead of $k$.
+
+```python
+import random
+
+import whileai as wai
+
+rates = [0.05, 0.3, 0.6, 0.95]  # how often the model solves each prompt
+rng = random.Random(0)
+
+
+def draw(prompts: list[int], k: int) -> list[list[float]]:
+    """k rewards per prompt; in a real run, k rollouts graded by your verifier."""
+    return [[float(rng.random() < rates[p]) for _ in range(k)] for p in prompts]
+
+
+result = wai.methods.ReinforceAda()(draw, list(range(len(rates))))
+print(result)  # draws per prompt, share retired, share with no gradient vs GRPO at 4
+```
+
+In TRL, `wai.methods.ReinforceAda().trainer(GRPOTrainer)` is a
+`GRPOTrainer` whose generation step is this sampler (trl 0.19, with
+`num_generations = keep`, `num_iterations = 1`, `beta = 0`). The
+replication is
+[`recipes/papers/reinforce-ada`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/reinforce-ada):
+on GSM8K with Qwen2.5-1.5B it cut the prompts with no gradient from
+0.52-0.62 to 0.25-0.33 of each batch at 2.5 times the GPU minutes, and
+moved pass@1 by +0.047 [-0.047, +0.140] across two training seeds per
+arm, flat. The prompts it could not rescue were ones the model always
+solves, where 32 draws find no wrong answer; `exit="positive"` does not
+spend draws on those. Defaults: `keep` = 4, `round_size` = 8,
+`max_rounds` = 4, `threshold` = 0.7, the authors' own, each named in
+`whileai/reinforce_ada.py`.
 
 ## Rollouts that refine each other: `wai.methods.Swarm`
 
