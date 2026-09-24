@@ -240,6 +240,40 @@ assert accurate_score.agreement is not None and accurate_score.agreement >= 0.8
 assert accurate_score.kappa is not None and accurate_score.kappa >= 0.6
 assert table.best is not None and table.best.name == "accurate", table.best
 
+# ---- 5b. length bias: correlate reply length with reward on every judged arm
+
+
+def pearson(xs: list[float], ys: list[float]) -> float:
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    vx = sum((x - mx) ** 2 for x in xs)
+    vy = sum((y - my) ** 2 for y in ys)
+    return cov / (vx * vy) ** 0.5
+
+
+def length_bias(judge_score) -> float:
+    """Pearson correlation between reply length and judge reward: the
+    check AlpacaEval's length control exists because a judge skips."""
+    graded = [r for r in judge_score.rows if r.get("reward") is not None]
+    lengths = [float(len(str(r.get("final_text") or ""))) for r in graded]
+    rewards = [float(r["reward"]) for r in graded]
+    return pearson(lengths, rewards)
+
+
+generous_length_bias = length_bias(generous_score)
+accurate_length_bias = length_bias(accurate_score)
+print(
+    f"length x reward correlation: generous {generous_length_bias:+.2f}, "
+    f"accurate {accurate_length_bias:+.2f}"
+)
+
+assert generous_length_bias < -0.9, generous_length_bias  # shorter replies read as "resolved"
+assert abs(accurate_length_bias) < abs(generous_length_bias), (
+    accurate_length_bias,
+    generous_length_bias,
+)
+
 # ---- 6. ablate: add one clause, re-run, read the delta per judge
 
 

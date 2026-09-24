@@ -95,6 +95,24 @@ have shipped that judge.
 - `attach_labels(kind=...)` records what a label actually is - `kind="human"`
   for a model's label misleads everyone who reads `gold_kind` later.
 
+## Pin the judge's temperature to 0 first
+
+A rating that moves when nothing about the answer changed is sampling
+noise, not signal, and it is free to remove - do it before measuring
+anything else. The book names it directly (Lambert 2025, chapter Reward
+Modeling, *Generative Reward Modeling*): "a common trick to improve the
+robustness of LLM-as-a-judge workflows is to use a sampling temperature of
+0" (Zheng et al. 2023). `whileai`'s `Judge` already does this
+(`JUDGE_TEMPERATURE = 0.0` in `whileai/simulations/defaults.py` cites the
+same line), so a spec-backed judge built through `compare_judges` gets it
+for free. A raw judge callable does not - nothing pins its sampling for
+you - and skipping this is why one un-pinned model judge in earlier work
+here measured 8-15% of criterion verdicts flipping on presentation order
+alone, across 1,440 markings, before any rubric question was even asked.
+The judges below are plain functions with no sampling at all, so this step
+is moot for them by construction; they sit at the floor temperature 0 is
+approximating for a real model.
+
 ## Sample and label blind
 
 Pull ~60 rows across the judge's own score range, not the easy middle, so
@@ -141,16 +159,17 @@ judge, it is training the leak, not the behavior.
 
 ## Floors to clear
 
-**Wilson lower bound of agreement >= 0.8, kappa >= 0.6.** Zheng et al. 2023
-(MT-Bench, arXiv:2306.05685) put human-human agreement at 81% and GPT-4 at
-85% against humans, so under 80% a judge agrees with people less than
-people agree with each other; that is where `MIN_AGREEMENT` comes from, and
-it is what the report checks, not a round number. Landis and Koch (1977)
-call 0.61-0.80 "substantial"; `MIN_KAPPA` sits at the bottom of that band,
-and a 2026 sweep of 21 judges (arXiv:2606.19544) measured kappa 0.376 to
-0.511 against human preference labels on MT-Bench, so the floor asks for
-more than most judges in that sweep cleared. Only `accurate` (the judge
-that reads the tool calls, not the reply's tone) gets past both here:
+**Wilson lower bound of agreement >= 0.8, kappa >= 0.6 - the SDK's own gate:
+convention, untested.** The numbers rhyme with two papers without either
+paper setting this floor: Zheng et al. 2023 (MT-Bench, arXiv:2306.05685)
+put human-human agreement at 81%, which is where `MIN_AGREEMENT` borrows
+its number, and Landis and Koch (1977) call 0.61-0.80 kappa "substantial,"
+which is where `MIN_KAPPA` sits at the bottom of that band. Neither paper
+says a judge under those lines cannot be trusted; that call is the SDK's,
+not the literature's, and a 2026 sweep of 21 judges (arXiv:2606.19544)
+measured kappa 0.376 to 0.511 against human preference labels on MT-Bench -
+most of that sweep would not clear this floor either. Only `accurate` (the
+judge that reads the tool calls, not the reply's tone) gets past both here:
 
 ```python
 assert accurate_score.ok, accurate_score
@@ -158,6 +177,55 @@ assert accurate_score.agreement is not None and accurate_score.agreement >= 0.8
 assert accurate_score.kappa is not None and accurate_score.kappa >= 0.6
 assert table.best is not None and table.best.name == "accurate", table.best
 ```
+
+## Report the length correlation, not just the score
+
+Clearing the floors is not the end of the check. A judge that reads only
+tone can be reading length by another name - it is a named failure mode
+(Lambert 2025, chapter Reward Modeling), and it is why AlpacaEval is
+length-controlled (Dubois et al. 2024). Correlate reply length with reward
+on every judged arm, not just the one that failed:
+
+```python
+def pearson(xs: list[float], ys: list[float]) -> float:
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    vx = sum((x - mx) ** 2 for x in xs)
+    vy = sum((y - my) ** 2 for y in ys)
+    return cov / (vx * vy) ** 0.5
+
+
+def length_bias(judge_score) -> float:
+    """Pearson correlation between reply length and judge reward: the
+    check AlpacaEval's length control exists because a judge skips."""
+    graded = [r for r in judge_score.rows if r.get("reward") is not None]
+    lengths = [float(len(str(r.get("final_text") or ""))) for r in graded]
+    rewards = [float(r["reward"]) for r in graded]
+    return pearson(lengths, rewards)
+
+
+generous_length_bias = length_bias(generous_score)
+accurate_length_bias = length_bias(accurate_score)
+print(
+    f"length x reward correlation: generous {generous_length_bias:+.2f}, "
+    f"accurate {accurate_length_bias:+.2f}"
+)
+
+assert generous_length_bias < -0.9, generous_length_bias  # shorter replies read as "resolved"
+assert abs(accurate_length_bias) < abs(generous_length_bias), (
+    accurate_length_bias,
+    generous_length_bias,
+)
+```
+
+`generous` comes out at -1.00: every short reply here happens to be the
+"refunded" template, so tone and length are the same signal wearing two
+names. `accurate` is not immune either (-0.59, not 0) - one whole failure
+class here writes a longer refusal, so length still rides along with
+correctness by accident. Neither number tells you which is real until you
+measure it; that is the point of reporting it on every arm, not only the
+one under suspicion.
 
 ## Ablate the rubric
 
@@ -302,9 +370,58 @@ Also worth doing once a judge clears the floors: grade with a different
 model family than the one you are training (the self-preference bonus
 measured above was a genuinely small +0.010, but calibration swamped it at
 ~0.62 - the real reason for a different family is an independent read, not
-a correlated one), and split the rubric so a program checks whatever a
-program can (fields present, ids retained, length) and the judge grades
-only what a program cannot. A constitution raised register +0.518 while
-reply length collapsed 5.5x and identifier retention fell -0.193; a judge
-scoring the whole rubric called that a win, because "sounds right" is easy
-to satisfy by cutting the parts that are hard to get right.
+a correlated one), and never let a judge check what code can check
+exactly. Measured separately: a judge disagreed with an exact string check
+23-25% of the time, and every disagreement ran the same direction - the
+judge flagging text as missing that the exact check found present. Split
+the rubric so a program checks whatever a program can (fields present, ids
+retained, length, an exact string) and the judge grades only what a
+program genuinely cannot decide. A constitution raised register +0.518
+while reply length collapsed 5.5x and identifier retention fell -0.193; a
+judge scoring the whole rubric called that a win, because "sounds right" is
+easy to satisfy by cutting the parts that are hard to get right.
+
+## What the book says, and where we go beyond it
+
+Everything above traces back to one place: rlhfbook (Lambert 2025), chapter
+Reward Modeling, section *Generative Reward Modeling (a.k.a.
+LLM-as-a-judge)*. The chapter files LLM-as-a-judge inside reward modeling,
+not next to it - so everything it asks of a reward model (measured
+agreement against people, a held-out preference-accuracy set, length bias,
+self-preference) it asks of a judge too (Zheng et al. 2023).
+
+**From the book, used directly above:**
+
+- A judge is a reward model, checked against people the same way any
+  reward model is - the premise this whole file rests on.
+- Temperature 0 for stable ratings, covered in its own section above.
+- Generative judges still lag trained reward models on RM benchmarks
+  (Mahan et al. 2024; Zhang et al. 2025, *Generative Verifiers*; Ankner et
+  al. 2024, *Critique-out-loud*; Kim et al. 2024, Prometheus) - so a bigger
+  judge is not the fix it feels like, and the ladder in finding 1 agrees:
+  67%, 70%, 78% agreement, the best still passing 31% of true failures.
+- Length bias is a named failure mode, which is why AlpacaEval is
+  length-controlled (Dubois et al. 2024) - the correlation check above.
+- Keep a small held-out preference-accuracy set and judge against it, not
+  against the score the judge produces itself - `ROWS` and `BLIND_LABELS`
+  are that set here.
+
+**Ours, not the book's - say so when you cite them:**
+
+- Bootstrapping the interval over asks rather than rows (`wai.pass_at`, in
+  the report step above).
+- The false-pass rate as the headline diagnostic. The book covers
+  agreement and RM benchmarks; that a judge passing half your true
+  failures trains the failure, not the behavior, is measured here, not in
+  the book. Measured historically: 46-50%. The demo above reproduces the
+  shape at leak 0.50 for `generous` and 1.00 for `always_pass`.
+- The floors themselves, agreement >= 0.8 and kappa >= 0.6: convention,
+  untested, the SDK's own gate, not a threshold either paper sets.
+- Rubric ablation and criterion-order reversal as routine audits: the book
+  does not prescribe either.
+- Never let a judge check what code can check exactly, above.
+
+The one number that decides whether to trust a judged result at all is not
+in the book, and it is the thing to measure first: of the rows a trusted
+label calls a failure, what share does the judge pass? Everything else in
+this file is downstream of that question.
