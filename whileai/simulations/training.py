@@ -723,6 +723,12 @@ def selection_report(
     ``rm`` learn from prompts with both a pass and a fail; none is a
     refusal, fewer than ``min_mixed_tasks`` (``TRAIN_MIN_MIXED_TASKS``,
     32) is a warning with the count.
+
+    Those four are what the hosted trainer runs. When the dropped tasks
+    are ones the policy never passes, the line also names ``wai.OPSD``,
+    which learns exactly there and runs on your own GPUs: no ``repeats=``
+    reaches a prompt at pass rate 0, because best-of-k ships a
+    demonstration with probability ``1 - (1-p)**k`` (#886).
     """
     rows = _count(profile.get("rows"))
     raw_split = profile.get("split")
@@ -752,6 +758,7 @@ def selection_report(
     per_task = [t for t in (profile.get("per_task") or []) if isinstance(t, Mapping)]
     complete = tasks > 0 and len(per_task) == tasks
     dropped: dict[str, int] = {}
+    all_fail = 0
     if complete:
         repeated = [t for t in per_task if _count(t.get("graded")) >= 2]  # noqa: PLR2004  # a pair is the least that can disagree
         all_pass = sum(1 for t in repeated if t.get("pass_rate") == 1)
@@ -791,6 +798,21 @@ def selection_report(
         f"with repeats= (RL_ROLLOUTS_PER_PROMPT, {RL_ROLLOUTS_PER_PROMPT}) samples each prompt "
         "enough times to split, and wai.optimize(rows, mode='rl') keeps the prompts that did"
     )
+    # The tasks a grouped method drops at pass rate 0 are not a dead end: they
+    # are what on-policy self-distillation is for, and this report is where a
+    # user finds that out before spending the GPU (#886).
+    no_gradient = (
+        f" The {all_fail} tasks the policy never passes are where a grouped method has no "
+        "gradient, and rejection sampling cannot reach them either: best-of-k ships a "
+        "demonstration with probability 1-(1-p)**k, which is 0 at p=0 for every k, so no "
+        "repeats= will find one. wai.OPSD learns there by giving the teacher context the "
+        "student never sees - a passing demonstration (Shenfeld et al. 2026, "
+        "arXiv:2601.19897) or the reference answer (Zhao et al. 2026, arXiv:2601.18734) - "
+        "and it hurts thinking models (Kaur et al. 2026, arXiv:2607.05184). It runs on your "
+        "own GPUs through wai.prime_rl_config, not the hosted trainer."
+        if all_fail
+        else ""
+    )
     counts = f"{mixed} of {tasks} tasks" + (
         f" ({used_rows} of {rows} rows)" if used_rows is not None else f" of {rows} rows"
     )
@@ -798,7 +820,7 @@ def selection_report(
         out["refuse"].append(
             f"{method} on {dataset} would use {counts}: {reasons}. The run has nothing to "
             f"learn from ({why}); it would spend the GPU and finish with reward_std 0 and "
-            f"grad_norm 0. {size}. {knob} starts it anyway."
+            f"grad_norm 0. {size}.{no_gradient} {knob} starts it anyway."
         )
         return out
     if mixed < tasks or mixed < min_mixed_tasks:
@@ -813,6 +835,7 @@ def selection_report(
             line += (
                 f" That is under min_mixed_tasks ({min_mixed_tasks}, TRAIN_MIN_MIXED_TASKS)"
                 f"{passes}; {why}. {size}; train(min_mixed_tasks=) moves the floor."
+                f"{no_gradient}"
             )
         out["warn"].append(line)
     return out

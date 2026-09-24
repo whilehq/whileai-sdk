@@ -395,7 +395,21 @@ Fewer mixed tasks than `min_mixed_tasks` (`TRAIN_MIN_MIXED_TASKS`,
 32), or any dropped class at all, is a warning naming the count used
 against the count given and the reason per class;
 `profile(dataset)["mixed_tasks"]` is the number to size a grouped
-set by. `check="warn"` says the same and starts the run;
+set by.
+
+When the dropped tasks are ones the policy never passes, the same
+line names `wai.OPSD`. Those prompts are the ones `repeats=` cannot
+buy: best-of-k ships a demonstration with probability
+`1 - (1-p)**k`, which is 0 at p=0 for every k, so a grouped method
+has no gradient there and rejection sampling returns nothing.
+On-policy self-distillation learns there instead, by giving the
+teacher context the student never sees -- a passing demonstration
+(Shenfeld et al. 2026, arXiv:2601.19897) or the reference answer
+(Zhao et al. 2026, arXiv:2601.18734). It hurts thinking models
+(Kaur et al. 2026, arXiv:2607.05184), and it runs on your own GPUs
+through `wai.prime_rl_config`, not the hosted trainer.
+
+`check="warn"` says the same and starts the run;
 `check="off"` does not read the profile. The report is on
 `run.selection`.
 

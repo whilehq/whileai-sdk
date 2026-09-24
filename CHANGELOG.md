@@ -7,6 +7,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `selection_report` names `wai.OPSD` when the tasks it drops are ones the policy never passes.
+  Those tasks are where a grouped method has no gradient, and `repeats=` cannot reach them: best-of-k
+  ships a demonstration with probability `1 - (1-p)**k`, which is 0 at p=0 for every k. The report
+  counted them under `dropped` and then advised more rollouts, which buys nothing, while the method
+  that learns there shipped one import away. On-policy self-distillation gives the teacher context the
+  student never sees -- a passing demonstration (Shenfeld et al. 2026, arXiv:2601.19897) or the
+  reference answer (Zhao et al. 2026, arXiv:2601.18734) -- and hurts thinking models
+  (Kaur et al. 2026, arXiv:2607.05184). Silent when the dropped tasks are all passes, and when the
+  per-task table is incomplete, since the line quotes the count.
+
 - `simulate(agent="vllm:<model>@https://<you>--<app>.modal.run/v1")` reaches your own Modal endpoint
   again. `_hosted_qwen_url` matched the bare `modal.run` suffix, so every tenant on Modal was read as
   While's hosted model and told to `wai login` for an account key -- by an error whose own advice
