@@ -11,7 +11,7 @@ description: >
   every behavior to while.ai/platform/runs. No GPU, no key until you want
   the hosted writer.
 metadata:
-  version: "3.1.0"
+  version: "3.2.0"
 ---
 
 # Strengthen your evals
@@ -122,15 +122,27 @@ it produced (Zheng et al. 2023, MT-Bench).
 
 Scores are in points, with the half-width of a 95% interval bootstrapped
 over asks, not rollouts: raising `K` sharpens each ask and does not narrow
-the interval. Every policy branch is its own behavior, so a fix to one shows
+the interval. A branch every ask passes (or fails) gets a zero-width
+bootstrap; that is not certainty, so `half_width` posts the exact bound
+instead: 7 of 7 still allows a true rate of 59%, which is ±41 points. Every policy branch is its own behavior, so a fix to one shows
 up next to what it did to the others.
 
 ```python
+def half_width(ci95, mean, n_asks):
+    """Half-width of a 95% interval over asks. When every ask agrees the bootstrap
+    has zero width, which is not zero uncertainty: use the exact one-sided bound
+    1 - 0.025**(1/n) (Clopper-Pearson; 18 of 18 asks still allows 81%)."""
+    if ci95 and ci95[1] > ci95[0]:
+        return (ci95[1] - ci95[0]) / 2
+    assert mean in (0.0, 1.0), (mean, ci95)  # a zero-width interval off the edges is a bug
+    return 1 - 0.025 ** (1 / n_asks)
+
+
 def score(rows):
     """pass@1 in points, the half-width of its 95% interval, and the asks it rests on."""
     pa = wai.pass_at(rows, k=K)
-    lo, hi = pa.ci95
-    return round(100 * pa.pass_at_1, 1), round(100 * (hi - lo) / 2, 1), pa.n_groups
+    ci = half_width(pa.ci95, pa.pass_at_1, pa.n_groups)
+    return round(100 * pa.pass_at_1, 1), round(100 * ci, 1), pa.n_groups
 
 
 def behaviors(rows):
@@ -139,8 +151,8 @@ def behaviors(rows):
     for name, m in wai.marker_summary(rows).items():
         if m["n_tasks"] < 3:
             continue  # unmeasured: under three asks reach it, and the card says so
-        lo, hi = m["ci95"] or (m["mean"], m["mean"])  # no interval when every row agrees
-        out[name] = (round(100 * m["mean"], 1), round(100 * (hi - lo) / 2, 1), m["n_tasks"])
+        ci = half_width(m["ci95"], m["mean"], m["n_tasks"])
+        out[name] = (round(100 * m["mean"], 1), round(100 * ci, 1), m["n_tasks"])
     return out
 
 
@@ -160,17 +172,22 @@ Gradients": groups whose rollouts all score alike carry no signal).
 
 ## 5. The noise floor
 
-Score the same version twice on the same frozen set. The spread is the
-floor a difference has to clear before it is a result. A scripted agent
-gives 0; a model at temperature gives 1 to 3 points.
+Score the same version three times on the same frozen set. The floor is
+t(df=runs-1) x run_std x sqrt(2): `run_std` is estimated from these very
+runs, and a before/after delta is the difference of two draws. Two runs are
+a difference, not a spread: t(df=1) is 12.71, so one lucky pair gives a floor
+of 0 and an unlucky one a floor wider than the scale. A scripted agent gives
+0; a model at temperature gives a few points.
 
 ```python
-first = score(scored["v1"].rows)
-again = score(
+RERUNS = 3  # two give a difference, not a spread: t(df=1) is 12.71
+reruns = [scored["v1"].rows] + [
     wai.evaluate(holdout(VERSIONS["v1"], tasks=frozen).rows(), refund_judge, tools=TOOLS).rows
-)
-NOISE = round(abs(first[0] - again[0]), 1)  # points; a scripted agent gives 0, a model 1 to 3
-print(f"noise floor {NOISE} points (same test, rolled twice)")
+    for _ in range(RERUNS - 1)
+]
+var = wai.eval_variance(*reruns)
+NOISE = round(100 * var["noise_band"], 1)  # points: t(df=2)=4.30 x run_std x sqrt(2)
+print(f"noise floor {NOISE} points ({var['n_runs']} re-runs, same test)")
 ```
 
 ## 6. How big the test has to be
@@ -225,7 +242,9 @@ for version, s in scored.items():
     run.finish(
         record=RunRecord(
             data=Data(holdout=TEST_VERSION, n_holdout=len(asks)),
-            eval=EvalSetup(metric="pass@1", k=K, run_std=NOISE, run_std_runs=2, reader=JUDGE.name),
+            eval=EvalSetup(
+                metric="pass@1", k=K, run_std=var["run_std"], run_std_runs=RERUNS, reader=JUDGE.name
+            ),
         )
     )
 tracked.promote("v1")  # what is in production today; the next version is the candidate
@@ -240,6 +259,49 @@ Drop `transport=fake` and set `WHILEAI_API_KEY` (`wai signup --email
 you@example.com`), and the same calls draw the Runs page: one dot per
 version with its interval on the same held-out scale, the noise band, the
 judge block, and the run record.
+
+## Gates, with the math, before you spend
+
+Each is a line of arithmetic on numbers you already have. Every one was
+skipped by a coding agent in dogfooding (2026-09-24, 314 runs audited), and
+the run it would have saved is named.
+
+- **n is asks, not rollouts.** Half-width 1.96·sd_ask/√n_asks. Rollouts as n
+  made intervals √k too narrow (1,836 rollouts posted for 153 asks).
+- **Assert lo ≤ score ≤ hi, and never post ci=0.** One run posted [94.0, 96.9]
+  around its own 92.1.
+- **Minimum detectable effect, 80% power: MDE = 2.8·sd/√n.** A gain on a
+  selection set below MDE is noise; do not spend the held-out set on it. A
+  harness picked on +13.3 at n=30 (MDE 19.2) returned +3.5 [−9.3, +16.3].
+- **Ceiling: failure-capable asks / all asks.** Under 50 failure-capable asks,
+  or a ceiling below 2·MDE, harden the set before buying an arm. Three
+  frontier arms were bought on a set where 31 of 160 asks could move.
+- **Expected mixed groups from the model you will train:**
+  E = Σ_i (1 − p_i^k − (1 − p_i)^k). Below 0.3·N, an RL pool has nothing to
+  learn ("Policy Gradients"). k=1 makes E = 0, so no DPO or GRPO verdict can
+  come from a k=1 run. One pool sized with another model's p=0.285, not the
+  student's 0.005, came back 0 of 90 mixed.
+- **Below 30 asks, add asks, not rollouts.** SE ≥ σ_between/√n at any k.
+- **Split by a hash of the ask id, never by position.** Writers cycle ask
+  types, so `asks[::N]` aliases them: the same rows moved 20 to 30 points
+  between two positional splits.
+- **One behavior, one `test_version`, one k per comparison.** A sign test
+  between an arm at k=1 and one at k=8 has null P(up) = p_i, not 0.5: a
+  claimed p=0.0013 was 0.035.
+- **Truncation.** Score only replies that ended; a control truncated at
+  more than twice the treatment's rate is void (17 of 99 cut replies
+  explained a whole 12.7-point gap). "Policy Gradients": score on EOS only.
+- **Teacher before student.** Score the teacher on this set, at the
+  student's length cap, before distilling from it: teacher − student > MDE.
+  A teacher at 54.2 was distilled into a student already at 56.9.
+- **RLVR on a Qwen base needs a random-reward arm** ("Evaluation":
+  suspicious of RLVR gains on Qwen 2.5/3 bases; Shao et al. 2025). The gain
+  from the reward is Δ_reward − Δ_random.
+- **Post no score** when one grader reason covers ≥95% of rows, when the
+  criterion could fire on under 90% of rows, or when a criterion sits at ≤2%
+  on every arm including one told to do it. Each is a grader or a world bug.
+- **`run.finish()` in a `finally`, with `cost_usd=`.** 30 of 314 runs were
+  left "running", and no GPU run recorded its cost.
 
 ## What makes the number lie
 
@@ -264,5 +326,11 @@ rlhfbook.com, "Evaluation": held-out sets, run-to-run spread, bootstrap over
 prompts, judge agreement. "Policy Gradients": groups that all score alike
 carry no signal (DAPO dynamic sampling), which is why the failure-capable
 count is the ceiling. "Over-Optimization": what moves on the behaviors you
-did not aim at. Zheng et al. 2023 for judge agreement; arXiv 2605.05973 for
-the winner's curse in adaptive benchmarking.
+did not aim at. "Evaluation" also for the random-reward
+confound on Qwen bases (Shao et al. 2025, Spurious Rewards). Miller 2024
+(Adding Error Bars to Evals) for the ask as the unit. Clopper and Pearson
+1934 for the exact bound at 0 or n; the t multiplier on a floor from a few
+runs is textbook statistics. Zheng et al. 2023 for judge agreement; arXiv
+2605.05973 for the winner's curse in adaptive benchmarking. The gates'
+thresholds (0.3·N mixed, 50 failure-capable asks, 95%/90%/2%) are
+convention, untested.

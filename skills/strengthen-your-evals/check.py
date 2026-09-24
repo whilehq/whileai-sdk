@@ -445,11 +445,21 @@ assert JUDGE.agreement is not None and JUDGE.agreement >= 0.8, JUDGE.agreement
 
 
 # ---- 4. the number, per behavior, with what it rests on
+def half_width(ci95, mean, n_asks):
+    """Half-width of a 95% interval over asks. When every ask agrees the bootstrap
+    has zero width, which is not zero uncertainty: use the exact one-sided bound
+    1 - 0.025**(1/n) (Clopper-Pearson; 18 of 18 asks still allows 81%)."""
+    if ci95 and ci95[1] > ci95[0]:
+        return (ci95[1] - ci95[0]) / 2
+    assert mean in (0.0, 1.0), (mean, ci95)  # a zero-width interval off the edges is a bug
+    return 1 - 0.025 ** (1 / n_asks)
+
+
 def score(rows):
     """pass@1 in points, the half-width of its 95% interval, and the asks it rests on."""
     pa = wai.pass_at(rows, k=K)
-    lo, hi = pa.ci95
-    return round(100 * pa.pass_at_1, 1), round(100 * (hi - lo) / 2, 1), pa.n_groups
+    ci = half_width(pa.ci95, pa.pass_at_1, pa.n_groups)
+    return round(100 * pa.pass_at_1, 1), round(100 * ci, 1), pa.n_groups
 
 
 def behaviors(rows):
@@ -458,8 +468,8 @@ def behaviors(rows):
     for name, m in wai.marker_summary(rows).items():
         if m["n_tasks"] < 3:
             continue  # unmeasured: under three asks reach it, and the card says so
-        lo, hi = m["ci95"] or (m["mean"], m["mean"])  # no interval when every row agrees
-        out[name] = (round(100 * m["mean"], 1), round(100 * (hi - lo) / 2, 1), m["n_tasks"])
+        ci = half_width(m["ci95"], m["mean"], m["n_tasks"])
+        out[name] = (round(100 * m["mean"], 1), round(100 * ci, 1), m["n_tasks"])
     return out
 
 
@@ -478,14 +488,18 @@ assert first_capable > 0, "the shipped agent should fail some asks"
 assert len(behaviors(scored["v1"].rows)) >= 3, behaviors(scored["v1"].rows)
 
 # ---- 5. the noise floor
-first = score(scored["v1"].rows)
-again = score(
+RERUNS = 3  # two give a difference, not a spread: t(df=1) is 12.71
+reruns = [scored["v1"].rows] + [
     wai.evaluate(holdout(VERSIONS["v1"], tasks=frozen).rows(), refund_judge, tools=TOOLS).rows
-)
-NOISE = round(abs(first[0] - again[0]), 1)  # points; a scripted agent gives 0, a model 1 to 3
-print(f"noise floor {NOISE} points (same test, rolled twice)")
+    for _ in range(RERUNS - 1)
+]
+var = wai.eval_variance(*reruns)
+NOISE = round(100 * var["noise_band"], 1)  # points: t(df=2)=4.30 x run_std x sqrt(2)
+print(f"noise floor {NOISE} points ({var['n_runs']} re-runs, same test)")
 
 assert NOISE == 0.0, NOISE  # scripted agents are deterministic
+assert var["n_runs"] == RERUNS, var["n_runs"]
+assert half_width(None, 1.0, 18) > 0.18  # 18/18 is not certainty
 
 # ---- 6. how big the test has to be
 need = wai.holdout_size(0.05, before=scored["v1"].rows, after=scored["v2"].rows, k=K)
@@ -520,7 +534,9 @@ for version, s in scored.items():
     run.finish(
         record=RunRecord(
             data=Data(holdout=TEST_VERSION, n_holdout=len(asks)),
-            eval=EvalSetup(metric="pass@1", k=K, run_std=NOISE, run_std_runs=2, reader=JUDGE.name),
+            eval=EvalSetup(
+                metric="pass@1", k=K, run_std=var["run_std"], run_std_runs=RERUNS, reader=JUDGE.name
+            ),
         )
     )
 tracked.promote("v1")  # what is in production today; the next version is the candidate

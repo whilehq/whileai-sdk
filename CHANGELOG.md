@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Skill `strengthen-your-evals`: the noise floor is now t(df=runs-1) x run_std x sqrt(2) from three
+  re-runs via `wai.eval_variance`, not the gap between two runs (t(df=1) is 12.71). A branch every ask
+  passes or fails now posts the exact bound 1 - 0.025**(1/n) instead of a zero-width interval: on the
+  demo, 9 of 12 behavior lines went from +-0.0 to +-5.7..41.0. New section, gates with the math before
+  you spend (MDE, ceiling, expected mixed groups, split by hash, one k per comparison, teacher before
+  student, random-reward arm on Qwen bases), each from a run in the 2026-09-24 dogfooding audit.
+
 - Recipe `recipes/papers/talk-methods`: GRPO, Reinforce-Ada (arXiv:2510.04996), RAFT (arXiv:2304.06767)
   and mixed-partner GRPO on the talk-to-solve chat, three seeds each on H100. Reinforce-Ada solved
   0.36 to 0.40 on every seed (mean 0.38) against GRPO's 0.15 to 0.40 (mean 0.30); every paired
