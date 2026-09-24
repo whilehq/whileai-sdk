@@ -1406,7 +1406,7 @@ attach_labels(
     rows: Sequence[dict],
     labels: Any,
     annotator: str | None = None,
-    kind: str = 'human',
+    kind: str | None = None,
     replace: bool = False,
 ) -> tuple[list[dict], dict[str, Any]]
 ```
@@ -1426,6 +1426,15 @@ default for labels that name none. `kind` is recorded on each label:
 test, a rule over tool calls), `"model"` for a stronger model's.
 Any other string raises `ValueError` naming the accepted set, so a
 typo cannot silently downgrade the gold (#343).
+
+`kind` has no default: a model's labels recorded as `"human"` by a
+forgotten argument taught a judge check to trust a measurement no
+person ever made (2026-09-24 dogfooding). Leaving it out defaults to `"human"` for
+one release, same as before, but the call raises a `UserWarning`
+naming the fix (`attach_labels(rows, labels, kind="human")` for a
+person's labels, `kind="model"` for a model's) and the report
+carries the same line in `warnings`, so it is loud rather than a
+silent guess either way you read the call.
 
 Each row gains `gold_labels` (every label, appended unless
 `replace`), `gold_reward`, the majority of its labels, and

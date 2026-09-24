@@ -130,7 +130,7 @@ print(gar.check_spread(rows))
 
 ```text
 spread check: 4 grader scores over 2 group(s), std 0.250, 0% within 0.05 of the median 0.75
-spread: yes. The grader tells these passes apart.
+spread: yes. The grader's scores on these passes vary; that alone does not establish they are accurate or unbiased. A position- or length-biased grader spreads its scores too (a position-biased judge scored 0.211 here against a discriminating program grader's 0.099, both 'spread: yes', 2026-09-21). Check it against gold labels with judge_trust or compare_judges before trusting the ranking.
 ```
 
 Then the trainer. TRL's `GRPOTrainer` calls a reward function on a batch

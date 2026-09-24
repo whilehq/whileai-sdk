@@ -356,6 +356,7 @@ The platform draws one screen per tracked agent at [while.ai/platform/runs](http
 ```python
 from whileai.platform import Behavior, Frontier, Harness, Judge, track
 
+trust = wai.judge_trust(rows, judge=my_judge)  # agreement, human_n: measured, not typed in
 tracked = track(
     "refund-bot",  # or track(my_agent): name, model, prompt and tools come from the object
     model="Qwen/Qwen3-4B",
@@ -367,7 +368,12 @@ tracked.behavior(
         name="refunds",
         test_version="v2",
         n=240,
-        judge=Judge(agreement=0.86, human_n=60, length_bias=0.08),
+        judge=Judge(
+            agreement=trust["agreement"]["agreement"],
+            human_n=trust["agreement"]["n"],
+            length_bias=0.08,
+            verified=True,  # judge_trust just measured this pair; a typed-in guess never passes the check
+        ),
         noise_floor=2.4,
         contamination=0,
         reward_is_judge=False,
@@ -454,7 +460,7 @@ report = sweep.run(variants, tasks=frozen)  # frozen: the run whose asks are the
 print(report)  # ranked table; a winner only when its interval clears the rest and the noise floor
 ```
 
-A variant label is the run's version on the platform, 40 characters at most, so `sweep.run` refuses a long or repeated label before the first rollout; `behavior=` and every marker the judge sets are checked against the platform's behavior-name rule the same way (`refund_policy`, not `refund policy`). The noise floor is measured by scoring the first variant `noise_runs` times in all and is the platform's own rule, the one `tracked.noise_floor` applies: `eval_variance` over the scorings gives `run_std`, and the floor is t(df=runs-1) x run_std x sqrt(2), in points. The default two scorings make df=1 and a t of 12.7, so the band is wide and the report says so; `noise_runs=3` or more narrows it. The run's `EvalSetup` carries `run_std` (the standard deviation) and `run_std_runs`; the behavior carries the band. Every arm must be graded on the same rows per ask as the first: a judge error leaves `reward=None` on its row and an agent error drops its rollout, which would put the two means on different denominators, so `sweep.run` refuses that arm by name with both counts, the report prints asks and graded rows per arm, and two arms scored on different ask counts are never called a win over each other. `contamination` and `reward_is_judge` are not measured by a sweep and are not posted. Hand labels attach to the replies a person read, and a sweep rolls fresh ones, so pass `labels=Judge(agreement=, human_n=)` measured once on the frozen run with `judge_trust`. `concurrency=` caps parallel rollouts per variant (the library default is 32). The report says when the test has under 50 asks: the platform verdict reads unproven below that, whatever the gap.
+A variant label is the run's version on the platform, 40 characters at most, so `sweep.run` refuses a long or repeated label before the first rollout; `behavior=` and every marker the judge sets are checked against the platform's behavior-name rule the same way (`refund_policy`, not `refund policy`). The noise floor is measured by scoring the first variant `noise_runs` times in all and is the platform's own rule, the one `tracked.noise_floor` applies: `eval_variance` over the scorings gives `run_std`, and the floor is t(df=runs-1) x run_std x sqrt(2), in points. The default two scorings make df=1 and a t of 12.7, so the band is wide and the report says so; `noise_runs=3` or more narrows it. The run's `EvalSetup` carries `run_std` (the standard deviation) and `run_std_runs`; the behavior carries the band. Every arm must be graded on the same rows per ask as the first: a judge error leaves `reward=None` on its row and an agent error drops its rollout, which would put the two means on different denominators, so `sweep.run` refuses that arm by name with both counts, the report prints asks and graded rows per arm, and two arms scored on different ask counts are never called a win over each other. `contamination` and `reward_is_judge` are not measured by a sweep and are not posted. Hand labels attach to the replies a person read, and a sweep rolls fresh ones, so pass `labels=Judge(agreement=, human_n=, verified=True)` measured once on the frozen run with `judge_trust` (an unverified pair never scores the judge check). `concurrency=` caps parallel rollouts per variant (the library default is 32). The report says when the test has under 50 asks: the platform verdict reads unproven below that, whatever the gap.
 
 ### Say what the runs are for, and show your working
 

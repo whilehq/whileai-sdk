@@ -411,7 +411,9 @@ describe it by hand::
             name="refunds",
             test_version="v2",
             n=240,
-            judge=Judge(agreement=0.86, human_n=60, length_bias=0.08),
+            # agreement, human_n from wai.judge_trust(rows, judge)["agreement"]; verified=True
+            # says these numbers were measured, not typed in (Judge(verified=) below)
+            judge=Judge(agreement=0.86, human_n=60, length_bias=0.08, verified=True),
             noise_floor=2.4,
             reward_is_judge=False,
         )
