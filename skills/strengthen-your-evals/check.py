@@ -340,6 +340,22 @@ class FakePlatform:
             return {"serving": self.serving}
         if "/dashboard" in path:
             return self._dashboard(path)
+        if path.endswith("/behaviors") and method == "GET":
+            return {"behaviors": list(self.behaviors.values())}
+        if path.startswith("/runs?agent=") and method == "GET":
+            # tracked.evals() reads the eight checks off the behaviors and
+            # the scores already posted, so answer both from what the PUTs
+            # and POSTs above recorded.
+            return {
+                "runs": [
+                    {
+                        **run,
+                        "id": run_id,
+                        "evals": [e for (_b, v), e in self.evals.items() if v == run["version"]],
+                    }
+                    for run_id, run in self.runs.items()
+                ]
+            }
         return {"ok": True}
 
     def _dashboard(self, path: str) -> dict[str, Any]:
@@ -526,7 +542,43 @@ for version, s in scored.items():
 tracked.promote("v1")  # what is in production today; the next version is the candidate
 print(tracked.verdict())
 
+# ---- 8. ask the platform whether the test can prove anything
+for health in tracked.evals():
+    print(health)
+
+# ---- 9. earn the contamination number, do not type it
+train_rows, contam = wai.decontaminate(scored["v1"].rows, against=frozen.rows())
+print(f"\n{contam['n_contaminated']} of {len(scored['v1'].rows)} rows reach the frozen asks")
+print(contam["notes"])
+for rule, why in contam["rules_skipped"].items():
+    print(f"  {rule} never ran: {why}")  # a zero under a skipped rule is not a clearance
+for name, (_pts, _ci, n) in behaviors(scored["v1"].rows).items():
+    tracked.behavior(
+        Behavior(
+            name=name,
+            test_version=TEST_VERSION,
+            n=n,
+            judge=JUDGE,
+            noise_floor=NOISE,
+            contamination=contam["n_contaminated"],  # measured, not declared
+            reward_is_judge=False,
+        )
+    )
+
 # ------------------------------------------------------------------ the checks
+health = {h.name: h for h in tracked.evals()}
+assert health, "tracked.evals() returned nothing; the transport answered no behaviors"
+assert all(len(h.checks) == 8 for h in health.values()), "the Runs page runs eight checks"
+clean = [c for h in health.values() for c in h.checks if c.key == "contamination"]
+assert clean and all(c.ok is False for c in clean), (
+    "clean must fail once the measured overlap is posted; it read ok on a typed zero"
+)
+assert all(c.value.endswith("in training data") for c in clean), [c.value for c in clean]
+assert contam["n_contaminated"] == len(scored["v1"].rows), (
+    f"rows simulated from the frozen asks must all be caught, {contam['n_contaminated']} were"
+)
+assert not train_rows, f"{len(train_rows)} rows survived a set built from the eval itself"
+
 verdict = str(tracked.verdict())
 assert "beats" in verdict, verdict
 assert "v2 beats v1" in verdict, verdict

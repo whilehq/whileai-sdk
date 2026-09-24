@@ -7,6 +7,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Skill `strengthen-your-evals`: two steps on the platform surface it never named.
+  `tracked.evals()` prints the eight checks the Runs page runs per behavior, so a
+  coding agent reads whether the test can prove a gain before spending on training,
+  not after. `decontaminate(rows, against=)` earns the `contamination` number the
+  `clean` check reads: declared as a typed `0` it passes green with nothing checked,
+  the same shape as `Judge(agreement=)`. The step posts the measured count instead
+  and reads `rules_skipped`, because a zero under a rule that never ran is not a
+  clearance (rlhfbook.com, chapter Evaluation).
+
 - Recipe `recipes/papers/talk-methods`: GRPO, Reinforce-Ada (arXiv:2510.04996), RAFT (arXiv:2304.06767)
   and mixed-partner GRPO on the talk-to-solve chat, three seeds each on H100. Reinforce-Ada solved
   0.36 to 0.40 on every seed (mean 0.38) against GRPO's 0.15 to 0.40 (mean 0.30); every paired

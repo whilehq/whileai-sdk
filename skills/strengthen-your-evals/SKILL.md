@@ -11,7 +11,7 @@ description: >
   every behavior to while.ai/platform/runs. No GPU, no key until you want
   the hosted writer.
 metadata:
-  version: "3.1.0"
+  version: "3.2.0"
 ---
 
 # Strengthen your evals
@@ -240,6 +240,80 @@ Drop `transport=fake` and set `WHILEAI_API_KEY` (`wai signup --email
 you@example.com`), and the same calls draw the Runs page: one dot per
 version with its interval on the same held-out scale, the noise band, the
 judge block, and the run record.
+
+## 8. Ask the platform whether the test can prove anything
+
+Posting a score is not the same as the score being readable. `tracked.evals()`
+runs the eight checks the Runs page runs, one `EvalHealth` per behavior, off
+the fields you sent: frozen, size, judge, length bias, noise floor, clean,
+reward-is-not-the-judge, can-fail. Every failure names the call that fixes it.
+
+```python
+for health in tracked.evals():
+    print(health)
+```
+
+```text
+refunds_when_eligible: weak · size, can fail (5 of 7 checks pass)
+  ok frozen: t-e3ac64d9
+  no size: n=7 · resolves ≥ 0 pts -> add 43+ tasks (wai.holdout_size(effect, rows=) says how many asks a gain needs)
+  ok judge: 1.00 on 60
+  -- length: —
+  ok noise floor: ±0 · 0 of 1 clear it
+  ok clean: 0 found
+  ok reward ≠ judge: different
+  no can fail: v1 already 100 -> add harder tasks
+```
+
+Run it before you train, not after. `size` and `can fail` are the two that
+decide whether a gain could ever show: `can fail` is the failure-capable
+count from step 4, and a behavior the version already passes everywhere has
+a ceiling of zero. `--` is a check that had nothing to read, which is not a
+pass; only `ok` and `no` are verdicts.
+
+## 9. Earn the contamination number, do not type it
+
+Read the `clean` line above again. It says `ok: 0 found`, and nothing was
+ever checked. It is green because step 7 typed `contamination=0` into the
+`Behavior`, and the check reads that field. Two typed characters buy a green
+card, the same way `Judge(agreement=)` does, and a held-out task that also
+sits in the training data measures memory rather than the change
+(rlhfbook.com, "Evaluation").
+
+`decontaminate(rows, against)` returns the surviving rows and a report.
+
+```python
+train_rows, contam = wai.decontaminate(scored["v1"].rows, against=frozen.rows())
+print(f"\n{contam['n_contaminated']} of {len(scored['v1'].rows)} rows reach the frozen asks")
+print(contam["notes"])
+for rule, why in contam["rules_skipped"].items():
+    print(f"  {rule} never ran: {why}")  # a zero under a skipped rule is not a clearance
+for name, (_pts, _ci, n) in behaviors(scored["v1"].rows).items():
+    tracked.behavior(
+        Behavior(
+            name=name,
+            test_version=TEST_VERSION,
+            n=n,
+            judge=JUDGE,
+            noise_floor=NOISE,
+            contamination=contam["n_contaminated"],  # measured, not declared
+            reward_is_judge=False,
+        )
+    )
+```
+
+Here every one of the 256 rows is caught, because they were simulated from
+the frozen asks: the training pool and the test came out of the same
+`simulate` call. That is the normal case, not a contrived one, and it is why
+the check has to run before the first train.
+
+**Read `rules_skipped` every time.** It names each rule that could not run
+and why, and its absence from the report is the only thing separating "no
+overlap" from "the rule never executed". Pass real eval rows as `against`,
+not bare prompt strings: rows carry a task id, so the `same_task` rule runs;
+strings skip it silently and the count still prints a reassuring zero. Text
+rules also miss paraphrase, so pass `embedder=` when the eval was written by
+hand.
 
 ## What makes the number lie
 
