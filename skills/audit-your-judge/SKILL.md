@@ -1,127 +1,84 @@
 ---
 name: audit-your-judge
 description: >
-  Check whether a judge can be trusted before Grade hands its scores to
-  Select or Train: label a sample blind, compare judges against those
-  labels, and read agreement, kappa and the false-pass rate against
-  floors. Use before trusting any judge, rubric or grader score, before
-  choosing a judge model, before calling compare_judges/judge_trust/
-  attach_labels, and before Select curates rows by a judge's score.
-  Triggers on judge, rubric, LLM-as-judge, grader, judge_trust,
-  compare_judges, judge model choice, kappa, false-pass rate, judge
-  agreement.
+  Check whether a judge can be trusted before its scores reach Select or
+  Train: label a sample blind, grade it with every candidate judge, and
+  read agreement, kappa and the false-pass rate against floors. Use before
+  trusting any judge, rubric or grader score, before choosing a judge
+  model, before calling compare_judges, judge_trust or attach_labels, and
+  before Select curates rows by a judge's score. Triggers on judge,
+  rubric, LLM-as-judge, grader, judge_trust, compare_judges, kappa,
+  false-pass rate, judge agreement.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
-# Auditing your judge
+# Audit your judge
 
-A biased judge does not look biased. It looks like Train failed. The
-repeated finding across 40 use cases was a training method blamed for what
-the scoring did - the run looked broken because the judge grading it was
-generous, not because the method was. Audit the judge before Grade's
-numbers are trusted and before Select curates a single row by them.
+**Why.** A judge is a reward model, and a reward model is only as good as
+its measured accuracy against people (Lambert 2025, chapter Reward
+Modeling). A biased judge does not look biased. It looks like the training
+method failed. So measure the judge before you believe any number it
+produced, and before any row is selected by its score.
 
-Everything below is in `check.py`, offline in about a second. Its setup
-defines the names the blocks use: `ROWS` (60 fixed transcripts whose true
-correctness is known by construction), three scripted judges over those
-rows (`always_pass`, `generous`, `accurate`), `generous_with_clause` and
-`accurate_with_clause` (the same two plus one rubric clause), `prefers` (a
-position-biased pairwise pick), `BLIND_LABELS` (a codebook read that never
-sees which judge said what), and `fake`, a recording transport that
-answers like the platform API. `table`, `labeled` and `data` are results
-the blocks below build and later ones reuse.
+**The order, every time.**
 
-Load `strengthen-your-evals` before sizing the sample, `rlhf-post-training`
-before any SFT or RL work that consumes a judge's scores.
+1. Pin a model judge's temperature to 0.
+2. Label a sample blind, with a codebook written first.
+3. Grade that sample with every candidate judge: `compare_judges`.
+4. Read agreement, kappa and the false-pass rate against the floors.
+5. Report the length correlation.
+6. Ablate the rubric one clause at a time.
+7. Reverse the presentation order on pairs.
+8. Only then grade the frozen test and report.
 
-## What the measured findings say
+`check.py` runs every block below offline in under a second. Its setup
+defines: `ROWS` (60 transcripts whose true verdict is known by
+construction), three scripted judges (`always_pass`; `generous`, which
+reads only the reply's tone; `accurate`, which reads the tool calls),
+`generous_with_clause` and `accurate_with_clause` (the same two with one
+extra rubric clause), `prefers` (a pairwise pick that breaks ties by
+position), `BLIND_LABELS` (the codebook applied with no judge's verdict in
+view), and `fake` (a recording transport that answers like the platform).
 
-A judge is a reward model under a different name, and a reward model is
-only as good as its measured accuracy against people (Lambert 2025,
-chapter Reward Modeling). Six things came out of measuring six judges the
-same way, on the same rows, against a blind label:
+## Four traps in the SDK
 
-1. **Judge choice moves the score more than the model under test.** Same 60
-   answers, same rubric: haiku-4.5 agreed 67% with the reference,
-   sonnet-4.5 70%, opus-4.5 78% - and the best of the three still passed
-   31% of reference failures. A separate 2x2 (2 judges x 2 policy models,
-   n=80/cell) put the judge's own effect at ~0.62 against a same-family
-   bonus of +0.010 - noise. That is calibration, not self-preference.
-2. **A higher mean reads as a softer judge, not a better one.** sonnet-4.5's
-   mean (0.700) beat opus-4.5's (0.617) while agreeing *less* with the
-   reference. A number alone cannot tell generous from accurate.
-3. **The same clause lands differently on different judges.** One
-   formatting-only clause ("score 0 unless every date is ISO-8601"): haiku
-   fell 0.633 to 0.212 (8/60 unparseable), sonnet did not move. A 1-to-9
-   clause ladder was flat at n=60 - length was never the driver. One bad
-   clause on a weak judge is catastrophic; nine good ones can cost nothing.
-4. **A clause naming evidence the payload lacks hurts the better judge
-   worst.** A clause naming fields the payload never carried scored
-   0.20/0.00/0.20 (haiku/sonnet/opus) - anti-correlated with capability,
-   because the strongest judge correctly noticed the evidence was missing.
-   Rewriting the sentence gave 0.90/0.50/0.40; the biggest gain went to the
-   smallest judge.
-5. **Presentation order changes the ranking.** Reversing order on the same
-   answers, same judge, flipped 28.4% of pairwise rankings at k=4 and 20.5%
-   at k=8. The top pick mostly survives (0.644 against 0.292 by chance); a
-   full ranking is roughly a fifth noise.
-6. **The hosted default lost to a judge that always says pass.** 0.483
-   agreement against 0.517 for unconditional pass, kappa **-0.06**, 27 of
-   29 rule failures passed. A default is not a safe default.
+- **`judge_trust(rows, judge)` reads the `reward` already on each row.** It
+  does not call `judge` for the headline agreement, so it can print 1.0
+  for a judge that never ran. Use `compare_judges`, which grades the rows
+  with each judge itself. If you must use `judge_trust`, grade the rows
+  with that judge first (`run_judge` or `data.grade` stamp `judge_name` on
+  every row).
+- **`Judge(agreement=, human_n=)` are typed fields.** Nothing checks them.
+  Fill them from a `compare_judges` result (step 8), never from memory.
+- **`check_spread` measures variance, not accuracy.** "spread: yes" means
+  the scores differ. A position-biased judge spreads too.
+- **`attach_labels` defaults `kind="human"`.** Pass `kind=` every time.
+  Labels a model wrote are `kind="model"`; recording them as human makes
+  every later check trust a measurement no person made.
 
-**Agreement alone hides this.** A judge that says pass without reading
-anything agrees at whatever the base pass rate already is. Kappa is
-agreement with that chance rate subtracted out (Cohen 1960):
+## 1. Temperature 0
 
-    kappa = (observed_agreement - chance_agreement) / (1 - chance_agreement)
-
-Finding 6 is the clean case: 0.483 agreement sounds close to a coin flip,
-but a kappa of -0.06 means the judge systematically passes what the
-reference failed, not misses at random. Report both; agreement alone would
-have shipped that judge.
-
-## Traps in the SDK worth naming before you touch it
-
-- `Judge(agreement=, human_n=)` are declared fields - nothing computes
-  them, so typing two integers gives a clean card with no measurement
-  behind it. Use `compare_judges` and `attach_labels`.
-- `judge_trust` scores the `reward` already on the row against `gold`, not
-  the `judge=` you pass it - the obvious call can report agreement 1.0 for
-  a judge that never ran.
-- `check_spread` scores variance only. It rated a position-biased judge
-  0.211 above a discriminating program grader at 0.099; a random
-  permutation would maximize it. Spread is not agreement or accuracy.
-- `attach_labels(kind=...)` records what a label actually is - `kind="human"`
-  for a model's label misleads everyone who reads `gold_kind` later.
-
-## Pin the judge's temperature to 0 first
-
-A rating that moves when nothing about the answer changed is sampling
-noise, not signal, and it is free to remove - do it before measuring
-anything else. The book names it directly (Lambert 2025, chapter Reward
-Modeling, *Generative Reward Modeling*): "a common trick to improve the
+A rating that moves when the answer did not is noise, and it is free to
+remove. The book names the trick: "a common trick to improve the
 robustness of LLM-as-a-judge workflows is to use a sampling temperature of
-0" (Zheng et al. 2023). `whileai`'s `Judge` already does this
-(`JUDGE_TEMPERATURE = 0.0` in `whileai/simulations/defaults.py` cites the
-same line), so a spec-backed judge built through `compare_judges` gets it
-for free. A raw judge callable does not - nothing pins its sampling for
-you - and skipping this is why one un-pinned model judge in earlier work
-here measured 8-15% of criterion verdicts flipping on presentation order
-alone, across 1,440 markings, before any rubric question was even asked.
-The judges below are plain functions with no sampling at all, so this step
-is moot for them by construction; they sit at the floor temperature 0 is
-approximating for a real model.
+0" (Lambert 2025, chapter Reward Modeling). A spec-backed `Judge` gets it
+already (`JUDGE_TEMPERATURE = 0.0`, `whileai/simulations/defaults.py`). **A
+raw judge callable does not**: pin it yourself. The judges in `check.py`
+are programs, so they have no sampling to pin.
 
-## Sample and label blind
+## 2-4. Label blind, grade, read the floors
 
-Pull ~60 rows across the judge's own score range, not the easy middle, so
-disagreement at the edges has somewhere to show up. Strip whatever gives
-the verdict away (`rule_reason`, `gold_*`) before anyone labels. Write the
-codebook - what counts as a pass, what fails - before labelling starts, not
-while it is happening, or the codebook drifts to match what is on screen.
-`check.py`'s `BLIND_LABELS` applies that codebook (the eligibility rule
-read off the tool calls) with no judge's verdict in view:
+**Sample.** Pull rows across the judge's whole score range, not the easy
+middle. Strip anything that gives the verdict away (`rule_reason`,
+`gold_*`). Write the codebook before labelling, or it drifts toward what
+is on screen. The book's size for a held-out reward-model check is 50 to
+200 examples (Lambert 2025, chapter Reward Modeling).
+
+**Size by the failures, not the rows.** The false-pass rate is computed
+only over rows the labels call a failure. At a rate near 0.5 its 95%
+half-width is about `1.96 * sqrt(0.25 / n_fail)`: 24 failures give
+±20 points, 96 give ±10. Count `n_fail` before you trust the rate.
 
 ```python
 labeled, label_report = wai.attach_labels(ROWS, BLIND_LABELS, annotator="reviewer", kind="human")
@@ -148,28 +105,22 @@ assert generous_score.kappa is not None and generous_score.kappa < 0.5, generous
 assert generous_score.leak == 0.5, generous_score.leak  # ...but passes half of what really failed
 ```
 
-`always_pass` here reads nothing and reproduces finding 6's shape exactly:
-kappa lands at 0, not near it - a judge that only ever says pass agrees at
-the base rate and that is what "0 = guessing" means. `generous` reads only
-the reply's tone (a dollar figure, the word "refunded") and reproduces
-finding 1-2's shape: 70% agreement, a number that would pass a casual
-glance, while a leak rate of 0.50 says it waved through half of what the
-codebook actually failed. If a training run reads `reward` off either
-judge, it is training the leak, not the behavior.
+**Read three numbers, not one.**
 
-## Floors to clear
+- **Agreement** alone is not enough. A judge that always says pass agrees
+  at the base pass rate: 0.40 here.
+- **Kappa** subtracts that chance rate (Cohen 1960):
+  `kappa = (observed - chance) / (1 - chance)`. `always_pass` lands at
+  exactly 0.
+- **False-pass rate** (`leak`) is the share of true failures the judge
+  passes. `generous` agrees 0.70, which looks fine, and passes half of
+  what really failed. Train on its rewards and you train the failure.
 
-**Wilson lower bound of agreement >= 0.8, kappa >= 0.6 - the SDK's own gate:
-convention, untested.** The numbers rhyme with two papers without either
-paper setting this floor: Zheng et al. 2023 (MT-Bench, arXiv:2306.05685)
-put human-human agreement at 81%, which is where `MIN_AGREEMENT` borrows
-its number, and Landis and Koch (1977) call 0.61-0.80 kappa "substantial,"
-which is where `MIN_KAPPA` sits at the bottom of that band. Neither paper
-says a judge under those lines cannot be trusted; that call is the SDK's,
-not the literature's, and a 2026 sweep of 21 judges (arXiv:2606.19544)
-measured kappa 0.376 to 0.511 against human preference labels on MT-Bench -
-most of that sweep would not clear this floor either. Only `accurate` (the
-judge that reads the tool calls, not the reply's tone) gets past both here:
+**Floors: Wilson lower bound of agreement >= 0.8 and kappa >= 0.6.**
+Convention, untested: the SDK's own gate. The 0.8 borrows the 81%
+human-human agreement in Zheng et al. 2023 (arXiv:2306.05685), and 0.6 is
+the bottom of Landis and Koch's (1977) "substantial" band. Neither paper
+sets these as trust thresholds. Only `accurate` clears both:
 
 ```python
 assert accurate_score.ok, accurate_score
@@ -178,13 +129,13 @@ assert accurate_score.kappa is not None and accurate_score.kappa >= 0.6
 assert table.best is not None and table.best.name == "accurate", table.best
 ```
 
-## Report the length correlation, not just the score
+## 5. Length correlation
 
-Clearing the floors is not the end of the check. A judge that reads only
-tone can be reading length by another name - it is a named failure mode
-(Lambert 2025, chapter Reward Modeling), and it is why AlpacaEval is
-length-controlled (Dubois et al. 2024). Correlate reply length with reward
-on every judged arm, not just the one that failed:
+Longer answers win preference labels for reasons unrelated to quality
+(verbosity bias; Lambert 2025, chapter Preference Data), and unexplained
+verbosity is a symptom of optimizing against a flawed reward (chapter
+Over-Optimization). It is why AlpacaEval is length-controlled (Dubois et
+al. 2024). Report the correlation on every judge, not only the suspect:
 
 ```python
 def pearson(xs: list[float], ys: list[float]) -> float:
@@ -219,21 +170,17 @@ assert abs(accurate_length_bias) < abs(generous_length_bias), (
 )
 ```
 
-`generous` comes out at -1.00: every short reply here happens to be the
-"refunded" template, so tone and length are the same signal wearing two
-names. `accurate` is not immune either (-0.59, not 0) - one whole failure
-class here writes a longer refusal, so length still rides along with
-correctness by accident. Neither number tells you which is real until you
-measure it; that is the point of reporting it on every arm, not only the
-one under suspicion.
+`generous` comes out at -1.00: here tone and length are the same signal.
+`accurate` is at -0.59, because one failure class writes longer refusals.
+A good judge can still carry length by accident; the number tells you.
 
-## Ablate the rubric
+## 6. Ablate the rubric
 
-Add or remove one clause and re-run; a large swing on the mean reward says
-the clause is carrying the score, not the behavior it was meant to check
-(findings 3 and 4). A judge that only pattern-matches the reply's surface
-can be pushed to zero by a clause it cannot verify, while a judge that
-checks the underlying trajectory does not move:
+Add or remove one clause and re-grade. A large swing in mean reward means
+that clause is carrying the score. A judge that pattern-matches the
+surface collapses under a clause it cannot verify; a judge that reads the
+trajectory does not move. The book does not prescribe this audit; it is
+house practice.
 
 ```python
 def mean_reward(judge_score) -> float:
@@ -256,14 +203,15 @@ assert generous_delta < -0.5, generous_delta  # the weak judge collapses
 assert accurate_delta == 0.0, accurate_delta  # the judge that reads substance does not move
 ```
 
-## Reverse the presentation order
+## 7. Reverse the order
 
-Grade the same pairs with the order swapped and count how many pairwise
-picks flip. The noise is not spread evenly - it concentrates exactly where
-the underlying signal is a genuine tie, which is why finding 5's 28.4%
-sits well under 100%: most pairs in that set were not ties. `prefers` here
-only breaks ties by position, so the mechanism shows at its purest: every
-real tie flips, and a pair with a real difference never does.
+The MT-Bench judge prompt the book quotes tells the judge to "avoid any
+position biases" (Lambert 2025, chapter Reward Modeling); telling it does
+not make it so. Grade each pair both ways and count flips. The noise sits
+where the pair is a real tie: here every tie flips and no decisive pair
+does. Before you feed a ranking (DPO pairs, GAR, anything relative) from a
+real judge, measure its flip rate on your own ties. If it is high, use the
+top pick only.
 
 ```python
 def flip_rate(pairs: list[tuple[dict, dict]]) -> float:
@@ -289,18 +237,14 @@ assert tied_flips == 1.0, tied_flips  # every tie is decided by position alone
 assert decisive_flips == 0.0, decisive_flips  # real disagreement does not move
 ```
 
-If your real judge's flip rate on ties runs anywhere near 28.4%, do not
-feed it a ranking - preference pairs, GAR, anything relative - until you
-know which pairs in your own data are ties.
+## 8. Grade the frozen test, then report
 
-## Only then grade for real, and only then train
-
-`check.py`'s setup writes a small frozen held-out test the way
-`strengthen-your-evals` does (`wai.simulate(..., simulator=False,
-seeds=[...], repeats=k)`) for two versions of a scripted returns agent, one
-that refunds anything and one that checks eligibility first. The same
-`accurate` judge that cleared the floors above - not a fresh one - grades
-both:
+The judge that cleared the floors, not a fresh one, grades the frozen
+test. Its `Judge` record carries the numbers `compare_judges` just
+measured. `check.py`'s setup builds the test the way
+`strengthen-your-evals` does and defines `data` (two agent versions),
+`LIVE_TOOLS`, `LIVE_POLICY`, `TEST_VERSION`, `NOISE`, `K`, `asks` and
+`behaviors`:
 
 ```python
 JUDGE = Judge(
@@ -311,10 +255,9 @@ JUDGE = Judge(
 scored = {v: wai.evaluate(d.rows(), accurate, tools=LIVE_TOOLS) for v, d in data.items()}
 ```
 
-Every skill here ends the same way (`skills/BRIEF.md`): name the frozen
-test, score every behavior the agent has - not only the one you audited
-the judge for - and post the run so a person can read it, with the judge's
-own measured agreement attached to the number it produced:
+Every skill ends the same way (`skills/README.md`): score every behavior,
+not only the one you audited the judge for, and post the run with the
+judge's measured agreement attached:
 
 ```python
 tracked = track(
@@ -349,79 +292,39 @@ tracked.promote("v1")
 print(tracked.verdict())
 ```
 
-A judge that fails the floors above never reaches this block. It is not a
-footnote next to the training result - a training run graded by an
-unaudited judge has no result to report yet, per "Over-Optimization"
-(Lambert 2025): a policy pushed against a judge's habits, not the
-behavior, will find every hole this file just measured.
+A judge that fails the floors never reaches this step. A policy trained
+against a judge's habits will find every hole this file measured
+(Lambert 2025, chapter Over-Optimization).
 
 ## Reading the result
 
-| signal | verdict |
+| you see | it means |
 |---|---|
-| agreement >= 0.8, kappa >= 0.6, false-pass rate low | judge is usable |
-| a high mean, unmeasured against a blind label | unknown - a soft judge produces exactly this |
-| the mean moves a lot when one clause is removed | that clause, not the behavior, drove the score |
-| the score collapses on the strongest judge specifically | check the clause for evidence the payload lacks |
-| over 20% of pairwise ties flip on reversed order | consume the top pick only, never the full ranking |
-| a training result reads as "the method failed" and the judge was never checked | audit the judge before believing that |
+| agreement >= 0.8, kappa >= 0.6, low false-pass rate on enough failures | the judge is usable |
+| a high mean with no blind labels behind it | unknown; a soft judge produces exactly this |
+| the mean moves a lot when one clause changes | that clause, not the behavior, drives the score |
+| a clause hurts the strongest judge most | it names evidence the payload does not carry |
+| pairwise ties flip on reversed order | use the top pick only, never the full ranking |
+| "the method failed" and the judge was never audited | audit the judge before believing it |
 
-Also worth doing once a judge clears the floors: grade with a different
-model family than the one you are training (the self-preference bonus
-measured above was a genuinely small +0.010, but calibration swamped it at
-~0.62 - the real reason for a different family is an independent read, not
-a correlated one), and never let a judge check what code can check
-exactly. Measured separately: a judge disagreed with an exact string check
-23-25% of the time, and every disagreement ran the same direction - the
-judge flagging text as missing that the exact check found present. Split
-the rubric so a program checks whatever a program can (fields present, ids
-retained, length, an exact string) and the judge grades only what a
-program genuinely cannot decide. A constitution raised register +0.518
-while reply length collapsed 5.5x and identifier retention fell -0.193; a
-judge scoring the whole rubric called that a win, because "sounds right" is
-easy to satisfy by cutting the parts that are hard to get right.
+Two more once a judge clears: grade with a different model family than
+the one you train, since models favor their own outputs (self-preference
+bias, Panickssery, Bowman and Feng 2024; Lambert 2025, chapter Synthetic
+Data and Distillation). And never let a judge check what code can check
+exactly (a field present, an id kept, an exact string). Split the rubric:
+a program checks those, the judge grades only what a program cannot.
 
-## What the book says, and where we go beyond it
+## Sources
 
-Everything above traces back to one place: rlhfbook (Lambert 2025), chapter
-Reward Modeling, section *Generative Reward Modeling (a.k.a.
-LLM-as-a-judge)*. The chapter files LLM-as-a-judge inside reward modeling,
-not next to it - so everything it asks of a reward model (measured
-agreement against people, a held-out preference-accuracy set, length bias,
-self-preference) it asks of a judge too (Zheng et al. 2023).
+**From the book (rlhfbook.com, Lambert 2025).** Reward Modeling: a judge
+is a generative reward model (Zheng et al. 2023), temperature 0, a small
+held-out accuracy set of 50 to 200 examples, generative judges still lag
+trained reward models (Mahan et al. 2024; Zhang et al. 2025; Ankner et al.
+2024), the MT-Bench prompt's position-bias line. Preference Data:
+verbosity bias. Synthetic Data and Distillation: self-preference.
+Over-Optimization: what a policy does to a flawed reward.
 
-**From the book, used directly above:**
-
-- A judge is a reward model, checked against people the same way any
-  reward model is - the premise this whole file rests on.
-- Temperature 0 for stable ratings, covered in its own section above.
-- Generative judges still lag trained reward models on RM benchmarks
-  (Mahan et al. 2024; Zhang et al. 2025, *Generative Verifiers*; Ankner et
-  al. 2024, *Critique-out-loud*; Kim et al. 2024, Prometheus) - so a bigger
-  judge is not the fix it feels like, and the ladder in finding 1 agrees:
-  67%, 70%, 78% agreement, the best still passing 31% of true failures.
-- Length bias is a named failure mode, which is why AlpacaEval is
-  length-controlled (Dubois et al. 2024) - the correlation check above.
-- Keep a small held-out preference-accuracy set and judge against it, not
-  against the score the judge produces itself - `ROWS` and `BLIND_LABELS`
-  are that set here.
-
-**Ours, not the book's - say so when you cite them:**
-
-- Bootstrapping the interval over asks rather than rows (`wai.pass_at`, in
-  the report step above).
-- The false-pass rate as the headline diagnostic. The book covers
-  agreement and RM benchmarks; that a judge passing half your true
-  failures trains the failure, not the behavior, is measured here, not in
-  the book. Measured historically: 46-50%. The demo above reproduces the
-  shape at leak 0.50 for `generous` and 1.00 for `always_pass`.
-- The floors themselves, agreement >= 0.8 and kappa >= 0.6: convention,
-  untested, the SDK's own gate, not a threshold either paper sets.
-- Rubric ablation and criterion-order reversal as routine audits: the book
-  does not prescribe either.
-- Never let a judge check what code can check exactly, above.
-
-The one number that decides whether to trust a judged result at all is not
-in the book, and it is the thing to measure first: of the rows a trusted
-label calls a failure, what share does the judge pass? Everything else in
-this file is downstream of that question.
+**House practice, not the book.** The false-pass rate as the headline;
+the floors (convention, untested); rubric ablation and order reversal as
+routine audits; sizing by the number of failures; splitting the rubric
+between a program and a judge.
