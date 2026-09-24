@@ -1,0 +1,81 @@
+# Talk methods: which training teaches two model copies to talk best
+
+**Paper:** Reinforce-Ada: An Adaptive Sampling Framework under Non-linear RL Objectives, Wei Xiong et al., arXiv:2510.04996, October 2025. https://arxiv.org/abs/2510.04996
+**Book:** GRPO learns from the spread inside a group; a group where every chat scored the same carries no gradient, and on a task the model mostly fails, most groups are like that [1][2].
+**Claim:** replaying the prompts whose group came back all-wrong, and training on a balanced group of the same size, recovers the signal GRPO drops (Xiong et al.). Here it is tested against GRPO, online rejection-sampling fine-tuning (RAFT, Dong et al. [3]) and GRPO with mixed partners, on the [talk-to-solve](../talk-to-solve) task.
+**The change:** the credit each chat's turns get. Task, chat, reward, model, steps and seeds are the talk-to-solve ones; the baseline arm is talk-to-solve's GRPO chat arm, reused from its cache.
+
+## Recipe
+
+1. Task: two copies of `Qwen/Qwen2.5-1.5B-Instruct` each see half the facts of a GSM8K problem and chat A, B, A, B; each copy's last message boxes an answer. Team reward: the share of the two answers that are right. 1,024 train problems, 300 held out.
+2. Baseline, GRPO: every turn gets team reward minus the mean over the problem's 4 chats.
+3. Recipe, Reinforce-Ada: a problem whose 4 chats all scored the same is replayed, 4 more chats a round, up to 3 rounds; keep 2 high and 2 low, advantage against the mean of every chat drawn.
+4. RAFT: advantage 1 for a chat the team solved outright, 0 otherwise. Fine-tuning on the winners, online.
+5. Mixed partners: GRPO, but in 2 of every 4 chats B is the untrained base (LoRA off); those B turns are generated, not trained.
+6. Every arm: TRL GRPO machinery + LoRA r=32, 80 steps, 8 problems x 4 chats, lr 1e-4, on-policy, no KL, 3 seeds (17, 18, 19). Eval: 2 chats on each of the 300 held-out problems, both answers graded; and each trained model as A with the untrained base as B.
+
+## Run
+
+```bash
+python recipe.py --selftest      # the split, the chat and the credit per method, offline
+python recipe.py --reuse         # all four arms, three seeds; reuses the GRPO arm if cached
+python recipe.py --arm raft      # one method
+python post.py                   # the Experiments card: one run per method and a chart
+```
+
+## Result
+
+| Method | Team solves it, mean of 3 seeds | Per seed | With an untrained partner | Sends own facts | Uses partner's | GPU min a seed |
+|---|---|---|---|---|---|---|
+| Untrained | 0.11 | | | 0.67 | 0.30 | |
+| GRPO (baseline) | 0.30 | 0.40 / 0.15 / 0.35 | 0.14 / 0.10 / 0.16 | 0.96 | 0.79 | 105 |
+| **Reinforce-Ada** (recipe) | **0.38** | **0.40 / 0.39 / 0.36** | 0.21 / 0.19 / 0.13 | 0.95 | 0.71 | 209 |
+| RAFT | 0.25 | 0.31 / 0.10 / 0.35 | 0.20 / 0.09 / 0.15 | 0.90 | 0.50 | 96 |
+| Mixed partners | 0.31 | 0.21 / 0.46 / 0.25 | 0.15 / 0.22 / 0.14 | 0.78 | 0.49 | 99 |
+
+Talk columns are the first seed. Paired deltas against GRPO across three seeds (`wai.compare`, `train_runs=`):
+
+| Method | Trained partner | Untrained partner |
+|---|---|---|
+| Reinforce-Ada | +0.001 [-0.042, +0.043], flat | +0.064 [+0.029, +0.100], flat |
+| RAFT | -0.096 [-0.141, -0.053], flat | +0.053 [+0.017, +0.093], flat |
+| Mixed partners | -0.198 [-0.240, -0.154], flat | +0.004 [-0.025, +0.035], flat |
+
+Every verdict is **flat**: GRPO's own seeds range from 0.15 to 0.40, and a gap has to clear that spread before three seeds can call it. What the table does show is reliability. Reinforce-Ada's three seeds all land between 0.36 and 0.40, where every other method has a seed near or under 0.25. It replays the flat groups GRPO drops (45 in 100 problems early in training, 33 late) and costs twice the GPU time. The paired interval compares seed 17 against seed 17, where GRPO had its best run.
+
+## Checks
+
+Nothing in this table is ticked by hand: every cell is written by `recipe.py` into `results.json`.
+
+| Check | Source | Result |
+|---|---|---|
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [4] | run_std 0.005 from 3 re-runs (0.11, 0.12, 0.12); training-seed spread is 50 times that |
+| Holdout is clean: `decontaminate(train, against=holdout)` | [4] | 0 of 1,024 train rows dropped |
+| Reward is a program, not a judge | [4] | `MathEqual` (Math-Verify) on each copy's own final answer |
+| Proxy vs target: `wai.compare(proxy=)` | [5] | `proxy=None`: the training reward is the target; over_optimized false |
+| Reuse | this recipe | the GRPO arm and the base evals are talk-to-solve's, same code path; the cost counts the nine new containers |
+| Hack scan on the last training batch: `hack_scan` | [5] | nothing above the floor |
+| Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | training seeds 17, 18, 19, `--seed 0` for the data; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0; H100 |
+
+## Climb
+
+| Round | What changed | Team solves it | vs GRPO |
+|---|---|---|---|
+| 1 | four credit rules on the talk-to-solve chat, 3 seeds each | Ada 0.40 / 0.39 / 0.36, GRPO 0.40 / 0.15 / 0.35 | +0.001 [-0.042, +0.043], flat |
+
+## Learned
+
+- Reinforce-Ada is the reliable way to teach the talk: every seed learned it, where GRPO lost one seed in three. The mean gap (0.38 against 0.30) needs more seeds to call.
+- Fine-tuning on winning chats learns the shortest messages (91 chars on one seed) and uses the partner's facts least. Mixing in an untrained partner did not make the skill travel.
+- Next: five seeds for Ada and GRPO so the reliability gap can resolve, then Ada with a mixed-partner pool.
+
+Verified 2026-09-23, whileai 0.125, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 1,211 GPU minutes over nine new containers, $80.74 on H100. Experiment: https://while.ai/platform/experiments/talk-methods
+
+## References
+
+1. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+2. Xiong, W. et al. Reinforce-Ada: An Adaptive Sampling Framework under Non-linear RL Objectives. arXiv:2510.04996, 2025.
+3. Dong, H. et al. RAFT: Reward rAnked FineTuning for Generative Foundation Model Alignment. arXiv:2304.06767, 2023.
+4. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+5. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
+6. Park, C. et al. MAPoRL: Multi-Agent Post-Co-Training for Collaborative Large Language Models with Reinforcement Learning. arXiv:2502.18439, 2025.
