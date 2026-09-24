@@ -706,8 +706,6 @@ def selection_report(
     dataset: str = "ds",
     steps: int | None = None,
     min_mixed_tasks: int = TRAIN_MIN_MIXED_TASKS,
-    teacher_score: Any | None = None,
-    student_score: Any | None = None,
 ) -> dict[str, Any]:
     """What the hosted trainer will use of a profiled set, before the GPU.
 
@@ -716,41 +714,15 @@ def selection_report(
     ``given`` and ``used`` (rows for ``sft``, tasks for a grouped method,
     with ``used_rows`` when the per-task table is complete), ``dropped``
     (count per reason), ``refuse`` (lines that stop a ``check="require"``
-    run), ``warn`` (lines said either way) and, when there is one to make,
-    ``suggest`` (lines naming a research method this profile reaches for:
-    ``wai.OPSD``, ``wai.OPD`` or ``wai.GroupwiseGrading``, none of them
-    reachable from the hosted ``sft``/``grpo``/``dpo``/``rm`` trainer, all
-    of them run through ``wai.prime_rl_config`` on your own GPUs). Pure:
-    ``train`` reads the profile and decides.
+    run) and ``warn`` (lines said either way). Pure: ``train`` reads the
+    profile and decides.
 
     ``sft`` clones every row it is given, so a failing row is a refusal
     (rejection sampling keeps the passes,
     Lambert 2025, chapter Rejection Sampling). ``grpo``, ``dpo`` and
     ``rm`` learn from prompts with both a pass and a fail; none is a
     refusal, fewer than ``min_mixed_tasks`` (``TRAIN_MIN_MIXED_TASKS``,
-    32) is a warning with the count. A complete per-task table
-    (``profile["per_task"]``) is read further: every task unanimously
-    failing every rollout is a floor no amount of resampling reaches:
-    rejection sampling trains only on the completions it keeps (Lambert
-    2025, chapter Rejection Sampling), and ``k`` independent draws at pass
-    rate ``p`` keep one with probability ``1 - (1 - p) ** k``, which is 0
-    at ``p=0`` for every ``k``. So the suggestion there is ``wai.OPSD`` (a
-    hint or reference the trainer supplies, not a demonstration it cannot
-    draw; Zhao et al. 2026, arXiv:2601.18734; Lambert 2025, chapter
-    Synthetic Data and Distillation) or SFT on a teacher's completions,
-    never more rollouts. Every task unanimously passing is dropped by a
-    binary-reward grouped method (zero advantage, Shao et al. 2024,
-    arXiv:2402.03300; all-0/all-1 groups carry no signal, DAPO dynamic
-    sampling, Lambert 2025, chapter Reinforcement Learning) even when the
-    passes differ in quality, which is exactly what
-    ``wai.GroupwiseGrading(mode="reward")`` (GRS, MiMo-V2.6 2026, section
-    4.3.1) reads back into the reward.
-
-    ``teacher_score`` and ``student_score``, when both given (a
-    ``wai.pass_at(...)`` result, a mapping with ``pass_at_1``, or a bare
-    pass rate), run ``wai.methods.teacher_beats_student`` and add its
-    verdict: a clear win suggests ``wai.OPD``, anything else a warning
-    naming why OPD is not reachable yet.
+    32) is a warning with the count.
     """
     rows = _count(profile.get("rows"))
     raw_split = profile.get("split")
@@ -759,15 +731,6 @@ def selection_report(
     n_ungraded = _count(split.get("ungraded"))
     knob = 'check="warn"'
     out: dict[str, Any] = {"method": method, "given": rows, "refuse": [], "warn": []}
-    suggest: list[str] = []
-    if teacher_score is not None and student_score is not None:
-        from ..methods import teacher_beats_student  # local: methods imports this package
-
-        check = teacher_beats_student(teacher_score, student_score)
-        if check["beats"]:
-            suggest.append(f"a teacher beats this student on the eval: {check['message']}")
-        else:
-            out["warn"].append(f"wai.OPD is not reachable yet: {check['message']}")
     if method == "sft":
         out["used"] = rows
         out["dropped"] = {}
@@ -781,8 +744,6 @@ def selection_report(
                 f"scored.passes() (the rows with reward >= {PASS_THRESHOLD:g}) as the train set, "
                 f"or pass {knob} to train on the failures on purpose."
             )
-        if suggest:
-            out["suggest"] = suggest
         return out
 
     tasks = _count(profile.get("tasks"))
@@ -800,27 +761,8 @@ def selection_report(
         )
         if all_pass:
             dropped["tasks all pass"] = all_pass
-            suggest.append(
-                f"{all_pass} of {len(repeated)} tasks pass every rollout: a binary-reward "
-                "grouped method gives them zero advantage and drops them (Shao et al. 2024, "
-                "arXiv:2402.03300; Lambert 2025, chapter Reinforcement Learning); if the passes differ in quality, wai.GroupwiseGrading("
-                'grader=..., mode="reward") (GRS, MiMo-V2.6 2026, section 4.3.1) reads that '
-                "back into the reward and keeps them."
-            )
         if all_fail:
             dropped["tasks all fail"] = all_fail
-            if all_pass == 0 and repeated and all_fail == len(repeated):
-                suggest.append(
-                    f"all {all_fail} repeated tasks fail every rollout: a floor "
-                    '(eval_power\'s "floored" verdict). Rejection sampling trains only on the '
-                    "completions it keeps (Lambert 2025, chapter Rejection Sampling), and k "
-                    "draws keep one with probability 1 - (1 - p) ** k, which is 0 at p=0 for "
-                    "every k, so more rollouts will not reach it; "
-                    'wai.OPSD(privileged="reference") (the trainer supplies the answer, it does '
-                    "not need a passing rollout to learn from, Zhao et al. 2026, "
-                    "arXiv:2601.18734; Lambert 2025, chapter Synthetic Data and Distillation) or SFT on a teacher's completions reaches it instead, "
-                    "never a larger repeats=."
-                )
     else:
         used_rows = None
         if with_repeats - mixed > 0:
@@ -858,8 +800,6 @@ def selection_report(
             f"learn from ({why}); it would spend the GPU and finish with reward_std 0 and "
             f"grad_norm 0. {size}. {knob} starts it anyway."
         )
-        if suggest:
-            out["suggest"] = suggest
         return out
     if mixed < tasks or mixed < min_mixed_tasks:
         line = f"{method} on {dataset} will use {counts}: {reasons}."
@@ -875,8 +815,6 @@ def selection_report(
                 f"{passes}; {why}. {size}; train(min_mixed_tasks=) moves the floor."
             )
         out["warn"].append(line)
-    if suggest:
-        out["suggest"] = suggest
     return out
 
 

@@ -31,13 +31,7 @@ PINS = {
     # public benchmark) thirty-one by the maintainer's call. The next name
     # added takes one off (`Fireworks` took `Settings` off, `Harness` took
     # `Selection` off, #712). See #456.
-    # 33, was 31: `OPD` and `prime_rl_config` were reachable only as
-    # `wai.OPD`/`wai.prime_rl_config` (lazy, `whileai._LAZY`) and documented
-    # in `methods.py`'s module docstring, but absent from the front door
-    # itself, so a caller (or a coding agent) reading `whileai.__all__` never
-    # learned they existed. Method-routing task, 2026-09-24: raised on
-    # purpose, not silently; no name was retired to make room this time.
-    "front_door": 33,
+    "front_door": 31,
     "wide_calls": 27,  # rule 3: public calls with more than MAX_PARAMS parameters
     # rule 3, the other direction. `wide_calls` counts HOW MANY calls are over
     # the cap and says nothing about how far over, so a call that is already

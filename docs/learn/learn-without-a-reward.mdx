@@ -115,16 +115,8 @@ prime-rl config: opd.toml
   100 steps x 64 prompts x 4 rollouts, max_off_policy_steps 8
   reads: teacher -> orchestrator.algo.teacher (name, base_url; key from VLLM_API_KEY); samples -> orchestrator.group_size; temperature -> orchestrator.train.sampling.temperature; max_tokens -> orchestrator.train.sampling.max_completion_tokens; learning_rate -> trainer.optim.lr = 0.0001
   ignores: top_k=32: prime-rl scores the teacher's full-vocabulary prefill; the top-k support is not a knob there
-  warning: the teacher has not been scored against the student on this holdout (teacher_check= is None): OPD pulls the student toward the teacher (Lambert 2025, chapter Synthetic Data and Distillation), so this run is doomed exactly when the teacher does not clearly beat the student and nothing here would say so. Score both with wai.pass_at on the same rows and pass wai.methods.teacher_beats_student(teacher_pass_at, student_pass_at) as teacher_check= before spending the GPU (issue 564).
-  warning: teacher/student vocab size was not checked (pass teacher_vocab_size= and student_vocab_size=, e.g. from each tokenizer's .vocab_size): a mismatch does not degrade gracefully, it silently drops the signal (SimCT, arXiv:2605.07711); the trainer does not check this either.
   run: uv run rl @ opd.toml
 ```
-
-Both warnings are reachable, not required: score the teacher against the
-student on the same holdout with `wai.methods.teacher_beats_student` and
-pass its result as `teacher_check=`, and pass `teacher_vocab_size=` /
-`student_vocab_size=` once both are known, and the config carries the
-check instead of asking for it.
 
 ## What it looked like on a real run
 

@@ -134,7 +134,6 @@ from .simulations.defaults import (
     PRIME_RL_LEARNING_RATE_LORA,
     PRIME_RL_SEQ_LEN,
     PRIME_RL_STEPS,
-    PROVE_EFFECT,
     RL_ROLLOUTS_PER_PROMPT,
     SAO_CRITIC_LEARNING_RATE,
     SAO_CRITIC_STEPS,
@@ -213,20 +212,13 @@ class OPD:
     left ``None`` is 1e-4 for an adapter and 1e-6 for full weights
     (``OPD_LEARNING_RATE_LORA``, ``OPD_LEARNING_RATE_FULL``).
 
-    Before spending the GPU, know two things that decide the run. The
-    teacher has to beat the student on these tasks: OPD's per-token
-    advantage is ``log pi_T - log pi_theta`` (Lambert 2025, chapter
-    Synthetic Data and Distillation, eq. 10), which pulls the student
-    toward the teacher, so a teacher no better than the student has
-    nothing to pull it toward. And the two have to share a tokenizer, since
-    the supervision is per token (Lambert 2025, chapter Synthetic Data and
-    Distillation; a mismatch silently drops the signal, SimCT,
-    arXiv:2605.07711).
-    Score both with ``wai.pass_at`` on the same holdout and call
-    ``wai.methods.teacher_beats_student(teacher_pass_at, student_pass_at)``
-    first; ``prime_rl_config`` warns loudly when an ``OPD`` run is written
-    without that check having been passed in, and separately warns on a
-    known vocab-size mismatch (``teacher_vocab_size=``, ``student_vocab_size=``).
+    Before spending the GPU, know two things the papers say decide the
+    run: the teacher has to beat the student on these tasks (the student
+    saturates at the teacher's ceiling), and the two have to share a
+    tokenizer (a mismatch silently drops the signal, SimCT, arXiv:2605.07711).
+    The tokenizer check is the trainer's; the pass-rate check is
+    ``wai.pass_at`` on a teacher run of the holdout, until ``train``
+    runs it for you (issue 564).
     """
 
     teacher: Backend | str
@@ -273,105 +265,6 @@ class OPD:
             f"OPD(teacher={model} @ {url}, {self.divergence}, top_k={self.top_k}, "
             f"samples={self.samples}, temperature={self.temperature}, max_tokens={self.max_tokens})"
         )
-
-
-def _pass_rate_and_ci(value: Any) -> tuple[float, tuple[float, float] | None]:
-    """(mean, ci95) read off a ``wai.pass_at`` result, a mapping with a
-    ``pass_at_1`` key, or a bare pass rate."""
-    if isinstance(value, (int, float)):
-        return float(value), None
-    mean = getattr(value, "pass_at_1", None)
-    ci = getattr(value, "ci95", None)
-    if mean is None and isinstance(value, Mapping):
-        mean = value.get("pass_at_1", value.get("mean"))
-        ci = value.get("ci95", ci)
-    if mean is None:
-        raise TypeError(
-            "teacher_beats_student needs a pass rate: a number, a wai.pass_at(...) result, or a "
-            f"mapping with 'pass_at_1'; got {type(value).__name__}"
-        )
-    return float(mean), (tuple(float(x) for x in ci) if ci is not None else None)  # type: ignore[return-value]
-
-
-def teacher_beats_student(
-    teacher: Any,
-    student: Any,
-    *,
-    margin: float = PROVE_EFFECT,
-) -> dict[str, Any]:
-    """Score the teacher before ``OPD`` spends the GPU on it.
-
-    ``OPD`` trains the student toward the teacher's own distribution
-    (reverse KL at the student's own states, Agarwal et al. 2023,
-    arXiv:2306.13649; advantage ``log pi_T - log pi_theta``, Lambert 2025,
-    chapter Synthetic Data and Distillation, eq. 10), so a student that
-    already matches or beats its teacher has nothing to gain. The ``OPD`` docstring names this check;
-    nothing ran it until now. Score the teacher on the same holdout the
-    student was last scored on and call this before
-    ``wai.prime_rl_config(env, wai.OPD(teacher), model=...)``.
-
-    ``teacher`` and ``student`` each take a ``wai.pass_at(...)`` result, a
-    mapping with a ``pass_at_1`` (and optional ``ci95``), or a bare pass
-    rate. ``margin`` is the gap the teacher must clear to count as
-    clearly ahead: ``PROVE_EFFECT`` (0.05, the package's five-point proof
-    bar against Lambert 2025, chapter Evaluation's measured 0.25-1.5 point
-    eval noise; ``defaults.py``).
-
-    Returns ``{"teacher", "student", "gap", "margin", "ci_overlap",
-    "beats", "verdict", "message"}``. ``verdict`` is ``"beats"`` (the gap
-    clears ``margin``, and the ``ci95`` intervals do not overlap when both
-    are given), ``"does not beat"`` (the gap is zero or negative) or
-    ``"unclear"`` (ahead but inside the margin, or the intervals
-    overlap). Only ``"beats"`` says OPD is reachable now; ``message``
-    names the fix for the other two (score a stronger teacher, or reach
-    for GRPO or ``wai.GroupwiseGrading`` instead).
-    """
-    if float(margin) < 0:
-        raise ValueError(f"margin must be 0 or more; got {margin}")
-    t_mean, t_ci = _pass_rate_and_ci(teacher)
-    s_mean, s_ci = _pass_rate_and_ci(student)
-    gap = t_mean - s_mean
-    ci_overlap: bool | None = None
-    if t_ci is not None and s_ci is not None:
-        ci_overlap = t_ci[0] <= s_ci[1] and s_ci[0] <= t_ci[1]
-    beats = gap >= float(margin) and ci_overlap is not True
-    if beats:
-        verdict = "beats"
-        message = (
-            f"the teacher scores {t_mean:g} against the student's {s_mean:g} ({gap:.3g} clear of "
-            f"the {margin:g} margin, PROVE_EFFECT); OPD is reachable: "
-            "wai.prime_rl_config(env, wai.OPD(teacher), model=...)."
-        )
-    elif gap <= 0:
-        verdict = "does not beat"
-        message = (
-            f"the teacher scores {t_mean:g}, at or below the student's {s_mean:g}; OPD would "
-            "train the student toward a distribution no better than what it already has "
-            "(arXiv:2306.13649; Lambert 2025, chapter Synthetic Data and Distillation). Score a stronger teacher, or reach for plain GRPO or "
-            "wai.GroupwiseGrading (passes differ in quality) instead."
-        )
-    else:
-        why = (
-            "the confidence intervals overlap"
-            if ci_overlap
-            else f"the gap ({gap:.3g}) is inside the {margin:g} margin"
-        )
-        verdict = "unclear"
-        message = (
-            f"the teacher scores {t_mean:g} against the student's {s_mean:g}, but {why}: not "
-            "clearly ahead. Score more holdout rows before trusting OPD to move the model, or "
-            "treat this as 'does not beat' and pick a stronger teacher."
-        )
-    return {
-        "teacher": t_mean,
-        "student": s_mean,
-        "gap": gap,
-        "margin": float(margin),
-        "ci_overlap": ci_overlap,
-        "beats": beats,
-        "verdict": verdict,
-        "message": message,
-    }
 
 
 @dataclass(frozen=True)
@@ -1751,9 +1644,6 @@ def prime_rl_config(
     steps: int = PRIME_RL_STEPS,
     batch: int = PRIME_RL_BATCH,
     lora: bool = True,
-    teacher_check: Mapping[str, Any] | None = None,
-    teacher_vocab_size: int | None = None,
-    student_vocab_size: int | None = None,
     **overrides: Any,
 ) -> PrimeRLConfig:
     """Write the TOML prime-rl runs a method with, and say what it will read.
@@ -1780,19 +1670,6 @@ def prime_rl_config(
     and lands verbatim; ``source.<key>`` lands on the train and the eval source,
     ``train_source.<key>`` and ``eval_source.<key>`` on one of them (which rows a
     taskset reads is its own field, ``dataset_split`` on the bundled ones).
-
-    For an ``OPD`` method, ``teacher_check`` is the dict
-    ``wai.methods.teacher_beats_student(...)`` returned; passed in, its
-    verdict lands in ``.warnings`` (a clear win says so, anything else
-    warns that OPD is not reachable yet and why). Left ``None``, a config
-    is still written, but ``.warnings`` says loudly that the check has
-    not been run at all, since a doomed OPD run looks identical to a
-    sound one until the teacher is scored (issue 564; a run that skipped
-    this lost 14.8 points to a teacher that never beat the student).
-    ``teacher_vocab_size`` and ``student_vocab_size``, given together,
-    are compared and warned on a mismatch: OPD scores the teacher on the
-    student's own tokens, and a different vocabulary does not degrade
-    gracefully, it silently drops the signal (SimCT, arXiv:2605.07711).
 
     The result prints what was written, which of the method's knobs the
     trainer reads and where, which it ignores and why (prime-rl's ``opd``
@@ -1866,40 +1743,6 @@ def prime_rl_config(
             ignored[f"top_k={inner.top_k}"] = (
                 "prime-rl scores the teacher's full-vocabulary prefill; the top-k support is not a knob there"
             )
-            if teacher_check is None:
-                warnings.append(
-                    "the teacher has not been scored against the student on this holdout "
-                    "(teacher_check= is None): OPD pulls the student toward the teacher (Lambert "
-                    "2025, chapter Synthetic Data and Distillation), so this run is "
-                    "doomed exactly when the teacher does not clearly beat the student and "
-                    "nothing here would say so. Score both with wai.pass_at on the same rows and "
-                    "pass wai.methods.teacher_beats_student(teacher_pass_at, student_pass_at) as "
-                    "teacher_check= before spending the GPU (issue 564)."
-                )
-            elif not teacher_check.get("beats"):
-                warnings.append(f"wai.OPD is not reachable yet: {teacher_check.get('message')}")
-            else:
-                comments["orchestrator.algo.teacher.name"] = (
-                    f"checked: {teacher_check.get('message')}"
-                )
-            if teacher_vocab_size is not None and student_vocab_size is not None:
-                if int(teacher_vocab_size) != int(student_vocab_size):
-                    warnings.append(
-                        f"teacher_vocab_size ({teacher_vocab_size}) does not match "
-                        f"student_vocab_size ({student_vocab_size}): OPD scores the teacher on "
-                        "the student's own tokens, and a mismatched pair does not degrade "
-                        "gracefully, it silently drops the signal (SimCT, arXiv:2605.07711; KD needs a "
-                        "shared tokenizer, Lambert 2025, chapter Synthetic Data and Distillation). "
-                        "Serve the teacher from a checkpoint that shares the student's tokenizer, "
-                        "or pick a teacher in the same model family as model=."
-                    )
-            elif teacher_vocab_size is None and student_vocab_size is None:
-                warnings.append(
-                    "teacher/student vocab size was not checked (pass teacher_vocab_size= and "
-                    "student_vocab_size=, e.g. from each tokenizer's .vocab_size): a mismatch "
-                    "does not degrade gracefully, it silently drops the signal (SimCT, "
-                    "arXiv:2605.07711); the trainer does not check this either."
-                )
         else:
             algo = {"type": "opsd", "demo_key": inner.privileged, "template": inner.template}
             honored["privileged"] = (
@@ -2072,5 +1915,4 @@ __all__ = [
     "prime_rl_config",
     "redistribute",
     "spread",
-    "teacher_beats_student",
 ]

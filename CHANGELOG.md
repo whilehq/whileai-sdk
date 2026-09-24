@@ -7,13 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
-- Method routing (#564): `wai.OPD` and `wai.prime_rl_config` are on the front door
-  (`whileai.__all__`, now 33 names); the trainer advisor (`selection_report`) can name
-  `wai.OPSD`, `wai.OPD` and `wai.GroupwiseGrading` for a floor, a stronger teacher or
-  quality-differing passes, instead of only `sft`/`grpo`/`dpo`/`rm`. New
-  `wai.methods.teacher_beats_student(teacher, student)` runs the ceiling check OPD's
-  docstring names; `prime_rl_config` warns loudly when an `OPD` run is written without it
-  (`teacher_check=`), and on a `teacher_vocab_size`/`student_vocab_size` mismatch.
+- Skill `skills/pick-a-method/` (#564): a coding agent reading the graded rows now finds
+  `wai.OPSD`, `wai.OPD` and `wai.GroupwiseGrading`. A floor (every task fails every rollout)
+  routes to OPSD, never a larger `repeats=`; a saturated set routes to GroupwiseGrading; OPD
+  only after the teacher clears the student by `PROVE_EFFECT` with non-overlapping intervals
+  and shares its tokenizer. Each rule cites its rlhfbook.com chapter. No SDK code changes.
 - Recipe `recipes/papers/talk-methods`: GRPO, Reinforce-Ada (arXiv:2510.04996), RAFT (arXiv:2304.06767)
   and mixed-partner GRPO on the talk-to-solve chat, three seeds each on H100. Reinforce-Ada solved
   0.36 to 0.40 on every seed (mean 0.38) against GRPO's 0.15 to 0.40 (mean 0.30); every paired

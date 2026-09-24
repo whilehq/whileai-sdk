@@ -158,13 +158,8 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
 # The front door: under thirty names, the loop and its nouns. The platform
 # client's names above stay importable but are documented under
 # whileai.platform. `Settings` stays importable too; `Fireworks` took its
-# place in the list so the front door stayed at thirty-one names.
-# `OPD` and `prime_rl_config` were reachable (lazy, `_LAZY` above) and
-# documented in `methods.py` but missing here, so a caller reading
-# `whileai.__all__` never learned the research methods existed; added on
-# purpose, thirty-three names (tests/api/test_style_ratchet.py, front_door).
+# place in the list so the front door stays at thirty-one names.
 __all__ = [
-    "OPD",
     "Anthropic",
     "Endpoint",
     "Fireworks",
@@ -188,7 +183,6 @@ __all__ = [
     "pass_at",
     "platform",
     "preflight",
-    "prime_rl_config",
     "rows",
     "seeded_agent",
     "select",
