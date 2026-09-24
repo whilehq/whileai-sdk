@@ -26,7 +26,8 @@ wai init
 One command in the repository your agent works in. It writes a short block
 into `AGENTS.md` (Codex, Cursor and Copilot read it), points `CLAUDE.md` at
 it (Claude Code reads that), installs the tested skills under
-`.claude/skills/`, and runs the evals skill's `check.py` so the agent sees
+`.claude/skills/` (`strengthen-your-evals`, `manage-experiments`,
+`whileai-simulations`, `audit-your-judge`, `pick-a-method`), and runs the evals skill's `check.py` so the agent sees
 the verdict line before it touches your code. After that, "use whileai to
 build me better evals for my agent" lands on the playbook with no URL to
 remember. Run it again after an upgrade; `wai status` says when the

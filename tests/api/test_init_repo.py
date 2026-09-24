@@ -27,6 +27,7 @@ def test_init_writes_block_include_and_skills(tmp_path: Path):
     assert agents.count(init_repo.MARK_START) == 1 and init_repo.MARK_END in agents
     assert f"v{__version__}" in agents
     assert "strengthen-your-evals/SKILL.md" in agents and "tasks=" in agents
+    assert "audit-your-judge/SKILL.md" in agents and "pick-a-method/SKILL.md" in agents
     assert len(init_repo.agents_block().splitlines()) <= 20
     assert (tmp_path / "CLAUDE.md").read_text(encoding="utf-8").strip() == "@AGENTS.md"
     for name in init_repo.DEFAULT_SKILLS:

@@ -13,6 +13,22 @@ to 0.109 releases under the wrong numbers; they are yanked.
   demo, 9 of 12 behavior lines went from +-0.0 to +-5.7..41.0. New section, gates with the math before
   you spend (MDE, ceiling, expected mixed groups, split by hash, one k per comparison, teacher before
   student, random-reward arm on Qwen bases), each from a run in the 2026-09-24 dogfooding audit.
+- `wai init` installs `audit-your-judge` and `pick-a-method` with the other default skills, and the
+  `AGENTS.md` block names both, so a coding agent reaches the judge audit and the method router
+  without a URL. `skills/README.md` opens with the flow they run in.
+
+- Skill `skills/pick-a-method/` (#564): six questions a coding agent asks the graded rows (grader,
+  truncation, rollouts per prompt, per-task band, on-policy, teacher) route it across everything the SDK
+  ships: hosted `sft`/`grpo`/`dpo`/`rm`, prime-rl `grpo`/`max_rl`/`rae`, `OPSD` (four kinds of privileged
+  context), `OPD`, `GroupwiseGrading` (GRS/GAR), `Async`, `FlashReinforce`/`SAO`/`BPCO` and
+  `ReinforceAda`, and name the skill that trains each. Each rule cites its rlhfbook.com chapter or the
+  repo's own measured run.
+- Skill `skills/audit-your-judge/`: the order to audit a judge before its scores reach Select or
+  Train (temperature 0, blind labels, `compare_judges`, agreement + kappa + false-pass rate against
+  the floors, length correlation, rubric ablation, order reversal), the four SDK traps a coding agent
+  hits (`judge_trust` reads the row's reward, `Judge(agreement=)` is typed, `check_spread` is variance,
+  `attach_labels` defaults `kind`), and which rules are rlhfbook.com chapters and which are house
+  practice. `check.py` runs offline. No SDK code changes.
 
 - Recipe `recipes/papers/talk-methods`: GRPO, Reinforce-Ada (arXiv:2510.04996), RAFT (arXiv:2304.06767)
   and mixed-partner GRPO on the talk-to-solve chat, three seeds each on H100. Reinforce-Ada solved
