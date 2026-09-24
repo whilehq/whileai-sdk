@@ -42,7 +42,8 @@ def test_front_door_resolves_the_methods_and_stays_under_the_cap():
         assert cls.samples == 1  # one rollout per prompt: the shape a production trace has
         assert isinstance(cls.name, str) and cls.name
     assert "methods" in wai.__all__
-    assert len(wai.__all__) <= 31  # rule 1 of docs/reference/style.md; 31 since `rows` (#613)
+    assert "OPD" in wai.__all__ and "prime_rl_config" in wai.__all__  # method-routing task, #564
+    assert len(wai.__all__) <= 33  # rule 1 of docs/reference/style.md; 33 since OPD/prime_rl_config
     assert wai.Backend is not None  # left the front door, still importable
 
 
@@ -401,3 +402,106 @@ def test_hosted_train_names_update_for_a_single_rollout_method():
     for method in (wai.FlashReinforce(), wai.SAO(), wai.BPCO()):
         with pytest.raises(TypeError, match=r"method\.update\(batch\)"):
             train("ds_123", method=method)
+
+
+# --- teacher_beats_student: the check OPD's docstring names, made callable --------
+
+
+def test_teacher_beats_student_reproduces_the_measured_opd_regression():
+    # #issue 564: an OPD run lost 14.8 points because the teacher (Qwen3.5-9B,
+    # 56.2) was never scored against the student's GRPO best (70.9) first; a
+    # student cannot beat its teacher, so the run was doomed before it began.
+    check = wai.methods.teacher_beats_student(0.562, 0.709)
+    assert check["beats"] is False
+    assert check["verdict"] == "does not beat"
+    assert check["gap"] == pytest.approx(0.562 - 0.709)
+    assert "0.562" in check["message"] and "0.709" in check["message"]
+    assert "at or below the student" in check["message"]
+
+
+def test_teacher_beats_student_clears_the_margin_and_names_opd():
+    check = wai.methods.teacher_beats_student(0.85, 0.60)
+    assert check["beats"] is True and check["verdict"] == "beats"
+    assert check["margin"] == defaults.PROVE_EFFECT
+    assert "wai.prime_rl_config(env, wai.OPD(teacher)" in check["message"]
+
+
+def test_teacher_beats_student_reads_pass_at_and_distrusts_overlapping_intervals():
+    ahead_but_overlapping = {"pass_at_1": 0.60, "ci95": (0.50, 0.70)}
+    student = {"pass_at_1": 0.58, "ci95": (0.50, 0.66)}
+    check = wai.methods.teacher_beats_student(ahead_but_overlapping, student)
+    assert check["beats"] is False and check["verdict"] == "unclear"
+    assert check["ci_overlap"] is True
+    assert "confidence intervals overlap" in check["message"]
+    with pytest.raises(TypeError, match="needs a pass rate"):
+        wai.methods.teacher_beats_student(object(), 0.5)
+
+
+# --- prime_rl_config: the OPD path warns loudly, on request or by default --------
+
+
+def _opd(model: str = "Qwen3.5-9B") -> wai.OPD:
+    return wai.OPD(teacher=wai.Endpoint(url="https://teacher.example/v1", model=model))
+
+
+def test_prime_rl_config_warns_loudly_when_the_teacher_check_was_never_run():
+    cfg = wai.prime_rl_config("refunds-v1", _opd(), model="Qwen/Qwen3-4B")
+    (line,) = [w for w in cfg.warnings if "teacher_check" in w]
+    assert "has not been scored" in line
+    assert "wai.methods.teacher_beats_student" in line and "teacher_check=" in line
+
+
+def test_prime_rl_config_relays_a_failing_teacher_check_and_names_the_fix():
+    check = wai.methods.teacher_beats_student(0.562, 0.709)
+    cfg = wai.prime_rl_config("refunds-v1", _opd(), model="Qwen/Qwen3-4B", teacher_check=check)
+    assert not any("has not been scored" in w for w in cfg.warnings)
+    (line,) = [w for w in cfg.warnings if "not reachable yet" in w]
+    assert "at or below the student" in line
+
+
+def test_prime_rl_config_records_a_passing_teacher_check_instead_of_warning():
+    check = wai.methods.teacher_beats_student(0.85, 0.60)
+    cfg = wai.prime_rl_config("refunds-v1", _opd(), model="Qwen/Qwen3-4B", teacher_check=check)
+    assert not any("teacher_check" in w or "not reachable" in w for w in cfg.warnings)
+    assert "checked:" in cfg.text and "0.85" in cfg.text
+
+
+def test_prime_rl_config_warns_on_a_vocab_mismatch_and_names_the_fix():
+    cfg = wai.prime_rl_config(
+        "refunds-v1",
+        _opd(),
+        model="Qwen/Qwen3-4B",
+        teacher_check=wai.methods.teacher_beats_student(0.85, 0.60),
+        teacher_vocab_size=248320,
+        student_vocab_size=151936,
+    )
+    (line,) = [w for w in cfg.warnings if "vocab" in w]
+    assert "248320" in line and "151936" in line
+    assert "does not degrade gracefully" in line and "silently drops the signal" in line
+    assert "same tokenizer" in line or "same model family" in line
+
+
+def test_prime_rl_config_warns_when_vocab_was_never_checked_but_not_on_a_match():
+    check = wai.methods.teacher_beats_student(0.85, 0.60)
+    unchecked = wai.prime_rl_config(
+        "refunds-v1", _opd(), model="Qwen/Qwen3-4B", teacher_check=check
+    )
+    assert any("vocab size was not checked" in w for w in unchecked.warnings)
+
+    matching = wai.prime_rl_config(
+        "refunds-v1",
+        _opd(),
+        model="Qwen/Qwen3-4B",
+        teacher_check=check,
+        teacher_vocab_size=151936,
+        student_vocab_size=151936,
+    )
+    assert not any("vocab" in w for w in matching.warnings)
+
+
+def test_opsd_prime_rl_config_does_not_carry_the_opd_teacher_warnings():
+    # OPSD's teacher is the student itself (with a hint); the tokenizer and
+    # ceiling checks are OPD-only, and OPSD keeps its own warning unchanged.
+    cfg = wai.prime_rl_config("refunds-v1", wai.OPSD(), model="Qwen/Qwen3-8B")
+    assert not any("teacher_check" in w or "vocab" in w for w in cfg.warnings)
+    assert any("costs points on thinking models" in w for w in cfg.warnings)

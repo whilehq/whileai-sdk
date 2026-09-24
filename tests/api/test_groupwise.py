@@ -87,7 +87,7 @@ def test_factors_from_ranking_is_linear_with_ties():
 
 def test_front_door_and_defaults():
     assert wai.GroupwiseGrading is wai.methods.GroupwiseGrading is GroupwiseGrading
-    assert "GroupwiseGrading" not in wai.__all__  # one dot down; the front door stays at 31
+    assert "GroupwiseGrading" not in wai.__all__  # one dot down, off the front door
     g = GroupwiseGrading(grader=lambda group: {"ranking": []})
     assert g.mode == defaults.GROUPWISE_MODE == "advantage"
     assert g.cap == defaults.GROUPWISE_CAP

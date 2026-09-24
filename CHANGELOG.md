@@ -7,6 +7,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Method routing (#564): `wai.OPD` and `wai.prime_rl_config` are on the front door
+  (`whileai.__all__`, now 33 names); the trainer advisor (`selection_report`) can name
+  `wai.OPSD`, `wai.OPD` and `wai.GroupwiseGrading` for a floor, a stronger teacher or
+  quality-differing passes, instead of only `sft`/`grpo`/`dpo`/`rm`. New
+  `wai.methods.teacher_beats_student(teacher, student)` runs the ceiling check OPD's
+  docstring names; `prime_rl_config` warns loudly when an `OPD` run is written without it
+  (`teacher_check=`), and on a `teacher_vocab_size`/`student_vocab_size` mismatch.
+
 - Recipe `recipes/papers/talk-to-solve` (Park et al. arXiv:2502.18439): two copies of Qwen2.5-1.5B each see
   half the facts of a GSM8K problem and chat A B A B; GRPO pays every message the team's outcome. Moved
   +0.365 [+0.321, +0.409] over the same training with the channel cut (three seeds, H100); trained copies

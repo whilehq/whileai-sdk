@@ -171,3 +171,30 @@ print(rep)  # verdict usable / underpowered / saturated / floored, in_band, reso
 enough of them to resolve the gain you are after; `underpowered` names
 `n_needed`; `saturated` and `floored` mean the base already passes or fails
 nearly everything, so train on a harder or easier set first.
+
+## Past sft/grpo/dpo/rm: the research methods
+
+The hosted trainer only ever runs `sft`, `grpo`, `dpo` or `rm`.
+`wai.methods` ships more (`wai.OPD`, `wai.OPSD`, `wai.GroupwiseGrading`,
+`wai.Async`, the single-rollout methods) for your own GPUs through
+`wai.prime_rl_config`; `wai.simulations.training.selection_report`, the same
+call `train` uses to check a set before the GPU, names them in its
+`suggest` list when the profile calls for one:
+
+* `floored` (every task fails every rollout): resampling cannot reach it
+  (best-of-k ships a demonstration with probability `1 - (1 - p) ** k`, 0 at
+  `p=0` for every `k`) — reach for `wai.OPSD` or SFT on a teacher's
+  completions, not a larger `repeats=`.
+* every task passes every rollout: a binary-reward grouped method gives
+  them zero advantage and drops them even when the passes differ in
+  quality — `wai.GroupwiseGrading(grader=..., mode="reward")` reads that
+  back into the reward.
+* a stronger teacher on the same eval: pass `teacher_score=` and
+  `student_score=` (a `wai.pass_at(...)` result, or a bare pass rate) and
+  `selection_report` runs `wai.methods.teacher_beats_student` for you, the
+  check `wai.OPD`'s docstring names. Run it yourself before an OPD config:
+  a student cannot beat its teacher, so an OPD run needs the teacher scored
+  first, and `wai.prime_rl_config(..., wai.OPD(teacher), ...)` warns loudly
+  when `teacher_check=` was never passed in, and on a
+  `teacher_vocab_size=`/`student_vocab_size=` mismatch (a mismatched
+  tokenizer does not degrade gracefully; it silently drops the signal).

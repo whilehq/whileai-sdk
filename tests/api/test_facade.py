@@ -26,8 +26,10 @@ from whileai.config import reset
 # tests/api/test_style_ratchet.py moved with it, and the next name takes one off:
 # `Fireworks` took `Settings` (the class behind `wai.settings`) off the list,
 # and `Harness` (#712) took `Selection` (the type `select` returns; it still
-# resolves as `wai.Selection` for isinstance) off it.
-TOP_LEVEL_CAP = 31
+# resolves as `wai.Selection` for isinstance) off it. `OPD` and `prime_rl_config`
+# (method-routing task, #564) raised it to thirty-three on purpose: they were
+# reachable but undocumented at the front door, not new surface for its own sake.
+TOP_LEVEL_CAP = 33
 
 
 @pytest.fixture(autouse=True)
