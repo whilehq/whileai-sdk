@@ -182,19 +182,26 @@ call `train` uses to check a set before the GPU, names them in its
 `suggest` list when the profile calls for one:
 
 * `floored` (every task fails every rollout): resampling cannot reach it
-  (best-of-k ships a demonstration with probability `1 - (1 - p) ** k`, 0 at
-  `p=0` for every `k`) — reach for `wai.OPSD` or SFT on a teacher's
-  completions, not a larger `repeats=`.
+  (rejection sampling trains only on the completions it keeps, and `k` draws
+  keep one with probability `1 - (1 - p) ** k`, 0 at `p=0` for every `k`;
+  [RLHF Book, Rejection Sampling](https://rlhfbook.com/c/09-rejection-sampling.html))
+  — reach for `wai.OPSD` or SFT on a teacher's
+  completions, not a larger `repeats=` (OPSD: Zhao et al. 2026,
+  arXiv:2601.18734; [RLHF Book, Synthetic Data & Distillation](https://rlhfbook.com/c/12-synthetic-data.html)).
 * every task passes every rollout: a binary-reward grouped method gives
   them zero advantage and drops them even when the passes differ in
-  quality — `wai.GroupwiseGrading(grader=..., mode="reward")` reads that
+  quality (all-0/all-1 groups carry no signal, DAPO dynamic sampling;
+  [RLHF Book, Reinforcement Learning](https://rlhfbook.com/c/06-policy-gradients.html))
+  — `wai.GroupwiseGrading(grader=..., mode="reward")` reads that
   back into the reward.
 * a stronger teacher on the same eval: pass `teacher_score=` and
   `student_score=` (a `wai.pass_at(...)` result, or a bare pass rate) and
   `selection_report` runs `wai.methods.teacher_beats_student` for you, the
   check `wai.OPD`'s docstring names. Run it yourself before an OPD config:
-  a student cannot beat its teacher, so an OPD run needs the teacher scored
-  first, and `wai.prime_rl_config(..., wai.OPD(teacher), ...)` warns loudly
+  OPD's per-token advantage `log pi_T - log pi_theta` pulls the student toward
+  the teacher ([RLHF Book, Synthetic Data & Distillation](https://rlhfbook.com/c/12-synthetic-data.html),
+  eq. 10), so an OPD run needs the teacher scored first, and `wai.prime_rl_config(..., wai.OPD(teacher), ...)` warns loudly
   when `teacher_check=` was never passed in, and on a
   `teacher_vocab_size=`/`student_vocab_size=` mismatch (a mismatched
-  tokenizer does not degrade gracefully; it silently drops the signal).
+  tokenizer does not degrade gracefully; it silently drops the signal, SimCT
+  arXiv:2605.07711, and the book notes KD needs a shared tokenizer).

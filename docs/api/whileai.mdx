@@ -263,10 +263,15 @@ at `temperature` and capped at `max_tokens`. `learning_rate`
 left `None` is 1e-4 for an adapter and 1e-6 for full weights
 (`OPD_LEARNING_RATE_LORA`, `OPD_LEARNING_RATE_FULL`).
 
-Before spending the GPU, know two things the papers say decide the
-run: the teacher has to beat the student on these tasks (the student
-saturates at the teacher's ceiling), and the two have to share a
-tokenizer (a mismatch silently drops the signal, SimCT, arXiv:2605.07711).
+Before spending the GPU, know two things that decide the run. The
+teacher has to beat the student on these tasks: OPD's per-token
+advantage is `log pi_T - log pi_theta` (Lambert 2025, chapter
+Synthetic Data and Distillation, eq. 10), which pulls the student
+toward the teacher, so a teacher no better than the student has
+nothing to pull it toward. And the two have to share a tokenizer, since
+the supervision is per token (Lambert 2025, chapter Synthetic Data and
+Distillation; a mismatch silently drops the signal, SimCT,
+arXiv:2605.07711).
 Score both with `wai.pass_at` on the same holdout and call
 `wai.methods.teacher_beats_student(teacher_pass_at, student_pass_at)`
 first; `prime_rl_config` warns loudly when an `OPD` run is written

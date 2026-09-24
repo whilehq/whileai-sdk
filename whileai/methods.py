@@ -213,10 +213,15 @@ class OPD:
     left ``None`` is 1e-4 for an adapter and 1e-6 for full weights
     (``OPD_LEARNING_RATE_LORA``, ``OPD_LEARNING_RATE_FULL``).
 
-    Before spending the GPU, know two things the papers say decide the
-    run: the teacher has to beat the student on these tasks (the student
-    saturates at the teacher's ceiling), and the two have to share a
-    tokenizer (a mismatch silently drops the signal, SimCT, arXiv:2605.07711).
+    Before spending the GPU, know two things that decide the run. The
+    teacher has to beat the student on these tasks: OPD's per-token
+    advantage is ``log pi_T - log pi_theta`` (Lambert 2025, chapter
+    Synthetic Data and Distillation, eq. 10), which pulls the student
+    toward the teacher, so a teacher no better than the student has
+    nothing to pull it toward. And the two have to share a tokenizer, since
+    the supervision is per token (Lambert 2025, chapter Synthetic Data and
+    Distillation; a mismatch silently drops the signal, SimCT,
+    arXiv:2605.07711).
     Score both with ``wai.pass_at`` on the same holdout and call
     ``wai.methods.teacher_beats_student(teacher_pass_at, student_pass_at)``
     first; ``prime_rl_config`` warns loudly when an ``OPD`` run is written
@@ -296,10 +301,11 @@ def teacher_beats_student(
 ) -> dict[str, Any]:
     """Score the teacher before ``OPD`` spends the GPU on it.
 
-    ``OPD`` trains the student toward the teacher's own distribution, so
-    a student that already matches or beats its teacher has nothing to
-    gain (the student saturates at the teacher's ceiling, Agarwal et al.
-    2023, arXiv:2306.13649). The ``OPD`` docstring names this check;
+    ``OPD`` trains the student toward the teacher's own distribution
+    (reverse KL at the student's own states, Agarwal et al. 2023,
+    arXiv:2306.13649; advantage ``log pi_T - log pi_theta``, Lambert 2025,
+    chapter Synthetic Data and Distillation, eq. 10), so a student that
+    already matches or beats its teacher has nothing to gain. The ``OPD`` docstring names this check;
     nothing ran it until now. Score the teacher on the same holdout the
     student was last scored on and call this before
     ``wai.prime_rl_config(env, wai.OPD(teacher), model=...)``.
@@ -341,7 +347,7 @@ def teacher_beats_student(
         message = (
             f"the teacher scores {t_mean:g}, at or below the student's {s_mean:g}; OPD would "
             "train the student toward a distribution no better than what it already has "
-            "(arXiv:2306.13649). Score a stronger teacher, or reach for plain GRPO or "
+            "(arXiv:2306.13649; Lambert 2025, chapter Synthetic Data and Distillation). Score a stronger teacher, or reach for plain GRPO or "
             "wai.GroupwiseGrading (passes differ in quality) instead."
         )
     else:
@@ -1863,7 +1869,8 @@ def prime_rl_config(
             if teacher_check is None:
                 warnings.append(
                     "the teacher has not been scored against the student on this holdout "
-                    "(teacher_check= is None): a student cannot beat its teacher, so this run is "
+                    "(teacher_check= is None): OPD pulls the student toward the teacher (Lambert "
+                    "2025, chapter Synthetic Data and Distillation), so this run is "
                     "doomed exactly when the teacher does not clearly beat the student and "
                     "nothing here would say so. Score both with wai.pass_at on the same rows and "
                     "pass wai.methods.teacher_beats_student(teacher_pass_at, student_pass_at) as "
@@ -1881,7 +1888,8 @@ def prime_rl_config(
                         f"teacher_vocab_size ({teacher_vocab_size}) does not match "
                         f"student_vocab_size ({student_vocab_size}): OPD scores the teacher on "
                         "the student's own tokens, and a mismatched pair does not degrade "
-                        "gracefully, it silently drops the signal (SimCT, arXiv:2605.07711). "
+                        "gracefully, it silently drops the signal (SimCT, arXiv:2605.07711; KD needs a "
+                        "shared tokenizer, Lambert 2025, chapter Synthetic Data and Distillation). "
                         "Serve the teacher from a checkpoint that shares the student's tokenizer, "
                         "or pick a teacher in the same model family as model=."
                     )

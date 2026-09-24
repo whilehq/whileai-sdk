@@ -410,7 +410,8 @@ def test_hosted_train_names_update_for_a_single_rollout_method():
 def test_teacher_beats_student_reproduces_the_measured_opd_regression():
     # #issue 564: an OPD run lost 14.8 points because the teacher (Qwen3.5-9B,
     # 56.2) was never scored against the student's GRPO best (70.9) first; a
-    # student cannot beat its teacher, so the run was doomed before it began.
+    # teacher no better than the student gives OPD nothing to pull toward, so
+    # the run was doomed before it began.
     check = wai.methods.teacher_beats_student(0.562, 0.709)
     assert check["beats"] is False
     assert check["verdict"] == "does not beat"

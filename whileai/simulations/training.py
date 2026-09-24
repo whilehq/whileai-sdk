@@ -730,14 +730,18 @@ def selection_report(
     refusal, fewer than ``min_mixed_tasks`` (``TRAIN_MIN_MIXED_TASKS``,
     32) is a warning with the count. A complete per-task table
     (``profile["per_task"]``) is read further: every task unanimously
-    failing every rollout is a floor no amount of resampling reaches (a
-    best-of-k demonstration ships with probability ``1 - (1 - p) ** k``,
-    which is 0 at ``p=0`` for every ``k``, Lambert 2025, chapter Rejection
-    Sampling), so the suggestion there is ``wai.OPSD`` (a hint or
-    reference the trainer supplies, not a demonstration it cannot draw)
-    or SFT on a teacher's completions, never more rollouts. Every task
-    unanimously passing is dropped by a binary-reward grouped method
-    (zero advantage, Shao et al. 2024, arXiv:2402.03300) even when the
+    failing every rollout is a floor no amount of resampling reaches:
+    rejection sampling trains only on the completions it keeps (Lambert
+    2025, chapter Rejection Sampling), and ``k`` independent draws at pass
+    rate ``p`` keep one with probability ``1 - (1 - p) ** k``, which is 0
+    at ``p=0`` for every ``k``. So the suggestion there is ``wai.OPSD`` (a
+    hint or reference the trainer supplies, not a demonstration it cannot
+    draw; Zhao et al. 2026, arXiv:2601.18734; Lambert 2025, chapter
+    Synthetic Data and Distillation) or SFT on a teacher's completions,
+    never more rollouts. Every task unanimously passing is dropped by a
+    binary-reward grouped method (zero advantage, Shao et al. 2024,
+    arXiv:2402.03300; all-0/all-1 groups carry no signal, DAPO dynamic
+    sampling, Lambert 2025, chapter Reinforcement Learning) even when the
     passes differ in quality, which is exactly what
     ``wai.GroupwiseGrading(mode="reward")`` (GRS, MiMo-V2.6 2026, section
     4.3.1) reads back into the reward.
@@ -799,7 +803,7 @@ def selection_report(
             suggest.append(
                 f"{all_pass} of {len(repeated)} tasks pass every rollout: a binary-reward "
                 "grouped method gives them zero advantage and drops them (Shao et al. 2024, "
-                "arXiv:2402.03300); if the passes differ in quality, wai.GroupwiseGrading("
+                "arXiv:2402.03300; Lambert 2025, chapter Reinforcement Learning); if the passes differ in quality, wai.GroupwiseGrading("
                 'grader=..., mode="reward") (GRS, MiMo-V2.6 2026, section 4.3.1) reads that '
                 "back into the reward and keeps them."
             )
@@ -808,12 +812,13 @@ def selection_report(
             if all_pass == 0 and repeated and all_fail == len(repeated):
                 suggest.append(
                     f"all {all_fail} repeated tasks fail every rollout: a floor "
-                    '(eval_power\'s "floored" verdict). Best-of-k ships a demonstration with '
-                    "probability 1 - (1 - p) ** k, which is 0 at p=0 for every k (Lambert 2025, "
-                    "chapter Rejection Sampling), so more rollouts will not reach it; "
+                    '(eval_power\'s "floored" verdict). Rejection sampling trains only on the '
+                    "completions it keeps (Lambert 2025, chapter Rejection Sampling), and k "
+                    "draws keep one with probability 1 - (1 - p) ** k, which is 0 at p=0 for "
+                    "every k, so more rollouts will not reach it; "
                     'wai.OPSD(privileged="reference") (the trainer supplies the answer, it does '
                     "not need a passing rollout to learn from, Zhao et al. 2026, "
-                    "arXiv:2601.18734) or SFT on a teacher's completions reaches it instead, "
+                    "arXiv:2601.18734; Lambert 2025, chapter Synthetic Data and Distillation) or SFT on a teacher's completions reaches it instead, "
                     "never a larger repeats=."
                 )
     else:
