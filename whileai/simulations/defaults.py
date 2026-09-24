@@ -1115,6 +1115,50 @@ TRAINING_SFT_EPOCHS = 2
 TRAIN_MIN_MIXED_TASKS = 32
 
 # ---------------------------------------------------------------------
+# route (whileai.methods.route): which method a graded pool can support
+# ---------------------------------------------------------------------
+#
+# ROUTE_MIN_MIXED_SHARE = 0.3: the share of grouped tasks inside
+# DIFFICULTY_BAND below which grpo is not routed even when the count
+# clears TRAIN_MIN_MIXED_TASKS; the "below 0.3 N" gate in
+# skills/strengthen-your-evals. A unanimous group has zero advantage
+# (Lambert 2025, chapter Reinforcement Learning: DAPO drops all-0/all-1
+# groups), so under this share most of the GPU steps on nothing.
+# (convention, untested)
+ROUTE_MIN_MIXED_SHARE = 0.3
+# ROUTE_FLOOR_SHARE = 0.5: the share of grouped tasks that fail every
+# rollout at which OPSD (or SFT from a stronger model) is scored as
+# runnable; ``route`` still prefers grpo while the pool has its in-band
+# groups. At p=0 best-of-k keeps a demonstration with probability
+# 1-(1-p)**k = 0 for every k (Lambert 2025, chapter Rejection Sampling:
+# only kept completions train). (convention, untested)
+ROUTE_FLOOR_SHARE = 0.5
+# ROUTE_OPSD_MIN_PARAMS_B = 7: the student size, in billions of
+# parameters, under which OPSD is not routed. Self-distillation needs
+# in-context learning strong enough to use the hint; SDFT
+# (arXiv:2601.19897) and SDPO (arXiv:2601.20802) report it failing under
+# about 7B, and the package's own run lost -0.554 [-0.614, -0.495] to GRPO
+# on Qwen3-0.6B (recipes/04-train/prime-rl/results.json).
+ROUTE_OPSD_MIN_PARAMS_B = 7
+# ROUTE_TEACHER_MAX_TRUNCATED = 0.05: the share of the teacher's replies,
+# scored at the student's token cap, that may end cut off before OPD is
+# routed. A teacher that wins only with a longer budget is truncated
+# inside the run and teaches the student to run to the cap.
+# (convention, untested)
+ROUTE_TEACHER_MAX_TRUNCATED = 0.05
+# ROUTE_MAX_K = 32: the largest rollouts-per-task ``route`` will suggest in
+# ``need["k"]`` before saying more rollouts cannot reach the share; past
+# it the pool is a floor or saturated, not under-sampled.
+# (convention, untested)
+ROUTE_MAX_K = 32
+# ROUTE_MIN_TASKS_FOR_K = 30: under this many grouped tasks ``route`` asks
+# for more tasks, never a larger k. The standard error of a mean over tasks
+# is at least sd_between / sqrt(n) whatever k is, so rollouts cannot buy
+# what tasks can (the "below 30 asks, add asks" gate in
+# skills/strengthen-your-evals). (convention, untested)
+ROUTE_MIN_TASKS_FOR_K = 30
+
+# ---------------------------------------------------------------------
 # monitor
 # ---------------------------------------------------------------------
 #
