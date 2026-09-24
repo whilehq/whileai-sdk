@@ -10,6 +10,23 @@ and fails if a code block in a playbook drifts from the code that ran
 (`tests/skills/test_skills.py`). What an agent copies out of a skill is code
 that passed this morning.
 
+## The flow
+
+A research lab's loop, in the order a coding agent should run it. `wai init`
+installs the five marked `*`.
+
+1. **Data**: `whileai-simulations/` * writes the situations and rollouts.
+2. **Judge**: `audit-your-judge/` * before any score is trusted.
+3. **Eval**: `strengthen-your-evals/` * builds the frozen test that can fail.
+4. **Method**: `pick-a-method/` * reads the graded rows and names the method and its knobs.
+5. **Train**: the method's own skill: `sft-from-traces/`, `dpo-pairs/`,
+   `grpo-verifier/`, `tool-call-efficiency/`, `character/`; or, before
+   touching weights, `harness-search/`.
+6. **Report**: `manage-experiments/` * for every second version, sweep or run.
+7. **Watch**: `watch/` once a version serves.
+
+The math behind every method is `docs/reference/methods.md`.
+
 | Skill | Use when | Trains with |
 |---|---|---|
 | `sft-from-traces/` | you have production traces and some good replies in them | SFT rows by rejection sampling |
@@ -21,7 +38,9 @@ that passed this morning.
 | `strengthen-your-evals/` | an agent on a frontier model or your own weights needs evals that can fail and a number with an interval | nothing; it builds the frozen test, checks the judge, and reports every behavior |
 | `manage-experiments/` | you are about to post a second version, a sweep, a replicate or a training run | nothing; it makes the page readable: the question first, per run Changed / Moved / Why / Learned / Reproduce, one chart, failed rows, points not fractions, `readback(tracked)` |
 | `harness-search/` | the thing to improve is the harness (prompt, tools, turn cap, retry), not the weights | nothing; it is the Meta-Harness loop (Lee et al. 2026, arXiv:2603.28052) on the agent's own traffic: `--traces` yesterday's rows, the latest days held out, read `proposal.md`, write the next `candidates/<n>.py`, run, read the ledger, stop when the gate passes (holdout, held-out model, matched cost), report Changed / Moved / Why / Learned / Reproduce, score the next day |
+| `pick-a-method/` | you have graded rows and must choose a method or its knobs, from all the SDK ships | nothing; six questions (grader, truncation, rollouts per prompt, band, on-policy, teacher) route to hosted sft/grpo/dpo, prime-rl grpo/max_rl/rae, OPSD, OPD, GroupwiseGrading, Async, FlashReinforce/SAO/BPCO or ReinforceAda, and name the skill that trains it |
 | `whileai-simulations/` | you need more situations than the traces contain | nothing; it is the simulate-grade-select loop |
+| `audit-your-judge/` | before Grade's scores are trusted or Select curates rows by them | nothing; it labels a sample blind, compares judges, ablates the rubric, and reverses the order |
 
 ## Every skill ends the same way
 
