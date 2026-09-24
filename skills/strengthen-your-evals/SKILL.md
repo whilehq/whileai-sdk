@@ -262,7 +262,9 @@ judge block, and the run record.
 
 ## Gates, with the math, before you spend
 
-Each is a line of arithmetic on numbers you already have. Every one was
+Each is a line of arithmetic on numbers you already have. Four of them
+(mixed groups, truncation, teacher before student, the random-reward arm)
+also decide which method to train; `pick-a-method/` routes on them. Every one was
 skipped by a coding agent in dogfooding (2026-09-24, 314 runs audited), and
 the run it would have saved is named.
 
