@@ -39,7 +39,8 @@ reads only the reply's tone; `accurate`, which reads the tool calls),
 `generous_with_clause` and `accurate_with_clause` (the same two with one
 extra rubric clause), `prefers` (a pairwise pick that breaks ties by
 position), `BLIND_LABELS` (the codebook applied with no judge's verdict in
-view), and `fake` (a recording transport that answers like the platform).
+view), and `fake` (a recording transport that answers like the platform). It imports `wai` as `import whileai as wai`, and `attach_labels`,
+`evaluate` from `whileai.simulations`.
 
 ## Four traps in the SDK
 
@@ -81,7 +82,7 @@ half-width is about `1.96 * sqrt(0.25 / n_fail)`: 24 failures give
 ±20 points, 96 give ±10. Count `n_fail` before you trust the rate.
 
 ```python
-labeled, label_report = wai.attach_labels(ROWS, BLIND_LABELS, annotator="reviewer", kind="human")
+labeled, label_report = attach_labels(ROWS, BLIND_LABELS, annotator="reviewer", kind="human")
 table = compare_judges(
     labeled, {"always pass": always_pass, "generous": generous, "accurate": accurate}
 )
@@ -252,7 +253,7 @@ JUDGE = Judge(
     agreement=table["accurate"].agreement,
     human_n=table["accurate"].n,
 )
-scored = {v: wai.evaluate(d.rows(), accurate, tools=LIVE_TOOLS) for v, d in data.items()}
+scored = {v: evaluate(d.rows(), accurate, tools=LIVE_TOOLS) for v, d in data.items()}
 ```
 
 Every skill ends the same way (`skills/README.md`): score every behavior,
