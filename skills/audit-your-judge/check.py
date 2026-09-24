@@ -20,9 +20,10 @@ import sys
 import time
 from typing import Any
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.judge_comparison import compare_judges
 from whileai.platform import Behavior, Data, EvalSetup, Harness, Judge, RunRecord, track
+from whileai.simulations import attach_labels, evaluate, marker_summary
 
 T0 = time.monotonic()
 
@@ -211,7 +212,7 @@ BLIND_LABELS = [
 ]
 
 # ---- 3. attach the labels, then compare judges
-labeled, label_report = wai.attach_labels(ROWS, BLIND_LABELS, annotator="reviewer", kind="human")
+labeled, label_report = attach_labels(ROWS, BLIND_LABELS, annotator="reviewer", kind="human")
 table = compare_judges(
     labeled, {"always pass": always_pass, "generous": generous, "accurate": accurate}
 )
@@ -472,7 +473,7 @@ JUDGE = Judge(
     agreement=table["accurate"].agreement,
     human_n=table["accurate"].n,
 )
-scored = {v: wai.evaluate(d.rows(), accurate, tools=LIVE_TOOLS) for v, d in data.items()}
+scored = {v: evaluate(d.rows(), accurate, tools=LIVE_TOOLS) for v, d in data.items()}
 
 
 def score(rows):
@@ -485,7 +486,7 @@ def score(rows):
 def behaviors(rows):
     """The headline, plus every marker the judge above reports, as its own behavior."""
     out = {"refund_policy": score(rows)}
-    for name, m in wai.marker_summary(rows).items():
+    for name, m in marker_summary(rows).items():
         if m["n_tasks"] < 3:
             continue
         lo, hi = m["ci95"] or (m["mean"], m["mean"])
@@ -503,7 +504,7 @@ assert v2[0] > v1[0], (v1, v2)  # the fixed version should score higher under th
 
 first = score(scored["v1"].rows)
 again = score(
-    wai.evaluate(holdout(VERSIONS["v1"], tasks=frozen).rows(), accurate, tools=LIVE_TOOLS).rows
+    evaluate(holdout(VERSIONS["v1"], tasks=frozen).rows(), accurate, tools=LIVE_TOOLS).rows
 )
 NOISE = round(abs(first[0] - again[0]), 1)  # points; a scripted agent gives 0
 assert NOISE == 0.0, NOISE
