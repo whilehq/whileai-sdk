@@ -22,6 +22,7 @@ that passed this morning.
 | `manage-experiments/` | you are about to post a second version, a sweep, a replicate or a training run | nothing; it makes the page readable: the question first, per run Changed / Moved / Why / Learned / Reproduce, one chart, failed rows, points not fractions, `readback(tracked)` |
 | `harness-search/` | the thing to improve is the harness (prompt, tools, turn cap, retry), not the weights | nothing; it is the Meta-Harness loop (Lee et al. 2026, arXiv:2603.28052) on the agent's own traffic: `--traces` yesterday's rows, the latest days held out, read `proposal.md`, write the next `candidates/<n>.py`, run, read the ledger, stop when the gate passes (holdout, held-out model, matched cost), report Changed / Moved / Why / Learned / Reproduce, score the next day |
 | `whileai-simulations/` | you need more situations than the traces contain | nothing; it is the simulate-grade-select loop |
+| `audit-your-judge/` | before Grade's scores are trusted or Select curates rows by them | nothing; it labels a sample blind, compares judges, ablates the rubric, and reverses the order |
 
 ## Every skill ends the same way
 
