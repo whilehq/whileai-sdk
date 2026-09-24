@@ -362,7 +362,9 @@ def test_judge_trust_length_and_flip_flags_are_knobs():
     )
     assert quiet["length_sensitivity"]["flagged"] is False
     assert quiet["perturbation"]["flagged_length"] is False
-    assert not any("length" in w for w in quiet["warnings"])
+    # "length" alone would also match this judge's own name (length_judge);
+    # the two length-bias phrasings are what the raised flags would say
+    assert not any("length bias" in w or "reads length" in w for w in quiet["warnings"])
     assert judge_trust.perturbation(rows, length_judge, flip_flag=1.1)["flagged_length"] is False
     probes = judge_trust.judge_probes(rows, length_judge, probes=["filler"], flip_flag=1.1)
     assert probes["probes"]["filler"]["flagged"] is False and probes["exploitable_by"] == []

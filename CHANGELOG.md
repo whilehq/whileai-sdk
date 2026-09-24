@@ -7,6 +7,20 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Three calls let a caller believe a judge was validated when nothing measured it (2026-09-24
+  dogfooding, Constitution.md §1: a number is a result only with the measurement behind it).
+  `platform.Judge(agreement=, human_n=)` are declared fields; a new `verified` flag (default
+  `False`) keeps a typed-in pair from scoring a green check on the Runs page judge check.
+  `judge_trust(rows, judge)` graded the `reward` already on the row, never a fresh call to
+  `judge`; an unstamped reward with no record it came from any judge now warns
+  ("Judge agreement is unverified") and fails the check, instead of trusting whatever the
+  default perturbation sample happened to sample. `GroupwiseGrading.check_spread` /
+  `groupwise.spread` scored variance only ("spread: yes" read as "trustworthy"); the report
+  now says spread does not establish accuracy or freedom from bias. `attach_labels(kind=)` no
+  longer defaults silently to `"human"`: omitting it still defaults to `"human"` for one
+  release, but raises a `UserWarning` and records the same line in the report, so a model's
+  labels recorded without `kind="model"` are loud, not silent.
+
 - Recipe `recipes/papers/talk-to-solve` (Park et al. arXiv:2502.18439): two copies of Qwen2.5-1.5B each see
   half the facts of a GSM8K problem and chat A B A B; GRPO pays every message the team's outcome. Moved
   +0.365 [+0.321, +0.409] over the same training with the channel cut (three seeds, H100); trained copies

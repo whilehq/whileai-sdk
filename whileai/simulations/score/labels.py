@@ -18,6 +18,7 @@ agreed, and Cohen's kappa for a pair.
 from __future__ import annotations
 
 import time
+import warnings as _stdlib_warnings
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -168,7 +169,7 @@ def attach_labels(
     labels: Any,
     *,
     annotator: str | None = None,
-    kind: str = "human",
+    kind: str | None = None,
     replace: bool = False,
 ) -> tuple[list[dict], dict[str, Any]]:
     """Write hand labels onto rows (in place) and return ``(rows, report)``.
@@ -184,6 +185,15 @@ def attach_labels(
     test, a rule over tool calls), ``"model"`` for a stronger model's.
     Any other string raises ``ValueError`` naming the accepted set, so a
     typo cannot silently downgrade the gold (#343).
+
+    ``kind`` has no default: a model's labels recorded as ``"human"`` by a
+    forgotten argument taught a judge check to trust a measurement no
+    person ever made (2026-09-24 dogfooding). Leaving it out defaults to ``"human"`` for
+    one release, same as before, but the call raises a ``UserWarning``
+    naming the fix (``attach_labels(rows, labels, kind="human")`` for a
+    person's labels, ``kind="model"`` for a model's) and the report
+    carries the same line in ``warnings``, so it is loud rather than a
+    silent guess either way you read the call.
 
     Each row gains ``gold_labels`` (every label, appended unless
     ``replace``), ``gold_reward``, the majority of its labels, and
@@ -212,6 +222,15 @@ def attach_labels(
     bare ``[0, 1, 1, 0]``) raises naming the item and the accepted
     shapes, since a label with no row identity cannot be attached (#685).
     """
+    kind_defaulted_note: str | None = None
+    if kind is None:
+        kind = "human"
+        kind_defaulted_note = (
+            "kind was not given: defaulted to 'human' for these labels. If a model wrote "
+            "them, that is wrong and silent unless said here — pass kind='model' explicitly "
+            "(kind='human' says the same thing on purpose, without the warning)."
+        )
+        _stdlib_warnings.warn(f"attach_labels: {kind_defaulted_note}", stacklevel=2)
     kind = GOLD_KIND_ALIASES.get(kind, kind)
     if kind not in GOLD_KINDS:
         raise ValueError(
@@ -301,6 +320,8 @@ def attach_labels(
         ),
     }
     warnings: list[str] = []
+    if kind_defaulted_note:
+        warnings.append(kind_defaulted_note)
     if unmatched:
         shown = ", ".join(repr(k) for k in unmatched[:SHOWN_KEYS])
         warnings.append(

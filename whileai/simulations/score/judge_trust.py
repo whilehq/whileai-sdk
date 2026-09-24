@@ -648,6 +648,44 @@ def _foreign_reward_note(
     )
 
 
+def _unverified_reward_note(
+    rows: Sequence[dict], judge: Callable[[dict], Any] | None, judge_name: str | None = None
+) -> str | None:
+    """The line for rows whose ``reward`` carries no stamp naming any scorer.
+
+    ``_foreign_reward_note`` catches a reward a NAMED other scorer wrote.
+    An unstamped row (``reward`` set by hand, copied in, or written by a
+    pipeline that never called ``run_judge``/``data.grade``) carries no
+    such name, so that check stays quiet and agreement, kappa and the
+    halves are read straight off it as if they were ``judge``'s own
+    verdicts. The perturbation pass re-judges only a sample
+    (``sample``, default ``JUDGE_CHECK_SAMPLE``), so a skewed sample can
+    miss the gap by chance: a constant, gold-blind judge on 100 rows (95
+    majority-class, 5 minority) cleared the 40-row default sample at seed
+    0 and printed PASS at 100% agreement, kappa 1.00, because the sample
+    it drew happened to hold none of the 5 rows where it disagreed (2026-09-24 dogfooding).
+    Without a stamp there is no record the number on the row is ``judge``'s
+    at all, so this says so plainly instead of betting the sample caught
+    it.
+    """
+    from .judging import stamp_name
+
+    if judge is None:
+        return None
+    unstamped = sum(1 for r in rows if not r.get("judge_name"))
+    if not unstamped:
+        return None
+    name = stamp_name(judge, judge_name)
+    return (
+        f"Judge agreement is unverified: {unstamped} of {len(rows)} labeled rows carry no "
+        f"judge_name stamp, so nothing shows their reward ever came from {name} (or any "
+        f"judge). Every number above this line measures whatever produced that reward, not a "
+        f"proven call to {name}, and a small or unlucky perturbation sample can miss a real "
+        f"gap. Regrade the rows with {name} (run_judge or data.grade), then run judge_trust "
+        "again."
+    )
+
+
 def judge_trust(
     rows: Sequence[dict],
     judge: Callable[[dict], Any] | None = None,
@@ -786,6 +824,12 @@ def judge_trust(
     foreign = _foreign_reward_note(labeled, judge, judge_name) if judge else None
     if foreign:
         warnings.append(foreign)
+    else:
+        # No stamp names another scorer; that alone does not mean the
+        # reward is proven to be `judge`'s (2026-09-24 dogfooding, see _unverified_reward_note).
+        unverified = _unverified_reward_note(labeled, judge, judge_name) if judge else None
+        if unverified:
+            warnings.append(unverified)
     # Rows the judge scored between 0 and 1 never reach the agreement
     # count, and they are the rows it was least sure about, so the rows
     # that remain agree more than the sample would (#345). Over the floor
@@ -955,6 +999,7 @@ def _flagged(warnings: Sequence[str]) -> bool:
             (
                 "Judge agreement with",
                 "Judge agreement skipped",
+                "Judge agreement is unverified",
                 "Judge under audit is",
                 "Judge kappa with",
                 "judge pass rate differs",

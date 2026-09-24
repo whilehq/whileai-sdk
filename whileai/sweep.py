@@ -387,6 +387,7 @@ class HarnessSweep:
             name=getattr(self.judge, "__name__", "judge"),
             agreement=agreement["agreement"],
             human_n=agreement["n"],
+            verified=True,  # just measured by judge_trust above, not typed in
         )
 
     # ------------------------------------------------------------------- run

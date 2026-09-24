@@ -168,7 +168,15 @@ class SpreadReport(Report):
             f"{self['within_band'] * 100:.0f}% within {self['band']} of the median {self['median']:.2f}"
         )
         if self["ok"]:
-            return head + "\nspread: yes. The grader tells these passes apart."
+            return (
+                head
+                + "\nspread: yes. The grader's scores on these passes vary; that alone does not "
+                "establish they are accurate or unbiased. A position- or length-biased grader "
+                "spreads its scores too (a position-biased judge scored 0.211 here against a "
+                "discriminating program grader's 0.099, both 'spread: yes', 2026-09-21). Check "
+                "it against gold labels with judge_trust or compare_judges before trusting the "
+                "ranking."
+            )
         return (
             head
             + f"\nno spread (std under {self['min_std']} or over {self['cluster_share'] * 100:.0f}% "

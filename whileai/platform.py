@@ -25,7 +25,9 @@ describe it by hand::
             name="refunds",
             test_version="v2",
             n=240,
-            judge=Judge(agreement=0.86, human_n=60, length_bias=0.08),
+            # agreement, human_n from wai.judge_trust(rows, judge)["agreement"]; verified=True
+            # says these numbers were measured, not typed in (Judge(verified=) below)
+            judge=Judge(agreement=0.86, human_n=60, length_bias=0.08, verified=True),
             noise_floor=2.4,
             reward_is_judge=False,
         )
@@ -252,12 +254,24 @@ class Judge(_Wire):
     Chatbot Arena"). ``length_bias`` is the correlation of score with
     reply length, the bias that length-controlled AlpacaEval (Dubois et
     al. 2024) was built to remove.
+
+    ``agreement`` and ``human_n`` are declared fields: typing numbers here
+    proves nothing by itself, so ``verified`` defaults to ``False`` and
+    the Runs page's judge check reads it — an unverified pair never scores
+    a green check, whatever the numbers say (2026-09-24 dogfooding; rigor
+    lives behind a default, never behind a flag, Constitution.md §5).
+    Set ``verified=True`` only
+    when ``agreement`` and ``human_n`` came off an actual measurement
+    (``wai.judge_trust(rows, judge)["agreement"]``, or
+    ``wai.compare_judges(...)[name]``), not off a guess or a memory of a
+    past run.
     """
 
     name: str | None = None
     agreement: float | None = Field(default=None, ge=0, le=1)
     human_n: int | None = Field(default=None, ge=0)
     length_bias: float | None = Field(default=None, ge=-1, le=1)
+    verified: bool = False
 
 
 class Behavior(_Wire):
@@ -1292,6 +1306,7 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
     j = b.judge
     agreement = getattr(j, "agreement", None) if j is not None else None
     human_n = getattr(j, "human_n", None) if j is not None else None
+    verified = bool(getattr(j, "verified", False)) if j is not None else False
     program = b.graded_by == "program"
     if program:
         # A verifier has no agreement to measure: there is no judge (#614).
@@ -1302,6 +1317,17 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
             "judge never checked against people",
             "check the judge against people",
         )
+    elif not verified:
+        # Typed numbers with nothing behind them read the same as a
+        # measured pair unless the check says otherwise: a caller can type
+        # Judge(agreement=0.98, human_n=60) and get a green card for a
+        # judge nothing ever checked (2026-09-24 dogfooding). A declared number is fine to
+        # carry; it just never earns the check on its own say-so.
+        j_value = (
+            f"{agreement:.2f} on {human_n if human_n is not None else '?'} (declared, unverified)"
+        )
+        j_why = "these numbers were typed into Judge(), not measured: nothing here ran the judge"
+        j_action = "measure it, then declare it verified"
     elif agreement < R["min_agreement"]:
         j_value = f"{agreement:.2f} on {human_n if human_n is not None else '?'}"
         j_why = f"judge agrees with people {agreement:.2f}, under {R['min_agreement']}"
@@ -1319,7 +1345,8 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
             label="judge",
             ok=program
             or (
-                agreement is not None
+                verified
+                and agreement is not None
                 and agreement >= R["min_agreement"]
                 and (human_n or 0) >= R["min_human_n"]
             ),
@@ -1328,13 +1355,15 @@ def eval_checks(b: Behavior, versions: Sequence[VersionScore]) -> EvalHealth:
             action=j_action,
             rule=(
                 f"Agreement with people at least {R['min_agreement']} on at least "
-                f"{R['min_human_n']} hand labels; a program grader (graded_by='program') has "
-                "no judge to check."
+                f"{R['min_human_n']} hand labels, from an actual measurement "
+                "(Judge(verified=True)); a program grader (graded_by='program') has no judge "
+                "to check."
             ),
             cite=_CITE["zheng"],
             fix=(
-                "wai.attach_labels(rows, labels, kind='human'); wai.judge_trust(rows, judge); "
-                "Judge(agreement=, human_n=)"
+                "wai.attach_labels(rows, labels, kind='human'); trust = wai.judge_trust(rows, "
+                "judge); Judge(agreement=trust['agreement']['agreement'], "
+                "human_n=trust['agreement']['n'], verified=True)"
             ),
         )
     )

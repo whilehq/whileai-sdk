@@ -95,14 +95,14 @@ def test_models_go_on_the_wire_in_camel_case():
         name="refunds",
         test_version="v2",
         n=240,
-        judge=Judge(agreement=0.86, human_n=60, length_bias=0.08),
+        judge=Judge(agreement=0.86, human_n=60, length_bias=0.08, verified=True),
         noise_floor=2.4,
     )
     assert b.wire() == {
         "name": "refunds",
         "testVersion": "v2",
         "n": 240,
-        "judge": {"agreement": 0.86, "humanN": 60, "lengthBias": 0.08},
+        "judge": {"agreement": 0.86, "humanN": 60, "lengthBias": 0.08, "verified": True},
         "noiseFloor": 2.4,
     }
     assert LiveDay(day="2026-09-17", version="v3", replies=10, p50_s=0.6).wire() == {
