@@ -188,6 +188,7 @@
                   "recipes/papers/meta-harness",
                   "recipes/papers/reinforce-ada",
                   "recipes/papers/sao-single-rollout",
+                  "recipes/papers/talk-to-solve",
                   "recipes/papers/team-talk",
                   "recipes/papers/zero-rl-format-reward"
                 ]

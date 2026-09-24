@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/talk-to-solve` (Park et al. arXiv:2502.18439): two copies of Qwen2.5-1.5B each see
+  half the facts of a GSM8K problem and chat A B A B; GRPO pays every message the team's outcome. Moved
+  +0.365 [+0.321, +0.409] over the same training with the channel cut (three seeds, H100); trained copies
+  send 92-96% of their private numbers and their answers use 72-79% of their partner's. `post.py` puts
+  a talk-evals chart and example chats on the Experiments card.
+
 - Recipe `recipes/papers/board-writers` (Park et al. arXiv:2502.18439): notes and readers trained in one
   GRPO batch on a ring board, MATH levels 3 to 5, Qwen2.5-1.5B, three seeds on H100. Paying each note its
   two readers' mean reward is flat to negative against readers-only training (-0.017 [-0.048, +0.014]);

@@ -1,0 +1,77 @@
+# Talk to solve: two copies of a model, half the facts each
+
+**Paper:** MAPoRL: Multi-Agent Post-Co-Training for Collaborative Large Language Models with Reinforcement Learning, Chanwoo Park et al., arXiv:2502.18439, February 2025. https://arxiv.org/abs/2502.18439
+**Book:** a policy-gradient update pays a token only through the reward its rollout earns, so a message is learned only when the reward it is paid depends on what the partner did with it [1][2].
+**Claim:** copies of a model that answer and discuss collaborate better after RL on the team's outcome, and every turn of the discussion should be trained, not only the last (Park et al.). The three recipes before this one ([team-talk](../team-talk), [message-board](../message-board), [board-writers](../board-writers)) never needed the talk: one copy could solve the problem alone. Here it cannot.
+**The change:** the channel. Both arms play the same chat and train every message on the team's outcome. The baseline's messages are never delivered: each copy sees "(no message)" where its partner's words would be.
+
+## Recipe
+
+1. Base: `Qwen/Qwen2.5-1.5B-Instruct`. Data: GSM8K problems whose fact sentences split into two halves that each hold a number; copy A gets every other fact starting with the first, copy B the rest, both get the question. 1,024 train problems from the train split, 300 held out from the test split.
+2. The chat: A, B, A, B. A message is at most 160 tokens; each copy's last message (at most 384) boxes an answer.
+3. Reward: the mean of A's and B's final answers (`MathEqual` against the GSM8K gold). Every message in the chat is paid it, minus the mean over the problem's 4 chats.
+4. Both arms: TRL GRPO + LoRA r=32, 80 steps, 8 problems x 4 chats x 4 turns, lr 1e-4, on-policy, no KL, two chats per micro-batch. The one change is whether messages are delivered.
+5. Eval: 2 chats on each of the 300 held-out problems, both copies' answers graded (4 answers a problem), three training seeds per arm, paired delta with a 95% interval (`wai.compare`, `train_runs=`). The talk is measured too: how much of what only it knows a copy sends, how much of what only its partner knows its answer uses, first messages that ask, agreement. And each trained model plays A against the untrained base as B.
+
+## Run
+
+```bash
+python recipe.py --selftest      # the split, the chat and the counters, offline
+python recipe.py                 # both arms, three seeds, plus a base-eval container, seven H100
+python recipe.py --reuse         # rerun only the containers that failed
+python post.py                   # the Experiments card: runs, talk evals chart, example chats
+```
+
+## Result
+
+| Condition | Team solves it | Sends facts only it has | Answer uses partner's facts | Both agree | First message asks |
+|---|---|---|---|---|---|
+| Untrained, channel off | 0.03 | 0.72 | 0.08 | 0.00 | 0.25 |
+| Untrained, chat | 0.11 [0.09, 0.14] | 0.67 | 0.30 | 0.16 | 0.24 |
+| Trained, channel off (seed 17; 18: 0.03, 19: 0.02) | 0.04 [0.03, 0.05] | 0.79 | 0.05 | 0.00 | 0.07 |
+| **Trained, chat** (seed 17; 18: 0.15, 19: 0.35) | **0.40** [0.36, 0.45] | **0.96** | **0.79** | 0.30 | 0.00 |
+| Trained A, untrained B (seed 17; 18: 0.10, 19: 0.16) | 0.14 [0.11, 0.17] | 0.70 | 0.43 | 0.19 | 0.14 |
+
+Trained chat vs trained with the channel cut: **+0.365 [+0.321, +0.409]** across three training seeds. Verdict: **moved**.
+
+The copies learned to talk. With the channel cut, training cannot get past 2 to 4 in 100, because half the facts is not enough. With the channel on, two of three seeds end at 0.40 and 0.35 from an untrained 0.11: each copy sends nearly every number only it has (92 to 96 in 100, from 67) and builds its answer from its partner's numbers (72 to 79 in 100, from 30). They stopped asking: once both sides send everything unprompted, a question is a wasted turn.
+
+Two caveats. Seed 18 learned to send (79 in 100) but not to use (46 in 100), wrote the longest messages (698 chars) and ended at 0.15, so the skill is learned on most seeds, not all. And it is a protocol between two trained copies, not a skill one copy carries alone: a trained A with the untrained base as B scores 0.10 to 0.16, about where two untrained copies are.
+
+## Checks
+
+Nothing in this table is ticked by hand: every cell is written by `recipe.py` into `results.json`.
+
+| Check | Source | Result |
+|---|---|---|
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [5] | run_std 0.005 from 3 re-runs (0.11, 0.12, 0.12); the delta is about 80 times that |
+| Holdout is clean: `decontaminate(train, against=holdout)` | [5] | 0 of 1,024 train rows dropped |
+| Reward is a program, not a judge | [5] | `MathEqual` (Math-Verify) on each copy's own final answer; the talk is never scored |
+| The talk is needed: the untrained base with the channel off | this recipe | 0.03, against 0.11 with the channel on |
+| Proxy vs target: `wai.compare(proxy=)` | [6] | `proxy=None`: the training reward is the target; over_optimized false |
+| Length: mean final answer before -> after, per arm | [6] | 498 chars base -> 453 channel off, 791 chat |
+| Hack scan on the last training batch: `hack_scan` | [6] | nothing above the floor |
+| Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | training seeds 17, 18, 19, `--seed 0` for the data; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0; H100 |
+
+## Climb
+
+| Round | What changed | Team solves it | vs previous |
+|---|---|---|---|
+| 1 | split facts, A B A B, every turn paid the team's outcome, channel on vs off, 3 seeds per arm | channel off 0.04 / 0.03 / 0.02, chat 0.40 / 0.15 / 0.35 | +0.365 [+0.321, +0.409], moved |
+
+## Learned
+
+- RL on the team's outcome teaches two copies of a 1.5B model to communicate when the task needs it: send what only you know, use what your partner sent. The team goes from 11 to 35-40 in 100 on two of three seeds; with the channel cut it stays at 2 to 4.
+- What they learn is a shared protocol. Paired with an untrained partner, a trained copy is back near the untrained pair. And one seed learned only half of it: sending without using.
+- Next: longer chats where asking pays (facts split three ways, a question that needs a follow-up), then train against a mix of partners (trained and untrained) so the skill survives a new teammate.
+
+Verified 2026-09-23, whileai 0.125, TRL 0.19.1 + PEFT 0.16.0 on torch 2.7.1. 567.8 GPU minutes over seven containers, $37.85 on H100 (plus about $25 on a first run whose chat arm ran out of memory at step 45 with four chats per micro-batch; every arm was rerun at two). Run page: https://while.ai/platform/training/run_109c64a5b5e988be. Experiment: https://while.ai/platform/experiments/talk-to-solve
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Reasoning*.
+2. Shao, Z. et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. arXiv:2402.03300, 2024.
+3. Park, C. et al. MAPoRL: Multi-Agent Post-Co-Training for Collaborative Large Language Models with Reinforcement Learning. arXiv:2502.18439, 2025.
+4. Cobbe, K. et al. Training Verifiers to Solve Math Word Problems. arXiv:2110.14168, 2021.
+5. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Evaluation*.
+6. Gao, L., Schulman, J., Hilton, J. Scaling Laws for Reward Model Overoptimization. ICML 2023. arXiv:2210.10760.
