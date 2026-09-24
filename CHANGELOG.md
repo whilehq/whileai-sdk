@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/talk-methods`: GRPO, Reinforce-Ada (arXiv:2510.04996), RAFT (arXiv:2304.06767)
+  and mixed-partner GRPO on the talk-to-solve chat, three seeds each on H100. Reinforce-Ada solved
+  0.36 to 0.40 on every seed (mean 0.38) against GRPO's 0.15 to 0.40 (mean 0.30); every paired
+  verdict is flat at three seeds.
+
 - Recipe `recipes/papers/talk-to-solve` (Park et al. arXiv:2502.18439): two copies of Qwen2.5-1.5B each see
   half the facts of a GSM8K problem and chat A B A B; GRPO pays every message the team's outcome. Moved
   +0.365 [+0.321, +0.409] over the same training with the channel cut (three seeds, H100); trained copies
