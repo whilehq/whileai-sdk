@@ -23,6 +23,7 @@ that passed this morning.
 | `harness-search/` | the thing to improve is the harness (prompt, tools, turn cap, retry), not the weights | nothing; it is the Meta-Harness loop (Lee et al. 2026, arXiv:2603.28052) on the agent's own traffic: `--traces` yesterday's rows, the latest days held out, read `proposal.md`, write the next `candidates/<n>.py`, run, read the ledger, stop when the gate passes (holdout, held-out model, matched cost), report Changed / Moved / Why / Learned / Reproduce, score the next day |
 | `pick-a-method/` | you have graded rows and must choose a method or its knobs, from all the SDK ships | nothing; six questions (grader, truncation, rollouts per prompt, band, on-policy, teacher) route to hosted sft/grpo/dpo, prime-rl grpo/max_rl/rae, OPSD, OPD, GroupwiseGrading, Async, FlashReinforce/SAO/BPCO or ReinforceAda, and name the skill that trains it |
 | `whileai-simulations/` | you need more situations than the traces contain | nothing; it is the simulate-grade-select loop |
+| `audit-your-judge/` | before Grade's scores are trusted or Select curates rows by them | nothing; it labels a sample blind, compares judges, ablates the rubric, and reverses the order |
 
 ## Every skill ends the same way
 
