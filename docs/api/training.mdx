@@ -40,7 +40,12 @@ Logs every `on_log` to the run (loss, lr, eval loss, epoch, grad
 norm, token accuracy), takes the step count from the trainer at
 `on_train_begin`, and finishes the run at `on_train_end`. If the
 trainer raises, finish the run yourself with `run.fail(...)` or use
-the run as a context manager around `trainer.train()`.
+the run as a context manager around `trainer.train()`. Subclassing
+to add a hook is fine; a subclass that overrides `on_log` must call
+`super().on_log(args, state, control, logs=logs)` (or
+`self.run.log(...)` itself) or its points never reach the run —
+`on_train_end` warns, naming the fix, when the trainer clearly ran
+but no point was ever logged.
 
 ### TrainingRun
 
@@ -162,7 +167,13 @@ Read a hosted run's state from the platform: `running`,
 `done` or `failed`. Fills `adapter`, `training` (before,
 after, seconds, rows, and `cost_usd` with its `cost_basis`
 when the platform reports the GPU: an estimate from Modal's list
-price, `GPU_USD_PER_HOUR`) and `error` once it has ended.
+price, `GPU_USD_PER_HOUR`) and `error` once it has ended. Each
+read also draws the curve: a `step` in the response is turned
+into `log(step, **metrics)` when the platform sent per-step
+metrics alongside it, or `progress(step, total)` alone when it
+sent only the step — so a run started with `train()` fills in
+the platform's graph as it goes instead of staying empty until it
+ends (constitution §5, §7).
 
 #### TrainingRun.wait
 
@@ -401,8 +412,12 @@ set by. `check="warn"` says the same and starts the run;
 
 The run is the same record `training_run` makes, so `run.url` is
 the loss curve, `run.delta` and `get_run` work unchanged, and the
-trainer finishes it. `run.refresh()` reads where it is;
-`run.wait()` (or `wait=True`) blocks until `done` or `failed`,
+trainer finishes it. `run.refresh()` reads where it is, and each
+read also draws a point: `step` plus any per-step metric the
+platform sends becomes `log(step, **metrics)`, or `progress(step,
+total)` alone when the platform reports only the step — so the
+graph fills in while training runs instead of staying empty until it
+ends. `run.wait()` (or `wait=True`) blocks until `done` or `failed`,
 after which `run.adapter` names the weights and `run.training`
 carries before, after, rows, seconds and, when the platform reports
 the GPU, `cost_usd` with its `cost_basis`: `seconds / 3600 *

@@ -158,6 +158,102 @@ def test_trainer_callback_maps_rl_keys():
     assert point["reward_format_reward_mean"] == 0.9 and point["reward_accuracy"] == 0.3
 
 
+class HostedTransport:
+    """Records every call; GET /datasets/{id}/train replays a queue of
+    states, the way the platform's live status answers a hosted run as it
+    trains."""
+
+    def __init__(self, states):
+        self.states = list(states)
+        self.calls: list[tuple[str, str, dict | None]] = []
+
+    def __call__(self, method, path, api_key=None, body=None, **kw):
+        self.calls.append((method, path, body))
+        if method == "GET" and path.startswith("/datasets/") and path.endswith("/train"):
+            state = self.states.pop(0) if self.states else {}
+            return {"training": state}
+        if method == "POST" and path.endswith("/log"):
+            return {"runId": "run_h1", "logged": len(body["points"])}
+        if method == "POST" and path.endswith("/finish"):
+            return {"runId": "run_h1", "status": body["status"]}
+        raise AssertionError(f"unexpected call {method} {path}")
+
+
+def test_hosted_refresh_draws_the_curve_from_polled_state():
+    """Fails on origin/main: TrainingRun._absorb reads status/adapter/error/
+    before/after/gpu/seconds from a hosted poll but never `step`, and
+    nothing on the `train()` path ever calls `run.log` or `run.progress`,
+    so a run started with `wai.train(...)` (the default route) draws an
+    empty graph no matter how long it trains (training.py:1088, :313).
+    refresh()/wait() must turn each poll into a point: a per-step metric
+    in the response becomes `log(step, **metrics)`; a step with no metric
+    still advances the bar. No point is fabricated -- only fields the
+    platform actually sent are forwarded.
+    """
+    states = [
+        {"status": "running", "step": 10, "loss": 0.9, "totalSteps": 100},
+        {"status": "running", "step": 20},  # this poll carries only the step
+        {"status": "done", "step": 100, "before": 0.2, "after": 0.5},
+    ]
+    t = HostedTransport(states)
+    run = TrainingRun("run_h1", name="ds_x · sft", flush_every=1, transport=t)
+    run._hosted = True
+    run.dataset_id = "ds_x"
+
+    assert run.refresh() == "running"
+    assert run.step == 10
+    assert run.refresh() == "running"
+    assert run.step == 20  # a step-only poll still moved the bar
+    assert run.refresh() == "done"
+
+    log_bodies = [c[2] for c in t.calls if c[1].endswith("/log")]
+    assert log_bodies, "a hosted poll never sent a point or a progress update"
+    points = [p for b in log_bodies for p in b["points"]]
+    by_step = {p["step"]: p for p in points}
+    assert by_step[10]["loss"] == 0.9  # a real per-step metric became a logged point
+    assert 20 in by_step and "loss" not in by_step[20]  # step alone, nothing fabricated
+    assert log_bodies[0]["total_steps"] == 100
+
+
+def test_hosted_refresh_is_silent_with_no_step_in_the_response():
+    """An older platform build that answers with only status/before/after
+    (no `step`) must not raise or fabricate a point."""
+    t = HostedTransport([{"status": "done", "before": 0.2, "after": 0.5}])
+    run = TrainingRun("run_h2", name="ds_y · sft", flush_every=1, transport=t)
+    run._hosted = True
+    run.dataset_id = "ds_y"
+    assert run.refresh() == "done"
+    assert run.step == 0
+    assert not [c for c in t.calls if c[1].endswith("/log")]
+
+
+def test_trainer_callback_warns_when_a_subclass_swallows_on_log():
+    """The lane that lost its curve had subclassed TrainerCallback and
+    overrode on_log without calling super().on_log(...); every point it
+    thought it was sending was silently dropped. That is the lane's bug,
+    not whileai's (wai.TrainerCallback fires correctly when used as
+    documented -- see test_trainer_callback_maps_transformers_logs), but
+    the symptom (an empty graph) looks identical to the SDK being broken.
+    on_train_end must warn and name the fix.
+    """
+
+    class SwallowsOnLog(TrainerCallback):
+        def on_log(self, args=None, state=None, control=None, logs=None, **kwargs):
+            # forgot super().on_log(...): every point is lost here
+            return control
+
+    t = Transport()
+    run = training_run("cb-swallowed", api_key="k", flush_every=100, transport=t)
+    cb = SwallowsOnLog(run)
+    state = types.SimpleNamespace(max_steps=10, global_step=0, log_history=[])
+    cb.on_train_begin(None, state, None)
+    state.global_step = 5
+    cb.on_log(None, state, None, logs={"loss": 1.5})
+    state.global_step = 10
+    with pytest.warns(UserWarning, match="never logged a point"):
+        cb.on_train_end(None, state, None)
+
+
 def _graded(prompt, rewards):
     return [
         {
@@ -258,6 +354,7 @@ def test_callback_finish_false_and_second_finish_merges_summary():
     run = training_run("eval-after", api_key="k", flush_every=100, transport=t)
     cb = TrainerCallback(run, finish=False)
     state = types.SimpleNamespace(max_steps=4, global_step=4, log_history=[{"train_loss": 0.5}])
+    cb.on_log(None, state, None, logs={"loss": 0.5})
     cb.on_train_end(None, state, None)
     assert run.status == "running" and not any(c[1].endswith("/finish") for c in t.calls)
     run.finish("done", summary={"train_loss": 0.5})

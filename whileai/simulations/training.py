@@ -176,6 +176,32 @@ def _holdout_from_delta(report: Mapping[str, Any]) -> dict[str, float]:
 
 NO_INTERVAL_NOTE = "No interval: the platform only returned two numbers"
 
+# Fields the hosted trainer's live status (``GET /datasets/{id}/train``) is
+# already known to carry that are not a per-step metric: identifiers,
+# lifecycle fields, and the two-number holdout. Anything else numeric in
+# the response is forwarded as a metric by ``_absorb_progress`` under its
+# own name — the client does not guess metric names, it relays whatever
+# the platform sent (constitution §1: no fabricated points).
+_HOSTED_STATE_META_KEYS = frozenset(
+    {
+        "status",
+        "runId",
+        "callId",
+        "method",
+        "holdoutId",
+        "adapter",
+        "error",
+        "before",
+        "after",
+        "gpu",
+        "seconds",
+        "step",
+        "totalSteps",
+        "total_steps",
+        "rows",
+    }
+)
+
 
 def _holdout_side(rows: Sequence[dict]) -> dict[str, Any]:
     """One side of the holdout with its uncertainty: pass@1 over tasks,
@@ -303,6 +329,10 @@ class TrainingRun:
         self.training: dict[str, Any] = {}
         self.error: str | None = None
         self._hosted = False
+        #: the last ``step`` a hosted poll turned into a point, so a
+        #: repeated poll at the same step (nothing new happened yet) does
+        #: not resend a duplicate (``None`` before the first hosted point)
+        self._last_hosted_step: int | None = None
 
     @property
     def url(self) -> str:
@@ -511,7 +541,13 @@ class TrainingRun:
         ``done`` or ``failed``. Fills ``adapter``, ``training`` (before,
         after, seconds, rows, and ``cost_usd`` with its ``cost_basis``
         when the platform reports the GPU: an estimate from Modal's list
-        price, ``GPU_USD_PER_HOUR``) and ``error`` once it has ended."""
+        price, ``GPU_USD_PER_HOUR``) and ``error`` once it has ended. Each
+        read also draws the curve: a ``step`` in the response is turned
+        into ``log(step, **metrics)`` when the platform sent per-step
+        metrics alongside it, or ``progress(step, total)`` alone when it
+        sent only the step — so a run started with ``train()`` fills in
+        the platform's graph as it goes instead of staying empty until it
+        ends (constitution §5, §7)."""
         if not self._hosted or not self.dataset_id:
             return self.status
         out = self._call("GET", f"/datasets/{self.dataset_id}/train", self._api_key)
@@ -533,6 +569,7 @@ class TrainingRun:
                     f"watch it at {self.url}"
                 )
             time.sleep(max(TRAINING_POLL_MIN_S, float(poll)))
+        self.flush()  # the last poll's point must not be left in the buffer
         return self.status
 
     def _absorb(self, state: Mapping[str, Any]) -> None:
@@ -555,6 +592,54 @@ class TrainingRun:
             self.error = str(state["error"])
         if self.holdout_summary is None and ("before" in state or "after" in state):
             self.holdout_summary = _holdout_without_rows(state.get("before"), state.get("after"))
+        self._absorb_progress(state)
+
+    def _absorb_progress(self, state: Mapping[str, Any]) -> None:
+        """Draw the curve from one poll of the hosted trainer's live
+        status. ``step`` becomes a point (``log(step, **metrics)``); any
+        other numeric key in the response is forwarded as a metric under
+        its own name, so with no metrics present the point still carries
+        ``step`` alone and moves the bar the same way ``progress(step,
+        total)`` would. Silent when the response carries no ``step`` (an
+        older platform build) or the step has not advanced since the last
+        poll — hosted runs are polled repeatedly (``TRAINING_POLL_S``,
+        convention, untested) and the same step would otherwise resend a
+        duplicate point every poll."""
+        step = state.get("step")
+        if step is None:
+            return
+        try:
+            step_i = int(step)
+        except (TypeError, ValueError):
+            return
+        if self._last_hosted_step is not None and step_i <= self._last_hosted_step:
+            return
+        total = state.get("totalSteps") or state.get("total_steps") or self.total_steps
+        total_i = (
+            int(total) if isinstance(total, (int, float)) and not isinstance(total, bool) else None
+        )
+        metrics = {
+            key: value
+            for key, value in state.items()
+            if key not in _HOSTED_STATE_META_KEYS
+            and isinstance(value, (int, float))
+            and not isinstance(value, bool)
+        }
+        self._last_hosted_step = step_i
+        if total_i:
+            # Set directly, the way ``progress`` would, so ``total_steps``
+            # rides on this point's flush whether or not the poll also
+            # carried a metric — a metrics point must not skip it.
+            with self._lock:
+                self.total_steps = total_i
+                self._pending_total = total_i
+        self.log(step_i, **metrics)
+        if self.status != "running":
+            # The poll that reported the run ended is the last one there
+            # will be: nothing else will trigger flush_every or
+            # flush_seconds, so send now or this point never leaves the
+            # buffer (constitution §7: every run leaves a record).
+            self.flush()
 
     def __enter__(self) -> TrainingRun:
         return self
@@ -945,8 +1030,12 @@ def train(
 
     The run is the same record ``training_run`` makes, so ``run.url`` is
     the loss curve, ``run.delta`` and ``get_run`` work unchanged, and the
-    trainer finishes it. ``run.refresh()`` reads where it is;
-    ``run.wait()`` (or ``wait=True``) blocks until ``done`` or ``failed``,
+    trainer finishes it. ``run.refresh()`` reads where it is, and each
+    read also draws a point: ``step`` plus any per-step metric the
+    platform sends becomes ``log(step, **metrics)``, or ``progress(step,
+    total)`` alone when the platform reports only the step — so the
+    graph fills in while training runs instead of staying empty until it
+    ends. ``run.wait()`` (or ``wait=True``) blocks until ``done`` or ``failed``,
     after which ``run.adapter`` names the weights and ``run.training``
     carries before, after, rows, seconds and, when the platform reports
     the GPU, ``cost_usd`` with its ``cost_basis``: ``seconds / 3600 *
@@ -1484,7 +1573,12 @@ class TrainerCallback(_callback_base()):  # type: ignore[misc]  # ty: ignore[uns
     norm, token accuracy), takes the step count from the trainer at
     ``on_train_begin``, and finishes the run at ``on_train_end``. If the
     trainer raises, finish the run yourself with ``run.fail(...)`` or use
-    the run as a context manager around ``trainer.train()``.
+    the run as a context manager around ``trainer.train()``. Subclassing
+    to add a hook is fine; a subclass that overrides ``on_log`` must call
+    ``super().on_log(args, state, control, logs=logs)`` (or
+    ``self.run.log(...)`` itself) or its points never reach the run —
+    ``on_train_end`` warns, naming the fix, when the trainer clearly ran
+    but no point was ever logged.
     """
 
     def __init__(self, run: TrainingRun, *, finish: bool = True):
@@ -1493,6 +1587,12 @@ class TrainerCallback(_callback_base()):  # type: ignore[misc]  # ty: ignore[uns
         #: finish the run at on_train_end. Pass False when the script
         #: evaluates after training and calls run.finish itself.
         self.finish_on_end = finish
+        #: set True the first time on_log turns a real metric into a
+        #: point, so on_train_end can tell a quiet run (nothing logged
+        #: yet, still early) from one whose on_log never reached run.log
+        #: at all — the failure mode of a subclass that overrides on_log
+        #: without calling super().on_log(...).
+        self._logged_metrics = False
 
     def on_train_begin(self, args=None, state=None, control=None, **kwargs):
         total = getattr(state, "max_steps", None)
@@ -1517,9 +1617,19 @@ class TrainerCallback(_callback_base()):  # type: ignore[misc]  # ty: ignore[uns
         step = int(getattr(state, "global_step", 0) or 0)
         if metrics:
             self.run.log(step, **metrics)
+            self._logged_metrics = True
         return control
 
     def on_train_end(self, args=None, state=None, control=None, **kwargs):
+        global_step = int(getattr(state, "global_step", 0) or 0)
+        if global_step > 0 and not self._logged_metrics:
+            warnings.warn(
+                f"training run {self.run.run_id}: the trainer reached step {global_step} but "
+                "TrainerCallback.on_log never logged a point. If a subclass overrides on_log, "
+                "it must call super().on_log(args, state, control, logs=logs) (or "
+                "self.run.log(step, **metrics) itself), or the platform's curve stays empty.",
+                stacklevel=2,
+            )
         if self.finish_on_end and self.run.status == "running":
             summary: dict[str, Any] = {}
             history = getattr(state, "log_history", None) or []

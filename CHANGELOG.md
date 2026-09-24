@@ -7,6 +7,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- A hosted run's graph now fills in while it trains. `wai.train(...)` never called `log` on its own
+  run, so a run trained on the platform's trainer had an empty curve by construction; `TrainingRun.refresh()`
+  (and therefore `wait()`) now turns each poll's `step` into `log(step, **metrics)` when the platform's
+  status response carries per-step metrics alongside it, or `progress(step, total)` alone when it carries
+  only the step, so the bar still moves. Nothing is fabricated: only fields the platform actually sends are
+  forwarded. `TrainerCallback.on_train_end` also warns, naming the fix, when the trainer clearly ran (a
+  nonzero `global_step`) but `on_log` never turned a point into `run.log(...)` — the signature of a subclass
+  that overrides `on_log` without calling `super().on_log(...)`.
+
 - Recipe `recipes/papers/talk-to-solve` (Park et al. arXiv:2502.18439): two copies of Qwen2.5-1.5B each see
   half the facts of a GSM8K problem and chat A B A B; GRPO pays every message the team's outcome. Moved
   +0.365 [+0.321, +0.409] over the same training with the channel cut (three seeds, H100); trained copies

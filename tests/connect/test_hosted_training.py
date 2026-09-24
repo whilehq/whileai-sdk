@@ -86,6 +86,13 @@ class Gate:
             return dict(self.run_meta)
         if method == "POST" and path == "/models":
             return {**body, "version": 1, "endpoint": "https://serve.example/v1", "status": "ready"}
+        # A hosted run's own poll loop logs points once a status carries
+        # ``step`` (training.py:_absorb_progress); the gate answers the
+        # same way the platform's run-log and run-finish routes do.
+        if method == "POST" and path.endswith("/log"):
+            return {"runId": path.split("/")[2], "logged": len((body or {}).get("points") or [])}
+        if method == "POST" and path.endswith("/finish"):
+            return {"runId": path.split("/")[2], "status": (body or {}).get("status")}
         raise AssertionError(f"unexpected {method} {path}")
 
 
@@ -190,6 +197,34 @@ def test_wait_polls_until_done_and_fills_adapter_and_training():
     assert status == "done" and run.status == "done"
     polls = [c for c in g.calls if c[0] == "GET" and c[1] == "/datasets/ds_train/train"]
     assert len(polls) == 3
+
+
+def test_hosted_wait_draws_the_curve_as_it_polls():
+    """Fails on origin/main: nothing on the hosted path ever called
+    ``run.log`` or ``run.progress`` (``train`` sets ``run._hosted = True``
+    at training.py:1088 and stops there), so ``wai.train(...)`` -- the
+    default route -- left the platform's graph empty for as long as the
+    run trained. Proven end to end through ``train()`` + ``wait()``, the
+    exact calls a user makes: a poll whose status carries a per-step
+    metric must become a logged point; a poll with only ``step`` must
+    still move the bar. Nothing is fabricated -- both assertions read
+    back only what the fake platform actually sent."""
+    states = [
+        {**RUNNING, "step": 5, "loss": 0.9, "totalSteps": 40},
+        {**RUNNING, "step": 20},  # this poll carries only the step
+        {**DONE, "step": 40},
+    ]
+    g = Gate(states=states)
+    run = train("ds_train", method="grpo", api_key="k", transport=g)
+    assert run.wait(poll=0) == "done"
+
+    log_bodies = [c[2] for c in g.calls if c[1].endswith("/log")]
+    assert log_bodies, "a hosted run's poll loop never sent a point or a progress update"
+    points = [p for b in log_bodies for p in b["points"]]
+    by_step = {p["step"]: p for p in points}
+    assert by_step[5]["loss"] == 0.9  # a real per-step metric became a logged point
+    assert 20 in by_step and "loss" not in by_step[20]  # step alone still moved the bar
+    assert log_bodies[0]["total_steps"] == 40
     assert run.adapter == DONE["adapter"]
     assert run.training["before"] == 0.17 and run.training["after"] == 0.29
     assert run.training["rows"] == 51
