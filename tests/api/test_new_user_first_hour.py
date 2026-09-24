@@ -8,7 +8,7 @@ signed-out browser.
 from __future__ import annotations
 
 from whileai import auth
-from whileai._env import is_platform_host
+from whileai._env import PLATFORM_MODAL_PREFIX, is_platform_host
 from whileai.simulations.generate.agents import _hosted_qwen_url, missing_hosted_key
 
 # --------------------------------------------------------------- own endpoint
@@ -16,8 +16,9 @@ from whileai.simulations.generate.agents import _hosted_qwen_url, missing_hosted
 #: A user serving their own Qwen3-4B on their own L40S, on their own Modal
 #: account. Nothing about it is ours but the four letters at the end.
 MY_OWN_MODAL = "https://mylab--my-qwen-vllm-serve.modal.run/v1"
-#: What While actually serves from, via the prefix ``is_platform_host`` carries.
-WHILES_OWN_MODAL = "https://zeroproofai--whileai-serve-qwen3-4b.modal.run/v1"
+#: What While actually serves from. Built from the prefix ``is_platform_host``
+#: carries, so this file never spells the retired name itself.
+WHILES_OWN_MODAL = f"https://{PLATFORM_MODAL_PREFIX}qwen3-4b.modal.run/v1"
 
 
 def test_my_own_modal_endpoint_is_not_whiles_hosted_model():
