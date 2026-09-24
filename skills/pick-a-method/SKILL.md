@@ -39,6 +39,9 @@ model you will train), `TASKSET`, `TEACHER` (a `wai.Endpoint`), `grader`
 | one rollout per prompt | `wai.FlashReinforce`, `wai.SAO`, `wai.BPCO` | your trainer, `.update(batch)` |
 | adaptive sampling | `wai.methods.ReinforceAda` | before a grouped update |
 
+The equations, defaults and papers for every row are in the methods
+reference: https://docs.while.ai/reference/methods (`docs/reference/methods.md`).
+
 **They compose.** `Async("grpo", correction="icepop")` is one config;
 `GroupwiseGrading` shapes a grouped method's reward or advantage. **Read
 `cfg.ignored` on every config**: prime-rl drops some knobs and says why.

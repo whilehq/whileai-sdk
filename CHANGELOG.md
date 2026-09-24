@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai init` installs `audit-your-judge` and `pick-a-method` with the other default skills, and the
+  `AGENTS.md` block names both, so a coding agent reaches the judge audit and the method router
+  without a URL. `skills/README.md` opens with the flow they run in.
+
 - Skill `skills/pick-a-method/` (#564): six questions a coding agent asks the graded rows (grader,
   truncation, rollouts per prompt, per-task band, on-policy, teacher) route it across everything the SDK
   ships: hosted `sft`/`grpo`/`dpo`/`rm`, prime-rl `grpo`/`max_rl`/`rae`, `OPSD` (four kinds of privileged

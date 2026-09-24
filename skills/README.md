@@ -10,6 +10,23 @@ and fails if a code block in a playbook drifts from the code that ran
 (`tests/skills/test_skills.py`). What an agent copies out of a skill is code
 that passed this morning.
 
+## The flow
+
+A research lab's loop, in the order a coding agent should run it. `wai init`
+installs the five marked `*`.
+
+1. **Data**: `whileai-simulations/` * writes the situations and rollouts.
+2. **Judge**: `audit-your-judge/` * before any score is trusted.
+3. **Eval**: `strengthen-your-evals/` * builds the frozen test that can fail.
+4. **Method**: `pick-a-method/` * reads the graded rows and names the method and its knobs.
+5. **Train**: the method's own skill: `sft-from-traces/`, `dpo-pairs/`,
+   `grpo-verifier/`, `tool-call-efficiency/`, `character/`; or, before
+   touching weights, `harness-search/`.
+6. **Report**: `manage-experiments/` * for every second version, sweep or run.
+7. **Watch**: `watch/` once a version serves.
+
+The math behind every method is `docs/reference/methods.md`.
+
 | Skill | Use when | Trains with |
 |---|---|---|
 | `sft-from-traces/` | you have production traces and some good replies in them | SFT rows by rejection sampling |

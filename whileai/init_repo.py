@@ -26,11 +26,15 @@ MARK_END = "<!-- whileai:end -->"
 BLOCK = re.compile(re.escape(MARK_START) + r".*?" + re.escape(MARK_END) + r"\n?", re.DOTALL)
 INCLUDE = "@AGENTS.md"
 
-#: The skills a repo gets by default: the evals playbook and the simulate loop.
+#: The skills a repo gets by default: the evals playbook, the simulate loop,
+#: the judge audit and the method router, so a coding agent can go from an
+#: eval to a trained model without leaving the playbooks.
 DEFAULT_SKILLS: tuple[str, ...] = (
     "strengthen-your-evals",
     "manage-experiments",
     "whileai-simulations",
+    "audit-your-judge",
+    "pick-a-method",
 )
 SKILL_FILES: tuple[str, ...] = ("SKILL.md", "check.py")
 RAW_URL = "https://raw.githubusercontent.com/whilehq/whileai-sdk/main/skills/{name}/{file}"
@@ -55,6 +59,8 @@ Rules:
 - Hand labels come from a person. Ask before labelling; never invent `gold_reward`.
 - You know this repo best: name the agent after the product, behaviors as the policy doc phrases them, versions as the team ships them (tag, PR, date, prompt label), the test by its content hash. https://docs.while.ai/platform/naming
 - Before a second version, a sweep or a training run, follow `.claude/skills/manage-experiments/SKILL.md`: the question first, then per run five lines (Changed, Moved, Why, Learned, Reproduce), one chart, the rows that failed, points not fractions; then `readback(tracked)` reads the page the way the person will.
+- Before trusting a judge's score or selecting rows by it, follow `.claude/skills/audit-your-judge/SKILL.md`.
+- Before choosing a training method or its knobs, follow `.claude/skills/pick-a-method/SKILL.md`; the math for every method: https://docs.while.ai/reference/methods.
 - Score every behavior and report: `track(...)`, `tracked.behavior(...)`, `tracked.run(version, method="eval", harness=Harness(...))`, `run.score(...)`, `run.finish(...)`, `print(tracked.verdict())`.
 - A difference is a result only when its interval excludes zero and clears the noise floor. Otherwise say "about the same".
 - The command is `wai` (`wai status`, `wai login`, `wai init-evals`, `wai verdict <id>`). Type `wai`, never `whileai`, at a shell: same binary, fewer tokens.
