@@ -82,6 +82,10 @@ section 4.3.1).
 method = wai.GroupwiseGrading(grader=grader, mode="reward")
 ```
 
+**Audit that grader first.** GroupwiseGrading trains on whatever the grader
+ranks, so a biased grader's habits become the reward. Run
+`audit-your-judge/` on it before the GPU.
+
 **If no judge can tell them apart, stop.** The eval is too easy for this
 model. Build a harder one (`strengthen-your-evals/`) before training.
 
@@ -92,7 +96,9 @@ model. Build a harder one (`strengthen-your-evals/`) before training.
 Distillation, eq. 10). A teacher no better than the student has nothing to
 pull it toward, and the run looks the same as a good one until the eval.
 
-**Score both on the same held-out rows first.** The teacher has to clear
+**Score both on the same held-out rows first, with an audited judge**
+(`audit-your-judge/`); a generous judge makes a weak teacher look strong.
+The teacher has to clear
 `PROVE_EFFECT` (0.05), and the two intervals must not overlap. The margin
 is the package's proof bar against the run-to-run spread the book measures
 (0.25 to 1.5 points; Lambert 2025, chapter Evaluation). The two-part rule
