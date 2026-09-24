@@ -7,11 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
-- Skill `skills/pick-a-method/` (#564): a coding agent reading the graded rows now finds
-  `wai.OPSD`, `wai.OPD` and `wai.GroupwiseGrading`. A floor (every task fails every rollout)
-  routes to OPSD, never a larger `repeats=`; a saturated set routes to GroupwiseGrading; OPD
-  only after the teacher clears the student by `PROVE_EFFECT` with non-overlapping intervals
-  and shares its tokenizer. Each rule cites its rlhfbook.com chapter. No SDK code changes.
+- Skill `skills/pick-a-method/` (#564): six questions a coding agent asks the graded rows (grader,
+  truncation, rollouts per prompt, per-task band, on-policy, teacher) route it across everything the SDK
+  ships: hosted `sft`/`grpo`/`dpo`/`rm`, prime-rl `grpo`/`max_rl`/`rae`, `OPSD` (four kinds of privileged
+  context), `OPD`, `GroupwiseGrading` (GRS/GAR), `Async`, `FlashReinforce`/`SAO`/`BPCO` and
+  `ReinforceAda`, and name the skill that trains each. Each rule cites its rlhfbook.com chapter or the
+  repo's own measured run. No SDK code changes.
 - Recipe `recipes/papers/talk-methods`: GRPO, Reinforce-Ada (arXiv:2510.04996), RAFT (arXiv:2304.06767)
   and mixed-partner GRPO on the talk-to-solve chat, three seeds each on H100. Reinforce-Ada solved
   0.36 to 0.40 on every seed (mean 0.38) against GRPO's 0.15 to 0.40 (mean 0.30); every paired
