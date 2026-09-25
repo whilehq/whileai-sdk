@@ -49,7 +49,7 @@ by the recipe's own gate this is not yet a result across models.
 - Noise floor: three baseline runs (`eval_variance`): search set run_std 2.3
   points, band 14.2; holdout run_std 1.1, band 6.7.
 
-## The climb (search set, field F1 points, 95% interval; holdout in `ledger.md`)
+## The climb (search set, field F1 points, 95% interval)
 
 | round | candidate | one change | train F1 | led /101 | tokens vs v0 |
 |---|---|---|---|---|---|
@@ -109,9 +109,9 @@ holdout noise band), 87 of 99 documents better, 1 unchanged and 11 worse
 
 ## Files
 
-`results.json` (every number), `ledger.md` (five lines per round),
-`chart.html` (the hill climb), `sdk_findings.md` (17 findings),
-`learned.json`, `out/` (rows per candidate, noise runs, judge cache, audit,
+`results.json` (every number), 
+`chart.html` (the hill climb), 
+ `out/` (rows per candidate, noise runs, judge cache, audit,
 compare_judges, route, spend, proposal history, platform run ids).
 Experiment: https://while.ai/platform/experiments/doc-extraction
 
