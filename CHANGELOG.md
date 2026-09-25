@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.126 (2026-09-25)
+
 - Recipe `recipes/01-simulate/smol-data-envs/`: SmolDataEnvs (FineEnvs, 5,394 Kaggle data-analysis
   questions) as a whileai environment. The policy writes one Python program, it runs next to the task's
   tables, and the dataset's vendored grader is a `Verifier`: a table that failed to download is
