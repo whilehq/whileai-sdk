@@ -23,6 +23,7 @@ EXAMPLES = REPO / "recipes"
 # the parser, so it catches import-time breakage without a real run.
 CLI_EXAMPLES = [
     "01-simulate/bring-your-own-agent/run.py",
+    "01-simulate/smol-data-envs/run.py",
     "01-simulate/swarm-rescue/run.py",
     "01-simulate/swarm-rescue/calibrate.py",
     "01-simulate/swarm-rescue/sql_calibrate.py",

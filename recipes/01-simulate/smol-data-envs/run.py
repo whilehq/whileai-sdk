@@ -34,7 +34,7 @@ from env import (
     task_row_fields,
 )
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.config import provenance
 from whileai.simulations.score.judging import run_judge
 
@@ -139,15 +139,11 @@ def main(argv: list[str] | None = None) -> int:
     scored = run_judge(rows, DataEnvReward(), source="grade", concurrency=4).rows
     report(scored, verbose=offline)
 
-    # The reward is the GRPO reward. optimize runs the RL gates: it drops
+    # The reward is the GRPO reward. select runs the RL gates: it drops
     # ungraded rows and groups where every rollout scored the same (no
-    # gradient), and the training export never carries the gold.
-    rl_rows, rl = wai.optimize(scored, mode="rl")
-    leaked = sum(1 for r in wai.training_rows(rl_rows) if "privileged" in r)
-    print(
-        f"\n== optimize(mode='rl'): {rl['groups_selected']} task groups carry a gradient, "
-        f"{len(rl_rows)} rows; {leaked} training rows carry the answer"
-    )
+    # gradient), and the export never carries the gold.
+    picked = wai.select(scored, mode="rl")
+    print(f"\n== wai.select(mode='rl')\n{picked}")
 
     name = "offline" if offline else args.agent.split("@")[0].replace(":", "-").replace("/", "-")
     OUT.mkdir(exist_ok=True)
@@ -156,6 +152,9 @@ def main(argv: list[str] | None = None) -> int:
         for r in scored:
             fh.write(json.dumps(r, default=str) + "\n")
     print(f"graded rows -> {path}")
+    if picked:
+        picked.export(str(OUT / f"{name}.rl.jsonl"))
+        print(f"RL rows -> {OUT / f'{name}.rl.jsonl'}")
     if offline:
         print(
             "\nLive: python run.py --agent openai:gpt-4.1-mini --split eval --limit 24 --k 4"

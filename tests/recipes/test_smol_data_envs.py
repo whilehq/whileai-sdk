@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-import whileai.simulations as wai
+import whileai as wai
 
 RECIPE = Path(__file__).resolve().parents[2] / "recipes" / "01-simulate" / "smol-data-envs"
 
@@ -55,9 +55,16 @@ def test_missing_table_is_ungraded_not_wrong(scored: dict[tuple[str, int], dict]
     assert wai.pass_at(list(scored.values()), min_k=2).n_groups == 3
 
 
-def test_gold_stays_out_of_training_rows(scored: dict[tuple[str, int], dict]) -> None:
+def test_gold_stays_out_of_training_rows(
+    scored: dict[tuple[str, int], dict], tmp_path: Path
+) -> None:
     rows = list(scored.values())
     assert all("5768.04" not in str(r.get("reason")) for r in rows)
-    rl_rows, report = wai.optimize(rows, mode="rl")
-    assert report["groups_selected"] == 2  # the all-pass and the ungraded groups drop out
-    assert not any("privileged" in r for r in wai.training_rows(rl_rows))
+    picked = wai.select(rows, mode="rl")
+    assert picked.report["groups_selected"] == 2  # the all-pass and ungraded groups drop out
+    out = tmp_path / "rl.jsonl"
+    picked.export(str(out))
+    written = out.read_text(encoding="utf-8")
+    assert written
+    assert "privileged" not in written
+    assert "5768.04" not in written

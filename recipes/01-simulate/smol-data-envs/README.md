@@ -41,14 +41,25 @@ with no token, once.
 from env import DataEnvReward, fixture_tasks, prompt_for, task_row_fields
 from whileai.simulations.score.judging import run_judge
 
-task = fixture_tasks()[0]
+task = fixture_tasks()[2]  # How many respondents are older than 30 and employed?
+program = """
+import csv
+rows = list(csv.DictReader(open("input/survey.csv")))
+print(sum(1 for r in rows if int(r["age"]) > 30 and r["employed"] == "yes"))
+"""
+fence = "`" * 3
 row = {
     "scenario_id": task["task_id"],
     "prompt": prompt_for(task),
-    "final_text": reply,  # the model's reply: one fenced python program
+    "final_text": f"{fence}python{program}{fence}",  # the model's reply
     **task_row_fields(task),  # gold under privileged.reference, tables, tolerances
 }
 scored = run_judge([row], DataEnvReward())  # a verifier honors the judge contract
+print(scored.rows[0]["reward"], scored.rows[0]["reason"])
+```
+
+```
+1 printed '<reference>': exact
 ```
 
 - **The reward** (`DataEnvReward` in [env.py](env.py)) is a `Verifier`: 1
@@ -56,15 +67,15 @@ scored = run_judge([row], DataEnvReward())  # a verifier honors the judge contra
   not, when the program crashed, or when the reply was a shell block.
 - **Ungraded is not wrong.** A table that failed to download raises
   `VerifierError`, the row gets `reward=None`, `pass_at` skips it and
-  `optimize` drops it. Scoring it 0 would teach the policy that correct
+  `wai.select` drops it. Scoring it 0 would teach the policy that correct
   programs fail on an unlucky network.
 - **Tolerances are the task's.** Integer answers carry `atol=0`; decimals
   carry their own `atol`/`rtol` (for example 0.05 and 1%). The grader
   ([grader.py](grader.py), vendored at the dataset's revision, MIT) tries
   exact, numeric, list, then Math-Verify.
 - **The gold stays out of training files.** It rides in
-  `privileged.reference`, which `wai.training_rows` never projects, and a
-  failure reason that would quote it prints `<reference>` instead.
+  `privileged.reference`, which the training export never projects, and a
+  reason that would quote it prints `<reference>` instead.
 - **Isolation.** Programs run in a fresh temp directory, a subprocess with
   a 60 s timeout. That stops runaway loops; it is not a security boundary.
   Run a policy you do not trust in a container or a sandbox service.
@@ -80,25 +91,33 @@ rollout (2026-09-25):
 
 ```
 == why rollouts failed
-    24  crashed: KeyError
+    25  crashed: KeyError
     17  ran, wrong value
      4  crashed: UnicodeDecodeError
-     4  crashed: ModuleNotFoundError
-     ...
+     2  crashed: ValueError
+     1  timed out after 60s
+     1  crashed: AttributeError
+
 == pass@1 by difficulty (0 ungraded rollouts left out, not scored 0)
   tier     tasks  pass@1          95% CI
-  easy         8    0.78      0.53..1.00
-  medium      16    0.28      0.12..0.45
-  all         24    0.45      0.28..0.61
+  easy         8    0.81      0.56..1.00
+  medium      16    0.31      0.12..0.52
+  all         24    0.48      0.30..0.66
 
-== optimize(mode='rl'): 9 task groups carry a gradient, 36 rows; 0 training rows carry the answer
+== wai.select(mode='rl')
+rl selection: kept 24 of 96 rows
+  unanimous groups dropped: 18; duplicates dropped: 5; truncated drop: 0
+  privileged leaks dropped: 0
+  groups kept: 6
 ```
 
-Haiku 4.5 solves 45% of these tasks in one shot (95% interval 28% to 61%,
-tasks resampled). The biggest loss is `KeyError`: the program guesses a
-column name it never looked at. 9 of the 24 groups split between right and
-wrong, which is where GRPO has something to learn; the other 15 are
-unanimous and drop out.
+Haiku 4.5 solves 48% of these tasks in one shot (95% interval 30% to 66%,
+tasks resampled; a second run of the same command gave 45%, 28% to 61%).
+The biggest loss is `KeyError`: the program guesses a column name it never
+looked at. Only 6 of the 24 tasks split between right and wrong, which is
+where GRPO has something to learn; `select` also warns that 4 rollouts per
+task place a task in the 20-80% band only to about 0.3, so train with
+`--k 16`.
 
 ## Next
 
