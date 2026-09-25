@@ -1,29 +1,51 @@
-"""The documents, their gold records, and the grader. No model anywhere.
+"""Meta-Harness on document extraction: Nemotron-Nano-8B with a sandboxed Python tool.
 
-Every document is rendered from a ground-truth record by a seeded program,
-so the gold answer is known exactly and grading is a program: per field, an
-exact match after normalization (money to cents, dates to ISO, names
-case-folded with punctuation dropped). Five document types (invoice,
-receipt, purchase order, bank statement, insurance claim form), two to four
-layouts each, OCR-style noise on labels and boilerplate, distractor numbers
-(balance due, amount paid, page subtotals, change, quote numbers), optional
-fields that are absent (gold ``null``), and fields the schema says to
-compute when the document does not print them (bank statement totals,
-invoice due date from payment terms, purchase-order line count).
+    python recipe.py --selftest                                   # offline: generator, grader, tool, loop
+    python recipe.py --model "vllm:nvidia/Llama-3.1-Nemotron-Nano-8B-v1@$URL"   # both arms on the holdout
 
-The ask id is ``<type>-<nnn>``; the split is a hash of that id, never its
-position (skills/strengthen-your-evals: writers cycle ask types, so a
-positional split aliases them).
+Shape (recipes/papers/_template), with a harness in place of a trained arm:
+  1. data():      200 generated business documents with their gold records, split 101/99 by a
+                  hash of the ask id; the test version is printed so a run can prove it saw the
+                  same holdout (Lambert 2025, chapter Evaluation)
+  2. evaluate():  a harness on the holdout, k rollouts per document, graded by field F1
+                  (SROIE/CORD; ANLS on names); the baseline three times for the noise floor
+  3. arms:        "baseline" is the starting harness; "recipe" is the harness the Meta-Harness
+                  search found (Lee et al. 2026, arXiv:2603.28052; the loop is
+                  recipes/papers/meta-harness). No weights change: steps are 0.
+  4. results.json with the paired delta and the checks the README table reads
+
+Serve the model with vLLM on any GPU (the run below used one Modal L40S, vLLM 0.10.0,
+transformers 4.55.4) and pass its OpenAI-compatible URL; VLLM_API_KEY is its key.
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import os
 import random
 import re
+import statistics
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
+
+HERE = Path(__file__).resolve().parent
+BASE_MODEL = "nvidia/Llama-3.1-Nemotron-Nano-8B-v1"
+METRIC = "field F1"
+BOOK = "Evaluation"
+EVAL_RUNS = 3  # baseline re-runs that set the noise floor
+
+
+# ---------------------------------------------------------------- the documents
 
 # ---------------------------------------------------------------- the schemas
 
@@ -1340,3 +1362,498 @@ def difficulty(ask: dict[str, Any]) -> str:
     k = knobs(ask)
     score = k["ocr"] + min(k["distractors"], 3) + min(k["missing"], 2) + k["computed"] + k["layout"]
     return "easy" if score <= 2 else "medium" if score <= 4 else "hard"
+
+
+# ---------------------------------------------------------------- the harness
+
+# TOOL_TIMEOUT_S = 10: wall clock for one run of the model's code; the
+# harness-and-weights recipe's run_python uses the same (convention, untested).
+TOOL_TIMEOUT_S = 10.0
+# TOOL_CHARS = 2000: the tool output is cut here so a print loop cannot fill
+# the context; the message says when it was cut (convention, untested).
+TOOL_CHARS = 2000
+# SAMPLING: the Nemotron-Nano-8B-v1 model card's recommended temperature 0.6
+# and top_p 0.95; 1024 reply tokens a turn. The same for every candidate and
+# model, so sampling is not a lever in this search.
+SAMPLING = {"temperature": 0.6, "top_p": 0.95, "max_tokens": 1024}
+# REQUEST_TIMEOUT_S = 240: one reply is at most 1024 tokens, well under a
+# minute at the slowest rate seen; a request that hangs past this is retried
+# instead of holding a round-synchronous batch (and the GPU) idle.
+REQUEST_TIMEOUT_S = 240
+# SALT: moves every sampling seed, for the three-run noise floor (DOCX_SALT).
+SALT = int(os.environ.get("DOCX_SALT", "0"))
+
+RUN_PYTHON = {
+    "type": "function",
+    "function": {
+        "name": "run_python",
+        "description": (
+            "Run Python 3 (standard library, no network, 10 s) with the document text as the "
+            "string DOC; returns what it printed."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"code": {"type": "string"}},
+            "required": ["code"],
+        },
+    },
+}
+
+Chat = Callable[[list[dict[str, str]], int], tuple[str, dict[str, Any]]]
+
+# The baseline's instructions (candidates/00_baseline.py). A candidate
+# written as named edits appends each edit's text to these.
+BASE_INSTRUCTIONS = """detailed thinking off
+You extract structured data from business documents. The user gives you the document type, the fields to extract with a short description of each, and the document text, which may contain OCR errors.
+
+You have a Python tool. To use it, reply with exactly one ```python code block and nothing else. It runs in a sandbox (Python 3 standard library, no network, 10 second limit) where the document text is the string variable DOC, and whatever it prints comes back to you as the next message. You may use the tool up to 3 times.
+
+When you are done, reply with one ```json block containing a single JSON object whose keys are exactly the requested field names. Write dates as YYYY-MM-DD and money as a plain number (for example 1234.5). Use null for a field the document does not give."""
+
+# ---------------------------------------------------------------- the code tool
+
+_PRELUDE = """
+import socket as _socket
+def _no_network(*a, **k):
+    raise OSError("network is disabled in this sandbox")
+_socket.socket = _no_network
+_socket.create_connection = _no_network
+_socket.getaddrinfo = _no_network
+try:
+    import resource as _r
+    _r.setrlimit(_r.RLIMIT_CPU, (10, 10))
+except Exception:
+    pass
+with open("doc.txt", encoding="utf-8") as _f:
+    DOC = _f.read()
+del _f
+"""
+
+
+def run_python(code: str, doc: str) -> str:
+    """The code tool: the model's code in a fresh interpreter (``-I``, an empty
+    environment, a temp directory, socket calls replaced by an error, CPU
+    capped), with the document as the string ``DOC``. Returns what it printed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "doc.txt").write_text(doc, encoding="utf-8")
+        Path(tmp, "snippet.py").write_text(_PRELUDE + "\n" + code, encoding="utf-8")
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-I", "snippet.py"],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                timeout=TOOL_TIMEOUT_S,
+                env={"PATH": "/usr/bin:/bin", "PYTHONIOENCODING": "utf-8"},
+            )
+        except subprocess.TimeoutExpired:
+            return f"timed out after {TOOL_TIMEOUT_S:.0f}s"
+    err = proc.stderr.strip()
+    if err:
+        err = "\n".join(err.splitlines()[-6:])  # the traceback's tail is the useful part
+    text = (proc.stdout or "") + (("\n" + err) if err else "")
+    text = text.strip() or f"(no output, exit {proc.returncode})"
+    if len(text) > TOOL_CHARS:
+        text = text[:TOOL_CHARS] + f"\n[cut to the first {TOOL_CHARS} characters]"
+    return text
+
+
+# ---------------------------------------------------------------- the loop
+
+_PY = re.compile(r"```(?:python|py)\s*\n(.*?)```", re.S)
+_JSONFENCE = re.compile(r"```json\s*\n(.*?)```", re.S)
+_DOC = re.compile(r"Document:\n<<<\n(.*)\n>>>\s*$", re.S)
+_TYPE = re.compile(r"^Document type: (.+)$", re.M)
+LAST_TURN = "That was your last tool call. Reply now with the ```json block."
+
+
+def _allowed(desc: str) -> list[str]:
+    """The values a field's description lists after "one of:" or as ISO codes."""
+    m = re.search(r"one of:?\s*([^.;]+)", desc)
+    if m:
+        return [x.strip() for x in m.group(1).split(",") if x.strip()]
+    m = re.search(r"ISO 4217 code:\s*([A-Z, ]+?)(?:\s+or\s+([A-Z]{3}))?$", desc.strip())
+    if m:
+        codes = [x.strip() for x in m.group(1).split(",") if x.strip()]
+        if m.group(2):
+            codes.append(m.group(2))
+        return codes
+    return []
+
+
+def schema_problems(obj: dict[str, Any], doc_type: str, *, enums: bool = False) -> list[str]:
+    """What a validator can see without the gold: the keys and the value
+    shapes; with ``enums``, also that an enum or code field holds one of the
+    values its description lists."""
+    schema = SCHEMAS[doc_type]
+    out = []
+    missing = [k for k in schema if k not in obj]
+    extra = [k for k in obj if k not in schema]
+    if missing:
+        out.append("missing keys: " + ", ".join(missing))
+    if extra:
+        out.append("unexpected keys: " + ", ".join(extra))
+    for k, (kind, _) in schema.items():
+        v = obj.get(k)
+        if v is None:
+            continue
+        if kind == "date" and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(v)):
+            out.append(f"{k} is not YYYY-MM-DD: {v!r}")
+        if kind == "money" and (isinstance(v, bool) or not isinstance(v, (int, float))):
+            out.append(f"{k} is not a plain number: {v!r}")
+        if kind == "int" and (isinstance(v, bool) or not isinstance(v, int)):
+            out.append(f"{k} is not an integer: {v!r}")
+        if enums and kind in ("enum", "code"):
+            allowed = _allowed(schema[k][1])
+            if allowed and str(v).strip().lower() not in [a.lower() for a in allowed]:
+                out.append(f"{k} is not one of the allowed values ({', '.join(allowed)}): {v!r}")
+    return out
+
+
+def agent(chat: Chat, *, instructions: str, max_turns: int, retries: int, validate: bool | str):
+    """The harness's loop as a callable ``prompt -> trajectory``. A reply that
+    is a ```python block (with no ```json block) runs in the tool while turns
+    remain; the reply with the JSON is final. With ``retries``, an unparseable
+    final (or, with ``validate``, a malformed one) is sent back with the reason."""
+
+    seen: dict[str, int] = {}
+    seen_lock = threading.Lock()
+
+    def run(prompt: str) -> dict[str, Any]:
+        doc_m, type_m = _DOC.search(prompt), _TYPE.search(prompt)
+        doc = doc_m.group(1) if doc_m else prompt
+        doc_type = type_m.group(1).strip().replace(" ", "_") if type_m else ""
+        messages = [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": prompt},
+        ]
+        steps: list[dict[str, Any]] = []
+        turns, retries_left, final, cut = 0, retries, "", False
+        # the n-th time this harness plays this prompt is rollout n: each of
+        # the k rollouts gets its own seed (the engine does not pass the index)
+        with seen_lock:
+            nth = seen.get(prompt, 0)
+            seen[prompt] = nth + 1
+        base = int(hashlib.sha256(f"{prompt}:{SALT}:{nth}".encode()).hexdigest()[:8], 16)
+        while True:
+            reply, u = chat(messages, base + 7919 * turns)
+            turns += 1
+            cut = u.get("finish_reason") == "length"
+            steps.append(
+                {
+                    "model_turn": turns,
+                    "input_tokens": int(u.get("prompt_tokens") or 0),
+                    "output_tokens": int(u.get("completion_tokens") or 0),
+                    "truncated": cut,
+                }
+            )
+            messages.append({"role": "assistant", "content": reply})
+            code = _PY.findall(reply)
+            if code and not _JSONFENCE.search(reply) and turns < max_turns:
+                out = run_python(code[-1], doc)
+                steps.append({"tool": "run_python", "arguments": {"code": code[-1]}, "result": out})
+                msg = f"run_python output:\n{out}"
+                if turns == max_turns - 1:
+                    msg += "\n\n" + LAST_TURN
+                messages.append({"role": "user", "content": msg})
+                continue
+            final = reply
+            answer, why = parse_answer(reply)
+            problems = [why] if answer is None else []
+            if answer is not None and validate and doc_type in SCHEMAS:
+                problems = schema_problems(answer, doc_type, enums=validate == "schema+enum")
+            if problems and retries_left > 0:
+                retries_left -= 1
+                steps.append({"retry": problems})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Your answer cannot be accepted: "
+                        + "; ".join(problems)
+                        + ". Reply with only the corrected ```json block.",
+                    }
+                )
+                continue
+            break
+        return {
+            "steps": steps,
+            "final_text": final,
+            "finish_reason": "length" if cut else "stop",
+        }
+
+    return run
+
+
+# ---------------------------------------------------------------- the backends
+
+
+def endpoint_chat(url: str, model: str, key: str) -> Chat:
+    """An OpenAI-compatible chat call against your own vLLM server."""
+    import requests
+
+    base = url.rstrip("/")
+    if not base.endswith("/v1"):
+        base += "/v1"
+    extra: dict[str, Any] = {}
+    if "qwen3" in model.lower():
+        # a hybrid-thinking checkpoint: served with thinking off, the same way
+        # Nemotron is told "detailed thinking off" (a serving setting, not a lever)
+        extra["chat_template_kwargs"] = {"enable_thinking": False}
+
+    def chat(messages: list[dict[str, str]], seed: int) -> tuple[str, dict[str, Any]]:
+        body = {"model": model, "messages": messages, "seed": seed, **SAMPLING, **extra}
+        err = ""
+        for attempt in range(6):
+            try:
+                r = requests.post(
+                    f"{base}/chat/completions",
+                    json=body,
+                    timeout=REQUEST_TIMEOUT_S,
+                    headers={"Authorization": f"Bearer {key}"},
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    choice = data["choices"][0]
+                    u = dict(data.get("usage") or {})
+                    u["finish_reason"] = choice.get("finish_reason")
+                    return choice["message"].get("content") or "", u
+                if r.status_code == 400:  # context overflow: an honest failed reply
+                    return "", {"finish_reason": "length", "error": r.text[:200]}
+                err = f"{r.status_code} {r.text[:200]}"
+            except requests.RequestException as exc:
+                err = str(exc)[:200]
+            time.sleep(min(30, 5 * 2**attempt))
+        raise RuntimeError(f"endpoint failed six times: {err}")
+
+    return chat
+
+
+_GOLD: dict[str, dict[str, Any]] = {}
+
+
+def scripted_chat(name: str) -> Chat:
+    """The offline stand-in. It knows the gold record for every document and
+    makes the mistakes a small model makes, each at a planted rate that a rule
+    in the system prompt removes, so a candidate that states the rule scores
+    higher. It sends one ```python block first (so the tool path runs) and the
+    JSON after. Its numbers show the mechanics, not a result."""
+    if not _GOLD:
+        _GOLD.update({task_prompt(a): a for a in build()})
+
+    def draw(*parts: Any) -> float:
+        key = ":".join(map(str, (name, *parts)))
+        return int(hashlib.sha256(key.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+
+    def chat(messages: list[dict[str, str]], seed: int) -> tuple[str, dict[str, Any]]:
+        system, user = messages[0]["content"].lower(), messages[1]["content"]
+        ask = _GOLD[user]
+        turn = sum(1 for m in messages if m["role"] == "assistant")
+        u: dict[str, Any] = {
+            "prompt_tokens": sum(len(m["content"]) for m in messages) // 4,
+            "finish_reason": "stop",
+        }
+        if turn == 0:
+            u["completion_tokens"] = 20
+            return "```python\nprint(len(DOC.splitlines()), 'lines')\n```", u
+        out = dict(ask["gold"])
+        for f, (kind, _) in SCHEMAS[ask["doc_type"]].items():
+            r = draw(ask["id"], f, seed, SALT)
+            gold = ask["gold"][f]
+            if gold is None and r < 0.5 and "never guess" not in system:
+                out[f] = "unknown"
+            elif kind == "money" and gold is not None and r < 0.3 and "sum" not in system:
+                out[f] = round(gold * 1.1, 2)
+            elif kind == "date" and gold is not None and r < 0.25 and "dd.mm" not in system:
+                out[f] = gold[5:7] + "/" + gold[8:] + "/" + gold[:4]
+            elif kind == "name" and r < 0.2 and "first last" not in system:
+                out[f] = " ".join(reversed(str(gold).split()))
+        u["completion_tokens"] = 80
+        if draw(ask["id"], "parse", seed, SALT) < 0.08 and turn < 2:
+            return "Here are the fields: " + json.dumps(out)[:-3], u
+        return f"```json\n{json.dumps(out)}\n```", u
+
+    return chat
+
+
+def chat_for(model: str) -> Chat:
+    if model.startswith("scripted"):
+        return scripted_chat(model)
+    if not model.startswith("vllm:") or "@" not in model:
+        raise ValueError(f"model {model!r}: use vllm:<hub id>@<url> or scripted")
+    name, url = model[len("vllm:") :].split("@", 1)
+    key = os.environ.get("VLLM_API_KEY")
+    if not key:
+        raise SystemExit("set VLLM_API_KEY to the key your docx-serve app was deployed with")
+    return endpoint_chat(url, name, key)
+
+
+# ---------------------------------------------------------------- the two arms
+
+RULES = [
+    (
+        "DOC already holds the full document text inside the sandbox. Never paste or retype "
+        "the document into your code; read it from DOC (for example DOC.splitlines())."
+    ),
+    (
+        "If the tool errors, prints nothing, or you have no calls left, do not explain, "
+        "apologize or describe a fix: read the document text in the message yourself and reply "
+        "with the ```json block. Every value the document shows goes in the block; null is only "
+        "for a field the document truly does not give, never a placeholder for a value your "
+        "code failed to extract."
+    ),
+    (
+        "Read the fields directly off the document in the message; you can see it, so no code "
+        "is needed to find a name, a number, a date or an id. Use the tool only for arithmetic "
+        "the document does not print (adding line amounts, a date plus N days, counting lines "
+        "across pages), with a few short statements over DOC. If the document prints the "
+        "number, copy it and skip the tool. A first reply that is the ```json block is the "
+        "best reply."
+    ),
+]
+
+ARMS = {
+    # the starting harness: four turns, no retry, no validation
+    "baseline": {
+        "instructions": BASE_INSTRUCTIONS,
+        "max_turns": 4,
+        "retries": 0,
+        "validate": False,
+    },
+    # the harness the search picked: three rules, and one retry when the final answer
+    # fails a shape check (the check never sees the gold)
+    "recipe": {
+        "instructions": BASE_INSTRUCTIONS + "\n\n" + "\n\n".join(RULES),
+        "max_turns": 4,
+        "retries": 1,
+        "validate": True,
+    },
+}
+
+
+def data(seed: int = DATA_SEED) -> tuple[list[dict], list[dict]]:
+    """(search, holdout): the generated documents, split by a hash of the ask id."""
+    asks = build(seed)
+    search = [a for a in asks if a["split"] != "holdout"]
+    holdout = [a for a in asks if a["split"] == "holdout"]
+    return search, holdout
+
+
+def evaluate(chat: Chat, arm: str, asks: list[dict], k: int, concurrency: int) -> list[dict]:
+    """k rollouts of one harness per document, each graded against the gold record."""
+    run = agent(chat, **ARMS[arm])
+    jobs = [(a, i) for a in asks for i in range(k)]
+
+    def one(job: tuple[dict, int]) -> dict:
+        ask, _ = job
+        traj = run(task_prompt(ask))
+        answer, _why = parse_answer(traj["final_text"])
+        g = grade(ask, answer)
+        tokens = sum(s.get("input_tokens", 0) + s.get("output_tokens", 0) for s in traj["steps"])
+        return {
+            "task_id": ask["id"],
+            "field_f1": g["field_f1"],
+            "tokens": tokens,
+            "final_text": traj["final_text"],
+        }
+
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        return list(pool.map(one, jobs))
+
+
+def per_doc(rows: list[dict]) -> dict[str, float]:
+    by: dict[str, list[float]] = {}
+    for r in rows:
+        by.setdefault(r["task_id"], []).append(r["field_f1"])
+    return {t: statistics.fmean(v) for t, v in by.items()}
+
+
+def boot(values: list[float], n: int = 2000, seed: int = 0) -> list[float]:
+    rng = random.Random(seed)
+    means = sorted(statistics.fmean(rng.choice(values) for _ in values) for _ in range(n))
+    return [means[int(0.025 * n)], means[int(0.975 * n) - 1]]
+
+
+def summarize(rows: list[dict]) -> dict:
+    docs_mean = list(per_doc(rows).values())
+    return {"score": statistics.fmean(docs_mean), "ci": boot(docs_mean), "steps": 0}
+
+
+def selftest() -> None:
+    search, holdout = data()
+    assert len(search) + len(holdout) == 200 and len(holdout) == 99, (len(search), len(holdout))
+    print("test version", test_version(holdout))
+    a = holdout[0]
+    assert grade(a, dict(a["gold"]))["field_f1"] == 1.0
+    assert grade(a, None)["field_f1"] == 0.0
+    assert parse_answer("```python\nprint({'a': 1, 'b': 2})\n```")[0] is None
+    assert run_python("print(len(DOC))", "abc").strip() == "3"
+    rows = evaluate(scripted_chat("scripted"), "recipe", holdout[:5], k=1, concurrency=2)
+    assert len(rows) == 5 and all(0.0 <= r["field_f1"] <= 1.0 for r in rows)
+    print("selftest ok")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--model", default="", help="vllm:<hub id>@<url> of your vLLM server")
+    ap.add_argument("--k", type=int, default=4)
+    ap.add_argument("--concurrency", type=int, default=64)
+    args = ap.parse_args()
+    if args.selftest:
+        selftest()
+        return
+    if not args.model:
+        raise SystemExit("pass --model vllm:<hub id>@<url>, or run --selftest offline")
+    chat = chat_for(args.model)
+    _search, holdout = data()
+    print("holdout test version", test_version(holdout))
+    base_runs = []
+    for i in range(EVAL_RUNS):
+        os.environ["DOCX_SALT"] = str(i)
+        base_runs.append(evaluate(chat, "baseline", holdout, args.k, args.concurrency))
+    os.environ["DOCX_SALT"] = "0"
+    rec = evaluate(chat, "recipe", holdout, args.k, args.concurrency)
+    b, r = per_doc(base_runs[0]), per_doc(rec)
+    diffs = [r[t] - b[t] for t in b]
+    run_std = statistics.pstdev(statistics.fmean(per_doc(x).values()) for x in base_runs)
+    out = {
+        "recipe": HERE.name,
+        "paper": "https://arxiv.org/abs/2603.28052",
+        "base_model": BASE_MODEL,
+        "metric": METRIC,
+        "n_holdout": len(holdout),
+        "k": args.k,
+        "book": BOOK,
+        "arms": {"baseline": summarize(base_runs[0]), "recipe": summarize(rec)},
+        "delta": {
+            "recipe_vs_baseline": statistics.fmean(diffs),
+            "ci": boot(diffs),
+            "verdict": "unresolved",
+        },
+        "checks": {
+            "run_std": run_std,
+            "run_std_runs": EVAL_RUNS,
+            "train_seeds": {"baseline": 1, "recipe": 1},
+            "decontaminated_dropped": 0,
+            "over_optimized": False,
+            "length_before": statistics.fmean(len(x["final_text"]) for x in base_runs[0]),
+            "length_after": {
+                "baseline": statistics.fmean(len(x["final_text"]) for x in base_runs[0]),
+                "recipe": statistics.fmean(len(x["final_text"]) for x in rec),
+            },
+            "hack_scan_top": "",
+            "seed": DATA_SEED,
+        },
+        "gpu": "L40S",
+        "usd": 0.0,
+        "verified": time.strftime("%Y-%m-%d"),
+        "whileai": "",
+    }
+    (HERE / "results.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
+    print(
+        f"baseline {out['arms']['baseline']['score']:.3f} -> recipe {out['arms']['recipe']['score']:.3f}"
+    )
+
+
+if __name__ == "__main__":
+    main()

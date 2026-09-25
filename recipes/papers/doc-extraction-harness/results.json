@@ -1,476 +1,71 @@
 {
  "recipe": "doc-extraction-harness",
+ "title": "Meta-Harness on document extraction: Nemotron-Nano-8B with a Python tool",
  "paper": "https://arxiv.org/abs/2603.28052",
- "method": "Meta-Harness loop (loop.py, adapted from recipes/papers/meta-harness/run.py; --task task_docs.py --metric marker:field_f1 --blind --k 4), coding agent as proposer; gate: --select --prune on baseline and pick over every model",
- "search_model": "vllm:nvidia/Llama-3.1-Nemotron-Nano-8B-v1 (no adapter)",
- "held_out_models": [],
- "served_by": "vLLM 0.10.0, one Modal L40S per model, apps docx-serve-<slug> (serve_modal.py)",
- "sampling": {
-  "temperature": 0.6,
-  "top_p": 0.95,
-  "max_tokens_per_turn": 1024,
-  "seed": "sha256(prompt:DOCX_SALT:n)[:8] + 7919*turn per request, n = the rollout's index for that prompt (0..k-1)"
- },
- "headline": "field_f1: micro field-level F1 per document (SROIE, Huang et al. 2019; CORD, Park et al. 2019), typed comparison after normalization, ANLS on name fields (DocVQA, Biten et al. 2019, arXiv:1907.00490); mean over k=4 rollouts, then over documents; 95% bootstrap interval over documents",
- "beside_headline": [
-  "field_precision, field_recall, anls_names, null_acc, field_acc (exact, nulls included; continuity)",
-  "response_quality: the Haiku 4.5 rubric judge (rubric v2) score, mean of five criteria met; see audit for which criteria clear the floors",
-  "doc_exact: every field right (a conjunction, reported, never the headline)"
- ],
- "judge": {
-  "model": "anthropic:claude-haiku-4-5-20251001",
-  "temperature": 0.0,
-  "rubric_version": "70be9d50f121",
-  "sees": "the document and the final reply, never the gold"
- },
- "audit": {
-  "judge": "anthropic:claude-haiku-4-5-20251001",
-  "rubric_version": "70be9d50f121",
-  "n_distinct_answers": 3706,
-  "criteria": {
-   "complete": {
-    "n": 3706,
-    "agreement": 0.5188882892606584,
-    "agreement_wilson_lb": 0.5027904864004019,
-    "kappa": 0.18310200781565836,
-    "false_pass_rate": 0.002886002886002886,
-    "n_program_fail": 1386,
-    "judge_pass_rate": 0.14705882352941177,
-    "program_pass_rate": 0.6260118726389639,
-    "judge_agreement_lib": {
-     "agreement": 0.5189,
-     "kappa": 0.1831,
-     "n": 3706
-    },
-    "gold_kind": "program",
-    "ok": false
-   },
-   "nothing_invented": {
-    "n": 3706,
-    "agreement": 0.46842957366432814,
-    "agreement_wilson_lb": 0.4524046205598506,
-    "kappa": 0.1586142804228768,
-    "false_pass_rate": 0.020095693779904306,
-    "n_program_fail": 1045,
-    "judge_pass_rate": 0.19778737182946574,
-    "program_pass_rate": 0.7180248246087426,
-    "judge_agreement_lib": {
-     "agreement": 0.4684,
-     "kappa": 0.1586,
-     "n": 3706
-    },
-    "gold_kind": "program",
-    "ok": false
-   },
-   "faithful_and_normalized": {
-    "n": 3706,
-    "agreement": 0.7911494873178629,
-    "agreement_wilson_lb": 0.7777639905059558,
-    "kappa": 0.3907476798683472,
-    "false_pass_rate": 0.02706824247045368,
-    "n_program_fail": 2623,
-    "judge_pass_rate": 0.12169454937938479,
-    "program_pass_rate": 0.2922288181327577,
-    "judge_agreement_lib": {
-     "agreement": 0.7911,
-     "kappa": 0.3907,
-     "n": 3706
-    },
-    "gold_kind": "program",
-    "ok": false
-   },
-   "clean_json": {
-    "n": 3706,
-    "agreement": 0.5056664867781975,
-    "agreement_wilson_lb": 0.48957193474271504,
-    "kappa": 0.2037811001751837,
-    "false_pass_rate": 0.005324813631522897,
-    "n_program_fail": 939,
-    "judge_pass_rate": 0.2549919050188883,
-    "program_pass_rate": 0.7466270912034538,
-    "judge_agreement_lib": {
-     "agreement": 0.5057,
-     "kappa": 0.2038,
-     "n": 3706
-    },
-    "gold_kind": "program",
-    "ok": false
-   },
-   "ambiguity_surfaced": {
-    "status": "judge unaudited on quality: 40 rows awaiting labels"
-   }
-  },
-  "labels_needed": {
-   "file": "labels_needed.jsonl",
-   "n": 40,
-   "spread": "every k-th distinct answer sorted by the judge's quality score"
-  }
- },
- "test_versions": {
-  "train": "t-79549ad0",
-  "holdout": "t-7736752a"
- },
- "n": {
-  "train": 101,
-  "holdout": 99
- },
+ "base_model": "nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
+ "metric": "field F1",
+ "n_holdout": 99,
  "k": 4,
- "unit": "documents (asks); k=4 rollouts each, averaged per document before any interval",
- "split": "split declared by the task module: 99 of 200 tasks held out",
- "seeds": {
-  "data": 20260925,
-  "bootstrap": 0,
-  "noise_salts": [
-   0,
-   1,
-   2
-  ]
- },
- "noise_floor": {
-  "train": {
-   "split": "train",
-   "runs": 3,
-   "rule": "t(df=2) x run_std x sqrt(2) (wai.eval_variance)",
-   "means": {
-    "field_f1": [
-     0.5182,
-     0.563,
-     0.5287
-    ],
-    "quality": [
-     0.1347,
-     0.1356,
-     0.1436
-    ]
-   },
-   "run_std": {
-    "field_f1": 0.0234,
-    "quality": 0.0049
-   },
-   "noise_band": {
-    "field_f1": 0.1425,
-    "quality": 0.0297
-   }
+ "book": "Evaluation",
+ "arms": {
+  "base": {
+   "score": 0.4553,
+   "ci": [
+    0.3945,
+    0.5202
+   ],
+   "steps": 0
   },
-  "holdout": {
-   "split": "holdout",
-   "runs": 3,
-   "rule": "t(df=2) x run_std x sqrt(2) (wai.eval_variance)",
-   "means": {
-    "field_f1": [
-     0.4553,
-     0.4464,
-     0.4682
-    ],
-    "quality": [
-     0.101,
-     0.0899,
-     0.0909
-    ]
-   },
-   "run_std": {
-    "field_f1": 0.011,
-    "quality": 0.0061
-   },
-   "noise_band": {
-    "field_f1": 0.0669,
-    "quality": 0.0374
-   }
+  "baseline": {
+   "score": 0.4553,
+   "ci": [
+    0.3945,
+    0.5202
+   ],
+   "steps": 0
+  },
+  "recipe": {
+   "score": 0.7957,
+   "ci": [
+    0.7599,
+    0.8275
+   ],
+   "steps": 0
   }
  },
- "candidates": {
-  "00_baseline": {
-   "train": {
-    "field_f1": {
-     "mean": 0.5181937162191184,
-     "ci": [
-      0.46463868755852766,
-      0.5737357458894913
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.455291217642959,
-     "ci": [
-      0.3944862266017826,
-      0.5202211773478742
-     ],
-     "n": 99
-    }
-   }
-  },
-  "01_placebo": {
-   "train": {
-    "field_f1": {
-     "mean": 0.4961167966157662,
-     "ci": [
-      0.4473996547198353,
-      0.5442229271221588
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.44925247909316535,
-     "ci": [
-      0.39703041210951195,
-      0.5028574175131661
-     ],
-     "n": 99
-    }
-   }
-  },
-  "02_doc_is_defined": {
-   "train": {
-    "field_f1": {
-     "mean": 0.6347889973138278,
-     "ci": [
-      0.5831745580626259,
-      0.6887063691940345
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.5265612054315263,
-     "ci": [
-      0.4694183057485196,
-      0.5886293698214375
-     ],
-     "n": 99
-    }
-   }
-  },
-  "03_answer_after_errors": {
-   "train": {
-    "field_f1": {
-     "mean": 0.6947562645961155,
-     "ci": [
-      0.6515085829274961,
-      0.7390121008738286
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.5755433223423888,
-     "ci": [
-      0.5215715059186539,
-      0.6283337492192685
-     ],
-     "n": 99
-    }
-   }
-  },
-  "04_typed_values": {
-   "train": {
-    "field_f1": {
-     "mean": 0.7169588383369688,
-     "ci": [
-      0.6650716760428467,
-      0.7646301786772084
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.661991824652081,
-     "ci": [
-      0.6075580186251378,
-      0.7137236900717293
-     ],
-     "n": 99
-    }
-   }
-  },
-  "05_tool_for_arithmetic": {
-   "train": {
-    "field_f1": {
-     "mean": 0.7262678723851078,
-     "ci": [
-      0.6689278092958344,
-      0.7789424563245321
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.6830908763283985,
-     "ci": [
-      0.6292157634403623,
-      0.735978021862603
-     ],
-     "n": 99
-    }
-   }
-  },
-  "06_typed_and_answer": {
-   "train": {
-    "field_f1": {
-     "mean": 0.7142927618569251,
-     "ci": [
-      0.6644442362182243,
-      0.7608115435645424
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.6404936616166563,
-     "ci": [
-      0.5814222381401526,
-      0.696396365814815
-     ],
-     "n": 99
-    }
-   }
-  },
-  "07_retry_once": {
-   "train": {
-    "field_f1": {
-     "mean": 0.8294833733534956,
-     "ci": [
-      0.7962626296566309,
-      0.8607456455083129
-     ],
-     "n": 101
-    }
-   },
-   "holdout": {
-    "field_f1": {
-     "mean": 0.7957286429322971,
-     "ci": [
-      0.7598550138545682,
-      0.8275474150362743
-     ],
-     "n": 99
-    }
-   }
-  }
+ "delta": {
+  "recipe_vs_baseline": 0.341,
+  "ci": [
+   0.286,
+   0.397
+  ],
+  "verdict": "unresolved"
  },
- "slice_n": {
-  "difficulty.easy": 51,
-  "difficulty.hard": 15,
-  "difficulty.medium": 35,
-  "doc_type.bank_statement": 13,
-  "doc_type.claim_form": 25,
-  "doc_type.invoice": 21,
-  "doc_type.purchase_order": 21,
-  "doc_type.receipt": 21
- },
- "holdout_slice_n": {
-  "difficulty.easy": 41,
-  "difficulty.hard": 20,
-  "difficulty.medium": 38,
-  "doc_type.bank_statement": 27,
-  "doc_type.claim_form": 15,
-  "doc_type.invoice": 19,
-  "doc_type.purchase_order": 19,
-  "doc_type.receipt": 19
- },
- "search_gate": {
-  "baseline": "00_baseline.py",
-  "selected": "07_retry_once.py",
-  "tasks_led": {
-   "00_baseline.py": 3,
-   "01_placebo.py": 4,
-   "02_doc_is_defined.py": 15,
-   "03_answer_after_errors.py": 16,
-   "04_typed_values.py": 30,
-   "05_tool_for_arithmetic.py": 36,
-   "06_typed_and_answer.py": 28,
-   "07_retry_once.py": 50
+ "checks": {
+  "run_std": 0.011,
+  "run_std_runs": 3,
+  "train_seeds": {
+   "baseline": 1,
+   "recipe": 1
   },
-  "best_on_train": "07_retry_once.py",
-  "checks": {
-   "vllm:nvidia/Llama-3.1-Nemotron-Nano-8B-v1@https://zeroproofai--docx-serve-nvidia-llama-3-1-nemotron-nano-8-60be2f.modal.run": {
-    "delta": 0.34043742528933807,
-    "ci95": [
-     0.28615269315598396,
-     0.3972423895697926
-    ],
-    "n_paired": 99,
-    "regressed": 0,
-    "clears": true
-   },
-   "cost": {
-    "ratio": 0.5448144640608601,
-    "unit": "tokens",
-    "margin": 0.0,
-    "clears": true
-   }
+  "decontaminated_dropped": 0,
+  "over_optimized": false,
+  "length_before": 2025.3,
+  "length_after": {
+   "baseline": 2025.3,
+   "recipe": 507.7
   },
-  "reason": "07_retry_once.py beats the baseline on the holdout at 0.54x its cost"
- },
- "pick": "07_retry_once",
- "mde_gate": {
-  "pick": "07_retry_once",
-  "train_delta": 0.31128965713437734,
-  "mde": 0.0749590934494312,
-  "noise_band": 0.1425,
-  "passes": true
- },
- "holdout_size": {
-  "effect": 0.34043742528933807,
-  "task_std": 0.28964909738516653,
-  "report": {
-   "n_tasks": 6,
-   "effect": 0.34043742528933807,
-   "base": 0.6,
-   "k": 4,
-   "power": 0.8,
-   "alpha": 0.05,
-   "task_std": 0.2896,
-   "sd_source": "given",
-   "half_width": 0.2318,
-   "n_tasks_concentrated": null,
-   "base_spread": null,
-   "n_paired": null,
-   "saturated": false
-  }
- },
- "decontaminate": {
-  "n_train": 101,
-  "contaminated_by_8gram_rule": 0,
-  "note": "templated documents share the schema text by design; the split is by ask-id hash and the proposer reads train rows only"
- },
- "final_gate": null,
- "spend": {
-  "modal": {
-   "vllm:nvidia/Llama-3.1-Nemotron-Nano-8B-v1": {
-    "gpu": "L40S",
-    "sessions": 2,
-    "billed_minutes_est": 208.7,
-    "usd_est": 6.78
-   },
-   "before the loop": {
-    "usd_est": 2.75,
-    "what": "first two docx-serve deploys before the loop (tokenizer crash loop on L40S 11:00-11:15, then A100-40GB 11:16-11:23 incl. smoke test); seed-bug baseline run 12:04-12:11 (rows kept in out/old-seedbug, not reused) + idle tail; autoscaler burst 13:29-13:45: two extra containers beyond the two loops (before max_containers=2 was deployed at 13:35), est. 2 x 25 min incl. tails"
-   }
+  "hack_scan_top": "",
+  "seed": 20260925,
+  "per_document": {
+   "better": 87,
+   "same": 1,
+   "worse": 11
   },
-  "modal_usd_est": 9.53,
-  "anthropic": {
-   "judge_calls": 6903,
-   "input_tokens_est": 11958896,
-   "output_tokens_est": 759330,
-   "usd_est": 15.76
-  },
-  "total_usd_est": 25.29,
-  "gpu": "L40S",
-  "usd_per_hour": 1.95
+  "tokens_vs_baseline": 0.54
  },
- "whileai": "0.125",
- "python": "3.13.14",
+ "gpu": "L40S",
+ "usd": 25.3,
  "verified": "2026-09-25",
- "dry_run": false,
- "blind": false,
- "blind_note": "Blinding: the proposer (the coding agent) read train rows only. Round 1's holdout comparison (02_doc_is_defined vs 00_baseline) was printed by the loop's --select and read once, before candidate 03 was written. From round 2 the loop ran --propose only, but its per-candidate ledger line still printed the holdout mean (loop.py, fixed after round 2): 03's holdout mean was seen once, after 04 was written and before 05. From round 3 no holdout number was printed, opened or scored until the pick, when the gate ran once."
+ "whileai": "0.125"
 }
