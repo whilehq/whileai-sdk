@@ -225,3 +225,38 @@ def test_a_teacher_scored_on_other_tasks_is_not_compared():
     teacher = [dict(r, task_id="x" + r["task_id"]) for r in graded([4] * 160)]
     r = wai.methods.route(student, teacher=teacher)
     assert not r.methods["opd"]["ok"] and "same tasks" in r.methods["opd"]["why"]
+
+
+def test_on_policy_reads_the_model_version_simulate_stamps():
+    rows = graded([0, 1, 2, 3, 4] * 32, model_version="Qwen/Qwen3-32B")
+    r = wai.methods.route(rows, model=MODEL)
+    assert r.measured["on_policy"] is False
+    assert not r.methods["grpo"]["ok"]
+
+
+def test_a_saturated_pool_is_sent_to_grs_not_the_default_gar():
+    rows = graded([4] * 140 + [2] * 20)
+    r = wai.methods.route(rows, judge={"agreement": 0.86, "kappa": 0.71, "n": 200})
+    assert r.method == "groupwise"
+    assert 'mode="reward"' in r.methods["groupwise"]["why"]
+
+
+def test_a_reward_model_grader_needs_the_same_audit_as_a_judge():
+    rows = graded([0, 1, 2, 3, 4] * 32, judge_meta={"scorer_kind": "reward_model"})
+    r = wai.methods.route(rows)
+    assert r.method is None and "compare_judges" in r.why
+
+
+def test_truncated_fails_are_counted_and_named():
+    rows = graded([0] * 90 + [1, 2, 3] * 30, finish_reason="stop")
+    for row in rows[:40]:
+        row["finish_reason"] = "length"  # the first ten all-fail tasks hit the cap
+    r = wai.methods.route(rows, size_b=8)
+    assert r.measured["truncated_fails"] == 40
+    assert any("token cap" in note for note in r.notes)
+
+
+def test_a_grader_that_also_wrote_the_rows_is_flagged():
+    rows = graded([0, 1, 2, 3, 4] * 32, model_version="haiku", judge_name="haiku")
+    r = wai.methods.route(rows, judge={"agreement": 0.9, "kappa": 0.8, "n": 300})
+    assert any("self-preference" in note for note in r.notes)

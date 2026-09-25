@@ -29,6 +29,7 @@ from .report import Report
 from .simulations.defaults import (
     CEILING_PASS_RATE,
     DIFFICULTY_BAND,
+    DIFFICULTY_BAND_ROLLOUTS,
     MIN_AGREEMENT,
     MIN_KAPPA,
     PROVE_EFFECT,
@@ -42,7 +43,9 @@ from .simulations.defaults import (
     ROUTE_TEACHER_MAX_TRUNCATED,
     TRAIN_MIN_MIXED_TASKS,
 )
-from .simulations.score.hygiene import is_truncated
+from .simulations.score.hack_scan import hack_scan
+from .simulations.score.hygiene import is_truncated, length_report
+from .simulations.score.judging import length_confound_warning
 from .simulations.score.optimize import _is_binary_01
 from .simulations.score.passat import pass_at
 from .simulations.score.stats import task_key, wilson_interval
@@ -63,18 +66,24 @@ ROUTED: tuple[str, ...] = ("opd", "grpo", "opsd", "groupwise", "dpo", "flashrein
 #: instrument is visible (style rule 5).
 NOT_ROUTED = (
     "rm (where a program grades, the program is the reward); Async and its correction "
-    "(wrap the routed method when the sampler lags the policy); ReinforceAda (a sampling "
-    "rule for grpo); learning rate and KL (see the method's docstring); the band per "
-    "stance or difficulty (a pool mixed overall can floor on one slice: route each slice)"
+    "(wrap the routed method when the sampler lags the policy); OPD's divergence and top_k "
+    "and OPSD's anchor (not decidable from rows; the docstrings give the defaults' sources); "
+    "Swarm (a rollout rule, not a trainer; gate it on Swarm.calibration); learning rate, "
+    "clip and KL (see the method's docstring); the band per stance or difficulty (a pool "
+    "mixed overall can floor on one slice: route each slice)"
 )
 
 #: The checks a pool still needs before the GPU, whatever ``route`` picks.
 BEFORE_THE_GPU = (
-    "size the held-out test (holdout_size), decontaminate the pool against it, "
-    "and train a random selection of the same size beside the real one"
+    "size the held-out test (holdout_size) and measure its noise over three runs "
+    "(eval_variance); decontaminate the pool against it; train a random selection of the "
+    "same size beside the real one; keep one chat template across stages and mask tool "
+    "turns out of the loss (loss_mask); check over-refusal on a benign set (refusal_report); "
+    "and with beta=0, watch the drift from the reference (mean_kl) (Lambert 2025, chapters "
+    "Instruction Fine-Tuning, Tool Use, Over-Optimization, Regularization, Evaluation)"
 )
 
-_MODEL_KEYS = ("agent_model", "model")
+_MODEL_KEYS = ("model_version", "agent_model", "model")
 
 
 class Route(Report):
@@ -203,7 +212,7 @@ def _judge_graded(rows: Sequence[Mapping[str, Any]]) -> bool:
         kind = meta.get("scorer_kind") if isinstance(meta, Mapping) else None
         if kind is None and row.get("judge_name"):
             kind = "judge"
-        if kind == "judge":
+        if kind in ("judge", "reward_model"):
             return True
     return False
 
@@ -264,8 +273,10 @@ def route(
        ``compare_judges`` row (its ``ok`` is the Wilson lower bound of
        agreement against ``MIN_AGREEMENT`` and kappa against
        ``MIN_KAPPA``), or a mapping with ``agreement``, ``kappa`` and
-       ``n``. A judge is a reward model and is checked against people
-       first (Lambert 2025, chapter Reward Modeling).
+       ``n``; a learned reward model's rows (``scorer_kind``
+       ``"reward_model"``) need the same. A judge is a generative reward
+       model (Lambert 2025, chapter Reward Modeling), a proxy checked against
+       people before its scores choose data (chapter Evaluation).
     2. **Truncation.** A passing row that did not end on its own
        (``hygiene.is_truncated``: ``finish_reason == "length"`` or a
        truncated step) means the token cap, not the model, decides the
@@ -281,7 +292,8 @@ def route(
     4. **The band.** grpo trains on the grouped tasks inside
        ``DIFFICULTY_BAND``, the ones ``select_for_rl`` keeps; it needs
        ``min_mixed`` of them and ``ROUTE_MIN_MIXED_SHARE`` of the grouped
-       tasks (DAPO dynamic sampling). dpo needs ``min_mixed`` tasks with a
+       tasks (DAPO dynamic sampling, chapter Reinforcement Learning; the
+       20-80% band, chapter Reasoning). dpo needs ``min_mixed`` tasks with a
        pass and a fail, and is off-policy by construction (chapter
        Reinforcement Learning). ``ROUTE_FLOOR_SHARE`` all-fail tasks score
        OPSD from ``ROUTE_OPSD_MIN_PARAMS_B`` up (with ``privileged=
@@ -303,7 +315,7 @@ def route(
        student by ``effect`` with 95% intervals apart, finish under
        ``ROUTE_TEACHER_MAX_TRUNCATED`` cut off, and share the student's
        tokenizer (``vocab=(teacher, student)``; a mismatch drops the
-       per-token signal, SimCT arXiv:2605.07711; KD needs a shared
+       per-token signal, SimCT arXiv:2605.07711; KD usually needs a shared
        tokenizer, chapter Synthetic Data and Distillation).
 
     ``size_b`` is the student's size in billions of parameters.
@@ -337,6 +349,7 @@ def route(
     passing_rows = sum(1 for r in labelled if _label(r) == 1)
     partial_rows = sum(1 for r in pool if _partial(r))
     truncated_passes = sum(1 for r in labelled if _label(r) == 1 and is_truncated(r))
+    truncated_fails = sum(1 for r in labelled if _label(r) == 0 and is_truncated(r))
     mean_pass = sum(rates) / n if n else None
     judge_ok, judge_line = _judge_verdict(judge)
     judged = _judge_graded(pool)
@@ -356,6 +369,7 @@ def route(
         "passing_rows": passing_rows,
         "partial_rows": partial_rows or None,
         "truncated_passes": truncated_passes,
+        "truncated_fails": truncated_fails,
         "on_policy": on_policy,
         "judge_graded": judged,
     }
@@ -568,7 +582,11 @@ def route(
         )
     else:
         score(
-            "groupwise", True, f"saturated (pass@1 {mean_pass:.2f}); audited grader ({judge_line})"
+            "groupwise",
+            True,
+            f'saturated (pass@1 {mean_pass:.2f}); GroupwiseGrading(mode="reward") (GRS): the '
+            "default GAR mode leaves an all-pass group at zero advantage; "
+            f"audited grader ({judge_line})",
         )
 
     # dpo: a pass and a fail of the same task is a pair; dpo is off-policy by construction
@@ -609,6 +627,71 @@ def route(
     else:
         score("sft", False, "no passing rows")
 
+    # what the reward itself says, read with the SDK's own scans
+    try:
+        hack = hack_scan(pool)
+        regime, top = hack.get("regime"), hack.get("top_feature")
+    except Exception:  # a scan that cannot run is a note, not a stop
+        regime, top = None, None
+        notes.append("hack_scan could not run on these rows: the reward was not scanned")
+    measured["hack_regime"] = regime
+    if regime == "reward_hack":
+        for name in ("grpo", "dpo", "groupwise"):
+            if methods[name]["ok"]:
+                methods[name] = {
+                    "ok": False,
+                    "why": f"hack_scan: the reward within a task follows {top}, not the "
+                    "behavior (Lambert 2025, chapter Over-Optimization; Gao et al. 2022, "
+                    "arXiv:2210.10760): fix the reward first",
+                }
+                blocked.append(f"{name}: {methods[name]['why']}")
+    if methods["dpo"]["ok"]:
+        text = [
+            (task_key(r), _label(r), str(r.get("final_text") or r.get("reply") or "")) for r in pool
+        ]
+        firsts: dict[tuple[str, int], int] = {}
+        for key, lab, body in text:
+            if lab is not None and body and (key, lab) not in firsts:
+                firsts[(key, lab)] = len(body)
+        pairs = [
+            (firsts[(key, 1)], firsts[(key, 0)])
+            for key, _, _ in text
+            if (key, 1) in firsts and (key, 0) in firsts
+        ]
+        pairs = list(dict.fromkeys(pairs))
+        longer = sum(1 for a, b in pairs if a > b)
+        warn = length_confound_warning(longer, len(pairs)) if pairs else None
+        if warn:
+            methods["dpo"]["why"] += f"; {warn}"
+    if methods["grpo"]["ok"]:
+        spread = length_report(pool).get("n_groups_wide_spread") or 0
+        if spread:
+            methods["grpo"]["why"] += (
+                f'; {spread} groups have reply lengths far apart: loss_type="dr_grpo" drops the '
+                "length bias of a per-sequence mean (Liu et al. 2025, arXiv:2503.20783)"
+            )
+    if n and k < DIFFICULTY_BAND_ROLLOUTS:
+        notes.append(
+            f"the band is read at k={k}; it is measured at {DIFFICULTY_BAND_ROLLOUTS} rollouts "
+            "per task (Lambert 2025, chapter Reasoning), so a task's place in it is noisy"
+        )
+    if truncated_fails:
+        notes.append(
+            f"{truncated_fails} failing rows did not end on their own: some all-fail tasks may be "
+            "the token cap, not the model (chapter Reinforcement Learning)"
+        )
+    if "k" in need and n:
+        notes.append(
+            "or sample adaptively instead of raising k everywhere: wai.methods.ReinforceAda "
+            "draws until each task has a pass and a fail (arXiv:2510.04996)"
+        )
+    graders = {str(r.get("judge_name")) for r in pool if r.get("judge_name")}
+    if graders & writers:
+        notes.append(
+            f"the grader {sorted(graders & writers)} also wrote the rows: models favor their own "
+            "outputs (self-preference, Panickssery et al. 2024; Lambert 2025, chapter "
+            "Synthetic Data and Distillation); grade with another family"
+        )
     chosen = next((name for name in ROUTED if methods[name]["ok"]), None)
     plan = [chosen] if chosen else []
     if chosen in ("opd", "grpo"):
