@@ -1884,6 +1884,7 @@ from .reinforce_ada import (  # noqa: E402  (wai.methods.ReinforceAda)
     AdaResult,
     ReinforceAda,
 )
+from .routing import Route, route  # noqa: E402  (one dot down: wai.methods.route)
 from .swarm import Calibration, Swarm, SwarmResult  # noqa: E402  (one dot down: wai.methods.Swarm)
 
 __all__ = [
@@ -1906,6 +1907,7 @@ __all__ = [
     "Method",
     "PrimeRLConfig",
     "ReinforceAda",
+    "Route",
     "SingleRollout",
     "SpreadReport",
     "Swarm",
@@ -1914,5 +1916,6 @@ __all__ = [
     "factors_from_ranking",
     "prime_rl_config",
     "redistribute",
+    "route",
     "spread",
 ]

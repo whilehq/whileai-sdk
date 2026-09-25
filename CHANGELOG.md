@@ -7,6 +7,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.methods.route(rows, model=, teacher=, judge=, size_b=, vocab=)`: scores every training method
+  against a graded pool before the GPU and picks one, with the arithmetic, what blocks each other
+  method, and what would unblock it (`need`). It reads the measurements the methods already rest on
+  (the judge floors, `hygiene.is_truncated`, `DIFFICULTY_BAND`, `CEILING_PASS_RATE`, `pass_at`) and
+  adds the teacher guards OPD's docstring names: same tasks, clear by `PROVE_EFFECT` with intervals
+  apart, under 5% truncated at the student's cap, one tokenizer. The k projection is the exact Beta
+  expectation. New constants `ROUTE_*` in defaults.py. Additive: no existing call changes.
+
 - Skill `strengthen-your-evals`: the noise floor is now t(df=runs-1) x run_std x sqrt(2) from three
   re-runs via `wai.eval_variance`, not the gap between two runs (t(df=1) is 12.71). A branch every ask
   passes or fails now posts the exact bound 1 - 0.025**(1/n) instead of a zero-width interval: on the

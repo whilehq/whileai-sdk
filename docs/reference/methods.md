@@ -413,6 +413,50 @@ cliff, and a swarm has nothing to climb on it. Defaults: `particles` = 8,
 `rounds` = 3, `temperature` = 1.0, `max_tokens` = 2048, each named and
 justified in `whileai/swarm.py`.
 
+## Which one: `wai.methods.route`
+
+`route(rows, model=, teacher=, judge=, size_b=, vocab=)` reads a graded
+pool and scores every method above against it, before the GPU. It reuses
+the measurements the methods already rest on, in the order an upstream
+failure voids the ones below it: the judge floors (Wilson lower bound of
+agreement $\ge$ `MIN_AGREEMENT`, $\kappa \ge$ `MIN_KAPPA`), truncation
+(`hygiene.is_truncated`), groups of at least two rollouts, the band
+`DIFFICULTY_BAND` that `select_for_rl` keeps, whether the rows are
+on-policy, and the teacher.
+
+GRPO needs at least `TRAIN_MIN_MIXED_TASKS` tasks in the band and a
+share $\ge$ `ROUTE_MIN_MIXED_SHARE` of the grouped tasks. To say which $k$
+would reach that share, it averages each task's chance that $k$ fresh
+rollouts disagree over what its $s$ passes in $n$ draws say about its rate,
+under a uniform prior:
+
+$$
+P(\text{mixed at } k) = 1 - \frac{B(s{+}1{+}k,\ f{+}1)}{B(s{+}1,\ f{+}1)} - \frac{B(s{+}1,\ f{+}1{+}k)}{B(s{+}1,\ f{+}1)},
+\qquad f = n - s,
+$$
+
+the exact expectation of $1 - p^k - (1-p)^k$ under $p \sim \mathrm{Beta}(s{+}1, f{+}1)$.
+Plugging the posterior mean into $1 - p^k - (1-p)^k$ overstates it: a task
+seen 0 of 2 reads 0.90 at $k=8$ plugged in, 0.72 exactly.
+
+OPD needs a teacher scored on the same tasks at the student's token cap that
+clears the student by `effect` with 95% intervals apart, finishes under
+`ROUTE_TEACHER_MAX_TRUNCATED` cut off, and shares the tokenizer
+(`vocab=(teacher, student)`). OPSD needs `ROUTE_FLOOR_SHARE` of the tasks
+to fail every rollout and a student of `ROUTE_OPSD_MIN_PARAMS_B` or more.
+GroupwiseGrading needs a pool at `CEILING_PASS_RATE` and an audited grader.
+The report prints the method, the arithmetic behind it, what blocks every
+other method, the numbers that would unblock one (`need`), and every check
+it could not run.
+
+```python
+import whileai as wai
+
+rows = [{"task_id": f"t{t}", "reward": float(i < t % 5)} for t in range(160) for i in range(4)]
+r = wai.methods.route(rows)
+print(r.method)  # grpo
+```
+
 ## From symbol to field
 
 For the three single-rollout methods, `update(batch)` returns an `Update`:
