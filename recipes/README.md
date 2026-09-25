@@ -80,6 +80,7 @@ platform.
 |---|---|---|---|---|
 | [`bring-your-own-agent`](01-simulate/bring-your-own-agent) | the `agent(message) -> {steps, final_text}` contract, what a run says when the agent raises, why an `evaluate()` score must not become the reward | nothing | seconds | free |
 | [`verifiers`](01-simulate/verifiers) | rewards that are programs: `MathEqual`, `All` (answer and format), `CodeExec` against hidden tests, `JSONSchema`, each honoring the judge contract | nothing | seconds | free |
+| [`smol-data-envs`](01-simulate/smol-data-envs) | an outside environment as a verifier: 5,394 Kaggle data questions, the policy's program runs next to the tables, the dataset's grader is the reward; an environment failure is `None`, not `0`, and a shell `echo` earns nothing | nothing offline; any model spec live | seconds offline, ~1 min live | free offline; model calls live |
 | [`swarm-rescue`](01-simulate/swarm-rescue) | on the tasks where all 8 rollouts fail, whether a particle swarm of rollouts that share their best attempts finds a passing answer that resampling does not; rescue rate paired by task, four arms at one budget | `WHILEAI_API_KEY` (offline with `--dry-run`) | ~2 hours on the hosted model | hosted |
 
 ## 02-measure

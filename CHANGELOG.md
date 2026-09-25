@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/01-simulate/smol-data-envs/`: SmolDataEnvs (FineEnvs, 5,394 Kaggle data-analysis
+  questions) as a whileai environment. The policy writes one Python program, it runs next to the task's
+  tables, and the dataset's vendored grader is a `Verifier`: a table that failed to download is
+  `reward=None` (dropped, not scored 0), a shell answer earns 0. Offline on four fixture tasks; live on
+  any agent spec. Claude Haiku 4.5, first 24 eval tasks, k=4: pass@1 0.45 [0.28, 0.61], 9 of 24 groups
+  split for GRPO.
 - Skill `strengthen-your-evals`: the noise floor is now t(df=runs-1) x run_std x sqrt(2) from three
   re-runs via `wai.eval_variance`, not the gap between two runs (t(df=1) is 12.71). A branch every ask
   passes or fails now posts the exact bound 1 - 0.025**(1/n) instead of a zero-width interval: on the
