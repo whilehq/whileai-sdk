@@ -1638,7 +1638,7 @@ def scripted_chat(name: str) -> Chat:
     higher. It sends one ```python block first (so the tool path runs) and the
     JSON after. Its numbers show the mechanics, not a result."""
     if not _GOLD:
-        _GOLD.update({task_prompt(a): a for a in build()})
+        _GOLD.update({task_prompt(a): a for part in data() for a in part})
 
     def draw(*parts: Any) -> float:
         key = ":".join(map(str, (name, *parts)))
@@ -1730,9 +1730,32 @@ ARMS = {
 }
 
 
+DOCS: Path | None = None  # --docs: your own documents instead of the generated ones
+
+
+def load_docs(path: Path) -> list[dict]:
+    """Your documents, one JSON object a line:
+    {"id": "inv-001", "doc_type": "invoice", "text": "...", "gold": {"total": 1284.5, ...},
+     "schema": {"total": ["money", "the invoice total"], ...}}
+    "schema" (field -> [kind, description]; kinds: money, date, id, digits, enum, int, code,
+    name, text) is needed once per new doc_type; "split" ("selection" or "holdout") is optional
+    and defaults to a hash of the id."""
+    asks = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if row.get("schema"):
+            SCHEMAS[row["doc_type"]] = {k: tuple(v) for k, v in row["schema"].items()}
+        if row["doc_type"] not in SCHEMAS:
+            raise SystemExit(f"{row['id']}: no schema for doc_type {row['doc_type']!r}")
+        asks.append({**row, "split": row.get("split") or split_of(str(row["id"]))})
+    return asks
+
+
 def data(seed: int = DATA_SEED) -> tuple[list[dict], list[dict]]:
-    """(search, holdout): the generated documents, split by a hash of the ask id."""
-    asks = build(seed)
+    """(search, holdout): the generated documents (or --docs), split by a hash of the ask id."""
+    asks = load_docs(DOCS) if DOCS else build(seed)
     search = [a for a in asks if a["split"] != "holdout"]
     holdout = [a for a in asks if a["split"] == "holdout"]
     return search, holdout
@@ -1926,7 +1949,12 @@ def main() -> None:
     ap.add_argument("--k", type=int, default=4, help="rollouts per document")
     ap.add_argument("--concurrency", type=int, default=64)
     ap.add_argument("--limit", type=int, default=None, help="fewer documents, for a quick pass")
+    ap.add_argument(
+        "--docs", type=Path, default=None, help="your documents as JSONL (see load_docs)"
+    )
     args = ap.parse_args()
+    global DOCS
+    DOCS = args.docs
     if args.selftest:
         selftest()
         return

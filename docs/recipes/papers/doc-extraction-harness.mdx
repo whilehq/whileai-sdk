@@ -47,8 +47,21 @@ The proposer is you or your coding agent; the holdout decides only in `eval`.
 | `--k` | 4 | rollouts per document |
 | `--limit` | all | fewer documents, for a quick pass |
 | `--concurrency` | 64 | requests in flight |
+| `--docs` | generated | your documents as JSONL |
 
 About 15 minutes per candidate and $1 to $2 on one L40S; the run below cost about $25.
+
+### The documents
+
+`data()` writes every document from a record it drew first, so the gold answer is known exactly and grading is a program: five types, two to four layouts each, OCR-style noise, distractor numbers (balance due, amount paid, page subtotals), fields a document leaves out (gold null) and fields to compute (a due date from "Net 30", a statement's totals). The same seed gives the same 200 documents and the same test version, `t-7736752a` for the holdout.
+
+### Your own documents
+
+```bash
+python recipe.py search --docs mine.jsonl --model "vllm:...@$URL"
+```
+
+One JSON object a line: `{"id", "doc_type", "text", "gold": {field: value}, "schema": {field: [kind, description]}}`, with `schema` once per new `doc_type` (kinds: money, date, id, digits, enum, int, code, name, text) and an optional `split`. Everything else (`search`, `pick`, `eval`) runs unchanged.
 
 ## Result
 
