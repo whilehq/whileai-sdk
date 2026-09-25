@@ -9,15 +9,37 @@
 
 1. Base: `nvidia/Llama-3.1-Nemotron-Nano-8B-v1` on vLLM, with a sandboxed Python tool (standard library, no network, 10 seconds, up to three calls a document).
 2. Data: 200 generated business documents, 40 each of invoices, receipts, purchase orders, bank statements and claim forms, with OCR noise, distractor numbers, missing fields and fields to compute. The generator writes each document from a known record, so grading is a program. Split by a hash of the ask id: 101 to search on, 99 held out.
-3. Search: the loop of [papers/meta-harness](../meta-harness). Score the starting harness on the search set; a proposer reads the full history (every candidate's code, score and worst traces, holdout scores withheld) and writes one change; score it; repeat. Six rounds and a rewording-only placebo. The pick is the candidate that leads the most search documents.
+3. Search: the loop of [papers/meta-harness](../meta-harness), built into `recipe.py search`. Score the starting harness on the search set; a proposer reads the full history (every candidate's code, score and worst traces, holdout scores withheld) and writes one change; score it; repeat. Six rounds and a rewording-only placebo. The pick is the candidate that leads the most search documents.
 4. Eval: field F1 per document (SROIE [3] and CORD [4] convention: a wrong value counts against precision and recall, an invented value against precision, a missed value against recall; ANLS [5] on names), 4 rollouts per document, 95% bootstrap interval over documents, paired delta on the 99 held-out documents. The baseline is evaluated three times for the noise floor.
 
 ## Run
 
 ```bash
-python recipe.py --selftest                                              # offline: data, grader, tool, loop
-python recipe.py --model "vllm:nvidia/Llama-3.1-Nemotron-Nano-8B-v1@$URL"  # both arms on the holdout, ~40 min on one L40S
+cd recipes/papers/doc-extraction-harness
+python recipe.py report                         # the published result below, offline
+python recipe.py --selftest                     # data, grader, tool and loop, offline
+python recipe.py search --dry-run               # the whole search on a scripted model: no key, no GPU
+
+# your own run: serve Nemotron (or any model) with vLLM, VLLM_API_KEY = its key
+python recipe.py search --model "vllm:nvidia/Llama-3.1-Nemotron-Nano-8B-v1@$URL"   # score candidates, write out/proposal.md
+# read out/proposal.md, write ONE change as out/candidates/<nn>_<name>.json, run search again
+python recipe.py pick                           # the candidate that leads the most search documents
+python recipe.py eval --model "vllm:...@$URL"  # baseline vs your pick on the 99 held-out documents
 ```
+
+A candidate is one change against a parent harness, for example
+`{"parent": "00_start", "add": "<one rule>", "retries": 1, "validate": true}`.
+The proposer is you or your coding agent; the holdout decides only in `eval`.
+
+| flag | default | what it does |
+|---|---|---|
+| `--model` | | `vllm:<hub id>@<url>` of your OpenAI-compatible server |
+| `--dry-run` | off | a scripted model: no key, no GPU |
+| `--k` | 4 | rollouts per document |
+| `--limit` | all | fewer documents, for a quick pass |
+| `--concurrency` | 64 | requests in flight |
+
+About 15 minutes per candidate and $1 to $2 on one L40S; the run below cost about $25.
 
 ## Result
 

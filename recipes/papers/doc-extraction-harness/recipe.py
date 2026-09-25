@@ -1738,9 +1738,9 @@ def data(seed: int = DATA_SEED) -> tuple[list[dict], list[dict]]:
     return search, holdout
 
 
-def evaluate(chat: Chat, arm: str, asks: list[dict], k: int, concurrency: int) -> list[dict]:
+def evaluate(chat: Chat, arm: str | dict, asks: list[dict], k: int, concurrency: int) -> list[dict]:
     """k rollouts of one harness per document, each graded against the gold record."""
-    run = agent(chat, **ARMS[arm])
+    run = agent(chat, **(ARMS[arm] if isinstance(arm, str) else arm))
     jobs = [(a, i) for a in asks for i in range(k)]
 
     def one(job: tuple[dict, int]) -> dict:
@@ -1751,9 +1751,14 @@ def evaluate(chat: Chat, arm: str, asks: list[dict], k: int, concurrency: int) -
         tokens = sum(s.get("input_tokens", 0) + s.get("output_tokens", 0) for s in traj["steps"])
         return {
             "task_id": ask["id"],
-            "field_f1": g["field_f1"],
-            "tokens": tokens,
+            "scenario_id": ask["id"],  # the SDK groups rollouts by task on this key
+            "prompt": task_prompt(ask),
             "final_text": traj["final_text"],
+            "reward": g["reward"],  # every field right: reported, never the headline
+            "markers": {"field_f1": g["field_f1"]},
+            "field_f1": g["field_f1"],
+            "wrong": g["wrong"],
+            "tokens": tokens,
         }
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
@@ -1789,33 +1794,182 @@ def selftest() -> None:
     assert run_python("print(len(DOC))", "abc").strip() == "3"
     rows = evaluate(scripted_chat("scripted"), "recipe", holdout[:5], k=1, concurrency=2)
     assert len(rows) == 5 and all(0.0 <= r["field_f1"] <= 1.0 for r in rows)
+    import whileai as wai
+
+    base = evaluate(scripted_chat("scripted"), "baseline", holdout[:8], k=2, concurrency=2)
+    rec = evaluate(scripted_chat("scripted"), "recipe", holdout[:8], k=2, concurrency=2)
+    d = wai.compare(base, rec, target="marker:field_f1", run_std=0.01, run_std_runs=3)
+    assert d["target_delta"] is not None, d
     print("selftest ok")
+
+
+# ---------------------------------------------------------------- the search, for your own run
+
+OUT = HERE / "out"
+
+
+def candidates() -> dict[str, dict]:
+    """The starting harness plus every candidate in out/candidates/*.json. A candidate is
+    {"add": "<text appended to the instructions>", "retries": 0 or 1, "validate": bool}:
+    one change against the harness it names in "parent" (default: the starting harness)."""
+    out = {"00_start": dict(ARMS["baseline"])}
+    for f in sorted((OUT / "candidates").glob("*.json")):
+        c = json.loads(f.read_text(encoding="utf-8"))
+        parent = dict(out.get(c.get("parent", "00_start"), ARMS["baseline"]))
+        if c.get("add"):
+            parent["instructions"] = parent["instructions"] + "\n\n" + c["add"]
+        for key in ("retries", "validate", "max_turns"):
+            if key in c:
+                parent[key] = c[key]
+        out[f.stem] = parent
+    return out
+
+
+def search(chat: Chat, k: int, concurrency: int, limit: int | None) -> None:
+    """Meta-Harness, one round: score every candidate not yet scored on the search set,
+    then write the proposer's view (every candidate's config, score and worst rows) to
+    out/proposal.md. The proposer (you, or your coding agent) reads it and writes ONE
+    change as out/candidates/<nn>_<name>.json; run search again. Holdout scores never
+    appear here: the holdout decides only in `eval` (Lee et al. 2026)."""
+    search_set, _ = data()
+    search_set = search_set[:limit] if limit else search_set
+    OUT.mkdir(exist_ok=True)
+    ledger_path = OUT / "ledger.json"
+    ledger = json.loads(ledger_path.read_text()) if ledger_path.exists() else {}
+    cands = candidates()
+    for name, cfg in cands.items():
+        if name in ledger:
+            continue
+        rows = evaluate(chat, cfg, search_set, k, concurrency)
+        docs_f1 = per_doc(rows)
+        worst = sorted(rows, key=lambda r: r["field_f1"])[:5]
+        ledger[name] = {
+            "config": cfg,
+            "field_f1": statistics.fmean(docs_f1.values()),
+            "ci": boot(list(docs_f1.values())),
+            "per_doc": docs_f1,
+            "worst": [
+                {
+                    "doc": r["task_id"],
+                    "field_f1": r["field_f1"],
+                    "wrong": r["wrong"],
+                    "reply": r["final_text"][-600:],
+                }
+                for r in worst
+            ],
+        }
+        print(f"{name}: field F1 {100 * ledger[name]['field_f1']:.1f}")
+    ledger_path.write_text(json.dumps(ledger, indent=1), encoding="utf-8")
+    lines = [
+        "# Proposal",
+        "",
+        "Write ONE change as out/candidates/<nn>_<name>.json, then run search again.",
+        "",
+    ]
+    for name, e in ledger.items():
+        lines += [
+            f"## {name}: field F1 {100 * e['field_f1']:.1f} [{100 * e['ci'][0]:.1f}, {100 * e['ci'][1]:.1f}]",
+            "```json",
+            json.dumps({k2: v for k2, v in e["config"].items() if k2 != "instructions"}),
+            "```",
+            "Instructions:",
+            "```",
+            e["config"]["instructions"],
+            "```",
+            "Worst rows:",
+        ]
+        lines += [
+            f"- {w['doc']}: F1 {w['field_f1']:.2f}, wrong {w['wrong']}\n  `{w['reply'][-300:]!r}`"
+            for w in e["worst"]
+        ]
+        lines.append("")
+    (OUT / "proposal.md").write_text("\n".join(lines), encoding="utf-8")
+    print(f"wrote {OUT / 'proposal.md'}; pick: {pick()}")
+
+
+def pick() -> str:
+    """The candidate that leads the most search documents (GEPA's rule; Lee et al. 2026),
+    not the best mean."""
+    ledger = json.loads((OUT / "ledger.json").read_text())
+    docs_ = next(iter(ledger.values()))["per_doc"].keys()
+    led: dict[str, int] = {n: 0 for n in ledger}
+    for d in docs_:
+        best = max(e["per_doc"].get(d, 0.0) for e in ledger.values())
+        for n, e in ledger.items():
+            if e["per_doc"].get(d, 0.0) == best:
+                led[n] += 1
+    return max(led, key=lambda n: (led[n], ledger[n]["field_f1"]))
+
+
+def report() -> None:
+    """The published result, offline."""
+    r = json.loads((HERE / "results.json").read_text())
+    a, d = r["arms"], r["delta"]
+    print(f"{r['title']}\n{r['n_holdout']} held-out documents, k={r['k']}, {r['base_model']}")
+    for arm in ("baseline", "recipe"):
+        print(
+            f"  {arm:9} field F1 {100 * a[arm]['score']:.1f} [{100 * a[arm]['ci'][0]:.1f}, {100 * a[arm]['ci'][1]:.1f}]"
+        )
+    print(
+        f"  delta    {100 * d['recipe_vs_baseline']:+.1f} [{100 * d['ci'][0]:+.1f}, {100 * d['ci'][1]:+.1f}], {d['verdict']}"
+    )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--selftest", action="store_true")
+    ap.add_argument(
+        "command", nargs="?", default="report", choices=["report", "search", "pick", "eval"]
+    )
+    ap.add_argument("--selftest", action="store_true", help="offline checks, then exit")
+    ap.add_argument("--dry-run", action="store_true", help="a scripted model: no key, no GPU")
     ap.add_argument("--model", default="", help="vllm:<hub id>@<url> of your vLLM server")
-    ap.add_argument("--k", type=int, default=4)
+    ap.add_argument("--k", type=int, default=4, help="rollouts per document")
     ap.add_argument("--concurrency", type=int, default=64)
+    ap.add_argument("--limit", type=int, default=None, help="fewer documents, for a quick pass")
     args = ap.parse_args()
     if args.selftest:
         selftest()
         return
-    if not args.model:
-        raise SystemExit("pass --model vllm:<hub id>@<url>, or run --selftest offline")
-    chat = chat_for(args.model)
-    _search, holdout = data()
+    if args.command == "report":
+        report()
+        return
+    if args.command == "pick":
+        print(pick())
+        return
+    if not (args.model or args.dry_run):
+        raise SystemExit("pass --model vllm:<hub id>@<url>, or --dry-run for a scripted model")
+    if args.command == "search":
+        chat = scripted_chat("scripted") if args.dry_run else chat_for(args.model)
+        search(chat, args.k, args.concurrency, args.limit)
+        return
+    import whileai as wai
+    import whileai.simulations as sims
+    from whileai.config import provenance
+
+    print(provenance(), file=sys.stderr)
+    chat = scripted_chat("scripted") if args.dry_run else chat_for(args.model)
+    search_set, holdout = data()
+    holdout = holdout[: args.limit] if args.limit else holdout
+    _kept, decon = sims.decontaminate(
+        [{"prompt": task_prompt(a)} for a in search_set],
+        against=[{"prompt": task_prompt(a)} for a in holdout],
+    )
     print("holdout test version", test_version(holdout))
     base_runs = []
     for i in range(EVAL_RUNS):
         os.environ["DOCX_SALT"] = str(i)
         base_runs.append(evaluate(chat, "baseline", holdout, args.k, args.concurrency))
     os.environ["DOCX_SALT"] = "0"
-    rec = evaluate(chat, "recipe", holdout, args.k, args.concurrency)
-    b, r = per_doc(base_runs[0]), per_doc(rec)
-    diffs = [r[t] - b[t] for t in b]
-    run_std = statistics.pstdev(statistics.fmean(per_doc(x).values()) for x in base_runs)
+    # your own search's pick when there is one; otherwise the published recipe arm
+    arm = candidates()[pick()] if (OUT / "ledger.json").exists() else "recipe"
+    rec = evaluate(chat, arm, holdout, args.k, args.concurrency)
+    # the noise floor and the paired delta come from the SDK, on the field F1 marker
+    # (Lambert 2025, chapter Evaluation: a delta is a result only above the eval's own noise)
+    noise = wai.eval_variance(*base_runs, metric="marker:field_f1")
+    run_std = noise["run_std"]
+    d = wai.compare(
+        base_runs[0], rec, target="marker:field_f1", run_std=run_std, run_std_runs=EVAL_RUNS
+    )
     out = {
         "recipe": HERE.name,
         "paper": "https://arxiv.org/abs/2603.28052",
@@ -1824,17 +1978,22 @@ def main() -> None:
         "n_holdout": len(holdout),
         "k": args.k,
         "book": BOOK,
-        "arms": {"baseline": summarize(base_runs[0]), "recipe": summarize(rec)},
+        "arms": {
+            "base": summarize(base_runs[0]),  # no training: the base is the baseline harness
+            "baseline": summarize(base_runs[0]),
+            "recipe": summarize(rec),
+        },
         "delta": {
-            "recipe_vs_baseline": statistics.fmean(diffs),
-            "ci": boot(diffs),
+            "recipe_vs_baseline": d["target_delta"],
+            "ci": list(d["target_ci95"] or (0.0, 0.0)),
+            # one search run per arm: the papers table's seed rule caps this at unresolved
             "verdict": "unresolved",
         },
         "checks": {
             "run_std": run_std,
             "run_std_runs": EVAL_RUNS,
             "train_seeds": {"baseline": 1, "recipe": 1},
-            "decontaminated_dropped": 0,
+            "decontaminated_dropped": int(decon.get("n_contaminated", 0)),
             "over_optimized": False,
             "length_before": statistics.fmean(len(x["final_text"]) for x in base_runs[0]),
             "length_after": {
@@ -1849,7 +2008,8 @@ def main() -> None:
         "verified": time.strftime("%Y-%m-%d"),
         "whileai": "",
     }
-    (HERE / "results.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
+    OUT.mkdir(exist_ok=True)  # the published results.json next to this file is never overwritten
+    (OUT / "results.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
     print(
         f"baseline {out['arms']['baseline']['score']:.3f} -> recipe {out['arms']['recipe']['score']:.3f}"
     )
