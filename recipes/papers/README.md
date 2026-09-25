@@ -49,6 +49,12 @@ arms (`neither`, `harness`, `weights`, `both`) on one holdout of seeded quant
 coding tasks. It is in the same step-recipe shape (`recipe.py --dry-run`,
 `smoke.sh`, a flags table) and writes a `results.json` only when the full
 live run has been measured; its README says what ran.
+[`doc-extraction-harness`](doc-extraction-harness) (Lee et al. 2026 again)
+runs that loop on structured extraction from generated business documents
+with an open 8B model behind a sandboxed Python tool, a coding agent as the
+proposer and field F1 against program gold as the metric; no weights are
+trained, so its two arms in the table are two harnesses on the same model,
+and its README says which gate has not run yet.
 
 ## Run one
 

@@ -82,6 +82,7 @@ CLI_EXAMPLES = [
     "community/which-half-can-a-small-model-take/run.py",
     # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)
     "papers/meta-harness/run.py",
+    "papers/doc-extraction-harness/run.py",
     "papers/harness-and-weights/recipe.py",
 ]
 

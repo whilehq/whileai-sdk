@@ -144,3 +144,7 @@ recipes/01-simulate/swarm-rescue/out-*/
 !recipes/01-simulate/swarm-rescue/rescued-27b.jsonl
 !recipes/01-simulate/swarm-rescue/rescued-mbpp.jsonl
 !recipes/01-simulate/swarm-rescue/rescued-mbpp-s1.jsonl
+recipes/papers/doc-extraction-harness/out/
+recipes/papers/doc-extraction-harness/out-dry/
+recipes/papers/doc-extraction-harness/serve_*.json
+recipes/papers/doc-extraction-harness/.env

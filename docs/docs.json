@@ -179,6 +179,7 @@
                   "recipes/papers/adaptive-clip",
                   "recipes/papers/board-writers",
                   "recipes/papers/bpco-bounded-critic",
+                  "recipes/papers/doc-extraction-harness",
                   "recipes/papers/endpoint-sft",
                   "recipes/papers/filter-metric",
                   "recipes/papers/flash-reinforce",

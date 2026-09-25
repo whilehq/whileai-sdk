@@ -7,6 +7,22 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/doc-extraction-harness`: Meta-Harness (arXiv:2603.28052) on document
+  extraction with Nemotron-Nano-8B and a sandboxed Python tool. On 99 held-out generated documents
+  the pick took field F1 (SROIE/CORD, ANLS on names) from 45.5 to 79.6, paired +34.1, at 0.54x the
+  tokens; one model, the held-out-model gate not yet run. `smoke.sh` runs it offline.
+
+- Recipe `recipes/papers/doc-extraction-harness` (Lee et al. 2026, Meta-Harness, arXiv:2603.28052):
+  the harness search on structured extraction from 200 generated business documents (invoices,
+  receipts, purchase orders, bank statements, claim forms) with Nemotron-Nano-8B behind a sandboxed
+  Python tool, a coding agent as the proposer, field F1 against program gold as the metric. Seven
+  rounds; the pick (three prompt rules plus one retry with the validator's reason) took the 99
+  held-out documents from 45.5 [39.4, 52.0] to 79.6 [76.0, 82.8] field F1, paired +34.1
+  [+28.6, +39.7], at 0.54x the baseline's tokens; 87 documents better, 11 worse. One search run and
+  no held-out model yet, so the verdict is unresolved. `loop.py` is the meta-harness recipe's loop
+  with `--task`, `--metric marker:<name>` and `--blind` added; `smoke.sh` runs the whole path
+  offline on 16 documents a split.
+
 ## 0.126 (2026-09-25)
 
 - Recipe `recipes/01-simulate/smol-data-envs/`: SmolDataEnvs (FineEnvs, 5,394 Kaggle data-analysis
