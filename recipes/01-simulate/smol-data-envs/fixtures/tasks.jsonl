@@ -1,0 +1,4 @@
+{"task_id": "fx_orders_top_region", "question": "Which region sold the most units in total?", "answer": "East", "reward_mode": "exact_short", "atol": 0.0, "rtol": 0.0, "difficulty_tier": "easy", "files": ["orders.csv"]}
+{"task_id": "fx_orders_kettle_revenue", "question": "What is the total revenue (units times unit_price) from kettles, rounded to 2 decimals?", "answer": "5768.04", "reward_mode": "numeric", "atol": 0.05, "rtol": 0.01, "difficulty_tier": "hard", "files": ["orders.csv"]}
+{"task_id": "fx_survey_employed_over_30", "question": "How many respondents are older than 30 and employed?", "answer": "19", "reward_mode": "numeric", "atol": 0.0, "rtol": 0.0, "difficulty_tier": "medium", "files": ["survey.csv"]}
+{"task_id": "fx_returns_count", "question": "How many orders were returned?", "answer": "3", "reward_mode": "numeric", "atol": 0.0, "rtol": 0.0, "difficulty_tier": "medium", "files": ["returns.csv"]}

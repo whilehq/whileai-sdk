@@ -132,6 +132,9 @@ recipes/community/how-much-contamination-survives/out/
 recipes/community/who-protects-the-holdout/out/
 recipes/papers/meta-harness/out/
 recipes/papers/harness-and-weights/out/
+recipes/01-simulate/smol-data-envs/raw/
+recipes/01-simulate/smol-data-envs/out/
+!recipes/01-simulate/smol-data-envs/fixtures/*.jsonl
 recipes/01-simulate/swarm-rescue/raw/
 recipes/01-simulate/swarm-rescue/out/
 recipes/01-simulate/swarm-rescue/*.log
