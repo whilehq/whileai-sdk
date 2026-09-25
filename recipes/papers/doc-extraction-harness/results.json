@@ -1,0 +1,71 @@
+{
+ "recipe": "doc-extraction-harness",
+ "title": "Meta-Harness on document extraction: Nemotron-Nano-8B with a Python tool",
+ "paper": "https://arxiv.org/abs/2603.28052",
+ "base_model": "nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
+ "metric": "field F1",
+ "n_holdout": 99,
+ "k": 4,
+ "book": "Evaluation",
+ "arms": {
+  "base": {
+   "score": 0.4553,
+   "ci": [
+    0.3945,
+    0.5202
+   ],
+   "steps": 0
+  },
+  "baseline": {
+   "score": 0.4553,
+   "ci": [
+    0.3945,
+    0.5202
+   ],
+   "steps": 0
+  },
+  "recipe": {
+   "score": 0.7957,
+   "ci": [
+    0.7599,
+    0.8275
+   ],
+   "steps": 0
+  }
+ },
+ "delta": {
+  "recipe_vs_baseline": 0.341,
+  "ci": [
+   0.286,
+   0.397
+  ],
+  "verdict": "unresolved"
+ },
+ "checks": {
+  "run_std": 0.011,
+  "run_std_runs": 3,
+  "train_seeds": {
+   "baseline": 1,
+   "recipe": 1
+  },
+  "decontaminated_dropped": 0,
+  "over_optimized": false,
+  "length_before": 2025.3,
+  "length_after": {
+   "baseline": 2025.3,
+   "recipe": 507.7
+  },
+  "hack_scan_top": "",
+  "seed": 20260925,
+  "per_document": {
+   "better": 87,
+   "same": 1,
+   "worse": 11
+  },
+  "tokens_vs_baseline": 0.54
+ },
+ "gpu": "L40S",
+ "usd": 25.3,
+ "verified": "2026-09-25",
+ "whileai": "0.125"
+}

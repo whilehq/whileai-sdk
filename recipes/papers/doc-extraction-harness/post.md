@@ -1,0 +1,1 @@
+Ran Meta-Harness (Lee et al., arXiv:2603.28052) with whileai on one L40S: document-extraction field F1 45.5 -> 79.6 (+34.1 [+28.6, +39.7], unresolved) on 99 held-out documents, base Nemotron-Nano-8B-v1, weights untouched. Recipe: https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/doc-extraction-harness Paper: https://arxiv.org/abs/2603.28052

@@ -16,6 +16,7 @@ what it claims, the steps, one command, what happened.
 | [adaptive-clip](adaptive-clip) | [2609.00444](https://arxiv.org/abs/2609.00444) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.47 -> 0.52 (+0.05 [+0.00, +0.10], unresolved, 1 seed per arm) | 2026-09-18 |
 | [board-writers](board-writers) | [2502.18439](https://arxiv.org/abs/2502.18439) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.32 -> 0.30 (-0.02 [-0.05, +0.01], flat, 3 seeds per arm) | 2026-09-23 |
 | [bpco-bounded-critic](bpco-bounded-critic) | [2608.23566](https://arxiv.org/abs/2608.23566) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.43 -> 0.41 (-0.02 [-0.07, +0.04], unresolved, 1 seed per arm) | 2026-09-22 |
+| [doc-extraction-harness](doc-extraction-harness) | [2603.28052](https://arxiv.org/abs/2603.28052) | nvidia/Llama-3.1-Nemotron-Nano-8B-v1 | field F1 | 0.46 -> 0.80 (+0.34 [+0.29, +0.40], unresolved, 1 seed per arm) | 2026-09-25 |
 | [endpoint-sft](endpoint-sft) | [2609.07103](https://arxiv.org/abs/2609.07103) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.29 -> 0.28 (-0.01 [-0.07, +0.05], unresolved, 1 seed per arm) | 2026-09-17 |
 | [filter-metric](filter-metric) | [2609.13866](https://arxiv.org/abs/2609.13866) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.39 -> 0.46 (+0.07 [+0.02, +0.11], unresolved, 1 seed per arm) | 2026-09-17 |
 | [flash-reinforce](flash-reinforce) | [FlashREINFORCE.pdf](https://yifanzhang-pro.github.io/FlashREINFORCE/FlashREINFORCE.pdf) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.47 -> 0.41 (-0.07 [-0.11, -0.03], unresolved, 1 seed per arm) | 2026-09-22 |
@@ -49,6 +50,12 @@ arms (`neither`, `harness`, `weights`, `both`) on one holdout of seeded quant
 coding tasks. It is in the same step-recipe shape (`recipe.py --dry-run`,
 `smoke.sh`, a flags table) and writes a `results.json` only when the full
 live run has been measured; its README says what ran.
+[`doc-extraction-harness`](doc-extraction-harness) (Lee et al. 2026 again)
+runs that loop on structured extraction from generated business documents
+with an open 8B model behind a sandboxed Python tool, a coding agent as the
+proposer and field F1 against program gold as the metric; no weights are
+trained, so its two arms in the table are two harnesses on the same model,
+and its README says which gate has not run yet.
 
 ## Run one
 
