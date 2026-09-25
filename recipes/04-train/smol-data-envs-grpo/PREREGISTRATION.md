@@ -74,3 +74,26 @@ Facts the pre-flight fixed; no rule above changed.
   authors' arm runs **348 steps**, the whileai arm **200**.
 - **Base on test** (239 tasks with tables): pass@1 0.031 sampled (956 rows),
   0.067 greedy.
+
+## Result (2026-09-25), read against the rules above
+
+**No difference.** With whileai minus authors, both seeds pooled, 239 paired
+test tasks: -0.006 pass@1, task interval -0.015..+0.004; across training
+seeds -0.084..+0.073. Neither arm beats the untrained base (authors +0.010,
+-0.004..+0.025; whileai +0.004, -0.009..+0.017).
+
+| run | test pass@1 (4 x T=0.8) | greedy | train groups with no spread | train reward first -> last 20% |
+|---|---|---|---|---|
+| base | 0.031 [0.018, 0.050] | 0.067 | | |
+| authors s1 (348 steps) | 0.035 [0.019, 0.054] | 0.029 | 0.78 | 0.08 -> 0.18 |
+| authors s2 (348 steps) | 0.048 [0.029, 0.070] | 0.054 | 0.74 | 0.13 -> 0.17 |
+| whileai s1 (200 steps) | 0.052 [0.031, 0.078] | 0.054 | 0.47 | 0.48 -> 0.76 |
+| whileai s2 (200 steps) | 0.019 [0.008, 0.033] | 0.054 | 0.24 | 0.22 -> 0.28 |
+
+What whileai's selection did change: the share of training groups that carry
+a gradient went from about a quarter to 53-76%, and training reward climbed
+further. What it did not change: held-out test pass@1. The whileai tasks
+were 75 easy / 50 medium; the test split is 32 easy / 114 medium / 93 hard,
+and the base model solves 3% of it. whileai s2 drifted to long replies with
+syntax errors (415 of 956 test rows), so seed spread is wide. GPU seconds:
+authors 2,929 and 2,767; whileai 1,266 and 1,872 plus the 1,026 pre-flight.
