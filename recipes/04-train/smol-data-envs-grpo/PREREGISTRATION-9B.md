@@ -29,3 +29,17 @@ same way, from a 3-step smoke of the authors' arm on 9B.
 Unchanged: the with-whileai minus authors interval, both seeds pooled, is
 above zero and above the seed spread, or the result is "no difference".
 Each arm minus base is reported alongside.
+
+## Amendment 1 (2026-09-25, after the 9B pre-flight, before any 9B training run)
+
+- **Pre-flight:** 9B base, 1,024 pool tasks x 8 samples, 1,309.7 GPU seconds.
+  233 tasks in the 20-80% band (82 easy, 139 medium, 12 hard); all 233 are
+  the whileai arm's tasks (fewer than 256). The authors' 256: 129 never
+  solved, 30 always, 63 in the band.
+- **Base on test:** pass@1 0.152 sampled (956 rows), 0.167 greedy.
+- **Steps:** the 9B authors'-arm smoke (`9b/eval/authors-s1-smoke`)
+  steady-state steps took 30.68 s and 9.21 s, mean 19.94 s (the first,
+  115 s, is compile). 1,309.7 / 19.94 = 65.7, so the authors' arm runs
+  **266 steps**, the whileai arm **200**. Two samples 3x apart make this a
+  noisy estimate; it is the rule, applied as written, and the realised GPU
+  seconds of every run are reported with the result.
