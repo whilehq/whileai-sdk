@@ -34,6 +34,13 @@ EVAL_K = 4
 MAX_TABLE_BYTES = 500 * 1024 * 1024  # a bigger file is skipped for every arm alike
 VOL = "/vol"
 
+# PREREGISTRATION.md is the 2B run; PREREGISTRATION-9B.md changes only these.
+# The 9B run writes under 9b/ so the 2B rows stay as they were.
+PROFILES = {
+    "2b": {"model": "Qwen/Qwen3.5-2B", "prefix": "", "lora": 0, "lr": 3e-6, "vllm_mem": 0.22},
+    "9b": {"model": "Qwen/Qwen3.5-9B", "prefix": "9b/", "lora": 16, "lr": 1e-5, "vllm_mem": 0.35},
+}
+
 # The authors' train_grpo.py defaults (FineEnvs @ 08a5622).
 AUTHORS = {
     "learning_rate": 3e-6,
@@ -78,6 +85,7 @@ gpu_image = (
         "flash-linear-attention",
         "datasets>=3.6.0",
         "accelerate>=1.8.1",
+        "peft==0.21.0",
         "whileai==0.126",
         *_analysis_libs,
     )
@@ -114,7 +122,9 @@ def _score_many(rows: list[dict], completions: list, workers: int = 32) -> list[
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(
-            pool.map(lambda rc: data_env.score(rc[0], rc[1], f"{VOL}/tables"), zip(rows, completions))
+            pool.map(
+                lambda rc: data_env.score(rc[0], rc[1], f"{VOL}/tables"), zip(rows, completions)
+            )
         )
 
 
@@ -243,12 +253,16 @@ def _graded_rows(tasks: list[dict], samples: list[list[str]], version: str) -> l
 def _evaluate(llm, tokenizer, tasks: list[dict], version: str) -> dict:
     t0 = time.time()
     sampled = _graded_rows(tasks, _generate(llm, tokenizer, tasks, _sampling(EVAL_K)), version)
-    greedy = _graded_rows(tasks, _generate(llm, tokenizer, tasks, _sampling(1, greedy=True)), version)
+    greedy = _graded_rows(
+        tasks, _generate(llm, tokenizer, tasks, _sampling(1, greedy=True)), version
+    )
     import whileai as wai
 
     pa = wai.pass_at(sampled)
     g = [r["reward"] for r in greedy if r["reward"] is not None]
-    print(f"[{version}] pass@1 {pa.pass_at_1:.3f} ci {pa.ci95}  greedy {sum(g) / max(len(g), 1):.3f}")
+    print(
+        f"[{version}] pass@1 {pa.pass_at_1:.3f} ci {pa.ci95}  greedy {sum(g) / max(len(g), 1):.3f}"
+    )
     return {"sampled": sampled, "greedy": greedy, "seconds": time.time() - t0}
 
 
@@ -260,6 +274,18 @@ def _evaluate(llm, tokenizer, tasks: list[dict], version: str) -> dict:
     volumes={VOL: volume, "/hf": hf_cache}, timeout=4 * 3600,
 )  # fmt: skip
 def preflight(limit: int = 0) -> dict:
+    return _preflight(limit, "2b")
+
+
+@app.function(
+    image=gpu_image, gpu="H200", cpu=32, memory=65536,
+    volumes={VOL: volume, "/hf": hf_cache}, timeout=4 * 3600,
+)  # fmt: skip
+def preflight_9b(limit: int = 0) -> dict:
+    return _preflight(limit, "9b")
+
+
+def _preflight(limit: int, size: str) -> dict:
     """The whileai arm's only extra step, timed so the authors' arm can be
     handed the same GPU seconds: sample the base model on the pool, grade,
     and let wai.select keep the tasks inside the band."""
@@ -272,8 +298,10 @@ def preflight(limit: int = 0) -> dict:
     pool, test = tasks["pool"], tasks["test"]
     if limit:
         pool, test = pool[:limit], test[:limit]
-    tokenizer = AutoTokenizer.from_pretrained(MODEL)
-    llm = LLM(MODEL, gpu_memory_utilization=0.85, max_model_len=4096, seed=0)
+    prof = PROFILES[size]
+    pre = prof["prefix"]
+    tokenizer = AutoTokenizer.from_pretrained(prof["model"])
+    llm = LLM(prof["model"], gpu_memory_utilization=0.85, max_model_len=4096, seed=0)
 
     t0 = time.time()
     rows = _graded_rows(pool, _generate(llm, tokenizer, pool, _sampling(PREFLIGHT_K)), "base")
@@ -303,13 +331,14 @@ def preflight(limit: int = 0) -> dict:
         },
     }
     print(json.dumps({k: v for k, v in summary.items() if k != "report"}, indent=1))
-    _save("preflight/rows.json", rows)
-    _save("preflight/summary.json", summary)
+    tag = "-smoke" if limit else ""
+    _save(f"{pre}preflight/rows{tag}.json", rows)
+    _save(f"{pre}preflight/summary{tag}.json", summary)
     if not limit:
-        _save("whileai_tasks.json", chosen)
+        _save(f"{pre}whileai_tasks.json", chosen)
 
     base = _evaluate(llm, tokenizer, test, "base")
-    _save(f"eval/base{'-smoke' if limit else ''}.json", base)
+    _save(f"{pre}eval/base{tag}.json", base)
     return json.loads(json.dumps(summary, default=str))
 
 
@@ -365,6 +394,18 @@ def _guard_vllm_weight_sync(trainer) -> None:
     volumes={VOL: volume, "/hf": hf_cache}, timeout=20 * 3600,
 )  # fmt: skip
 def train(arm: str, seed: int, steps: int, smoke: bool = False) -> dict:
+    return _train(arm, seed, steps, smoke, "2b")
+
+
+@app.function(
+    image=gpu_image, gpu="H200", cpu=16, memory=65536,
+    volumes={VOL: volume, "/hf": hf_cache}, timeout=20 * 3600,
+)  # fmt: skip
+def train_9b(arm: str, seed: int, steps: int, smoke: bool = False) -> dict:
+    return _train(arm, seed, steps, smoke, "9b")
+
+
+def _train(arm: str, seed: int, steps: int, smoke: bool, size: str) -> dict:
     import torch
     import transformers
     from datasets import Dataset
@@ -380,8 +421,11 @@ def train(arm: str, seed: int, steps: int, smoke: bool = False) -> dict:
     }.items():  # fmt: skip
         os.environ.setdefault(k, v)
 
+    prof = PROFILES[size]
+    pre = prof["prefix"]
+    model_id = prof["model"]
     tasks = _load("tasks.json")
-    train_tasks = tasks["authors"] if arm == "authors" else _load("whileai_tasks.json")
+    train_tasks = tasks["authors"] if arm == "authors" else _load(f"{pre}whileai_tasks.json")
     test = tasks["test"][:16] if smoke else tasks["test"]
     by_id = {t["task_id"]: t for t in train_tasks}
     ds = Dataset.from_list(
@@ -406,25 +450,25 @@ def train(arm: str, seed: int, steps: int, smoke: bool = False) -> dict:
         stats["calls"] += 1
         return out
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL)
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
     transformers.set_seed(seed)  # before the model exists: TRL seeds too late for init
     try:
-        model = transformers.AutoModelForCausalLM.from_pretrained(MODEL, dtype=torch.bfloat16)
+        model = transformers.AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.bfloat16)
     except ValueError:
         model = transformers.AutoModelForImageTextToText.from_pretrained(
-            MODEL, dtype=torch.bfloat16
+            model_id, dtype=torch.bfloat16
         )
     cfg = GRPOConfig(
         output_dir=f"/tmp/{run}",
         use_vllm=True,
         vllm_mode="colocate",
         chat_template_kwargs={"enable_thinking": False},
-        vllm_gpu_memory_utilization=AUTHORS["vllm_gpu_memory_utilization"],
+        vllm_gpu_memory_utilization=prof["vllm_mem"],
         num_generations=AUTHORS["num_generations"],
         max_completion_length=AUTHORS["max_completion_length"],
         mask_truncated_completions=True,
         max_steps=steps,
-        learning_rate=AUTHORS["learning_rate"],
+        learning_rate=prof["lr"],
         temperature=AUTHORS["temperature"],
         top_p=AUTHORS["top_p"],
         repetition_penalty=AUTHORS["repetition_penalty"],
@@ -437,24 +481,36 @@ def train(arm: str, seed: int, steps: int, smoke: bool = False) -> dict:
         report_to="none",
         seed=seed,
     )
+    peft_config = None
+    if prof["lora"]:
+        from peft import LoraConfig
+
+        # all-linear: Qwen3.5's gated-delta-net projections are not q/k/v/o
+        peft_config = LoraConfig(
+            r=prof["lora"], lora_alpha=2 * prof["lora"], target_modules="all-linear",
+            task_type="CAUSAL_LM",
+        )  # fmt: skip
     trainer = GRPOTrainer(
         model=model,
         processing_class=tokenizer,
         reward_funcs=[reward_correct],
         train_dataset=ds,
         args=cfg,
+        peft_config=peft_config,
     )
     _guard_vllm_weight_sync(trainer)
     t0 = time.time()
     trainer.train()
     train_s = time.time() - t0
     history = [h for h in trainer.state.log_history if "reward" in h or "loss" in h]
-    print(f"[{run}] {steps} steps in {train_s:.0f}s ({train_s / max(steps, 1):.1f} s/step); {stats}")
+    print(
+        f"[{run}] {steps} steps in {train_s:.0f}s ({train_s / max(steps, 1):.1f} s/step); {stats}"
+    )
 
     trainer.vllm_generation.sync_weights()
     result = _evaluate(trainer.vllm_generation.llm, tokenizer, test, run)
     _save(
-        f"eval/{run}.json",
+        f"{pre}eval/{run}.json",
         {
             **result,
             "arm": arm,
@@ -464,6 +520,7 @@ def train(arm: str, seed: int, steps: int, smoke: bool = False) -> dict:
             "reward_stats": stats,
             "history": history,
             "train_task_ids": [t["task_id"] for t in train_tasks],
+            "model": model_id,
         },
     )
     return json.loads(json.dumps({"run": run, "train_seconds": train_s, "stats": stats}))
@@ -478,22 +535,24 @@ def main(
     smoke: bool = False,
     spawn: bool = False,
     limit: int = 0,
+    size: str = "2b",
 ) -> None:
+    suffix = "" if size == "2b" else f"_{size}"
     if step == "prep":
         print(prep.remote())
     elif step == "preflight":
         if spawn:
-            call = modal.Function.from_name(APP, "preflight").spawn(limit)
+            call = modal.Function.from_name(APP, f"preflight{suffix}").spawn(limit)
             print(f"spawned preflight: {call.object_id}")
         else:
-            print(preflight.remote(limit))
+            print((preflight if size == "2b" else preflight_9b).remote(limit))
     elif step == "train":
         if spawn:
-            fn = modal.Function.from_name(APP, "train")
+            fn = modal.Function.from_name(APP, f"train{suffix}")
             call = fn.spawn(arm, seed, steps, smoke)
             print(f"spawned {arm} seed {seed}: {call.object_id}")
         else:
-            print(train.remote(arm, seed, steps, smoke))
+            print((train if size == "2b" else train_9b).remote(arm, seed, steps, smoke))
     elif step == "fetch":
         out = HERE / "out"
         out.mkdir(exist_ok=True)
