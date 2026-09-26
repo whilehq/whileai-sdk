@@ -43,3 +43,24 @@ Each arm minus base is reported alongside.
   **266 steps**, the whileai arm **200**. Two samples 3x apart make this a
   noisy estimate; it is the rule, applied as written, and the realised GPU
   seconds of every run are reported with the result.
+
+## Result (2026-09-26), read against the rules above
+
+**No difference.** With whileai minus authors, both seeds pooled, 239 paired
+test tasks: -0.002 pass@1, task interval -0.019..+0.017; across training
+seeds -0.135..+0.132.
+
+| run | test pass@1 (4 x T=0.8) | greedy | train groups with no spread | GPU seconds |
+|---|---|---|---|---|
+| base | 0.152 [0.117, 0.187] | 0.167 | | |
+| authors s1 (266 steps) | 0.195 [0.157, 0.235] | 0.205 | 0.59 | 4,197 |
+| authors s2 (266 steps) | 0.180 [0.142, 0.220] | 0.213 | 0.59 | 4,082 |
+| whileai s1 (200 steps) | 0.215 [0.174, 0.259] | 0.209 | 0.15 | 2,878 + 1,310 pre-flight |
+| whileai s2 (200 steps) | 0.156 [0.122, 0.192] | 0.201 | 0.14 | 2,943 + 1,310 pre-flight |
+
+Both arms gain on base on the task interval (authors +0.036 [+0.017,
++0.054], whileai +0.034 [+0.014, +0.055]); neither gain survives the spread
+between training seeds with two seeds per arm. The compute matching held:
+whileai spent 4,188 and 4,253 GPU seconds against the authors' 4,197 and
+4,082. whileai's selection cut the groups with no gradient from 59% to 14-15%
+and did not change the held-out result.

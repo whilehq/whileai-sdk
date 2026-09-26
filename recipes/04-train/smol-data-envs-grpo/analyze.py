@@ -13,7 +13,10 @@ from pathlib import Path
 import whileai as wai
 from whileai.config import provenance
 
-OUT = Path(__file__).resolve().parent / "out"
+HERE = Path(__file__).resolve().parent
+# `python analyze.py 9b` reads the 9B run (PREREGISTRATION-9B.md) under out/9b/
+SIZE = sys.argv[1] if len(sys.argv) > 1 else "2b"
+OUT = HERE / "out" / ("" if SIZE == "2b" else SIZE)
 ARMS = ("authors", "whileai")
 SEEDS = (1, 2)
 
@@ -89,7 +92,7 @@ def main() -> int:
             print(str(vs).splitlines()[0])
             result[f"{a}_vs_base"] = json.loads(json.dumps(vs, default=str))
 
-    (Path(__file__).resolve().parent / "results.json").write_text(
+    (HERE / ("results.json" if SIZE == "2b" else f"results-{SIZE}.json")).write_text(
         json.dumps(result, indent=1, default=str), encoding="utf-8"
     )
     return 0

@@ -1,0 +1,457 @@
+{
+ "base": {
+  "pass_at_1": 0.151673640167364,
+  "ci95": [
+   0.11715481171548117,
+   0.18723849372384938
+  ],
+  "tasks": 239
+ },
+ "authors-s1": {
+  "pass_at_1": 0.19456066945606695,
+  "ci95": [
+   0.15690376569037656,
+   0.23535564853556484
+  ],
+  "tasks": 239,
+  "greedy": 0.20502092050209206,
+  "steps": 266,
+  "train_seconds": 4196.738636732101,
+  "zero_spread_share": 0.5864661654135338
+ },
+ "authors-s2": {
+  "pass_at_1": 0.1799163179916318,
+  "ci95": [
+   0.14225941422594143,
+   0.2196652719665272
+  ],
+  "tasks": 239,
+  "greedy": 0.21338912133891214,
+  "steps": 266,
+  "train_seconds": 4082.455439567566,
+  "zero_spread_share": 0.5921052631578947
+ },
+ "whileai-s1": {
+  "pass_at_1": 0.21548117154811716,
+  "ci95": [
+   0.17364016736401675,
+   0.2594142259414226
+  ],
+  "tasks": 239,
+  "greedy": 0.20920502092050208,
+  "steps": 200,
+  "train_seconds": 2878.3682618141174,
+  "zero_spread_share": 0.155
+ },
+ "whileai-s2": {
+  "pass_at_1": 0.15585774058577406,
+  "ci95": [
+   0.12238493723849372,
+   0.19246861924686193
+  ],
+  "tasks": 239,
+  "greedy": 0.200836820083682,
+  "steps": 200,
+  "train_seconds": 2943.416458129883,
+  "zero_spread_share": 0.145
+ },
+ "primary": {
+  "ok": true,
+  "not_comparable": [],
+  "target": "pass_at_1",
+  "target_verdict": "no_change_detected",
+  "headline_verdict": "no_change_detected",
+  "target_delta": -0.0015690376569037657,
+  "target_ci95": [
+   -0.019351464435146442,
+   0.017259414225941423
+  ],
+  "n_metrics": 1,
+  "alpha": 0.05,
+  "level": 0.95,
+  "family_error": 0.05,
+  "n_paired_tasks": 239,
+  "n_unpaired_tasks": 0,
+  "improved": [],
+  "regressions": [],
+  "slipped": [],
+  "lower_is_better": [],
+  "within_noise": [],
+  "run_std": null,
+  "run_std_by_metric": {
+   "pass_at_1": null
+  },
+  "run_std_source": null,
+  "run_std_runs": null,
+  "run_std_df": null,
+  "noise_band": null,
+  "noise_rule": "1.96 x run_std x sqrt(1/2 + 1/2)",
+  "eval_runs": {
+   "before": 2,
+   "after": 2
+  },
+  "replicated": false,
+  "train_runs": {
+   "before": 2,
+   "after": 2
+  },
+  "train_std": {
+   "before": 0.010355120226581247,
+   "after": 0.042160132351080765
+  },
+  "train_df": 2,
+  "train_delta": -0.001569037656903749,
+  "train_ci95": [
+   -0.13492386716648289,
+   0.1317857918526754
+  ],
+  "train_rule": "t(df=2)=4.30 x sqrt(seed_std_before^2/2 + seed_std_after^2/2), added in quadrature to the task interval",
+  "ceiling": false,
+  "detectable_effect": 0.0366,
+  "tasks_needed": null,
+  "tasks_needed_source": null,
+  "degenerate_guards": [],
+  "proxy": null,
+  "proxy_verdict": null,
+  "proxy_delta": null,
+  "proxy_ci95": null,
+  "over_optimized": false,
+  "metrics": {
+   "pass_at_1": {
+    "metric": "pass_at_1",
+    "paired": true,
+    "n_paired": 239,
+    "n_only_a": 0,
+    "n_only_b": 0,
+    "paired_share": 1.0,
+    "n_used": 239,
+    "mean_a": 0.18723849372384938,
+    "mean_b": 0.1856694560669456,
+    "delta": -0.0015690376569037657,
+    "ci95": [
+     -0.019351464435146442,
+     0.017259414225941423
+    ],
+    "level": 0.95,
+    "p_value": 0.9000499750124937,
+    "verdict": "no_difference_detected",
+    "note": "",
+    "lower_is_better": false,
+    "gain_verdict": "no_difference_detected",
+    "run_std": null,
+    "noise_band": null,
+    "within_noise": false
+   }
+  },
+  "warnings": [
+   "pass_at_1: -0.002 on this seed pair, but across training seeds -0.002 with interval -0.135..+0.132 covers zero (between-seed std 0.010 before, 0.042 after; t(df=2)=4.30 x sqrt(seed_std_before^2/2 + seed_std_after^2/2), added in quadrature to the task interval); the change does not survive the seed spread",
+   "239 paired tasks at k=8 can prove a gain of about +0.04 at 80% power (holdout_size)."
+  ],
+  "config": {
+   "before": {
+    "n_tasks": 239,
+    "k": 8,
+    "temperature": null,
+    "max_tokens": null,
+    "policy_version": null,
+    "judge_version": null,
+    "prompt_hash": null,
+    "user_model": null,
+    "writer_model": null,
+    "mixed": [],
+    "truncated_share": null,
+    "answered_share": 1.0,
+    "unclosed_think_share": 0.0,
+    "graded_share": 1.0
+   },
+   "after": {
+    "n_tasks": 239,
+    "k": 8,
+    "temperature": null,
+    "max_tokens": null,
+    "policy_version": null,
+    "judge_version": null,
+    "prompt_hash": null,
+    "user_model": null,
+    "writer_model": null,
+    "mixed": [],
+    "truncated_share": null,
+    "answered_share": 1.0,
+    "unclosed_think_share": 0.0,
+    "graded_share": 1.0
+   }
+  },
+  "balanced": null,
+  "by": null,
+  "groups": null,
+  "groups_down": []
+ },
+ "authors_vs_base": {
+  "ok": true,
+  "not_comparable": [],
+  "target": "pass_at_1",
+  "target_verdict": "no_change_detected",
+  "headline_verdict": "no_change_detected",
+  "target_delta": 0.03556485355648536,
+  "target_ci95": [
+   0.016736401673640166,
+   0.05439330543933055
+  ],
+  "n_metrics": 1,
+  "alpha": 0.05,
+  "level": 0.95,
+  "family_error": 0.05,
+  "n_paired_tasks": 239,
+  "n_unpaired_tasks": 0,
+  "improved": [
+   "pass_at_1"
+  ],
+  "regressions": [],
+  "slipped": [],
+  "lower_is_better": [],
+  "within_noise": [],
+  "run_std": null,
+  "run_std_by_metric": {
+   "pass_at_1": null
+  },
+  "run_std_source": null,
+  "run_std_runs": null,
+  "run_std_df": null,
+  "noise_band": null,
+  "noise_rule": "1.96 x run_std x sqrt(1/1 + 1/2)",
+  "eval_runs": {
+   "before": 0,
+   "after": 2
+  },
+  "replicated": false,
+  "train_runs": {
+   "before": null,
+   "after": 2
+  },
+  "train_std": {
+   "before": null,
+   "after": 0.010355120226581247
+  },
+  "train_df": 1,
+  "train_delta": 0.035564853556485365,
+  "train_ci95": [
+   -0.05935683483939676,
+   0.13048654195236747
+  ],
+  "train_rule": "t(df=1)=12.71 x sqrt(seed_std_after^2/2), added in quadrature to the task interval",
+  "ceiling": false,
+  "detectable_effect": 0.0487,
+  "tasks_needed": 142,
+  "tasks_needed_source": "rows",
+  "degenerate_guards": [],
+  "proxy": null,
+  "proxy_verdict": null,
+  "proxy_delta": null,
+  "proxy_ci95": null,
+  "over_optimized": false,
+  "metrics": {
+   "pass_at_1": {
+    "metric": "pass_at_1",
+    "paired": true,
+    "n_paired": 239,
+    "n_only_a": 0,
+    "n_only_b": 0,
+    "paired_share": 1.0,
+    "n_used": 239,
+    "mean_a": 0.151673640167364,
+    "mean_b": 0.18723849372384938,
+    "delta": 0.03556485355648536,
+    "ci95": [
+     0.016736401673640166,
+     0.05439330543933055
+    ],
+    "level": 0.95,
+    "p_value": 0.0014992503748125937,
+    "verdict": "b_better",
+    "note": "",
+    "lower_is_better": false,
+    "gain_verdict": "b_better",
+    "run_std": null,
+    "noise_band": null,
+    "within_noise": false
+   }
+  },
+  "warnings": [
+   "pass_at_1: +0.036 on this seed pair, but across training seeds +0.036 with interval -0.059..+0.130 covers zero (between-seed std 0.010 after; t(df=1)=12.71 x sqrt(seed_std_after^2/2), added in quadrature to the task interval); the change does not survive the seed spread",
+   "239 paired tasks at k=4 can prove a gain of about +0.05 at 80% power; to prove the +0.036 seen here you need about 142 tasks (task sd measured on the 239 paired tasks here) (holdout_size).",
+   "before has k=4 rollouts per task and after has k=8: 239 of 239 paired tasks on the before side have fewer than 8 rows. Unequal k is a precision issue, not a bias: rows lost at random leave the paired delta unbiased and widen its interval (about 10% at k=4 against k=2 on half the tasks); rows lost for a reason (a timeout on the hard runs) bias it, and only re-running the before side on its short tasks fixes that (data.report()['rollouts_lost_by'] says why rows went missing). balance_rollouts=True only makes pass^k/pass@k share k=4 and costs another 10% of interval width."
+  ],
+  "config": {
+   "before": {
+    "n_tasks": 239,
+    "k": 4,
+    "temperature": null,
+    "max_tokens": null,
+    "policy_version": null,
+    "judge_version": null,
+    "prompt_hash": null,
+    "user_model": null,
+    "writer_model": null,
+    "mixed": [],
+    "truncated_share": null,
+    "answered_share": 1.0,
+    "unclosed_think_share": 0.0,
+    "graded_share": 1.0
+   },
+   "after": {
+    "n_tasks": 239,
+    "k": 8,
+    "temperature": null,
+    "max_tokens": null,
+    "policy_version": null,
+    "judge_version": null,
+    "prompt_hash": null,
+    "user_model": null,
+    "writer_model": null,
+    "mixed": [],
+    "truncated_share": null,
+    "answered_share": 1.0,
+    "unclosed_think_share": 0.0,
+    "graded_share": 1.0
+   }
+  },
+  "balanced": null,
+  "by": null,
+  "groups": null,
+  "groups_down": []
+ },
+ "whileai_vs_base": {
+  "ok": true,
+  "not_comparable": [],
+  "target": "pass_at_1",
+  "target_verdict": "no_change_detected",
+  "headline_verdict": "no_change_detected",
+  "target_delta": 0.03399581589958159,
+  "target_ci95": [
+   0.013598326359832637,
+   0.0549163179916318
+  ],
+  "n_metrics": 1,
+  "alpha": 0.05,
+  "level": 0.95,
+  "family_error": 0.05,
+  "n_paired_tasks": 239,
+  "n_unpaired_tasks": 0,
+  "improved": [
+   "pass_at_1"
+  ],
+  "regressions": [],
+  "slipped": [],
+  "lower_is_better": [],
+  "within_noise": [],
+  "run_std": null,
+  "run_std_by_metric": {
+   "pass_at_1": null
+  },
+  "run_std_source": null,
+  "run_std_runs": null,
+  "run_std_df": null,
+  "noise_band": null,
+  "noise_rule": "1.96 x run_std x sqrt(1/1 + 1/2)",
+  "eval_runs": {
+   "before": 0,
+   "after": 2
+  },
+  "replicated": false,
+  "train_runs": {
+   "before": null,
+   "after": 2
+  },
+  "train_std": {
+   "before": null,
+   "after": 0.042160132351080765
+  },
+  "train_df": 1,
+  "train_delta": 0.033995815899581616,
+  "train_ci95": [
+   -0.3453547912315607,
+   0.41334642303072394
+  ],
+  "train_rule": "t(df=1)=12.71 x sqrt(seed_std_after^2/2), added in quadrature to the task interval",
+  "ceiling": false,
+  "detectable_effect": 0.0487,
+  "tasks_needed": 177,
+  "tasks_needed_source": "rows",
+  "degenerate_guards": [],
+  "proxy": null,
+  "proxy_verdict": null,
+  "proxy_delta": null,
+  "proxy_ci95": null,
+  "over_optimized": false,
+  "metrics": {
+   "pass_at_1": {
+    "metric": "pass_at_1",
+    "paired": true,
+    "n_paired": 239,
+    "n_only_a": 0,
+    "n_only_b": 0,
+    "paired_share": 1.0,
+    "n_used": 239,
+    "mean_a": 0.151673640167364,
+    "mean_b": 0.1856694560669456,
+    "delta": 0.03399581589958159,
+    "ci95": [
+     0.013598326359832637,
+     0.0549163179916318
+    ],
+    "level": 0.95,
+    "p_value": 0.0014992503748125937,
+    "verdict": "b_better",
+    "note": "",
+    "lower_is_better": false,
+    "gain_verdict": "b_better",
+    "run_std": null,
+    "noise_band": null,
+    "within_noise": false
+   }
+  },
+  "warnings": [
+   "pass_at_1: +0.034 on this seed pair, but across training seeds +0.034 with interval -0.345..+0.413 covers zero (between-seed std 0.042 after; t(df=1)=12.71 x sqrt(seed_std_after^2/2), added in quadrature to the task interval); the change does not survive the seed spread",
+   "239 paired tasks at k=4 can prove a gain of about +0.05 at 80% power; to prove the +0.034 seen here you need about 177 tasks (task sd measured on the 239 paired tasks here) (holdout_size).",
+   "before has k=4 rollouts per task and after has k=8: 239 of 239 paired tasks on the before side have fewer than 8 rows. Unequal k is a precision issue, not a bias: rows lost at random leave the paired delta unbiased and widen its interval (about 10% at k=4 against k=2 on half the tasks); rows lost for a reason (a timeout on the hard runs) bias it, and only re-running the before side on its short tasks fixes that (data.report()['rollouts_lost_by'] says why rows went missing). balance_rollouts=True only makes pass^k/pass@k share k=4 and costs another 10% of interval width."
+  ],
+  "config": {
+   "before": {
+    "n_tasks": 239,
+    "k": 4,
+    "temperature": null,
+    "max_tokens": null,
+    "policy_version": null,
+    "judge_version": null,
+    "prompt_hash": null,
+    "user_model": null,
+    "writer_model": null,
+    "mixed": [],
+    "truncated_share": null,
+    "answered_share": 1.0,
+    "unclosed_think_share": 0.0,
+    "graded_share": 1.0
+   },
+   "after": {
+    "n_tasks": 239,
+    "k": 8,
+    "temperature": null,
+    "max_tokens": null,
+    "policy_version": null,
+    "judge_version": null,
+    "prompt_hash": null,
+    "user_model": null,
+    "writer_model": null,
+    "mixed": [],
+    "truncated_share": null,
+    "answered_share": 1.0,
+    "unclosed_think_share": 0.0,
+    "graded_share": 1.0
+   }
+  },
+  "balanced": null,
+  "by": null,
+  "groups": null,
+  "groups_down": []
+ }
+}
