@@ -10,7 +10,7 @@ What the live path does, in the order it ran:
    ``test_paste.jsonl``; their sha256 files are written first and checked on
    every later run) and the round-3 and round-5 training rows.
 2. ``score.py`` scores the accessible baseline (ProtectAI v2) on the tests.
-3. ``sim_llm.py`` (in the scratch directory; see README) makes the six-domain
+3. ``sim_llm.py`` makes the six-domain
    traffic with a model as writer, user and world; ``data_llm.py`` turns it
    into round-7 rows.
 4. ``train_modal.py`` fine-tunes MiniLM-L6 for three seeds on one L40S.

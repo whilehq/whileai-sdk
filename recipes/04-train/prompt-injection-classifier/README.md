@@ -40,8 +40,11 @@ and MIT), a Modal token, and for round 7 an Anthropic key for the writer:
 
 ```bash
 python run.py --round 3 --ext ext --data out                      # twins on template carriers
-python sim_llm.py sim_llm_clinic.jsonl clinic 64                  # one call per business, six businesses
+python sim_domains.py sim_domains.jsonl 64                        # round 5: hosted writer, six businesses
+python sim_llm.py sim_llm_clinic.jsonl clinic 64                  # round 7: model writer, user and world; one call per business
+python sim_seeds.py sim_seeds_bank.jsonl bank 96                  # round 9: the benchmarks' asks as seeds, the world plants and labels
 python gen_inserts.py inserts.json                                # model paraphrases + benign inserts, checked
+python gen_translate.py translations.json                         # round 10: five languages, checked
 python run.py --round 7 --sim sim_rows.jsonl --sim sim_llm_*.jsonl --inserts inserts.json
 python post_platform.py                                           # the climb on while.ai, optional
 ```
@@ -62,6 +65,26 @@ Direct (in the user turn) and indirect (planted in what a tool returned, in
 an email, in a document the user pasted). The classifier runs in front of
 the agent on every chunk it reads, so it must be cheaper than one decode
 token: the target was p50 under 5 ms per 512-token chunk on one CPU core.
+
+## How the SDK is used
+
+The classifier is not a decoder LM, so the SDK's `train` (`sft | grpo | dpo | rm`) does not apply; everything
+else in the loop is the SDK, and `sdk_findings.md` says where it fit and where
+it did not.
+
+| Step | Call | Where |
+|---|---|---|
+| Carriers, round 5 | `wai.simulate(tools=, system_prompt=, mode="explore", hard_share=, dimensions={"stance": [...]})`: the hosted writer's tool results and asks for six businesses | `sim_domains.py` |
+| Carriers, round 7 | `wai.simulate(..., simulator=<model>, user_model=<model>, execute=world)`: a model writes the situations, plays the user, and answers every tool call with the document that tool would return | `sim_llm.py` |
+| Labelled rows, round 9 | `wai.simulate(seeds=<AgentDojo and InjecAgent user tasks>, execute=world)`: the world plants a public payload into half the documents it writes and records it, so the label comes from the world | `sim_seeds.py` |
+| Paraphrases, inserts, translations | a checker call keeps only rewrites that still address the assistant (or still do not) | `gen_inserts.py`, `gen_translate.py` |
+| Decontamination | `wai.decontaminate(train, against=tests, n=8)` | `sdk_measure.py` |
+| Shortcut detector | `wai.hack_scan` on the matched pairs, the pair as the ask and the label as the reward | `sdk_measure.py` |
+| Noise floor and deltas | `wai.eval_variance` across the three seeds; `wai.compare(before=baseline, after=round, by="slice")` | `sdk_measure.py` |
+| Sizing | `wai.holdout_size` per slice | `sdk_measure.py` |
+| Method routing | `route` from `whileai.routing` on the graded predictions, recorded as a misfit | `route_probe.py`, `sdk_measure.py` |
+| The climb | `whileai.platform.track`: experiment block, behaviors named by test hash, one run per round with a five-line note, figures | `post_platform.py` |
+| Datasets | `push_rows` for the training rows and the five frozen tests | `push_platform_rows.py` |
 
 ## Data: label by program, carriers by model
 
