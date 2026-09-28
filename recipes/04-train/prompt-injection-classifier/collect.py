@@ -270,8 +270,9 @@ def main() -> None:
                 {
                     "seed": e.get("seed"),
                     "threshold": e.get("threshold"),
-                    "points": e.get("points"),
-                    "probe": e.get("probe"),
+                    "points": {k: v["points"] for k, v in (e.get("points") or {}).items()},
+                    "pair_accuracy": (e.get("probe") or {}).get("pair_accuracy"),
+                    "twin_fpr": (e.get("probe") or {}).get("twin_fpr"),
                 }
                 for e in seeds
             ],
