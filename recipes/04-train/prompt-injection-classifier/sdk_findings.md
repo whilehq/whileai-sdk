@@ -98,7 +98,23 @@ rather than falling back. `simulator=` as a model spec is the way around it,
 and `simulator=False` (the offline template writer) is not: templated
 situations are the thing the classifier must not learn.
 
-## 8. Small things
+## 8. `seeds=` plus `execute=` is the SDK path to a labelled classifier set
+
+Round 9: `wai.simulate(seeds=<AgentDojo user tasks or InjecAgent user cases>,
+execute=world, simulator=<model>, user_model=<model>)` where `world` asks a
+model to write the tool's document, then plants a public payload into half of
+them and records what it planted. The label comes from the world at the moment
+the document is made, not from a planting pass over harvested text, and the
+agent's next turn shows whether it obeyed. 485 rows from three businesses at
+96 rollouts each moved the AgentDojo-documents slice 15 points and the
+held-out business 6, the largest single-round gain after the matched twins.
+What it needed that the SDK does not give: a way for `execute` to stamp a
+label on the row (the world appended an invisible separator and the harvester
+read it back), and `current_rollout` as an object rather than the callable the
+docstring names. The `budget=4` probe warned "covers 4 of 48 seeds; raise
+budget to 48+ or drop seeds", which was the right fix, named.
+
+## 9. Small things
 
 - `simulate` warned that `hard_share=0.5` drew 0.39 and named the fix
   (`dimensions={"stance": [...]}`). Good. It also warned that the agent

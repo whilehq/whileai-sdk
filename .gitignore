@@ -71,6 +71,7 @@ recipes/04-train/resist-planted-instruction/out/
 !recipes/04-train/prompt-injection-classifier/test_hard.jsonl
 !recipes/04-train/prompt-injection-classifier/test_paste.jsonl
 !recipes/04-train/prompt-injection-classifier/test_llm.jsonl
+!recipes/04-train/prompt-injection-classifier/test_external.jsonl
 recipes/04-train/prompt-injection-classifier/out/
 !recipes/04-train/text-to-sql/tasks.jsonl
 recipes/04-train/text-to-sql/raw/

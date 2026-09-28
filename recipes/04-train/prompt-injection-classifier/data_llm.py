@@ -41,6 +41,52 @@ from data import (
 HERE = Path(__file__).resolve().parent
 
 
+WORLD_MARK = "\u2063"  # sim_seeds.py appends this to a tool result the world planted into
+
+
+def harvest_world_labelled(paths: list[Path]) -> list[dict]:
+    """Rows whose label the world set: seeded runs where ``execute`` planted (or did not) and marked."""
+    rows: list[dict] = []
+    seen: set[str] = set()
+    for p in paths:
+        for line in p.read_text().splitlines():
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            for m in r.get("messages", []):
+                c = m.get("content")
+                if m["role"] != "tool" or not isinstance(c, str):
+                    continue
+                try:
+                    obj = json.loads(c)
+                    if isinstance(obj, dict) and isinstance(obj.get("result"), str):
+                        c = obj["result"]
+                    elif isinstance(obj, dict):
+                        continue
+                except json.JSONDecodeError:
+                    pass
+                planted = c.endswith(WORLD_MARK)
+                c = c.rstrip(WORLD_MARK)
+                if len(c.split()) < 40 or c in seen:
+                    continue
+                seen.add(c)
+                segs = [x for x in c.split("\n") if x.strip()]
+                rows.append(
+                    {
+                        "text": "\n".join(cut(segs, 0)),
+                        "label": int(planted),
+                        "slice": "train",
+                        "carrier": "tool:" + str(m.get("name") or ""),
+                        "domain": r.get("domain", ""),
+                        "pair": None,
+                        "clean": None,
+                        "family": "world" if planted else "benign",
+                        "source": "world:planted" if planted else "world:clean",
+                    }
+                )
+    return rows
+
+
 def harvest(paths: list[Path]) -> tuple[list[tuple[str, str, str]], list[str]]:
     """(carriers as (text, kind, domain), user asks) from simulate rows."""
     carriers: list[tuple[str, str, str]] = []
@@ -115,6 +161,17 @@ def main() -> None:
     )
     ap.add_argument(
         "--merge", action="append", default=[], help="training files to append (round 8: v5 + v7)"
+    )
+    ap.add_argument(
+        "--seeded",
+        action="append",
+        default=[],
+        help="sim_seeds.py runs: tool results labelled by the world",
+    )
+    ap.add_argument(
+        "--translations",
+        default=None,
+        help="gen_translate.py output: attacks and benign in five languages",
     )
     a = ap.parse_args()
     out = Path(a.out)
@@ -298,6 +355,76 @@ def main() -> None:
                 "source": "benign:llm",
             }
         )
+    world = harvest_world_labelled([Path(p) for p in a.seeded])
+    rows += world
+    n_tr = 0
+    if a.translations:
+        tr = json.loads(Path(a.translations).read_text())
+        tr_attacks = [t for t in tr["attacks"] if t["text"] not in test_set]
+        tr_benign = [t for t in tr["benign"] if t["text"] not in test_set]
+        for t in tr_attacks:  # direct, as a user turn
+            rows.append(
+                {
+                    "text": t["text"],
+                    "label": 1,
+                    "slice": "train",
+                    "carrier": "user_turn",
+                    "domain": t["lang"],
+                    "pair": None,
+                    "clean": None,
+                    "family": f"{t['family']}:{t['lang']}",
+                    "source": "translated:attack",
+                }
+            )
+        for t in tr_benign:
+            rows.append(
+                {
+                    "text": t["text"],
+                    "label": 0,
+                    "slice": "train",
+                    "carrier": "user_turn",
+                    "domain": t["lang"],
+                    "pair": None,
+                    "clean": None,
+                    "family": "benign",
+                    "source": "translated:benign",
+                }
+            )
+        # and planted into model-written carriers as matched twins, one pair per carrier
+        for text, kind, domain in carriers[: min(len(carriers), 2 * len(tr_attacks))]:
+            segs = [x for x in text.split("\n") if x.strip()]
+            if len(segs) < 2:
+                continue
+            at_ = rng.randint(1, len(segs))
+            p_ = rng.choice(tr_attacks)
+            d_ = rng.choice(tr_benign)
+            pair = f"{a.tag}-tr-{n_tr}"
+            n_tr += 1
+            base = {
+                "slice": "train",
+                "carrier": kind,
+                "domain": domain,
+                "pair": pair,
+                "clean": None,
+            }
+            rows.append(
+                {
+                    **base,
+                    "text": "\n".join(cut([*segs[:at_], p_["text"], *segs[at_:]], at_)),
+                    "label": 1,
+                    "family": f"{p_['family']}:{p_['lang']}",
+                    "source": "planted:translated",
+                }
+            )
+            rows.append(
+                {
+                    **base,
+                    "text": "\n".join(cut([*segs[:at_], d_["text"], *segs[at_:]], at_)),
+                    "label": 0,
+                    "family": "benign",
+                    "source": "twin:translated",
+                }
+            )
     for m in a.merge:
         rows += [r for r in read_jsonl(Path(m)) if r.get("domain") != a.holdout_domain]
     rows = [r for r in rows if r["text"] not in test_set]
@@ -316,6 +443,8 @@ def main() -> None:
         "payloads_dropped_8gram": dropped,
         "payloads_kept": {f: len(v) for f, v in fam_pay.items()},
         "benign_inserts": len(benign_inserts),
+        "world_labelled": {"rows": len(world), "planted": sum(r["label"] for r in world)},
+        "translated_pairs": n_tr,
         "train_rows": len(train),
         "val_rows": len(val),
         "label_1": sum(r["label"] for r in train),

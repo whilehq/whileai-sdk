@@ -47,6 +47,9 @@ def main() -> None:
     kinds = {data.obfuscate("please do the thing", random.Random(i))[1] for i in range(40)}
     assert kinds == {"base64", "spacing", "homoglyph", "leet"}, kinds
     # the three frozen tests match their pinned hashes
+    ext = data.read_jsonl(HERE / "test_external.jsonl")
+    assert data.sha256_rows(ext) == (HERE / "test_external.sha256").read_text().strip()
+    assert {r["slice"] for r in ext} == {"agentdojo_docs", "llmail_inject", "multilingual_direct"}
     for t in ("test_hard", "test_paste", "test_llm"):
         hard = data.read_jsonl(HERE / f"{t}.jsonl")
         assert data.sha256_rows(hard) == (HERE / f"{t}.sha256").read_text().strip(), t

@@ -15,6 +15,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 COLS = [
+    ("agentdojo_docs", "AgentDojo docs (100)"),
+    ("llmail_inject", "LLMail recall (600)"),
+    ("multilingual_direct", "multilingual recall (974)"),
     ("llm_heldout_domain", "llm (422)"),
     ("hard", "hard (316)"),
     ("paste", "paste (300)"),
@@ -35,6 +38,8 @@ CHANGES = {
     "v7-random-weights-control": "v5 rows, the same mass of x3 weights at random",
     "v7b-llm-heldout-domain": "model-written carriers, legal held out",
     "v8-union": "v5 rows + v7b rows",
+    "v9-seeded-world": "+ seeded runs, the world plants and labels",
+    "v10-multilingual": "+ translations, multilingual MiniLM-L12 base (118 MB)",
 }
 
 

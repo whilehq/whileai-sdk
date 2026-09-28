@@ -39,6 +39,21 @@ BEHAVIORS = {
         "llm_heldout_domain",
         "model-written documents from a business never trained on (legal), held-out families planted; matched twins",
     ),
+    "agentdojo_documents": (
+        "test_external.jsonl",
+        "agentdojo_docs",
+        "AgentDojo's own environment records (emails, events, files, transactions, messages) with its injection text or its default; MIT; external",
+    ),
+    "llmail_inject_recall": (
+        "test_external.jsonl",
+        "llmail_inject",
+        "Microsoft LLMail-Inject challenge emails written by people to steer an assistant; positives only, a pass is flagging; external",
+    ),
+    "multilingual_direct_recall": (
+        "test_external.jsonl",
+        "multilingual_direct",
+        "yanismiraoui/prompt_injections, 974 direct injections in many languages; positives only; external",
+    ),
     "paste_copy_channel": (
         "test_paste.jsonl",
         "paste",
@@ -108,7 +123,13 @@ def main() -> None:
     print(provenance(), file=sys.stderr)
     tests = {
         f: read_jsonl(HERE / f)
-        for f in ("test.jsonl", "test_hard.jsonl", "test_paste.jsonl", "test_llm.jsonl")
+        for f in (
+            "test.jsonl",
+            "test_hard.jsonl",
+            "test_paste.jsonl",
+            "test_llm.jsonl",
+            "test_external.jsonl",
+        )
     }
     hashes = {
         f: "t-" + (HERE / f.replace(".jsonl", ".sha256")).read_text().strip()[:8] for f in tests
@@ -162,6 +183,7 @@ def main() -> None:
             "test_hard.jsonl": json.loads((OUT / rd["hard_scores"]).read_text()),
             "test_paste.jsonl": json.loads((OUT / rd["paste_scores"]).read_text()),
             "test_llm.jsonl": json.loads((OUT / rd["llm_scores"]).read_text()),
+            "test_external.jsonl": json.loads((OUT / rd["external_scores"]).read_text()),
         }
         thr = {f: sc[f]["threshold"] for f in sc}
         record = RunRecord(

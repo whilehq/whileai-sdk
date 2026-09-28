@@ -51,7 +51,7 @@ def main() -> None:
             check=True,
         )
         thr = json.loads(main_scores.read_text())["threshold"]
-        for name in ("hard", "paste", "llm"):
+        for name in ("hard", "paste", "llm", "external"):
             subprocess.run(
                 [
                     PY,
@@ -80,6 +80,7 @@ def main() -> None:
             "hard_scores": f"scores_hard_{a.tag}_seed1.json",
             "paste_scores": f"scores_paste_{a.tag}_seed1.json",
             "llm_scores": f"scores_llm_{a.tag}_seed1.json",
+            "external_scores": f"scores_external_{a.tag}_seed1.json",
             "tag": a.tag,
             "n_train": a.n_train,
             "trained_on": f"planted-carriers-{a.tag}",

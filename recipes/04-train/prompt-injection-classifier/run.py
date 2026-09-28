@@ -34,7 +34,7 @@ sys.path.insert(0, str(HERE))
 from data import HELDOUT_CARRIERS, HELDOUT_FAMILIES, read_jsonl, sha256_rows
 
 PY = sys.executable
-TESTS = ("test", "test_hard", "test_paste", "test_llm")
+TESTS = ("test", "test_hard", "test_paste", "test_llm", "test_external")
 
 
 def check_frozen() -> None:

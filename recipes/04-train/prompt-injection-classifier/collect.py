@@ -38,6 +38,9 @@ KEEP = (
     "accuracy",
 )
 HEADLINE = (
+    "agentdojo_docs",
+    "llmail_inject",
+    "multilingual_direct",
     "llm_heldout_domain",
     "hard",
     "paste",
@@ -73,6 +76,7 @@ def load_scores(rd: dict, seed: int | None) -> dict[str, dict]:
         "test_hard": rd["hard_scores"],
         "test_paste": rd["paste_scores"],
         "test_llm": rd.get("llm_scores", ""),
+        "test_external": rd.get("external_scores", ""),
     }
     out = {}
     for t, f in files.items():
@@ -86,7 +90,8 @@ def load_scores(rd: dict, seed: int | None) -> dict[str, dict]:
 
 def main() -> None:
     tests = {
-        t: read_jsonl(HERE / f"{t}.jsonl") for t in ("test", "test_hard", "test_paste", "test_llm")
+        t: read_jsonl(HERE / f"{t}.jsonl")
+        for t in ("test", "test_hard", "test_paste", "test_llm", "test_external")
     }
     rounds = json.loads((OUT / "rounds.json").read_text())
     arms: dict = {}
