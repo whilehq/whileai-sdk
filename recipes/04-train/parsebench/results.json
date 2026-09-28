@@ -1,0 +1,104 @@
+{
+  "recipe": "04-train/parsebench",
+  "entry": "while.ai",
+  "benchmark": {
+    "name": "ParseBench",
+    "arxiv": "2604.08538",
+    "dataset": "llamaindex/ParseBench",
+    "overall": "mean of five dimension scores: tables (avg_grits_trm_composite), charts (avg_rule_pass_rate), text content (avg_content_faithfulness), text formatting (avg_semantic_formatting), layout (avg_layout_element_rule_pass_rate), each x100"
+  },
+  "model": "Qwen/Qwen3.8-27B",
+  "layout_detector": "PaddlePaddle/PP-DocLayoutV3_safetensors",
+  "headline_pipeline": "wai_agent_v4",
+  "split": {
+    "code": "waiparse/split.py",
+    "rule": "sha1 of the source report name (page suffix _pN stripped) mod 5 == 0 -> dev, else test; every page of a report lands on one side",
+    "tuned_on": "dev",
+    "reported_on": ["test", "full"],
+    "trained_on_parsebench": false
+  },
+  "interval": {
+    "level": 0.95,
+    "method": "percentile bootstrap over documents; each dimension resampled independently; Overall = mean of the five resampled dimension means; paired rows resample per-document differences on documents both runs scored",
+    "draws": 2000,
+    "seed": 0,
+    "code": "modal run serve/bench.py::bands --specs <pipeline:split,...> --pairs <a:split|b:split,...>",
+    "note": "one RNG is shared across the specs of a call, so the order of --specs moves the bounds in the second decimal"
+  },
+  "runs": [
+    {
+      "pipeline": "wai_agent_v4",
+      "split": "full",
+      "overall": 78.89,
+      "ci95": [77.82, 79.95],
+      "dims": {"table": 80.50, "chart": 80.79, "text_content": 86.34, "text_formatting": 70.32, "layout": 76.51},
+      "n_docs": {"table": 503, "chart": 568, "text_content": 506, "text_formatting": 456, "layout": 500}
+    },
+    {
+      "pipeline": "wai_agent_v4",
+      "split": "test",
+      "overall": 78.53,
+      "ci95": [77.33, 79.64],
+      "dims": {"table": 80.51, "chart": 79.90, "text_content": 86.34, "text_formatting": 71.09, "layout": 74.81},
+      "n_docs": {"table": 441, "chart": 441, "text_content": 404, "text_formatting": 361, "layout": 399}
+    },
+    {
+      "pipeline": "wai_agent_v5",
+      "split": "test",
+      "overall": 78.19,
+      "ci95": [76.96, 79.33],
+      "dims": {"table": 80.63, "chart": 78.80, "text_content": 86.20, "text_formatting": 70.41, "layout": 74.90}
+    },
+    {
+      "pipeline": "wai_agent_full",
+      "split": "test",
+      "overall": 77.12,
+      "ci95": [75.88, 78.35],
+      "dims": {"table": 79.30, "chart": 75.17, "text_content": 86.28, "text_formatting": 70.06, "layout": 74.78}
+    },
+    {"pipeline": "wai_baseline_thinking", "split": "dev", "overall": 70.84, "ci95": [68.19, 73.49]},
+    {"pipeline": "wai_agent", "split": "dev", "overall": 74.60, "ci95": [71.94, 76.99]},
+    {"pipeline": "wai_agent_style", "split": "dev", "overall": 77.18, "ci95": [74.44, 79.56]},
+    {"pipeline": "wai_agent_full", "split": "dev", "overall": 79.97, "ci95": [77.44, 82.44]},
+    {"pipeline": "wai_agent_full_sc3", "split": "dev", "overall": 80.14, "ci95": [77.77, 82.48]}
+  ],
+  "paired": [
+    {"split": "dev", "from": "wai_baseline_thinking", "to": "wai_agent", "delta": 3.64, "ci95": [1.04, 6.17]},
+    {"split": "dev", "from": "wai_agent", "to": "wai_agent_style", "delta": 2.58, "ci95": [0.93, 4.20]},
+    {"split": "dev", "from": "wai_agent_style", "to": "wai_agent_full", "delta": 2.80, "ci95": [1.42, 4.23]},
+    {"split": "dev", "from": "wai_agent_full", "to": "wai_agent_full_sc3", "delta": 0.18, "ci95": [-1.04, 1.39]},
+    {"split": "test", "from": "wai_agent_full", "to": "wai_agent_v4", "delta": 1.41, "ci95": [0.87, 2.01]},
+    {"split": "test", "from": "wai_agent_v4", "to": "wai_agent_v5", "delta": -0.34, "ci95": [-0.80, 0.10]}
+  ],
+  "rl": [
+    {
+      "config": "train/configs/charts-v1.toml",
+      "tasks": "ChartNet core_permissive chart crops, decontaminated against every ParseBench chart page",
+      "val_reward": {"step_0": 0.569, "step_100": 0.624},
+      "adapter_step": 100,
+      "parsebench_dev_charts": 82.1,
+      "base_dev_charts": [83.5, 85.2],
+      "chart_effort": "xhigh",
+      "verdict": "no transfer"
+    },
+    {
+      "config": "train/configs/charts-pages-v1.toml",
+      "tasks": "synthetic report pages composed from ChartNet charts (train/build_chart_data.py::build_pages)",
+      "val_reward": {"step_0": 0.539, "step_25": 0.556, "step_50": 0.559},
+      "adapter_step": 50,
+      "parsebench_dev_charts": 85.9,
+      "base_dev_charts": 86.7,
+      "chart_effort": "medium",
+      "verdict": "no transfer"
+    }
+  ],
+  "leaderboard": {
+    "source": "ParseBench leaderboard.csv, read 2026-09-25",
+    "entries": {
+      "LlamaParse Agentic": 87.01,
+      "Claude Opus 5.5 (high)": 79.85,
+      "rakedoc-nano (best open-weight)": 77.23,
+      "Qwen3.8-27B thinking": 70.79
+    }
+  }
+}

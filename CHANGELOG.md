@@ -7,6 +7,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/04-train/parsebench/`: an open document-parsing agent (Qwen3.8-27B on vLLM plus the
+  PP-DocLayoutV3 layout detector, both on Modal in your own workspace) hill-climbed on ParseBench.
+  Tuned on a document-level dev split (one source report in five, by hash), reported on held-out test
+  and the full set: while.ai 78.89 [77.82, 79.95] full, 78.53 [77.33, 79.64] test, 95% bootstrap over
+  documents (`serve/bench.py::bands`). The harness pieces with their paired dev gains, the two chart RL
+  runs (CISPO on ChartNet crops and synthetic pages) that did not transfer, and an offline
+  `selftest.py` for the split, the endpoints and the layout mapping. Every server URL comes from
+  `DOCPARSE_WORKSPACE`; nothing points at our workspace.
+
 ## 0.126 (2026-09-25)
 
 - Recipe `recipes/01-simulate/smol-data-envs/`: SmolDataEnvs (FineEnvs, 5,394 Kaggle data-analysis
