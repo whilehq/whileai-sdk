@@ -141,6 +141,11 @@ def _flatten(obj, prefix: str = "") -> list[str]:
 
 ## 5. The offline path and the gates
 
+The result table reports every arm with its interval and the eval's own
+run-to-run spread as the floor a delta must clear; a train set decontaminated
+against the test by 8-gram (Lambert 2025, "Evaluation"); a rejection-sampled
+arm with its random-selection control ("Rejection Sampling").
+
 `smoke.sh` runs `selftest.py` and `run.py --dry-run` from the recipe's own
 directory with no key, no network and no GPU, in the SDK's own environment
 (no numpy unless the SDK has it), and CI runs it on every pull request. A
