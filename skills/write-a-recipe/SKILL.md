@@ -60,8 +60,8 @@ def check_pin(rows_path: Path, pin_path: Path) -> None:
         )
 ```
 
-Name the test on the platform by that pin (`Behavior(test_version="t-"
-+ pin[:8])`), and bump the name when the rows change.
+Name the test on the platform by the pin (`test_version="t-" + pin[:8]`)
+and bump it when the rows change.
 
 ## 3. The README, in the house shape
 
@@ -154,8 +154,7 @@ the recipe's entry points listed in `tests/recipes/test_offline_examples.py`.
 
 ## 6. Post the numbers, then open the pull request
 
-The run page and the README must agree, so the platform post reads
-`results.json`, not a second copy of the numbers. One run per arm, the
+The run page and the README must agree, so the post reads `results.json`. One run per arm, the
 baseline as the served version, `targets=` set at creation, `ci=` on every
 score, `test_version` the pin, a five-line note on every trained arm
 (Changed, Moved, Why, Learned, Reproduce; `manage-experiments/`), and the
@@ -186,6 +185,5 @@ The pull request: `gh pr create` fails in this repository; use
 `gh api -X POST repos/whilehq/whileai-sdk/pulls -f title=.. -f head=<branch>
 -f base=main -F draft=true -F body=@body.md`. The body opens with `Closes
 #n` or `No issue: ...`, names what the files are when there are more than
-about fifteen, and ends with the attribution line. A pull request that
-conflicts with main gets no CI at all, so rebase first and read the checks
-after. Never `git add -A`; add by path.
+about fifteen, and ends with the attribution line. A pull request that conflicts
+with main gets no CI, so rebase first. Never `git add -A`; add by path.
