@@ -66,6 +66,10 @@ recipes/04-train/hosted-loop/hosted-loop.json
 !recipes/04-train/resist-planted-instruction/
 recipes/04-train/resist-planted-instruction/out/
 !recipes/04-train/resist-planted-instruction/fixtures.jsonl
+!recipes/04-train/prompt-injection-classifier/
+!recipes/04-train/prompt-injection-classifier/test.jsonl
+!recipes/04-train/prompt-injection-classifier/test_hard.jsonl
+recipes/04-train/prompt-injection-classifier/out/
 !recipes/04-train/text-to-sql/tasks.jsonl
 recipes/04-train/text-to-sql/raw/
 recipes/04-train/text-to-sql/out/

@@ -19,6 +19,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
   runs (CISPO on ChartNet crops and synthetic pages) that did not transfer, and an offline
   `selftest.py` for the split, the endpoints and the layout mapping. Every server URL comes from
   `DOCPARSE_WORKSPACE`; nothing points at our workspace.
+- Recipe `recipes/04-train/prompt-injection-classifier/`: a 22M MiniLM-L6 binary classifier for
+  prompt injection, direct and indirect (planted in tool results, emails, retrieved documents),
+  trained on public sets (deepset, Gandalf, InjecAgent, AgentDojo, BIPIA; all MIT or Apache-2.0)
+  and carriers written by program with the label known by construction. Frozen, hashed test with
+  held-out attack families and held-out carriers, NotInject and a public set never trained on;
+  ProtectAI v2 scored on the same rows (Prompt Guard 2 is gated); three training seeds; int8 ONNX
+  with single-thread CPU latency at 128/256/512 tokens. `sdk_findings.md` records the six places the
+  SDK could not express a classifier (coverage axes, span export, world tool results, classifier
+  metrics, an encoder trainer, `route` on deterministic rows).
 
 ## 0.126 (2026-09-25)
 
