@@ -80,6 +80,7 @@ CLI_EXAMPLES = [
     "community/grpo-group-size-at-fixed-budget/run.py",
     "community/can-the-markers-be-trusted/run.py",
     "community/which-half-can-a-small-model-take/run.py",
+    "community/deepagents-review-four-arms/run.py",
     # papers/: the step-shaped paper recipes (a search loop, and the loop plus a trained arm)
     "papers/meta-harness/run.py",
     "papers/harness-and-weights/recipe.py",

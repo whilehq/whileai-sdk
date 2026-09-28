@@ -1,0 +1,327 @@
+{
+  "splits": {
+    "holdout": "held-out repos (246 reviews)",
+    "public": "SWE-bench Verified (250 reviews)"
+  },
+  "arms": {
+    "holdout": {
+      "srv-base": {
+        "label": "base (thinking off)",
+        "n": 246,
+        "accuracy": 0.3333,
+        "calls": 28.33,
+        "no_verdict": 134
+      },
+      "srv-base-r2": {
+        "label": "base (thinking off), run 2",
+        "n": 246,
+        "accuracy": 0.2724,
+        "calls": 30.5,
+        "no_verdict": 154
+      },
+      "srv-base-r3": {
+        "label": "base (thinking off), run 3",
+        "n": 246,
+        "accuracy": 0.2642,
+        "calls": 30.68,
+        "no_verdict": 156
+      },
+      "srv-harness": {
+        "label": "tuned harness, no training",
+        "n": 246,
+        "accuracy": 0.3496,
+        "calls": 25.59,
+        "no_verdict": 131
+      },
+      "srv-sft-without": {
+        "label": "SFT on smithtune's pick",
+        "n": 246,
+        "accuracy": 0.6382,
+        "calls": 14.21,
+        "no_verdict": 23
+      },
+      "srv-sft-with": {
+        "label": "SFT on While's pick",
+        "n": 246,
+        "accuracy": 0.6138,
+        "calls": 11.08,
+        "no_verdict": 14
+      },
+      "base": {
+        "label": "base (thinking on, OpenRouter)",
+        "n": 246,
+        "accuracy": 0.7033,
+        "calls": 9.36,
+        "no_verdict": 5
+      },
+      "base-r2": {
+        "label": "base (thinking on, OpenRouter), run 2",
+        "n": 245,
+        "accuracy": 0.751,
+        "calls": 9.44,
+        "no_verdict": 1
+      },
+      "base-r3": {
+        "label": "base (thinking on, OpenRouter), run 3",
+        "n": 213,
+        "accuracy": 0.7465,
+        "calls": 9.31,
+        "no_verdict": 0
+      }
+    },
+    "public": {
+      "srv-base": {
+        "label": "base (thinking off)",
+        "n": 250,
+        "accuracy": 0.116,
+        "calls": 36.39,
+        "no_verdict": 209
+      },
+      "srv-base-r2": {
+        "label": "base (thinking off), run 2",
+        "n": 250,
+        "accuracy": 0.12,
+        "calls": 36.13,
+        "no_verdict": 210
+      },
+      "srv-base-r3": {
+        "label": "base (thinking off), run 3",
+        "n": 250,
+        "accuracy": 0.096,
+        "calls": 36.78,
+        "no_verdict": 219
+      },
+      "srv-harness": {
+        "label": "tuned harness, no training",
+        "n": 250,
+        "accuracy": 0.204,
+        "calls": 31.39,
+        "no_verdict": 176
+      },
+      "srv-sft-without": {
+        "label": "SFT on smithtune's pick",
+        "n": 250,
+        "accuracy": 0.46,
+        "calls": 23.52,
+        "no_verdict": 80
+      },
+      "srv-sft-with": {
+        "label": "SFT on While's pick",
+        "n": 250,
+        "accuracy": 0.568,
+        "calls": 18.18,
+        "no_verdict": 44
+      }
+    }
+  },
+  "with_vs_without": {
+    "holdout": {
+      "accuracy": {
+        "delta": -0.0244,
+        "ci95": [
+          -0.0732,
+          0.0244
+        ],
+        "verdict": "no_difference_detected",
+        "n_paired": 246
+      },
+      "calls": {
+        "delta": -3.1301,
+        "ci95": [
+          -4.2846,
+          -1.9919
+        ],
+        "verdict": "a_better",
+        "n_paired": 246
+      }
+    },
+    "public": {
+      "accuracy": {
+        "delta": 0.108,
+        "ci95": [
+          0.048,
+          0.168
+        ],
+        "verdict": "b_better",
+        "n_paired": 250
+      },
+      "calls": {
+        "delta": -5.34,
+        "ci95": [
+          -6.7,
+          -4.04
+        ],
+        "verdict": "a_better",
+        "n_paired": 250
+      }
+    }
+  },
+  "vs_base": {
+    "holdout": {
+      "srv-harness": {
+        "accuracy": {
+          "delta": 0.0163,
+          "ci95": [
+            -0.0528,
+            0.0854
+          ],
+          "verdict": "no_difference_detected",
+          "n_paired": 246
+        },
+        "calls": {
+          "delta": -2.7358,
+          "ci95": [
+            -5.0163,
+            -0.4268
+          ],
+          "verdict": "a_better",
+          "n_paired": 246
+        }
+      },
+      "srv-sft-without": {
+        "accuracy": {
+          "delta": 0.3049,
+          "ci95": [
+            0.2398,
+            0.374
+          ],
+          "verdict": "b_better",
+          "n_paired": 246
+        },
+        "calls": {
+          "delta": -14.122,
+          "ci95": [
+            -15.9024,
+            -12.3943
+          ],
+          "verdict": "a_better",
+          "n_paired": 246
+        }
+      },
+      "srv-sft-with": {
+        "accuracy": {
+          "delta": 0.2805,
+          "ci95": [
+            0.2073,
+            0.3577
+          ],
+          "verdict": "b_better",
+          "n_paired": 246
+        },
+        "calls": {
+          "delta": -17.252,
+          "ci95": [
+            -19.1179,
+            -15.5
+          ],
+          "verdict": "a_better",
+          "n_paired": 246
+        }
+      }
+    },
+    "public": {
+      "srv-harness": {
+        "accuracy": {
+          "delta": 0.088,
+          "ci95": [
+            0.032,
+            0.144
+          ],
+          "verdict": "b_better",
+          "n_paired": 250
+        },
+        "calls": {
+          "delta": -5.0,
+          "ci95": [
+            -6.884,
+            -3.216
+          ],
+          "verdict": "a_better",
+          "n_paired": 250
+        }
+      },
+      "srv-sft-without": {
+        "accuracy": {
+          "delta": 0.344,
+          "ci95": [
+            0.28,
+            0.408
+          ],
+          "verdict": "b_better",
+          "n_paired": 250
+        },
+        "calls": {
+          "delta": -12.872,
+          "ci95": [
+            -14.388,
+            -11.316
+          ],
+          "verdict": "a_better",
+          "n_paired": 250
+        }
+      },
+      "srv-sft-with": {
+        "accuracy": {
+          "delta": 0.452,
+          "ci95": [
+            0.388,
+            0.516
+          ],
+          "verdict": "b_better",
+          "n_paired": 250
+        },
+        "calls": {
+          "delta": -18.212,
+          "ci95": [
+            -19.78,
+            -16.604
+          ],
+          "verdict": "a_better",
+          "n_paired": 250
+        }
+      }
+    }
+  },
+  "noise": {
+    "holdout": {
+      "run_std": 0.0378,
+      "noise_band": 0.2298
+    },
+    "public": {
+      "run_std": 0.0129,
+      "noise_band": 0.0782
+    }
+  },
+  "training": {
+    "sft-with": {
+      "traces": 173,
+      "tokens_per_epoch": 3619086,
+      "best_epoch": 2,
+      "train_datums": 741,
+      "validation_datums": 92,
+      "test_datums": 103,
+      "pull": "while",
+      "examples": 174,
+      "rows": 173,
+      "excluded": 1,
+      "train": 137,
+      "validation": 18,
+      "test": 18
+    },
+    "sft-without": {
+      "traces": 258,
+      "tokens_per_epoch": 10221451,
+      "best_epoch": 2,
+      "train_datums": 1606,
+      "validation_datums": 217,
+      "test_datums": 253,
+      "pull": "council",
+      "examples": 258,
+      "rows": 258,
+      "excluded": 0,
+      "train": 201,
+      "validation": 27,
+      "test": 30
+    }
+  }
+}

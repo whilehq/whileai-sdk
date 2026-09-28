@@ -1,0 +1,13 @@
+{
+  "reason": "repo or commit no longer on GitHub (codeload 404)",
+  "tasks": [
+    "NREL__hescore-hpxml-169:approve",
+    "NREL__hescore-hpxml-169:reject",
+    "cunybpl__isdparser-2:approve",
+    "cunybpl__isdparser-2:reject",
+    "cunybpl__isdparser-4:approve",
+    "cunybpl__isdparser-4:reject",
+    "tarohi24__typedflow-16:approve",
+    "tarohi24__typedflow-16:reject"
+  ]
+}

@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Community recipe `recipes/community/deepagents-review-four-arms/`: fine-tune a LangChain Deep Agents
+  reviewer (Qwen3.8-27B) from its LangSmith traces with smithtune's renderer and schedule, once on
+  smithtune's council pick and once on `wai.simulations.optimize`'s pick. On SWE-bench Verified patch
+  review While's pick scores 56.8% against 46.0% (+10.8 points [+4.8, +16.8]) with 5.3 fewer model calls.
+
 ## 0.126 (2026-09-25)
 
 - Recipe `recipes/01-simulate/smol-data-envs/`: SmolDataEnvs (FineEnvs, 5,394 Kaggle data-analysis
