@@ -114,7 +114,10 @@ every planted slice, every user turn flagged, NotInject at 0 points. From
 round 3 every planted row has a **matched twin**: the same carrier, the same
 position, the same framing, and a harmless insert of matched length instead
 of the payload. Nothing separates the pair but whether the insert is an
-instruction to the model.
+instruction to the model. That is a preference pair with the confound
+removed, the shape the book's *Direct Alignment* chapter trains on [1], and
+the length match is the verbosity control its *Preference Data* chapter
+warns is needed [1].
 
 Round 7 replaces the template carriers with what `wai.simulate` produced for
 six businesses (clinic, bank, e-commerce, legal, devops, travel) with a model
@@ -128,7 +131,10 @@ benign inserts are model-written sentences that use "ignore", "override",
 "system prompt" or "security" with no instruction in them (270 of 320 kept
 by the same check). Real human text is mixed in on the direct side
 (oasst1 prompts, Gandalf). Everything sharing a word 8-gram with any frozen
-test is dropped and counted (108 payloads in round 3).
+test is dropped and counted (108 payloads in round 3), the decontamination
+rule of the *Evaluation* chapter [1]; mixing real human text into a
+model-written set is the *Synthetic Data and Distillation* chapter's guard
+against training on one model's own distribution [1].
 
 ## Four frozen tests, hashed before training
 
@@ -157,6 +163,14 @@ account's token gets a 403; it is not scored, and no number for it is
 claimed.
 
 ## The climb
+
+Three seeds per round because the eval's own run-to-run spread is the floor
+a delta has to clear (*Evaluation* [1]); a flat or negative round stays in
+the table as a result. The mining round is rejection sampling's "keep what
+the model finds hard" with the random-selection control the *Rejection
+Sampling* chapter asks for [1]; the twin-hinge round is the pairwise loss of
+*Direct Alignment* on already-separated pairs, which is why it bought
+nothing [1].
 
 Correctness at the round's threshold, points out of 100, seed 1, Wilson 95%
 half-width in `results.json`; the threshold is the score at 1% false positives
@@ -280,7 +294,7 @@ partner for the FPR.
 
 ## References
 
-1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Synthetic Data and Distillation*, *Direct Alignment*, *Rejection Sampling*, *Evaluation*.
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025 (rlhfbook.com). Chapters *Evaluation*, *Direct Alignment*, *Preference Data*, *Rejection Sampling*, *Synthetic Data and Distillation*.
 2. Zhan, Q. et al. InjecAgent: Benchmarking Indirect Prompt Injections in Tool-Integrated LLM Agents. arXiv:2403.02691, 2024.
 3. Debenedetti, E. et al. AgentDojo. arXiv:2406.13352, 2024.
 4. Yi, J. et al. BIPIA: Benchmarking and Defending Against Indirect Prompt Injection Attacks. arXiv:2312.14197, 2023.

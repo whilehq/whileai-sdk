@@ -54,6 +54,8 @@ def export(model_dir: str, out_dir: str) -> dict:
     so = ort.SessionOptions()
     so.intra_op_num_threads = 1
     sess = ort.InferenceSession(str(int8), so, providers=["CPUExecutionProvider"])
+    # the graph keeps only the inputs it reads (DeBERTa drops token_type_ids); feed those
+    names = [i.name for i in sess.get_inputs()]
     return {
         "onnx_int8": str(int8),
         "onnx_fp32": str(fp32),
