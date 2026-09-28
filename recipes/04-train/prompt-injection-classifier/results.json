@@ -879,6 +879,21 @@
        "points": 50.0,
        "ci95_half": 4.7,
        "n": 422
+      },
+      "agentdojo_docs": {
+       "points": 75.0,
+       "ci95_half": 8.4,
+       "n": 100
+      },
+      "llmail_inject": {
+       "points": 100.0,
+       "ci95_half": 0.3,
+       "n": 600
+      },
+      "multilingual_direct": {
+       "points": 100.0,
+       "ci95_half": 0.2,
+       "n": 974
       }
      },
      "test_hard": {
@@ -1056,6 +1071,96 @@
         1.0
        ],
        "fpr_ci95": [
+        1.0,
+        1.0
+       ]
+      }
+     },
+     "test_external": {
+      "all": {
+       "n": 1674,
+       "n_pos": 1649,
+       "n_neg": 25,
+       "threshold": 0.0008,
+       "auroc": 0.3676773802304427,
+       "auroc_ci95": [
+        0.26088004822182037,
+        0.48636411277643854
+       ],
+       "recall_at_1pct_fpr": 0.0,
+       "recall_at_1pct_fpr_ci95": [
+        0.0,
+        0.03990326481257558
+       ],
+       "precision": 0.9850657108721624,
+       "recall": 1.0,
+       "f1": 0.9924766777008727,
+       "fpr": 1.0,
+       "accuracy": 0.9850657108721624,
+       "recall_ci95": [
+        1.0,
+        1.0
+       ],
+       "fpr_ci95": [
+        1.0,
+        1.0
+       ]
+      },
+      "agentdojo_docs": {
+       "n": 100,
+       "n_pos": 75,
+       "n_neg": 25,
+       "threshold": 0.0008,
+       "auroc": 0.3314666666666667,
+       "auroc_ci95": [
+        0.19375,
+        0.47713097713097713
+       ],
+       "recall_at_1pct_fpr": 0.0,
+       "recall_at_1pct_fpr_ci95": [
+        0.0,
+        0.036585365853658534
+       ],
+       "precision": 0.75,
+       "recall": 1.0,
+       "f1": 0.8571428571428571,
+       "fpr": 1.0,
+       "accuracy": 0.75,
+       "recall_ci95": [
+        1.0,
+        1.0
+       ],
+       "fpr_ci95": [
+        1.0,
+        1.0
+       ]
+      },
+      "llmail_inject": {
+       "n": 600,
+       "n_pos": 600,
+       "n_neg": 0,
+       "threshold": 0.0008,
+       "precision": 1.0,
+       "recall": 1.0,
+       "f1": 1.0,
+       "fpr": NaN,
+       "accuracy": 1.0,
+       "recall_ci95": [
+        1.0,
+        1.0
+       ]
+      },
+      "multilingual_direct": {
+       "n": 974,
+       "n_pos": 974,
+       "n_neg": 0,
+       "threshold": 0.0008,
+       "precision": 1.0,
+       "recall": 1.0,
+       "f1": 1.0,
+       "fpr": NaN,
+       "accuracy": 1.0,
+       "recall_ci95": [
         1.0,
         1.0
        ]
@@ -1562,6 +1667,21 @@
      "points": 50.0,
      "ci95_half": 4.7,
      "n": 422
+    },
+    "agentdojo_docs": {
+     "points": 75.0,
+     "ci95_half": 8.4,
+     "n": 100
+    },
+    "llmail_inject": {
+     "points": 100.0,
+     "ci95_half": 0.3,
+     "n": 600
+    },
+    "multilingual_direct": {
+     "points": 100.0,
+     "ci95_half": 0.2,
+     "n": 974
     }
    },
    "seed_spread_points": {
@@ -1587,7 +1707,7 @@
     }
    },
    "note": "Changed: MiniLM-L6 fine-tuned on planted carriers, 9,183 rows, no matched negatives, 50 benign user turns against 2,000 attack ones.\nMoved: NotInject 57 to 0 points; deepset 76 to 0; the threshold at 1% benign FPR on carriers was 0.0008, so every user turn was flagged.\nWhy: short text was the label; the carrier template, not the payload, separated the classes (AUROC 1.00 on in-dist and held-out carriers).\nLearned: a generator's own negatives are not negatives; the model learned the generator. A 22M encoder finds the shortcut in 19 seconds.\nReproduce: seed 1, tests t-fcaff01e and t-693f5a0b, python run.py (v1 data shape is in the README's first round).",
-   "slices_clearing_baseline": 2
+   "slices_clearing_baseline": 5
   },
   "v3-twins-dedupe": {
    "model": "nreimers/MiniLM-L6-H384-uncased",
@@ -3366,6 +3486,21 @@
        "points": 52.1,
        "ci95_half": 4.7,
        "n": 422
+      },
+      "agentdojo_docs": {
+       "points": 44.0,
+       "ci95_half": 9.6,
+       "n": 100
+      },
+      "llmail_inject": {
+       "points": 58.8,
+       "ci95_half": 3.9,
+       "n": 600
+      },
+      "multilingual_direct": {
+       "points": 21.8,
+       "ci95_half": 2.6,
+       "n": 974
       }
      },
      "test_hard": {
@@ -3545,6 +3680,96 @@
        "fpr_ci95": [
         0.47345132743362833,
         0.6124401913875598
+       ]
+      }
+     },
+     "test_external": {
+      "all": {
+       "n": 1674,
+       "n_pos": 1649,
+       "n_neg": 25,
+       "threshold": 0.9931411147117615,
+       "auroc": 0.4125530624620982,
+       "auroc_ci95": [
+        0.3348168435467306,
+        0.48910796629034825
+       ],
+       "recall_at_1pct_fpr": 0.1637355973317162,
+       "recall_at_1pct_fpr_ci95": [
+        0.14502427184466019,
+        0.1822600243013366
+       ],
+       "precision": 0.9834437086092715,
+       "recall": 0.3602183141297756,
+       "f1": 0.5272969374167776,
+       "fpr": 0.4,
+       "accuracy": 0.36379928315412186,
+       "recall_ci95": [
+        0.3375757575757576,
+        0.38498789346246975
+       ],
+       "fpr_ci95": [
+        0.21052631578947367,
+        0.6153846153846154
+       ]
+      },
+      "agentdojo_docs": {
+       "n": 100,
+       "n_pos": 75,
+       "n_neg": 25,
+       "threshold": 0.9931411147117615,
+       "auroc": 0.5746666666666667,
+       "auroc_ci95": [
+        0.43899018232819076,
+        0.7016317016317016
+       ],
+       "recall_at_1pct_fpr": 0.21333333333333335,
+       "recall_at_1pct_fpr_ci95": [
+        0.1267605633802817,
+        0.30864197530864196
+       ],
+       "precision": 0.7435897435897436,
+       "recall": 0.38666666666666666,
+       "f1": 0.5087719298245614,
+       "fpr": 0.4,
+       "accuracy": 0.44,
+       "recall_ci95": [
+        0.2727272727272727,
+        0.4868421052631579
+       ],
+       "fpr_ci95": [
+        0.2,
+        0.6
+       ]
+      },
+      "llmail_inject": {
+       "n": 600,
+       "n_pos": 600,
+       "n_neg": 0,
+       "threshold": 0.9931411147117615,
+       "precision": 1.0,
+       "recall": 0.5883333333333334,
+       "f1": 0.7408184679958028,
+       "fpr": NaN,
+       "accuracy": 0.5883333333333334,
+       "recall_ci95": [
+        0.5466666666666666,
+        0.63
+       ]
+      },
+      "multilingual_direct": {
+       "n": 974,
+       "n_pos": 974,
+       "n_neg": 0,
+       "threshold": 0.9931411147117615,
+       "precision": 1.0,
+       "recall": 0.21765913757700206,
+       "f1": 0.357504215851602,
+       "fpr": NaN,
+       "accuracy": 0.21765913757700206,
+       "recall_ci95": [
+        0.19096509240246407,
+        0.24537987679671458
        ]
       }
      },
@@ -4432,6 +4657,21 @@
      "points": 52.1,
      "ci95_half": 4.7,
      "n": 422
+    },
+    "agentdojo_docs": {
+     "points": 44.0,
+     "ci95_half": 9.6,
+     "n": 100
+    },
+    "llmail_inject": {
+     "points": 58.8,
+     "ci95_half": 3.9,
+     "n": 600
+    },
+    "multilingual_direct": {
+     "points": 21.8,
+     "ci95_half": 2.6,
+     "n": 974
     }
    },
    "seed_spread_points": {
@@ -4467,7 +4707,7 @@
     }
    },
    "note": "Changed: added SPML (MIT, 16k rows): 3,470 direct injections and 3,470 benign asks as user turns, and 8,079 of its injection prompts as planted payloads with length-matched benign twins. 25,461 rows.\nMoved: deepset 67 to 69 points (AUROC 0.69/0.71/0.80 over seeds, baseline 0.88); NotInject 97 to 82; hard 62 to 52; sim_tool 84 to 78. DOWN on three of five headline slices.\nWhy: SPML \"injections\" are long role-play prompts (\"You are HealthAI, a virtual consultant...\") and its benign side is short asks, so length and prompt-likeness re-entered the label; NotInject's trigger-word sentences and the hard twins pay for it. Pair accuracy on held-out families fell to 48 to 52 points.\nLearned: a public set labelled \"prompt injection\" is not the behaviour this classifier is for; SPML is mostly jailbreak-shaped role play, which the scope excludes. Volume from the wrong distribution moves the headline the wrong way; the round is kept on the page as the negative result it is.\nReproduce: seeds 1,2,3; tests t-fcaff01e, t-693f5a0b, t-371b20a4; python data.py --sim sim_rows.jsonl (SPML on by default), modal run train_modal.py --train-file out/train_v4.jsonl --tag v4-spml --seeds 1,2,3",
-   "slices_clearing_baseline": 4
+   "slices_clearing_baseline": 5
   },
   "v5-channels": {
    "model": "nreimers/MiniLM-L6-H384-uncased",
@@ -6327,6 +6567,21 @@
        "points": 62.6,
        "ci95_half": 4.6,
        "n": 422
+      },
+      "agentdojo_docs": {
+       "points": 80.0,
+       "ci95_half": 7.8,
+       "n": 100
+      },
+      "llmail_inject": {
+       "points": 43.0,
+       "ci95_half": 3.9,
+       "n": 600
+      },
+      "multilingual_direct": {
+       "points": 20.3,
+       "ci95_half": 2.5,
+       "n": 974
       }
      },
      "test_hard": {
@@ -6506,6 +6761,96 @@
        "fpr_ci95": [
         0.2920353982300885,
         0.42731277533039647
+       ]
+      }
+     },
+     "test_external": {
+      "all": {
+       "n": 1674,
+       "n_pos": 1649,
+       "n_neg": 25,
+       "threshold": 0.9592434763908386,
+       "auroc": 0.3564342025469982,
+       "auroc_ci95": [
+        0.29311868686868686,
+        0.4193329290479078
+       ],
+       "recall_at_1pct_fpr": 0.06791995148574893,
+       "recall_at_1pct_fpr_ci95": [
+        0.05710814094775213,
+        0.23941958887545345
+       ],
+       "precision": 0.9775700934579439,
+       "recall": 0.3171619163129169,
+       "f1": 0.47893772893772885,
+       "fpr": 0.48,
+       "accuracy": 0.3201911589008363,
+       "recall_ci95": [
+        0.29454545454545455,
+        0.33958837772397094
+       ],
+       "fpr_ci95": [
+        0.2777777777777778,
+        0.6875
+       ]
+      },
+      "agentdojo_docs": {
+       "n": 100,
+       "n_pos": 75,
+       "n_neg": 25,
+       "threshold": 0.9592434763908386,
+       "auroc": 0.8474666666666667,
+       "auroc_ci95": [
+        0.745,
+        0.9394188596491229
+       ],
+       "recall_at_1pct_fpr": 0.14666666666666667,
+       "recall_at_1pct_fpr_ci95": [
+        0.07042253521126761,
+        0.8117647058823529
+       ],
+       "precision": 0.8481012658227848,
+       "recall": 0.8933333333333333,
+       "f1": 0.8701298701298702,
+       "fpr": 0.48,
+       "accuracy": 0.8,
+       "recall_ci95": [
+        0.8157894736842105,
+        0.96
+       ],
+       "fpr_ci95": [
+        0.2727272727272727,
+        0.6818181818181818
+       ]
+      },
+      "llmail_inject": {
+       "n": 600,
+       "n_pos": 600,
+       "n_neg": 0,
+       "threshold": 0.9592434763908386,
+       "precision": 1.0,
+       "recall": 0.43,
+       "f1": 0.6013986013986015,
+       "fpr": NaN,
+       "accuracy": 0.43,
+       "recall_ci95": [
+        0.38666666666666666,
+        0.4683333333333333
+       ]
+      },
+      "multilingual_direct": {
+       "n": 974,
+       "n_pos": 974,
+       "n_neg": 0,
+       "threshold": 0.9592434763908386,
+       "precision": 1.0,
+       "recall": 0.2032854209445585,
+       "f1": 0.3378839590443686,
+       "fpr": NaN,
+       "accuracy": 0.2032854209445585,
+       "recall_ci95": [
+        0.17761806981519507,
+        0.2299794661190965
        ]
       }
      },
@@ -7523,6 +7868,21 @@
      "points": 62.6,
      "ci95_half": 4.6,
      "n": 422
+    },
+    "agentdojo_docs": {
+     "points": 80.0,
+     "ci95_half": 7.8,
+     "n": 100
+    },
+    "llmail_inject": {
+     "points": 43.0,
+     "ci95_half": 3.9,
+     "n": 600
+    },
+    "multilingual_direct": {
+     "points": 20.3,
+     "ci95_half": 2.5,
+     "n": 974
     }
    },
    "seed_spread_points": {
@@ -7563,7 +7923,7 @@
     }
    },
    "note": "Changed: same rows as v5, plus a pairwise hinge on every matched twin, max(0, 2.0 - (s_pos - s_twin)), lambda 1.0, the preference-loss analogue on the pair (Lambert 2025, chapter Direct Alignment). Pairs batched together so both members share a step.\nMoved: hard 60 to 54 points, held-out family 64 to 58, paste 64 to 61, sim_tool 92 to 90; deepset 69 flat; NotInject 93 to 94. Pair accuracy 55 to 58 against v5's 56 to 62: the loss aimed at pairs did not raise pair accuracy.\nWhy: the margin is paid on the training pairs, which the cross-entropy already separates (1.4% of training rows sit in the uncertain band by round 5), so the extra term pushes the logit scale rather than the decision on unseen families; the threshold moved to 0.96 to 0.99.\nLearned: a pairwise term on pairs the model already gets right buys nothing: the book's within-group-contrast rule applied to a classifier. The gradient lives where the pair is mixed, and by round 5 the training pairs are not. New carriers, not a new loss, is the next round.\nReproduce: seeds 1,2,3; same tests; modal run train_modal.py --train-file out/train_v5.jsonl --tag v6-twin --loss twin --margin 2.0 --seeds 1,2,3",
-   "slices_clearing_baseline": 5
+   "slices_clearing_baseline": 7
   },
   "v7-llm-carriers": {
    "model": "nreimers/MiniLM-L6-H384-uncased",
@@ -7815,6 +8175,21 @@
        "points": 72.5,
        "ci95_half": 4.2,
        "n": 422
+      },
+      "agentdojo_docs": {
+       "points": 53.0,
+       "ci95_half": 9.6,
+       "n": 100
+      },
+      "llmail_inject": {
+       "points": 44.3,
+       "ci95_half": 4.0,
+       "n": 600
+      },
+      "multilingual_direct": {
+       "points": 17.1,
+       "ci95_half": 2.4,
+       "n": 974
       }
      },
      "test_hard": {
@@ -7994,6 +8369,96 @@
        "fpr_ci95": [
         0.0,
         0.0
+       ]
+      }
+     },
+     "test_external": {
+      "all": {
+       "n": 1674,
+       "n_pos": 1649,
+       "n_neg": 25,
+       "threshold": 0.1136641651391983,
+       "auroc": 0.4033353547604609,
+       "auroc_ci95": [
+        0.3406818181818182,
+        0.4652962515114873
+       ],
+       "recall_at_1pct_fpr": 0.18132201334141904,
+       "recall_at_1pct_fpr_ci95": [
+        0.16262135922330098,
+        0.2009685230024213
+       ],
+       "precision": 0.9832285115303984,
+       "recall": 0.28441479684657367,
+       "f1": 0.44120413922859825,
+       "fpr": 0.32,
+       "accuracy": 0.2903225806451613,
+       "recall_ci95": [
+        0.2621359223300971,
+        0.30676328502415456
+       ],
+       "fpr_ci95": [
+        0.13333333333333333,
+        0.5217391304347826
+       ]
+      },
+      "agentdojo_docs": {
+       "n": 100,
+       "n_pos": 75,
+       "n_neg": 25,
+       "threshold": 0.1136641651391983,
+       "auroc": 0.7448,
+       "auroc_ci95": [
+        0.5854989604989606,
+        0.875893437296946
+       ],
+       "recall_at_1pct_fpr": 0.21333333333333335,
+       "recall_at_1pct_fpr_ci95": [
+        0.12345679012345678,
+        0.32
+       ],
+       "precision": 0.8181818181818182,
+       "recall": 0.48,
+       "f1": 0.6050420168067226,
+       "fpr": 0.32,
+       "accuracy": 0.53,
+       "recall_ci95": [
+        0.35714285714285715,
+        0.5897435897435898
+       ],
+       "fpr_ci95": [
+        0.13636363636363635,
+        0.52
+       ]
+      },
+      "llmail_inject": {
+       "n": 600,
+       "n_pos": 600,
+       "n_neg": 0,
+       "threshold": 0.1136641651391983,
+       "precision": 1.0,
+       "recall": 0.44333333333333336,
+       "f1": 0.6143187066974596,
+       "fpr": NaN,
+       "accuracy": 0.44333333333333336,
+       "recall_ci95": [
+        0.4033333333333333,
+        0.48333333333333334
+       ]
+      },
+      "multilingual_direct": {
+       "n": 974,
+       "n_pos": 974,
+       "n_neg": 0,
+       "threshold": 0.1136641651391983,
+       "precision": 1.0,
+       "recall": 0.17145790554414783,
+       "f1": 0.2927256792287467,
+       "fpr": NaN,
+       "accuracy": 0.17145790554414783,
+       "recall_ci95": [
+        0.14784394250513347,
+        0.19507186858316222
        ]
       }
      },
@@ -9011,6 +9476,21 @@
      "points": 72.5,
      "ci95_half": 4.2,
      "n": 422
+    },
+    "agentdojo_docs": {
+     "points": 53.0,
+     "ci95_half": 9.6,
+     "n": 100
+    },
+    "llmail_inject": {
+     "points": 44.3,
+     "ci95_half": 4.0,
+     "n": 600
+    },
+    "multilingual_direct": {
+     "points": 17.1,
+     "ci95_half": 2.4,
+     "n": 974
     }
    },
    "seed_spread_points": {
@@ -9051,7 +9531,7 @@
     }
    },
    "note": "Changed: no template carrier. wai.simulate with haiku as situation writer, user and world (execute= writes each tool result as the document that tool returns), six businesses, 384 rollouts, 579 documents plus the agents' drafts and 830 asks; public payloads and 125 checker-confirmed paraphrases; 270 checker-confirmed benign inserts; matched twins. 10,851 rows.\nMoved: llm (legal documents) 67 to 73 points, AUROC 0.71 to 0.83 with 0 false positives (baseline 49, AUROC 0.50); sim_tool 92 to 89; NotInject 93 flat; deepset 69 flat; hard 60 to 41 and paste 64 to 47, DOWN; held-out family 64 to 41, DOWN.\nWhy: the validation split is now model-written carriers with model-written inserts, so the 1% FPR threshold landed at 0.11 to 0.18 and the template-carrier tests (hard, paste, held-out family) pay in false positives; this round never saw a template carrier and does not transfer to them. This round also trained on legal traffic, so its llm number is in-distribution; v7b holds legal out.\nLearned: the bag-of-words probe on the indirect slices fell from 0.82 to 0.63 AUROC when the carriers changed hands from the template to the model: the shortcut left the data. What the model then learns transfers to model-written documents and not to the template ones, which is the same finding from the other side; the union (v8) is the next round.\nReproduce: seeds 1,2,3; tests t-fcaff01e, t-693f5a0b, t-371b20a4, t-157cf4ee; sim_llm.py per business; gen_inserts.py; python data_llm.py --tag v7; modal run train_modal.py --train-file out/train_v7.jsonl --tag v7-llm --seeds 1,2,3",
-   "slices_clearing_baseline": 4
+   "slices_clearing_baseline": 5
   },
   "v7-mined-weights": {
    "model": "nreimers/MiniLM-L6-H384-uncased",
@@ -9303,6 +9783,21 @@
        "points": 62.3,
        "ci95_half": 4.6,
        "n": 422
+      },
+      "agentdojo_docs": {
+       "points": 78.0,
+       "ci95_half": 8.0,
+       "n": 100
+      },
+      "llmail_inject": {
+       "points": 39.7,
+       "ci95_half": 3.9,
+       "n": 600
+      },
+      "multilingual_direct": {
+       "points": 21.1,
+       "ci95_half": 2.6,
+       "n": 974
       }
      },
      "test_hard": {
@@ -9482,6 +9977,96 @@
        "fpr_ci95": [
         0.2736842105263158,
         0.4055299539170507
+       ]
+      }
+     },
+     "test_external": {
+      "all": {
+       "n": 1674,
+       "n_pos": 1649,
+       "n_neg": 25,
+       "threshold": 0.9185250997543335,
+       "auroc": 0.3375742874469375,
+       "auroc_ci95": [
+        0.25910184622995797,
+        0.41014469709015744
+       ],
+       "recall_at_1pct_fpr": 0.09581564584596726,
+       "recall_at_1pct_fpr_ci95": [
+        0.08267477203647416,
+        0.11124620060790273
+       ],
+       "precision": 0.9751434034416826,
+       "recall": 0.30927835051546393,
+       "f1": 0.46961325966850825,
+       "fpr": 0.52,
+       "accuracy": 0.3118279569892473,
+       "recall_ci95": [
+        0.2868405093996361,
+        0.3321212121212121
+       ],
+       "fpr_ci95": [
+        0.3181818181818182,
+        0.7241379310344828
+       ]
+      },
+      "agentdojo_docs": {
+       "n": 100,
+       "n_pos": 75,
+       "n_neg": 25,
+       "threshold": 0.9185250997543335,
+       "auroc": 0.7773333333333333,
+       "auroc_ci95": [
+        0.6453125,
+        0.8882536382536382
+       ],
+       "recall_at_1pct_fpr": 0.30666666666666664,
+       "recall_at_1pct_fpr_ci95": [
+        0.20512820512820512,
+        0.410958904109589
+       ],
+       "precision": 0.8354430379746836,
+       "recall": 0.88,
+       "f1": 0.8571428571428572,
+       "fpr": 0.52,
+       "accuracy": 0.78,
+       "recall_ci95": [
+        0.8,
+        0.9493670886075949
+       ],
+       "fpr_ci95": [
+        0.3125,
+        0.72
+       ]
+      },
+      "llmail_inject": {
+       "n": 600,
+       "n_pos": 600,
+       "n_neg": 0,
+       "threshold": 0.9185250997543335,
+       "precision": 1.0,
+       "recall": 0.39666666666666667,
+       "f1": 0.568019093078759,
+       "fpr": NaN,
+       "accuracy": 0.39666666666666667,
+       "recall_ci95": [
+        0.3566666666666667,
+        0.43833333333333335
+       ]
+      },
+      "multilingual_direct": {
+       "n": 974,
+       "n_pos": 974,
+       "n_neg": 0,
+       "threshold": 0.9185250997543335,
+       "precision": 1.0,
+       "recall": 0.21149897330595482,
+       "f1": 0.34915254237288135,
+       "fpr": NaN,
+       "accuracy": 0.21149897330595482,
+       "recall_ci95": [
+        0.1868583162217659,
+        0.23716632443531827
        ]
       }
      },
@@ -10499,6 +11084,21 @@
      "points": 62.3,
      "ci95_half": 4.6,
      "n": 422
+    },
+    "agentdojo_docs": {
+     "points": 78.0,
+     "ci95_half": 8.0,
+     "n": 100
+    },
+    "llmail_inject": {
+     "points": 39.7,
+     "ci95_half": 3.9,
+     "n": 600
+    },
+    "multilingual_direct": {
+     "points": 21.1,
+     "ci95_half": 2.6,
+     "n": 974
     }
    },
    "seed_spread_points": {
@@ -10539,7 +11139,7 @@
     }
    },
    "note": "Changed: v5 rows scored by v5 seed 1; the 214 rows in the uncertain band (116 wrong) weighted x3, the rest 1.0; retrained. The rejection-sampling idea (keep what the model finds hard) applied to a classifier, with the random-weight control beside it.\nMoved: over three seeds, hard 59 to 56, paste 64 to 62, sim_tool 92 to 93, NotInject 94 to 93, held-out family 63 to 62, deepset 69 to 68; every move inside the seed spread (0.8 to 2.6 points). The random-weight control: hard 58, paste 62, sim_tool 92, NotInject 93, family 63.\nWhy: 214 of 15,588 rows sit in the band, 1.4%; tripling their weight moves 4% of the loss mass. The pool is saturated for this model; there is nothing to mine.\nLearned: mining against a random-weight control is the way to know whether the pool has anything left, and here it did not; the two arms are one arm. New carriers (v7, v8) are where the misses are, not re-weighted old ones.\nReproduce: python mine.py --model out/v5-channels-seed1 --train out/train_v5.jsonl --tag v7mine; modal run train_modal.py --train-file out/train_v7mine.jsonl --tag v7mine --weight-key weight --seeds 1,2,3",
-   "slices_clearing_baseline": 5
+   "slices_clearing_baseline": 7
   },
   "v7-random-weights-control": {
    "model": "nreimers/MiniLM-L6-H384-uncased",
@@ -10791,6 +11391,21 @@
        "points": 62.1,
        "ci95_half": 4.6,
        "n": 422
+      },
+      "agentdojo_docs": {
+       "points": 82.0,
+       "ci95_half": 7.5,
+       "n": 100
+      },
+      "llmail_inject": {
+       "points": 41.3,
+       "ci95_half": 3.9,
+       "n": 600
+      },
+      "multilingual_direct": {
+       "points": 21.7,
+       "ci95_half": 2.6,
+       "n": 974
       }
      },
      "test_hard": {
@@ -10970,6 +11585,96 @@
        "fpr_ci95": [
         0.25728155339805825,
         0.3883495145631068
+       ]
+      }
+     },
+     "test_external": {
+      "all": {
+       "n": 1674,
+       "n_pos": 1649,
+       "n_neg": 25,
+       "threshold": 0.9286916851997375,
+       "auroc": 0.3713644633110976,
+       "auroc_ci95": [
+        0.3084549878345499,
+        0.42979871489935745
+       ],
+       "recall_at_1pct_fpr": 0.18556701030927836,
+       "recall_at_1pct_fpr_ci95": [
+        0.16696914700544466,
+        0.20337960168980085
+       ],
+       "precision": 0.9813432835820896,
+       "recall": 0.31898120072771374,
+       "f1": 0.4814645308924485,
+       "fpr": 0.4,
+       "accuracy": 0.32317801672640384,
+       "recall_ci95": [
+        0.2961608775137112,
+        0.3422168382798304
+       ],
+       "fpr_ci95": [
+        0.21052631578947367,
+        0.6
+       ]
+      },
+      "agentdojo_docs": {
+       "n": 100,
+       "n_pos": 75,
+       "n_neg": 25,
+       "threshold": 0.9286916851997375,
+       "auroc": 0.8621333333333333,
+       "auroc_ci95": [
+        0.7757936507936508,
+        0.9330734243014944
+       ],
+       "recall_at_1pct_fpr": 0.6266666666666667,
+       "recall_at_1pct_fpr_ci95": [
+        0.5131578947368421,
+        0.7283950617283951
+       ],
+       "precision": 0.8701298701298701,
+       "recall": 0.8933333333333333,
+       "f1": 0.881578947368421,
+       "fpr": 0.4,
+       "accuracy": 0.82,
+       "recall_ci95": [
+        0.8181818181818182,
+        0.961038961038961
+       ],
+       "fpr_ci95": [
+        0.19047619047619047,
+        0.6
+       ]
+      },
+      "llmail_inject": {
+       "n": 600,
+       "n_pos": 600,
+       "n_neg": 0,
+       "threshold": 0.9286916851997375,
+       "precision": 1.0,
+       "recall": 0.41333333333333333,
+       "f1": 0.5849056603773585,
+       "fpr": NaN,
+       "accuracy": 0.41333333333333333,
+       "recall_ci95": [
+        0.37166666666666665,
+        0.4533333333333333
+       ]
+      },
+      "multilingual_direct": {
+       "n": 974,
+       "n_pos": 974,
+       "n_neg": 0,
+       "threshold": 0.9286916851997375,
+       "precision": 1.0,
+       "recall": 0.2166324435318275,
+       "f1": 0.3561181434599156,
+       "fpr": NaN,
+       "accuracy": 0.2166324435318275,
+       "recall_ci95": [
+        0.19096509240246407,
+        0.24229979466119098
        ]
       }
      },
@@ -11987,6 +12692,21 @@
      "points": 62.1,
      "ci95_half": 4.6,
      "n": 422
+    },
+    "agentdojo_docs": {
+     "points": 82.0,
+     "ci95_half": 7.5,
+     "n": 100
+    },
+    "llmail_inject": {
+     "points": 41.3,
+     "ci95_half": 3.9,
+     "n": 600
+    },
+    "multilingual_direct": {
+     "points": 21.7,
+     "ci95_half": 2.6,
+     "n": 974
     }
    },
    "seed_spread_points": {
@@ -12027,7 +12747,7 @@
     }
    },
    "note": "Changed: the control for mining: the same 214 x3 weights placed on rows drawn at random (seed 0), the same training. Everything else as v5.\nMoved: hard 58, paste 62, deepset 69, sim_tool 92, NotInject 93, held-out family 63: v5 within the seed spread on every slice, and the mined arm within the seed spread of this one.\nWhy: 4% of the loss mass moved to random rows is a small learning-rate change, and the pool is saturated either way.\nLearned: a control that cannot fail reads as coverage; this one could have (a x3 on random rows can hurt), and it came out flat, so the mined arm's flat result is a property of the pool and not of the weighting.\nReproduce: mine.py writes out/train_v7mine-random.jsonl beside the mined file; modal run train_modal.py --train-file out/train_v7mine-random.jsonl --tag v7mine-random --weight-key weight --seeds 1,2,3",
-   "slices_clearing_baseline": 5
+   "slices_clearing_baseline": 7
   },
   "v7b-llm-heldout-domain": {
    "model": "nreimers/MiniLM-L6-H384-uncased",

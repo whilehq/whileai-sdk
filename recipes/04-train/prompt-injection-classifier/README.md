@@ -131,14 +131,14 @@ test is 0.8 points (`eval_variance`, noise band 5.1).
 | round | change | AgentDojo docs (100) | LLMail recall (600) | multilingual recall (974) | llm (422) | hard (316) | paste (300) | deepset (662) | sim_tool (91) | NotInject (339) | held-out fam. (250) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | protectai-v2 | served baseline, 184M | 49 | 27 | 98 | 49 | 48 | 45 | 76 | 42 | 57 | 18 |
-| v1-templates | planted vs clean template carriers | n/a | n/a | n/a | 50 | **73** | 53 | _40_ | 50 | _0_ | **99** |
+| v1-templates | planted vs clean template carriers | **75** | **100** | **100** | 50 | **73** | 53 | _40_ | 50 | _0_ | **99** |
 | v3-twins-dedupe | matched twins, 8-gram dedupe, oasst1 turns | **72** | **37** | _16_ | **63** | **62** | **60** | _67_ | **84** | **97** | **55** |
-| v4-spml-direct | + SPML direct set (MIT) | n/a | n/a | n/a | 52 | 56 | **57** | _66_ | **87** | **82** | **49** |
+| v4-spml-direct | + SPML direct set (MIT) | 44 | **59** | _22_ | 52 | 56 | **57** | _66_ | **87** | **82** | **49** |
 | v5-channels | SPML out; paste channel + six-domain traffic | **81** | **42** | _22_ | **67** | **60** | **64** | _69_ | **92** | **93** | **64** |
-| v6-twin-margin | v5 rows + pairwise twin hinge | n/a | n/a | n/a | **63** | 54 | **61** | _69_ | **90** | **94** | **58** |
-| v7-llm-carriers | model-written carriers only, all six businesses | n/a | n/a | n/a | **72** | 40 | 47 | _69_ | **89** | **93** | **41** |
-| v7-mined-weights | v5 rows, wrong or uncertain rows weighted x3 | n/a | n/a | n/a | **62** | 56 | **63** | _68_ | **94** | **94** | **60** |
-| v7-random-weights-control | v5 rows, the same mass of x3 weights at random | n/a | n/a | n/a | **62** | 57 | **62** | _69_ | **93** | **94** | **62** |
+| v6-twin-margin | v5 rows + pairwise twin hinge | **80** | **43** | _20_ | **63** | 54 | **61** | _69_ | **90** | **94** | **58** |
+| v7-llm-carriers | model-written carriers only, all six businesses | 53 | **44** | _17_ | **72** | 40 | 47 | _69_ | **89** | **93** | **41** |
+| v7-mined-weights | v5 rows, wrong or uncertain rows weighted x3 | **78** | **40** | _21_ | **62** | 56 | **63** | _68_ | **94** | **94** | **60** |
+| v7-random-weights-control | v5 rows, the same mass of x3 weights at random | **82** | **41** | _22_ | **62** | 57 | **62** | _69_ | **93** | **94** | **62** |
 | v7b-llm-heldout-domain | model-written carriers, legal held out | **68** | **43** | _17_ | **73** | 46 | 49 | _69_ | **93** | **92** | **42** |
 | v8-union | v5 rows + v7b rows | 67 | **40** | _20_ | **73** | 51 | 55 | _69_ | **93** | **94** | **56** |
 | v9-seeded-world | + seeded runs, the world plants and labels | **82** | **44** | _21_ | **79** | 54 | **58** | _69_ | **98** | **93** | **67** |
