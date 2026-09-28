@@ -28,8 +28,11 @@ def length_features(texts: list[str]) -> np.ndarray:
 
 
 def main() -> None:
-    train = read_jsonl(OUT / "train.jsonl")
-    val = read_jsonl(OUT / "val.jsonl")
+    import sys
+
+    tag = sys.argv[1] if len(sys.argv) > 1 else ""
+    train = read_jsonl(OUT / (f"train_{tag}.jsonl" if tag else "train.jsonl"))
+    val = read_jsonl(OUT / (f"val_{tag}.jsonl" if tag else "val.jsonl"))
     test = read_jsonl(HERE / "test.jsonl")
     y_tr = np.array([r["label"] for r in train])
     result: dict = {}
@@ -55,6 +58,7 @@ def main() -> None:
         per = by_slice(test, scores, thr, n_boot=300)
         result[name] = {"threshold": thr, "per_slice": per}
         print(table(per, name))
+    result["train_file"] = f"train_{tag}.jsonl" if tag else "train.jsonl"
     (OUT / "shortcut_probe.json").write_text(json.dumps(result, indent=1))
 
 

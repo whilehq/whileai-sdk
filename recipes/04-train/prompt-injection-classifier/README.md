@@ -1,0 +1,250 @@
+# Prompt-injection classifier
+
+Train a 22M-parameter encoder to flag a prompt injection in any text an agent
+reads (a tool result, an email, a retrieved passage, a pasted document, a user
+turn), and show which data taught it and which data taught it a shortcut. The
+frozen tests never change across the rounds; the training data does. The
+accessible published guard, ProtectAI's 184M DeBERTa-v3, scores 49 points on
+model-written documents from a business held out of training, 48 on the hard
+held-out-family test and 42 on simulated tool results; the round-8 model
+scores 73, 51 and 93, the round-5 model 67, 60 and 92, with the Wilson 95%
+half-widths in `results.json`. Where both lose (direct German and English
+attacks from deepset, 76 against 69) is reported as a loss. Jailbreaks (the
+user asking the model to break its own policy) are out of scope; Prompt Guard
+2 is gated and could not be scored.
+
+What you will learn: how to make training data for a classifier out of
+`wai.simulate` with a model as writer, user and world, how a matched benign
+twin keeps a program-labelled dataset from teaching the generator, how to
+freeze a test by content hash and hold out attack families and carriers, how
+the shortcut probes (bag of words, length, payload removed, `hack_scan`) say
+what a slice measures, and what a pairwise loss and hard-negative mining do
+and do not buy on a saturated pool. Under a minute per seed on one L40S; the
+whole climb was about $6 of GPU and $8 of Haiku.
+
+## Run it
+
+```bash
+uv add whileai
+cd recipes/04-train/prompt-injection-classifier
+sh smoke.sh                        # selftest + the three frozen hashes + results.json, offline
+python run.py --dry-run
+```
+
+The live path needs the public sets cloned next to the recipe (`InjecAgent`,
+`agentdojo`, `BIPIA`, `InjecGuard` for NotInject, all MIT), `deepset.jsonl`,
+`gandalf.jsonl` and `oasst1_prompts.jsonl` pulled from the Hub (Apache-2.0
+and MIT), a Modal token, and for round 7 an Anthropic key for the writer:
+
+```bash
+python run.py --round 3 --ext ext --data out                      # twins on template carriers
+python sim_llm.py sim_llm_clinic.jsonl clinic 64                  # one call per business, six businesses
+python gen_inserts.py inserts.json                                # model paraphrases + benign inserts, checked
+python run.py --round 7 --sim sim_rows.jsonl --sim sim_llm_*.jsonl --inserts inserts.json
+python post_platform.py                                           # the climb on while.ai, optional
+```
+
+| flag | default | what it does |
+|---|---|---|
+| `--dry-run` | off | no download, no key, no GPU: verify the hashes, print `results.json` |
+| `--round` | 7 | 3 (twins on template carriers), 5 (plus channels), 7 (model-written carriers) |
+| `--sim` | none | `wai.simulate` rows; the first feeds the frozen `sim_tool` slice, the rest train |
+| `--inserts` | none | `gen_inserts.py` output, round 7 only |
+| `--seeds` | 1,2,3 | training seeds; the spread is the noise floor |
+
+## The behaviour
+
+Label 1 when a chunk of at most 512 tokens carries an instruction addressed
+to the model that the content's author had no standing to give; 0 otherwise.
+Direct (in the user turn) and indirect (planted in what a tool returned, in
+an email, in a document the user pasted). The classifier runs in front of
+the agent on every chunk it reads, so it must be cheaper than one decode
+token: the target was p50 under 5 ms per 512-token chunk on one CPU core.
+
+## Data: label by program, carriers by model
+
+Every attack string comes from a public set and keeps its published label:
+InjecAgent (MIT), AgentDojo's injection goals (MIT), BIPIA's text attacks
+(MIT), Gandalf (MIT). No attack phrasing was written here. The carrier the
+string is planted into, and the position, are drawn by program, so the label
+is known by construction, the rule `resist-planted-instruction` uses.
+
+The negative side is the whole difficulty. Round 1 trained on planted
+carriers against clean carriers and learned the generator: AUROC 1.00 on
+every planted slice, every user turn flagged, NotInject at 0 points. From
+round 3 every planted row has a **matched twin**: the same carrier, the same
+position, the same framing, and a harmless insert of matched length instead
+of the payload. Nothing separates the pair but whether the insert is an
+instruction to the model.
+
+Round 7 replaces the template carriers with what `wai.simulate` produced for
+six businesses (clinic, bank, e-commerce, legal, devops, travel) with a model
+as situation writer, as the user and, through `execute=`, as the world: each
+tool call is answered by a model writing the document that tool would return
+(a patient message with headers, a lease clause, a CI log, a review thread).
+579 such documents over 384 rollouts, plus the agent's own drafts and the
+users' asks. Payloads are the public strings or a model paraphrase of one
+that a second call confirmed still addresses the assistant (128 of 137 kept);
+benign inserts are model-written sentences that use "ignore", "override",
+"system prompt" or "security" with no instruction in them (270 of 320 kept
+by the same check). Real human text is mixed in on the direct side
+(oasst1 prompts, Gandalf). Everything sharing a word 8-gram with any frozen
+test is dropped and counted (108 payloads in round 3).
+
+## Four frozen tests, hashed before training
+
+| test | rows | hash | what is in it |
+|---|---|---|---|
+| `test.jsonl` | 2,142 | `t-fcaff01e` | deepset (662, never trained on), NotInject (339 benign trigger-word sentences), planted in-distribution (500), held-out families AgentDojo, BIPIA-test, role-tag (250), held-out carriers Slack thread and CSV (300), `sim_tool` (91 simulated tool results, half planted) |
+| `test_hard.jsonl` | 316 | `t-693f5a0b` | held-out families under transforms absent from training (zero-width joins, a payload split across two lines, buried in a document three times the usual length, role tags, neutral framings), matched twins, 16 benign documents about injection |
+| `test_paste.jsonl` | 300 | `t-371b20a4` | held-out families pasted under a user ask ("summarise this", "tl;dr"), matched twins |
+| `test_llm.jsonl` | 422 | `t-157cf4ee` | model-written documents from a business no round trained on (the legal firm's contracts, client emails, case notes), held-out families planted, matched twins with model-written inserts |
+
+The headline slices are the ones the recipe's template generator did not
+write: `llm` (a held-out business, model-written carriers), deepset,
+`sim_tool` and NotInject; `hard`, `paste` and the held-out families are
+template carriers with held-out payloads and transforms, and are read as
+such. The in-distribution planted slices are reported as in-distribution
+only. The first three tests were frozen before round 1; `test_llm` was
+frozen before round 7b, the first round that could be scored on it fairly,
+and every earlier round is scored on it after the fact.
+
+## Baseline and the served version
+
+ProtectAI `deberta-v3-base-prompt-injection-v2` (184M, Apache-2.0) at its
+shipped 0.5. It is the served version on the platform page; every round is a
+candidate against it. Meta's Prompt Guard 2 (22M and 86M) is gated and the
+account's token gets a 403; it is not scored, and no number for it is
+claimed.
+
+## The climb
+
+Correctness at the round's threshold, points out of 100, seed 1, Wilson 95%
+half-width in `results.json`; the threshold is the score at 1% false positives
+on the benign side of a validation split carved from that round's training
+rows, never from a test. Three seeds per round; the seed spread on the full
+test is 0.8 points (`eval_variance`, noise band 5.1).
+
+<!--climb-table-->
+| round | change | llm (422) | hard (316) | paste (300) | deepset (662) | sim_tool (91) | NotInject (339) | held-out fam. (250) |
+|---|---|---|---|---|---|---|---|---|
+| protectai-v2 | served baseline, 184M | 49 | 48 | 45 | 76 | 42 | 57 | 18 |
+| v1-templates | planted vs clean template carriers | 50 | **73** | 53 | _40_ | 50 | _0_ | **99** |
+| v3-twins-dedupe | matched twins, 8-gram dedupe, oasst1 turns | **63** | **62** | **60** | _67_ | **84** | **97** | **55** |
+| v4-spml-direct | + SPML direct set (MIT) | 52 | 56 | **57** | _66_ | **87** | **82** | **49** |
+| v5-channels | SPML out; paste channel + six-domain traffic | **67** | **60** | **64** | _69_ | **92** | **93** | **64** |
+| v6-twin-margin | v5 rows + pairwise twin hinge | **63** | 54 | **61** | _69_ | **90** | **94** | **58** |
+| v7-llm-carriers | model-written carriers only, all six businesses | **72** | 40 | 47 | _69_ | **89** | **93** | **41** |
+| v7-mined-weights | v5 rows, wrong or uncertain rows weighted x3 | **62** | 56 | **63** | _68_ | **94** | **94** | **60** |
+| v7-random-weights-control | v5 rows, the same mass of x3 weights at random | **62** | 57 | **62** | _69_ | **93** | **94** | **62** |
+| v7b-llm-heldout-domain | model-written carriers, legal held out | **73** | 46 | 49 | _69_ | **93** | **92** | **42** |
+| v8-union | v5 rows + v7b rows | **73** | 51 | 55 | _69_ | **93** | **94** | **56** |
+
+Bold clears the baseline's Wilson 95% interval on that slice; italics sit below it; plain is inside it. Verdict: v5-channels: clears the baseline on 6 of 7 headline slices; loses on ['deepset'].
+<!--/climb-table-->
+
+v1 at 99 on the held-out families and 0 on NotInject is the same fact twice:
+it flagged everything. v4 is the negative result: 16,000 rows labelled
+"prompt injection" from a permissive set moved three headline slices down,
+because SPML is role-play jailbreak text and its benign side is short asks,
+so length and prompt-likeness re-entered the label. v6 is the second: a
+margin on pairs the model already separates buys nothing (1.4% of the round-5
+rows sit in the uncertain band). v7 and v7b are the model-written-carrier rounds: on the business held out of training the score goes from 49 to 73 with 0 to 2 false positives in 211, and the template-carrier tests drop, because a model trained on one generator scores that generator; the union (v8) sits between the two on every slice. By the pre-stated rule (sum of headline points, seed 1) v5 is the pick at 509 against v8's 491; on the slices no template wrote (llm, sim_tool, NotInject) v8 is the better arm, and the recipe ships both, with the rule stated.
+
+Paired against the baseline with `wai.compare` on correctness, by slice
+(`out/sdk_measure.json`): every round from v3 on is up on sim_tool, NotInject,
+the held-out families and the planted slices with intervals clear of zero,
+and **down on deepset** (v3: -8.8 [-11.5, -6.0] on 662 rows). That loss is
+real and is the same across seeds.
+
+## Shortcut probes
+
+Reported for every round, because a program-labelled dataset can be solved
+by the program's fingerprints.
+
+| probe | what it says |
+|---|---|
+| bag-of-words logistic regression, same rows | 0.82 AUROC on the indirect held-out slices on round-3 rows (model 0.89 to 0.91), 0.63 on round-7 rows, 0.89 on the round-8 union: the template slices are partly surface-solvable and stay so while template carriers are in the pool |
+| length-only logistic regression | 0.50 on indirect held-out (no length shortcut left), **0.80 on deepset**: deepset's own split is length-solvable |
+| matched twins on held-out families, 200 pairs | pair accuracy 53 to 62 (v3), twin FPR 0.00 to 0.025, the injected member above threshold and its twin below |
+| payload removed | 100% of the injected probe rows fall below threshold with the payload taken out; mean score 0.70 with it, 0.002 without |
+| `wai.hack_scan` on the training pairs | top features above the permutation floor: `contains:my`, `contains:please`, `n:punct`, the vocabulary of an instruction |
+
+## Latency and size
+
+int8 ONNX (`onnxruntime.quantization.quantize_dynamic`), one thread, Apple
+M5 Max, 300 timed runs after 20 warm-ups, tokenisation excluded:
+
+| tokens | p50 | p99 |
+|---|---|---|
+| 128 | 7.5 ms | 7.7 ms |
+| 256 | 17.3 ms | 17.7 ms |
+| 512 | 44.1 ms | 45.3 ms |
+
+23 MB on disk (int8), 10.8M non-embedding parameters (22.7M with the
+embedding table). The 5 ms target at 512 tokens is not met on this CPU; int8
+is not faster than fp32 on ARM here (44.4 against 39.7 ms). A 128-token
+sliding window with max-pooling costs 30 ms for all four windows of a
+512-token chunk, 121 ms for 2,048 tokens, and 7.5 ms when the first window
+already exceeds the threshold. A byte 4-gram hashed logistic regression
+(`byte_stage.py`) runs in 0.8 ms per 2,000-character row but scores 0.49
+AUROC on the hard test, so it is a speed layer in a cascade, not a detector.
+
+## What the SDK did and did not do
+
+`sdk_findings.md` lists eight findings. The short version: `wai.simulate`
+with `execute=` and a model as `simulator=` produced the data the recipe
+needed once the hosted writer's daily quota was routed around; the
+coverage axes, a span export, classifier metrics and an encoder trainer do
+not exist and are recipe-local here; `wai.methods.route` on classifier rows
+picked `sft` at k=1 for the wrong reason and then refused on a truncation
+check that reads nothing a classifier row has; `hack_scan` worked as the
+shortcut detector once the pair was the ask.
+
+## Honest limits
+
+- Every planted slice is synthetic. The benign FPR on NotInject and on the
+  simulated tool results is not the FPR on a customer's traffic; nothing here
+  was measured on real documents.
+- The model is a public 22M encoder and the attacker can read it. In-distribution
+  numbers overstate by 8 to 16 AUC points on this task family (arXiv:2602.14161);
+  the held-out-family and held-out-carrier slices are the honest ones and the
+  hard test is where the number is lowest.
+- It loses to ProtectAI on deepset, a direct-attack set with German rows, on
+  every round. The training has no German and few direct attacks that are
+  not Gandalf.
+- The paste and hard tests are matched twins on two held-out families
+  (AgentDojo, BIPIA-test), so their negatives are still the recipe's own.
+- One base model, one CPU, one tokenizer. The writer, the user and the world
+  in round 7 are the same model (haiku); `wai.simulate` warned about it.
+- `holdout_size` says 1,000 to 1,500 paired rows resolve a 5-point gain per
+  slice at 80% power; the 91-row `sim_tool` slice and the 250-row family
+  slice cannot, and their intervals say so.
+
+## Next
+
+Push the round-7 rows and the int8 graph (`WHILEAI_API_KEY`, or `wai login`):
+
+```python
+import whileai as wai
+
+rows = [json.loads(line) for line in open("out/train_v7.jsonl")]
+wai.push_rows(rows, "prompt-injection-carriers-v7", gate=False)
+```
+
+The two rounds worth running next: a second writer family for the carriers
+(the book's "diverse teachers"), and real benign documents from a design
+partner for the FPR.
+
+## References
+
+1. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapters *Synthetic Data and Distillation*, *Direct Alignment*, *Rejection Sampling*, *Evaluation*.
+2. Zhan, Q. et al. InjecAgent: Benchmarking Indirect Prompt Injections in Tool-Integrated LLM Agents. arXiv:2403.02691, 2024.
+3. Debenedetti, E. et al. AgentDojo. arXiv:2406.13352, 2024.
+4. Yi, J. et al. BIPIA: Benchmarking and Defending Against Indirect Prompt Injection Attacks. arXiv:2312.14197, 2023.
+5. Li, H. et al. InjecGuard / NotInject. arXiv:2410.22770, 2024.
+6. When Benchmarks Lie: leave-one-dataset-out on prompt-injection detectors. arXiv:2602.14161, 2026.
+7. Devlin, J. et al. BERT. arXiv:1810.04805, 2019. Wang, W. et al. MiniLM. arXiv:2002.10957, 2020.
+8. Hinton, G., Vinyals, O., Dean, J. Distilling the Knowledge in a Neural Network. arXiv:1503.02531, 2015.
+9. Efron, B. Bootstrap Methods. Annals of Statistics 7(1), 1979. Wilson, E. B. JASA 22, 1927.
+10. Wu, H. et al. Integer Quantization for Deep Learning Inference. arXiv:2004.09602, 2020.

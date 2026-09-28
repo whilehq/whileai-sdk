@@ -20,14 +20,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `selftest.py` for the split, the endpoints and the layout mapping. Every server URL comes from
   `DOCPARSE_WORKSPACE`; nothing points at our workspace.
 - Recipe `recipes/04-train/prompt-injection-classifier/`: a 22M MiniLM-L6 binary classifier for
-  prompt injection, direct and indirect (planted in tool results, emails, retrieved documents),
-  trained on public sets (deepset, Gandalf, InjecAgent, AgentDojo, BIPIA; all MIT or Apache-2.0)
-  and carriers written by program with the label known by construction. Frozen, hashed test with
-  held-out attack families and held-out carriers, NotInject and a public set never trained on;
-  ProtectAI v2 scored on the same rows (Prompt Guard 2 is gated); three training seeds; int8 ONNX
-  with single-thread CPU latency at 128/256/512 tokens. `sdk_findings.md` records the six places the
-  SDK could not express a classifier (coverage axes, span export, world tool results, classifier
-  metrics, an encoder trainer, `route` on deterministic rows).
+  prompt injection in any text an agent reads (tool results, emails, retrieved passages, pasted
+  documents, user turns), as a seven-round climb on three frozen, content-hashed tests. Public attack
+  strings (InjecAgent, AgentDojo, BIPIA, Gandalf; MIT) planted by program with a matched benign twin
+  per row; round 7's carriers are what `wai.simulate` wrote for six businesses with a model as
+  situation writer, user and world (`execute=`). ProtectAI v2 is the served baseline (Prompt Guard 2
+  is gated); three seeds per round; shortcut probes (bag of words, length, payload removed,
+  `hack_scan`) each round; a random-weight control beside hard-negative mining; int8 ONNX latency
+  at 128/256/512 tokens and a 128-token window. The climb is posted to the platform
+  (`post_platform.py`). `sdk_findings.md` records eight places the SDK could not express a
+  classifier and the one (`execute=` plus a model `simulator=`) that gave it the data.
 
 ## 0.126 (2026-09-25)
 

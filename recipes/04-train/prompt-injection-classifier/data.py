@@ -525,6 +525,20 @@ def load_public_rows(ext: Path, data: Path) -> dict[str, list[dict]]:
             )
     # benign user turns (OpenAssistant oasst1, Apache-2.0): without these the first
     # run learned "short text is an attack" and flagged every NotInject sentence
+    # SPML (reshabhs/SPML_Chatbot_Prompt_Injection, MIT): direct injections and benign asks
+    # across many chatbot domains; the user prompt only, the system prompt is not a chunk
+    out["spml_inj"], out["spml_benign"] = [], []
+    spml = data / "spml.jsonl"
+    if spml.exists():
+        seen: set[str] = set()
+        for line in spml.read_text().splitlines():
+            r = json.loads(line)
+            t = r.get("User Prompt")
+            if not t or t in seen or len(t) > 1500:
+                continue
+            seen.add(t)
+            key = "spml_inj" if int(r["Prompt injection"]) == 1 else "spml_benign"
+            out[key].append({"text": t, "label": int(key == "spml_inj"), "source": "spml"})
     out["oasst1"] = []
     oasst = data / "oasst1_prompts.jsonl"
     if oasst.exists():
@@ -643,10 +657,66 @@ def sim_carrier_rows(
     return rows
 
 
+def sim_content_rows(
+    rng: random.Random, sim_path: Path, payloads: dict, families: list[str], tag: str
+) -> list[dict]:
+    """The agent's own longer replies (drafts, summaries) as carriers, half planted, half not."""
+    if not sim_path.exists():
+        return []
+    chunks: list[str] = []
+    for line in sim_path.read_text().splitlines():
+        r = json.loads(line)
+        for m in r.get("messages", []):
+            c = m.get("content")
+            if m.get("role") == "assistant" and isinstance(c, str) and 300 < len(c) < 2500:
+                chunks.append(c)
+    chunks = sorted(set(chunks))
+    rng.shuffle(chunks)
+    rows = []
+    for i, ch in enumerate(chunks):
+        segs = [x for x in ch.split("\n") if x.strip()]
+        if len(segs) < 2:
+            continue
+        base = {"slice": tag, "carrier": "sim_reply", "pair": None, "clean": None}
+        if i % 2 == 0:
+            f = rng.choice(families)
+            p = rng.choice(FRAMINGS).format(p=rng.choice(payloads[f]))
+            rows.append(
+                {
+                    **base,
+                    "text": plant(segs, p, rng),
+                    "label": 1,
+                    "family": f,
+                    "source": "planted:sim_reply",
+                }
+            )
+        else:
+            rows.append(
+                {
+                    **base,
+                    "text": "\n".join(segs),
+                    "label": 0,
+                    "family": "benign",
+                    "source": "benign:sim_reply",
+                }
+            )
+    return rows
+
+
 def build(
-    ext: Path, data: Path, sim_path: Path | None = None, *, seed: int = 20260925
-) -> tuple[list[dict], list[dict]]:
-    """(test, train). The test is drawn first from its own seed; nothing in it is reused."""
+    ext: Path,
+    data: Path,
+    sim_path: Path | None = None,
+    *,
+    seed: int = 20260925,
+    sim_extra: list[Path] | None = None,
+    spml: bool = True,
+) -> tuple:
+    """(test, train, val, probe, stats). The test is drawn first; nothing in it is reused.
+
+    ``sim_extra`` are later ``wai.simulate`` runs harvested for training only;
+    ``spml=False`` leaves the SPML rows out (the round-3 data shape).
+    """
     payloads = load_payloads(ext)
     payloads["roletag"] = payloads["injecagent"] + payloads["bipia_task"]
     public = load_public_rows(ext, data)
@@ -690,6 +760,11 @@ def build(
         train_payloads["gandalf"]["gandalf"] if train_payloads["gandalf"] else []
     )
     dropped += dropped_g
+    if spml and public["spml_inj"]:
+        short = [r["text"] for r in public["spml_inj"] if len(r["text"]) < 600]
+        kept, dropped_s = drop_overlap({"spml": short}, test_texts)
+        train_payloads["spml"] = kept.get("spml", [])
+        dropped += dropped_s
     stats = {
         "payloads_dropped_8gram": dropped,
         "payloads_kept": {f: len(v) for f, v in train_payloads.items()},
@@ -710,7 +785,13 @@ def build(
         and r["text"].split()[0].lower().strip(",.:") not in ASK_OPENERS
         and not r["text"].rstrip().endswith("?")
     ]
-    decoys = DECOYS + BODY_SENTENCES + sim_asks + short_oasst[:600]
+    extra_rows: list[dict] = []
+    for p in sim_extra or []:
+        if p.exists():
+            extra_rows += [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
+    extra_asks = sorted({r["prompt"] for r in extra_rows if r.get("prompt")})
+    spml_benign = [r["text"] for r in public["spml_benign"] if len(r["text"]) < 600] if spml else []
+    decoys = DECOYS + BODY_SENTENCES + sim_asks + extra_asks + short_oasst[:600] + spml_benign[:800]
     # the training carriers draw body lines from a wider pool than the frozen test
     BODY_POOL[:] = BODY_SENTENCES + short_oasst[600:1400]
     train: list[dict] = []
@@ -730,7 +811,27 @@ def build(
             }
         )
     train += sim_carrier_rows(rng, sim_path, train_payloads, fams, "train") if sim_path else []
+    for p in sim_extra or []:
+        train += sim_carrier_rows(rng, p, train_payloads, fams, "train")
+        train += sim_content_rows(rng, p, train_payloads, fams, "train")
+    train += make_paste_pairs(rng, train_payloads, fams, train_carriers, 1200, "train", decoys)
     BODY_POOL[:] = BODY_SENTENCES
+    if spml:
+        # the direct side stays balanced: as many SPML injections as SPML benign asks
+        spml_rows = rng.sample(
+            public["spml_inj"], min(len(public["spml_inj"]), len(public["spml_benign"]))
+        )
+        for r in spml_rows + public["spml_benign"]:
+            train.append(
+                {
+                    **r,
+                    "slice": "train",
+                    "family": "spml" if r["label"] else "benign",
+                    "carrier": "user_turn",
+                    "pair": None,
+                    "clean": None,
+                }
+            )
     # direct: every surviving attack string as a user turn, and benign user turns
     for f in fams:
         for p in train_payloads[f]:
@@ -757,7 +858,7 @@ def build(
                 "clean": None,
             }
         )
-    for text in sim_asks + DECOYS + BODY_SENTENCES:
+    for text in sim_asks + extra_asks + DECOYS + BODY_SENTENCES:
         train.append(
             {
                 "text": text,
@@ -902,6 +1003,62 @@ def make_hard(
     return rows
 
 
+# --- copy-paste: a user turn that pastes a carrier into the chat ---------------------
+
+PASTE_ASKS = [
+    "Can you summarise this for me?",
+    "What does this say? Keep it short.",
+    "Here is what they sent, what should I reply?",
+    "Translate the following into French.",
+    "Extract the action items from this:",
+    "Is there anything important in here?",
+    "Proofread this before I send it.",
+    "tl;dr please",
+]
+
+
+def make_paste_pairs(
+    rng: random.Random,
+    payloads: dict[str, list[str]],
+    families: list[str],
+    carriers: list[str],
+    n_pairs: int,
+    tag: str,
+    decoys: list[str],
+) -> list[dict]:
+    """Matched twins where the carrier is pasted under a user ask (the copy-paste channel)."""
+    rows = make_pairs(rng, payloads, families, carriers, n_pairs, tag, decoys)
+    for r in rows:
+        ask = rng.choice(PASTE_ASKS) if r["label"] == 1 else None
+        r["ask"] = ask
+    by_pair: dict[str, list[dict]] = {}
+    for r in rows:
+        by_pair.setdefault(r["pair"], []).append(r)
+    for members in by_pair.values():
+        ask = next((m["ask"] for m in members if m["ask"]), rng.choice(PASTE_ASKS))
+        sep = rng.choice(['"""', "---", "```", ""])
+        for m in members:
+            m["text"] = f"{ask}\n\n{sep}\n{m['text']}\n{sep}".strip()
+            m["carrier"] = "pasted:" + m["carrier"]
+            m.pop("ask", None)
+    return rows
+
+
+def build_paste(ext: Path, *, seed: int = 20260925) -> list[dict]:
+    """The third frozen test: held-out families pasted under a user ask, matched twins."""
+    payloads = load_payloads(ext)
+    rows = make_paste_pairs(
+        random.Random(seed + 7),
+        payloads,
+        ["agentdojo", "bipia_test"],
+        [c for c in CARRIERS if c not in HELDOUT_CARRIERS],
+        150,
+        "paste",
+        HARD_BENIGN + DECOYS,
+    )
+    return rows
+
+
 def build_hard(ext: Path, *, seed: int = 20260925) -> list[dict]:
     payloads = load_payloads(ext)
     return make_hard(random.Random(seed + 6), payloads, ["agentdojo", "bipia_test"], 150)
@@ -922,16 +1079,30 @@ if __name__ == "__main__":
         "--sim", default=None, help="wai.simulate rows (jsonl) to harvest tool results from"
     )
     ap.add_argument("--out", default=str(HERE / "out"))
+    ap.add_argument(
+        "--sim-extra", action="append", default=[], help="later simulate runs, training only"
+    )
+    ap.add_argument(
+        "--no-spml", action="store_true", help="leave the SPML rows out (round-3 shape)"
+    )
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     test, train, val, probe, stats = build(
-        Path(a.ext), Path(a.data), Path(a.sim) if a.sim else None
+        Path(a.ext),
+        Path(a.data),
+        Path(a.sim) if a.sim else None,
+        sim_extra=[Path(p) for p in a.sim_extra],
+        spml=not a.no_spml,
     )
     write_jsonl(out / "test.jsonl", test)
     write_jsonl(out / "train.jsonl", train)
     write_jsonl(out / "val.jsonl", val)
     write_jsonl(out / "probe_pairs.jsonl", probe)
+    paste = build_paste(Path(a.ext))
+    write_jsonl(out / "test_paste.jsonl", paste)
+    (out / "test_paste.sha256").write_text(sha256_rows(paste) + "\n")
+    print(f"paste test {len(paste)} rows sha256 {sha256_rows(paste)}")
     hard = build_hard(Path(a.ext))
     write_jsonl(out / "test_hard.jsonl", hard)
     (out / "test_hard.sha256").write_text(sha256_rows(hard) + "\n")

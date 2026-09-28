@@ -81,7 +81,24 @@ the noise floor here is three training seeds, not three eval runs. Fix:
 trainer rather than to SFT-as-cloning, or say that the rows are not
 rollouts.
 
-## 7. Small things
+## 7. The fix for 3: `execute=` plus a model as `simulator=` gives real documents
+
+`wai.simulate(execute=fn, simulator="anthropic:claude-haiku-4-5",
+user_model="anthropic:claude-haiku-4-5")` with an `execute` that asks a model
+to write the tool's result for the call it received returns tool results that
+are documents: a patient message with headers and a body, a lab report, a
+transaction list with merchant descriptions, a CI log. The 384 rows of round 7
+came from six businesses this way, at about a cent a rollout. Two things to
+know: `current_rollout` (the thread-local the docstring names) is an object,
+not a callable, so read `current_rollout.seed`; and `execute`'s return rides
+inside `{"status": "ok", "result": ...}` in the row, so a harvester unwraps
+it. The hosted situation writer has a daily quota (500k input tokens); it was
+hit twice on this recipe, both times mid-run, and the run dies with 0 rows
+rather than falling back. `simulator=` as a model spec is the way around it,
+and `simulator=False` (the offline template writer) is not: templated
+situations are the thing the classifier must not learn.
+
+## 8. Small things
 
 - `simulate` warned that `hard_share=0.5` drew 0.39 and named the fix
   (`dimensions={"stance": [...]}`). Good. It also warned that the agent
@@ -95,3 +112,16 @@ rollouts.
   flag would read better.
 - `whileai/methods.py` exports `route` one dot down as `wai.methods.route`;
   `wai.route` does not resolve, which the style page says it should.
+- `wai.methods.route` on the round-3 classifier rows said "nothing trains:
+  126 of 1643 passing rows did not end on their own". The rows carry
+  `finish_reason="stop"`; the truncation check read something else off them
+  (`sdk_measure.py`). A classifier row has no completion to truncate.
+- `hack_scan` took the matched pairs as asks (pair id as `prompt`, the label
+  as `reward`) and ranked `contains:my`, `contains:please`, `n:punct` above
+  its permutation floor: the surface features that separate an instruction
+  from a statement. That is the shortcut detector the plan asked for, and it
+  worked as-is on classifier rows once the pair was the ask.
+- Posting: `Example.tags` is a dict, not a list (pydantic refuses a list with
+  a message that names the field, so this cost one minute). A run re-posted
+  under the same version is a second run; archive the first
+  (`tracked.archive(run_id)`) or the page shows both.

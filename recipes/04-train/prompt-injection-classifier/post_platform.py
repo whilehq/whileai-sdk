@@ -34,6 +34,16 @@ BEHAVIORS = {
         "hard",
         "held-out families under transforms training never saw; matched twins",
     ),
+    "llm_heldout_domain": (
+        "test_llm.jsonl",
+        "llm_heldout_domain",
+        "model-written documents from a business never trained on (legal), held-out families planted; matched twins",
+    ),
+    "paste_copy_channel": (
+        "test_paste.jsonl",
+        "paste",
+        "held-out families pasted under a user ask (the copy-paste channel); matched twins",
+    ),
     "direct_deepset": (
         "test.jsonl",
         "deepset",
@@ -55,49 +65,13 @@ BEHAVIORS = {
         "AgentDojo, BIPIA-test and role-tag payloads on training carriers",
     ),
 }
-ROUNDS = [
-    (
-        "protectai-v2",
-        "eval",
-        "protectai/deberta-v3-base-prompt-injection-v2",
-        "scores_protectai.json",
-        "scores_hard_protectai.json",
-        None,
-    ),
-    (
-        "v1-templates",
-        "classify",
-        MODEL,
-        "v1/scores_minilm_seed1.json",
-        "v1/scores_hard_minilm_seed1.json",
-        "v1",
-    ),
-    (
-        "v3-twins-dedupe",
-        "classify",
-        MODEL,
-        "scores_minilm_seed1.json",
-        "scores_hard_minilm_seed1.json",
-        "v3",
-    ),
-]
-NOTES = {
-    "protectai-v2": "Served baseline, ProtectAI deberta-v3-base-prompt-injection-v2 (184M, Apache-2.0) at its shipped 0.5. Prompt Guard 2 is gated (403 with this account). Misses are the planted carriers: AUROC 0.50 on indirect in-dist, 0.41 on hard; flags 43 of 100 NotInject sentences.",
-    "v1-templates": (
-        "Changed: MiniLM-L6 fine-tuned on planted carriers, 9,183 rows, no matched negatives, 50 benign user turns against 2,000 attack ones.\n"
-        "Moved: NotInject 57 to 0 points; deepset 76 to 0; the threshold at 1% benign FPR on carriers was 0.0008, so every user turn was flagged.\n"
-        "Why: short text was the label; the carrier template, not the payload, separated the classes (AUROC 1.00 on in-dist and held-out carriers).\n"
-        "Learned: a generator's own negatives are not negatives; the model learned the generator. A 22M encoder finds the shortcut in 19 seconds.\n"
-        "Reproduce: seed 1, tests t-fcaff01e and t-693f5a0b, python run.py (v1 data shape is in the README's first round)."
-    ),
-    "v3-twins-dedupe": (
-        "Changed: every planted row gets a twin with the same carrier, position and framing and a harmless insert; 108 payloads sharing an 8-gram with the frozen test dropped (training payloads are Gandalf strings); 3,500 oasst1 benign user turns; threshold from a validation split of train at 1% FPR.\n"
-        "Moved: NotInject 57 to 97 points, sim_tool 42 to 84, held-out families 18 to 55, hard 55 to 63; deepset 76 to 67, DOWN.\n"
-        "Why: the twins take the carrier and the length out of the label; what is left is the insert. deepset is direct German and English attacks the training never covers (length-only LR gets 0.80 AUROC there).\n"
-        "Learned: matched negatives are the whole game for a planted-data classifier; the payload-removed score falls to 0.002 on every probe pair, the twin FPR is 0, and the miss is recall on unseen families (pair accuracy 53 to 62 points).\n"
-        "Reproduce: seeds 1,2,3 (spread 0.8 points on the full test), tests t-fcaff01e and t-693f5a0b, python run.py"
-    ),
-}
+#: one entry per round, appended as rounds land; the platform page reads them in order
+ROUNDS_FILE = OUT / "rounds.json"
+
+
+def load_rounds() -> list[dict]:
+    """version, method, base, scores, hard_scores, tag, n_train, trained_on, note."""
+    return json.loads(ROUNDS_FILE.read_text())
 
 
 def wilson_half(k: int, n: int) -> float:
@@ -132,11 +106,13 @@ def slice_score(
 
 def main() -> None:
     print(provenance(), file=sys.stderr)
-    tests = {f: read_jsonl(HERE / f) for f in ("test.jsonl", "test_hard.jsonl")}
+    tests = {
+        f: read_jsonl(HERE / f)
+        for f in ("test.jsonl", "test_hard.jsonl", "test_paste.jsonl", "test_llm.jsonl")
+    }
     hashes = {
         f: "t-" + (HERE / f.replace(".jsonl", ".sha256")).read_text().strip()[:8] for f in tests
     }
-    build = json.loads((OUT / "build_stats.json").read_text())
     sdk = (
         json.loads((OUT / "sdk_measure.json").read_text())
         if (OUT / "sdk_measure.json").exists()
@@ -168,27 +144,41 @@ def main() -> None:
         )
     points: dict[str, dict[str, float]] = {}
     runs = {}
-    for version, method, base, main_scores, hard_scores, tag in ROUNDS:
+    rounds = load_rounds()
+    # a re-post replaces the round's earlier run: archive it, never delete (manage-experiments)
+    versions = {rd["version"] for rd in rounds}
+    for r in tracked.runs():
+        if r["version"] in versions and not r.get("archived"):
+            try:
+                tracked.archive(r["id"])
+            except (
+                Exception
+            ) as e:  # an already-archived run, or a transient error; the post goes on
+                print("archive:", r["id"], e, file=sys.stderr)
+    for rd in rounds:
+        version, method = rd["version"], rd["method"]
         sc = {
-            "test.jsonl": json.loads((OUT / main_scores).read_text()),
-            "test_hard.jsonl": json.loads((OUT / hard_scores).read_text()),
+            "test.jsonl": json.loads((OUT / rd["scores"]).read_text()),
+            "test_hard.jsonl": json.loads((OUT / rd["hard_scores"]).read_text()),
+            "test_paste.jsonl": json.loads((OUT / rd["paste_scores"]).read_text()),
+            "test_llm.jsonl": json.loads((OUT / rd["llm_scores"]).read_text()),
         }
         thr = {f: sc[f]["threshold"] for f in sc}
         record = RunRecord(
             data=Data(
-                train="planted-carriers-" + (tag or "none"),
-                n_train=build["train_rows"] if tag == "v3" else (9183 if tag == "v1" else None),
+                train=rd.get("trained_on") or "none",
+                n_train=rd.get("n_train"),
                 holdout=hashes["test.jsonl"],
                 n_holdout=len(tests["test.jsonl"]),
             ),
-            optimizer=Optimizer(seed=1, lr=5e-5) if method != "eval" else None,
+            optimizer=Optimizer(seed=rd.get("seed", 1), lr=5e-5) if method != "eval" else None,
         )
         run = tracked.run(
             version,
             method=method,
-            base=base,
+            base=rd["base"],
             targets=list(BEHAVIORS),
-            trained_on=[] if method == "eval" else ["planted-carriers-" + tag],
+            trained_on=[rd["trained_on"]] if rd.get("trained_on") else [],
             gpu=None if method == "eval" else "L40S",
             record=record,
         )
@@ -198,15 +188,15 @@ def main() -> None:
             p, ci, n, examples = slice_score(tests[f], sc[f]["scores"], thr[f], sl)
             run.score(name, round(p, 1), ci=round(ci, 1), n=n, examples=examples)
             points[version][name] = round(p, 1)
-        run.note(NOTES[version])
+        run.note(rd["note"])
     fig = {
         "data": [
             {
                 "type": "scatter",
                 "mode": "lines+markers",
                 "name": name,
-                "x": [v for v, *_ in ROUNDS],
-                "y": [points[v][name] for v, *_ in ROUNDS],
+                "x": [rd["version"] for rd in rounds],
+                "y": [points[rd["version"]][name] for rd in rounds],
             }
             for name in BEHAVIORS
         ],
@@ -218,9 +208,29 @@ def main() -> None:
     tracked.figure(
         "hill-climb",
         fig,
-        caption="Headline slices by round. v1 learned the generator; v3 pays for the twins on deepset.",
-        run=runs["v3-twins-dedupe"],
+        caption="Headline slices by round, correctness at 1% benign FPR on a validation split of train.",
+        run=runs[rounds[-1]["version"]],
     )
+    for rd in rounds:
+        if rd["method"] == "eval":
+            continue
+        bar = {
+            "data": [
+                {
+                    "type": "bar",
+                    "x": list(BEHAVIORS),
+                    "y": [points[rd["version"]][b] for b in BEHAVIORS],
+                }
+            ],
+            "layout": {
+                "title": f"{rd['version']}: points out of 100",
+                "yaxis": {"range": [0, 100]},
+            },
+        }
+        moved = rd["note"].split("\n")[1] if "\n" in rd["note"] else rd["note"]
+        tracked.figure(
+            f"slices-{rd['version'][:32]}", bar, caption=moved[:200], run=runs[rd["version"]]
+        )
     for r in runs.values():
         r.finish(say=False)
     try:
@@ -237,6 +247,8 @@ def main() -> None:
             problems.append(f"behavior {b.name}")
     pictured = {f.run for f in tracked.figures()}
     for r in tracked.runs():
+        if r.get("archived"):
+            continue
         v, note = r["version"], r.get("notes") or ""
         trained = r.get("method") not in (None, "none", "eval")
         if not ((r.get("record") or {}).get("data") or {}):

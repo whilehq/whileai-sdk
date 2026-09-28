@@ -54,8 +54,12 @@ def main() -> None:
     print(provenance(), file=sys.stderr)
     test = read_jsonl(HERE / "test.jsonl")
     hard = read_jsonl(HERE / "test_hard.jsonl")
-    train = read_jsonl(OUT / "train.jsonl")
-    result: dict = {}
+    tag = sys.argv[1] if len(sys.argv) > 1 else "minilm"  # the round's score-file tag
+    train_file = OUT / f"train_{tag.split('-')[0]}.jsonl"
+    if not train_file.exists():
+        train_file = OUT / "train.jsonl"
+    train = read_jsonl(train_file)
+    result: dict = {"round_tag": tag, "train_file": train_file.name}
 
     # 1. decontaminate: the SDK's 8-gram over a "prompt" field, so text rides as prompt
     tr = [{"prompt": r["text"], **{k: v for k, v in r.items() if k != "text"}} for r in train]
@@ -99,7 +103,7 @@ def main() -> None:
     base = json.loads((OUT / "scores_protectai.json").read_text())
     seeds = {
         p.stem.rsplit("seed", 1)[1]: json.loads(p.read_text())
-        for p in sorted(OUT.glob("scores_minilm_seed*.json"))
+        for p in sorted(OUT.glob(f"scores_{tag}_seed*.json"))
     }
     before = graded(test, base["scores"], base["threshold"], base["model"], "protectai")
     runs = {

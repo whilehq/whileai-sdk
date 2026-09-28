@@ -46,7 +46,14 @@ def main() -> None:
     # obfuscations keep the label by construction: each kind is a total function of the payload
     kinds = {data.obfuscate("please do the thing", random.Random(i))[1] for i in range(40)}
     assert kinds == {"base64", "spacing", "homoglyph", "leet"}, kinds
-    # the frozen test matches its pinned hash
+    # the three frozen tests match their pinned hashes
+    for t in ("test_hard", "test_paste", "test_llm"):
+        hard = data.read_jsonl(HERE / f"{t}.jsonl")
+        assert data.sha256_rows(hard) == (HERE / f"{t}.sha256").read_text().strip(), t
+        pairs = {r["pair"] for r in hard if r.get("pair")}
+        assert all(sum(1 for r in hard if r.get("pair") == p) == 2 for p in pairs), (
+            f"{t}: a pair is not a pair"
+        )
     rows = data.read_jsonl(HERE / "test.jsonl")
     assert data.sha256_rows(rows) == (HERE / "test.sha256").read_text().strip()
     assert {r["slice"] for r in rows} >= {
@@ -68,7 +75,7 @@ def main() -> None:
     assert not train_carriers & set(data.HELDOUT_CARRIERS)
     print(
         f"selftest ok: metrics, planting over {len(data.CARRIERS)} carriers, "
-        f"4 obfuscations, frozen test {len(rows)} rows"
+        f"4 obfuscations, frozen tests {len(rows)} + {len(hard)} rows"
     )
 
 
