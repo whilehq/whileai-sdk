@@ -261,22 +261,40 @@ def main() -> None:
     compact = dict(result)
     compact["arms"] = {}
     for name, arm in result["arms"].items():
-        seeds = arm.get("seeds") or []
-        compact["arms"][name] = {k: v for k, v in arm.items() if k not in ("seeds", "note")} | {
-            "note": (arm.get("note") or "").split("\n")[1]
-            if arm.get("note") and "\n" in arm["note"]
+        hp = arm.get("headline_points") or {}
+        spread = arm.get("seed_spread_points") or {}
+        entry = {
+            "model": arm.get("model"),
+            "method": arm.get("method"),
+            "trained_on": arm.get("trained_on"),
+            "n_train": arm.get("n_train"),
+            "moved": (arm.get("note") or "").split("\n")[1]
+            if "\n" in (arm.get("note") or "")
             else arm.get("note"),
-            "seeds": [
-                {
-                    "seed": e.get("seed"),
-                    "threshold": e.get("threshold"),
-                    "points": {k: v["points"] for k, v in (e.get("points") or {}).items()},
-                    "pair_accuracy": (e.get("probe") or {}).get("pair_accuracy"),
-                    "twin_fpr": (e.get("probe") or {}).get("twin_fpr"),
-                }
-                for e in seeds
-            ],
+            "points_seed1": {
+                k: f"{v['points']:.1f} ± {v['ci95_half']:.1f} (n={v['n']})" for k, v in hp.items()
+            },
         }
+        if spread:
+            entry["seed_spread"] = {
+                k: f"{v['mean']:.1f} sd {v['sd']:.1f} over {v['n_seeds']} seeds"
+                for k, v in spread.items()
+            }
+        seeds = arm.get("seeds") or []
+        if len(seeds) > 1:
+            entry["seeds"] = [
+                f"seed {e.get('seed')}: threshold {e.get('threshold'):.3f}; "
+                + ", ".join(f"{k} {v['points']:.0f}" for k, v in (e.get("points") or {}).items())
+                + (
+                    f"; pair accuracy {e['probe']['pair_accuracy']:.2f}, twin FPR {e['probe']['twin_fpr']:.3f}"
+                    if e.get("probe")
+                    else ""
+                )
+                for e in seeds
+            ]
+        if "slices_clearing_baseline" in arm:
+            entry["slices_clearing_baseline"] = arm["slices_clearing_baseline"]
+        compact["arms"][name] = entry
     if compact.get("sdk_measure"):
         sdk_ = compact["sdk_measure"]
         compact["sdk_measure"] = {
@@ -287,7 +305,7 @@ def main() -> None:
                 k: (sdk_.get("eval_variance") or {}).get(k)
                 for k in ("run_std", "noise_band", "mean", "stability")
             },
-            "holdout_size": {
+            "holdout_size_n_tasks": {
                 k: v.get("n_tasks")
                 for k, v in (sdk_.get("holdout_size") or {}).items()
                 if isinstance(v, dict)
@@ -297,12 +315,34 @@ def main() -> None:
     if compact.get("shortcut_probe"):
         compact["shortcut_probe"] = {
             k: {
-                "threshold": v["threshold"],
-                "auroc": {s: r.get("auroc") for s, r in v["per_slice"].items() if "auroc" in r},
+                "threshold": round(v["threshold"], 4),
+                "auroc": {
+                    s_: round(r["auroc"], 3) for s_, r in v["per_slice"].items() if "auroc" in r
+                },
             }
             for k, v in result["shortcut_probe"].items()
             if isinstance(v, dict)
         }
+    lat = {}
+    for k, v in (result.get("latency") or {}).items():
+        lat[k] = {
+            "int8_mb": v.get("int8_mb"),
+            "p50_ms_1_thread": {
+                t: x["p50_ms"] for t, x in (v.get("latency_single_thread") or {}).items()
+            },
+        }
+        if v.get("sliding_window_128"):
+            lat[k]["window_128_all_windows_p50_ms"] = {
+                t: x["all_windows_p50_ms"] for t, x in v["sliding_window_128"].items()
+            }
+    compact["latency"] = lat
+    compact["byte_stage"] = {
+        k: {
+            "latency_ms_2000_chars": v["latency_ms_2000_chars"],
+            "auroc_hard": v["test_hard"]["hard"].get("auroc"),
+        }
+        for k, v in (result.get("byte_stage") or {}).items()
+    }
     compact["full_record"] = (
         "out/results_full.json (every seed, every slice, every SDK report); also in the Hugging Face dataset"
     )
