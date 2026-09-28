@@ -19,6 +19,7 @@ from whileai.config import provenance
 from whileai.simulations.ingest.platform import push_rows
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 
 
@@ -52,7 +53,7 @@ def main() -> None:
     out["train_v9"] = entry.get("datasetId")
     for t in ("test", "test_hard", "test_paste", "test_llm", "test_external"):
         entry = push_rows(
-            shape(read_jsonl(HERE / f"{t}.jsonl")),
+            shape(read_jsonl(TESTS / f"{t}.jsonl")),
             f"prompt-injection-{t.replace('_', '-')}",
             purpose="holdout",
             agent="prompt-injection-classifier",

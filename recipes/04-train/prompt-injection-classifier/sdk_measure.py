@@ -26,6 +26,7 @@ import whileai as wai
 from whileai.config import provenance
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 
 
@@ -52,8 +53,8 @@ def graded(rows: list[dict], scores: list[float], thr: float, model: str, run: s
 
 def main() -> None:
     print(provenance(), file=sys.stderr)
-    test = read_jsonl(HERE / "test.jsonl")
-    hard = read_jsonl(HERE / "test_hard.jsonl")
+    test = read_jsonl(TESTS / "test.jsonl")
+    hard = read_jsonl(TESTS / "test_hard.jsonl")
     tag = sys.argv[1] if len(sys.argv) > 1 else "minilm"  # the round's score-file tag
     train_file = OUT / f"train_{tag.split('-')[0]}.jsonl"
     if not train_file.exists():

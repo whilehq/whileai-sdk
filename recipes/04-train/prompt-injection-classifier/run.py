@@ -1,6 +1,6 @@
 """One command through the recipe: data, frozen tests, baseline, the rounds, export, results.
 
-    python run.py --dry-run          # offline: check the three frozen hashes, print results.json
+    python run.py --dry-run          # offline: check the fixture's pin, print results.json
     python run.py --round 3          # the twins round on template carriers (needs the cloned sets, Modal)
     python run.py --round 7          # the model-written-carrier round (needs the simulate rows too)
 
@@ -22,7 +22,6 @@ What the live path does, in the order it ran:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import subprocess
 import sys
@@ -37,19 +36,36 @@ PY = sys.executable
 TESTS = ("test", "test_hard", "test_paste", "test_llm", "test_external")
 
 
-def check_frozen() -> None:
+TEST_DIR = (
+    HERE / "out"
+)  # the five frozen tests live here, from Hugging Face or a rebuild; the pins live in git
+FIXTURE = HERE / "fixtures" / "tests_sample.jsonl"
+
+
+def check_frozen(*, full: bool) -> None:
+    """The pins in git are the truth; the rows are checked against them wherever they are."""
+    rows = read_jsonl(FIXTURE)
+    if sha256_rows(rows) != (HERE / "fixtures" / "tests_sample.sha256").read_text().strip():
+        raise SystemExit(
+            "fixtures/tests_sample.jsonl does not match its pin; the fixture is frozen"
+        )
+    print(f"fixture: {len(rows)} rows over {len({r['test'] for r in rows})} tests, pin matches")
+    if not full:
+        return
     for t in TESTS:
-        rows = read_jsonl(HERE / f"{t}.jsonl")
-        digest = sha256_rows(rows)
+        path = TEST_DIR / f"{t}.jsonl"
+        if not path.exists():
+            raise SystemExit(
+                f"{path} is missing: `python fetch_tests.py` pulls the five frozen tests from "
+                "while-ai/prompt-injection-carriers, or `python data.py --ext ... --data ...` rebuilds them"
+            )
+        digest = sha256_rows(read_jsonl(path))
         pinned = (HERE / f"{t}.sha256").read_text().strip()
         if digest != pinned:
             raise SystemExit(
                 f"{t}.jsonl does not match {t}.sha256 ({digest[:12]} vs {pinned[:12]}); the test is frozen"
             )
-        file_digest = hashlib.sha256((HERE / f"{t}.jsonl").read_bytes()).hexdigest()
-        print(
-            f"frozen {t}: {len(rows)} rows, rows sha256 {digest[:16]}..., file sha256 {file_digest[:16]}..."
-        )
+        print(f"frozen {t}: rows sha256 {digest[:16]}... matches the pin")
     print(f"held-out families {HELDOUT_FAMILIES}, held-out carriers {HELDOUT_CARRIERS}")
 
 
@@ -108,7 +124,7 @@ def main() -> None:
     )
     ap.add_argument("--seeds", default="1,2,3")
     a = ap.parse_args()
-    check_frozen()
+    check_frozen(full=not a.dry_run)
     if a.dry_run:
         print_results()
         return
@@ -157,7 +173,7 @@ def main() -> None:
             "--threshold",
             "0.5",
             "--test",
-            str(HERE / f"test_{t}.jsonl"),
+            str(TESTS / f"test_{t}.jsonl"),
             "--probe",
             "none",
             "--out",
@@ -241,7 +257,7 @@ def main() -> None:
         "--out",
         str(out / f"onnx-{tag}"),
         "--test",
-        str(HERE / "test.jsonl"),
+        str(TESTS / "test.jsonl"),
     )
     run(PY, str(HERE / "shortcut_probe.py"))
     run(PY, str(HERE / "collect.py"))

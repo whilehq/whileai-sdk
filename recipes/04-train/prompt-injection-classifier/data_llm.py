@@ -179,7 +179,7 @@ def main() -> None:
     tests = [
         r["text"]
         for t in ("test", "test_hard", "test_paste")
-        for r in read_jsonl(HERE / f"{t}.jsonl")
+        for r in read_jsonl(HERE / "out" / f"{t}.jsonl")
     ]
     test_set = set(tests)
 

@@ -19,6 +19,7 @@ from pathlib import Path
 from data import HELDOUT_CARRIERS, HELDOUT_FAMILIES, read_jsonl
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 KEEP = (
     "n",
@@ -90,7 +91,7 @@ def load_scores(rd: dict, seed: int | None) -> dict[str, dict]:
 
 def main() -> None:
     tests = {
-        t: read_jsonl(HERE / f"{t}.jsonl")
+        t: read_jsonl(TESTS / f"{t}.jsonl")
         for t in ("test", "test_hard", "test_paste", "test_llm", "test_external")
     }
     rounds = json.loads((OUT / "rounds.json").read_text())

@@ -21,6 +21,7 @@ from data import read_jsonl
 from metrics import by_slice, table
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 
 
 def positive_index(model) -> int:
@@ -92,7 +93,7 @@ def probe_pairs(model_id: str, probe: list[dict], thr: float) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
-    ap.add_argument("--test", default=str(HERE / "test.jsonl"))
+    ap.add_argument("--test", default=str(TESTS / "test.jsonl"))
     ap.add_argument("--out", required=True)
     ap.add_argument(
         "--threshold",

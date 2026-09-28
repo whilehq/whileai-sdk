@@ -19,6 +19,7 @@ import shutil
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 ORG = "while-ai"
 MODEL_REPO = f"{ORG}/prompt-injection-minilm-l6"
@@ -200,7 +201,7 @@ def main() -> None:
         if (OUT / f).exists():
             shutil.copy(OUT / f, d / f)
     for t in ("test", "test_hard", "test_paste", "test_llm", "test_external"):
-        shutil.copy(HERE / f"{t}.jsonl", d / f"{t}.jsonl")
+        shutil.copy(TESTS / f"{t}.jsonl", d / f"{t}.jsonl")
         shutil.copy(HERE / f"{t}.sha256", d / f"{t}.sha256")
     shutil.copy(HERE / "results.json", d / "results.json")
     (d / "README.md").write_text(data_card(r, stats))

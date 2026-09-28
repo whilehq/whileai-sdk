@@ -20,6 +20,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 
 
@@ -33,7 +34,7 @@ def main() -> None:
     tag = sys.argv[1] if len(sys.argv) > 1 else ""
     train = read_jsonl(OUT / (f"train_{tag}.jsonl" if tag else "train.jsonl"))
     val = read_jsonl(OUT / (f"val_{tag}.jsonl" if tag else "val.jsonl"))
-    test = read_jsonl(HERE / "test.jsonl")
+    test = read_jsonl(TESTS / "test.jsonl")
     y_tr = np.array([r["label"] for r in train])
     result: dict = {}
     for name in ("bag_of_words", "length_only"):

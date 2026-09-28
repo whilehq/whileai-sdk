@@ -46,27 +46,19 @@ def main() -> None:
     # obfuscations keep the label by construction: each kind is a total function of the payload
     kinds = {data.obfuscate("please do the thing", random.Random(i))[1] for i in range(40)}
     assert kinds == {"base64", "spacing", "homoglyph", "leet"}, kinds
-    # the three frozen tests match their pinned hashes
-    ext = data.read_jsonl(HERE / "test_external.jsonl")
-    assert data.sha256_rows(ext) == (HERE / "test_external.sha256").read_text().strip()
-    assert {r["slice"] for r in ext} == {"agentdojo_docs", "llmail_inject", "multilingual_direct"}
-    for t in ("test_hard", "test_paste", "test_llm"):
-        hard = data.read_jsonl(HERE / f"{t}.jsonl")
-        assert data.sha256_rows(hard) == (HERE / f"{t}.sha256").read_text().strip(), t
-        pairs = {r["pair"] for r in hard if r.get("pair")}
-        assert all(sum(1 for r in hard if r.get("pair") == p) == 2 for p in pairs), (
-            f"{t}: a pair is not a pair"
-        )
-    rows = data.read_jsonl(HERE / "test.jsonl")
-    assert data.sha256_rows(rows) == (HERE / "test.sha256").read_text().strip()
-    assert {r["slice"] for r in rows} >= {
-        "deepset",
-        "notinject",
-        "indirect_in_dist",
-        "indirect_heldout_family",
-        "indirect_heldout_carrier",
+    # the frozen fixture matches its pin; the full tests are checked by run.py when present
+    rows = data.read_jsonl(HERE / "fixtures" / "tests_sample.jsonl")
+    assert data.sha256_rows(rows) == (HERE / "fixtures" / "tests_sample.sha256").read_text().strip()
+    assert {r["test"] for r in rows} == {
+        "test",
+        "test_hard",
+        "test_paste",
+        "test_llm",
+        "test_external",
     }
-    # held-out families and carriers are the ones the training draw excludes
+    for t in ("test_hard", "test_paste", "test_llm"):
+        pairs = [r["pair"] for r in rows if r["test"] == t and r.get("pair")]
+        assert pairs, t
     assert not set(data.HELDOUT_FAMILIES) & {
         "injecagent",
         "bipia_task",
@@ -74,11 +66,10 @@ def main() -> None:
         "bipia_harm",
     }
     assert set(data.HELDOUT_CARRIERS) <= set(data.CARRIERS)
-    train_carriers = {r["carrier"] for r in rows if r["slice"] == "indirect_in_dist"}
-    assert not train_carriers & set(data.HELDOUT_CARRIERS)
+    hard = [r for r in rows if r["test"] == "test_hard"]
     print(
         f"selftest ok: metrics, planting over {len(data.CARRIERS)} carriers, "
-        f"4 obfuscations, frozen tests {len(rows)} + {len(hard)} rows"
+        f"4 obfuscations, fixture {len(rows)} rows ({len(hard)} from test_hard)"
     )
 
 

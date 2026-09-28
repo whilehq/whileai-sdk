@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 PY = sys.executable
 
@@ -59,7 +60,7 @@ def main() -> None:
                     "--model",
                     str(run),
                     "--test",
-                    str(HERE / f"test_{name}.jsonl"),
+                    str(TESTS / f"test_{name}.jsonl"),
                     "--threshold",
                     str(thr),
                     "--probe",

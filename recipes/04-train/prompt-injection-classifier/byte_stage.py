@@ -26,6 +26,7 @@ from sklearn.feature_extraction.text import HashingVectorizer
 from sklearn.linear_model import LogisticRegression
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 
 
@@ -50,7 +51,7 @@ def main() -> None:
     ].tolist()
     thr = choose_threshold([0] * len(cal), cal)
     result = {"tag": a.tag, "threshold": thr, "fit_seconds": round(fit_s, 1), "n_train": len(train)}
-    for name, path in (("test", HERE / "test.jsonl"), ("test_hard", HERE / "test_hard.jsonl")):
+    for name, path in (("test", TESTS / "test.jsonl"), ("test_hard", TESTS / "test_hard.jsonl")):
         rows = read_jsonl(path)
         scores = clf.predict_proba(vec.transform([r["text"] for r in rows]))[:, 1].tolist()
         per = by_slice(rows, scores, thr, n_boot=1000)

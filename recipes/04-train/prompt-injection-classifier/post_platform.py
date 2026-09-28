@@ -23,6 +23,7 @@ from whileai.config import provenance
 from whileai.platform import Behavior, Data, Optimizer, RunRecord, track
 
 HERE = Path(__file__).resolve().parent
+TESTS = HERE / "out"  # the five frozen tests; pins stay in git
 OUT = HERE / "out"
 AGENT = "prompt-injection-classifier"
 MODEL = "nreimers/MiniLM-L6-H384-uncased"
@@ -122,7 +123,7 @@ def slice_score(
 def main() -> None:
     print(provenance(), file=sys.stderr)
     tests = {
-        f: read_jsonl(HERE / f)
+        f: read_jsonl(TESTS / f)
         for f in (
             "test.jsonl",
             "test_hard.jsonl",

@@ -178,7 +178,7 @@ def main() -> None:
     ap.add_argument(
         "--llmail", required=True, help="a JSON sample of microsoft/llmail-inject-challenge rows"
     )
-    ap.add_argument("--out", default=str(HERE))
+    ap.add_argument("--out", default=str(HERE / "out"))
     a = ap.parse_args()
     rng = random.Random(20260928)
     rows = agentdojo_docs(rng) + llmail(Path(a.llmail), rng) + multilingual(rng)
@@ -186,6 +186,7 @@ def main() -> None:
     write_jsonl(out / "test_external.jsonl", rows)
     digest = sha256_rows(rows)
     (out / "test_external.sha256").write_text(digest + "\n")
+    (HERE / "test_external.sha256").write_text(digest + "\n")  # the pin lives in git
     from collections import Counter
 
     print(f"test_external {len(rows)} rows sha256 {digest}")

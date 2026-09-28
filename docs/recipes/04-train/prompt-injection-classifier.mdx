@@ -38,9 +38,14 @@ whole climb was about $6 of GPU and $8 of Haiku.
 ```bash
 uv add whileai
 cd recipes/04-train/prompt-injection-classifier
-sh smoke.sh                        # selftest + the three frozen hashes + results.json, offline
-python run.py --dry-run
+sh smoke.sh                        # selftest on an 80-row fixture of the tests + results.json, offline, no key
+python fetch_tests.py              # the five frozen tests (4,854 rows) from Hugging Face, sha256 checked against the pins in git
+python run.py --dry-run            # checks every fetched test against its pin
 ```
+
+The test rows are not in git: `while-ai/prompt-injection-carriers` holds them,
+and the `*.sha256` files next to this README pin them, so a test that changed
+cannot pass for the frozen one.
 
 The live path needs the public sets cloned next to the recipe (`InjecAgent`,
 `agentdojo`, `BIPIA`, `InjecGuard` for NotInject, all MIT), `deepset.jsonl`,
@@ -60,7 +65,7 @@ python post_platform.py                                           # the climb on
 
 | flag | default | what it does |
 |---|---|---|
-| `--dry-run` | off | no download, no key, no GPU: verify the hashes, print `results.json` |
+| `--dry-run` | off | no download, no key, no GPU: verify the fixture's pin, print `results.json` |
 | `--round` | 7 | 3 (twins on template carriers), 5 (plus channels), 7 (model-written carriers) |
 | `--sim` | none | `wai.simulate` rows; the first feeds the frozen `sim_tool` slice, the rest train |
 | `--inserts` | none | `gen_inserts.py` output, round 7 only |

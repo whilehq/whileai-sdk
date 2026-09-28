@@ -1096,6 +1096,9 @@ if __name__ == "__main__":
         spml=not a.no_spml,
     )
     write_jsonl(out / "test.jsonl", test)
+    (HERE / "test.sha256").write_text(
+        sha256_rows(test) + "\n"
+    )  # the pin lives in git; the rows stay in out/
     write_jsonl(out / "train.jsonl", train)
     write_jsonl(out / "val.jsonl", val)
     write_jsonl(out / "probe_pairs.jsonl", probe)
