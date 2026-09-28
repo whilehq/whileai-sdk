@@ -24,6 +24,7 @@ installs the five marked `*`.
    touching weights, `harness-search/`.
 6. **Report**: `manage-experiments/` * for every second version, sweep or run.
 7. **Watch**: `watch/` once a version serves.
+8. **Ship**: `write-a-recipe/` when the run becomes a recipe under `recipes/`.
 
 The math behind every method is `docs/reference/methods.md`.
 
@@ -41,6 +42,7 @@ The math behind every method is `docs/reference/methods.md`.
 | `pick-a-method/` | you have graded rows and must choose a method or its knobs, from all the SDK ships | nothing; six questions (grader, truncation, rollouts per prompt, band, on-policy, teacher) route to hosted sft/grpo/dpo, prime-rl grpo/max_rl/rae, OPSD, OPD, GroupwiseGrading, Async, FlashReinforce/SAO/BPCO or ReinforceAda, and name the skill that trains it |
 | `whileai-simulations/` | you need more situations than the traces contain | nothing; it is the simulate-grade-select loop |
 | `audit-your-judge/` | before Grade's scores are trusted or Select curates rows by them | nothing; it labels a sample blind, compares judges, ablates the rubric, and reverses the order |
+| `write-a-recipe/` | a run is finished and has to become a recipe under `recipes/` that a maintainer will merge, or a recipe has grown past a few thousand lines | nothing; it says what goes in git and what goes to Hugging Face, pins the frozen test by content hash, audits the folder (README shape, smoke.sh, intervals, rows in git, keys), posts `results.json` as the run page, and names the gates and the pull-request mechanics |
 
 ## Every skill ends the same way
 

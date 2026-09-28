@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Skill `skills/write-a-recipe/`: what a recipe pull request puts in git and what goes to Hugging
+  Face, the frozen test pinned by a content hash, the README in the house shape with intervals and n,
+  an `audit(recipe)` that goes red on a folder breaking the rules and green on the newest merged
+  recipe, the gates, the platform post from `results.json`, and the pull-request mechanics.
+
 - Community recipe `recipes/community/deepagents-review-four-arms/`: fine-tune a LangChain Deep Agents
   reviewer (Qwen3.8-27B) from its LangSmith traces with smithtune's renderer and schedule, once on
   smithtune's council pick and once on `wai.simulations.optimize`'s pick. On SWE-bench Verified patch
