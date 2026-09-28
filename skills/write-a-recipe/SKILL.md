@@ -16,9 +16,8 @@ metadata:
 # Write a recipe
 
 A recipe is one run a reader can redo. The merged ones are 5 to 33 files
-and 800 to 4,800 lines; rows in git are a fixture the README names, never
-the dataset. Every step below is in
-`check.py`, which runs in under a minute with no key; its setup defines
+and 800 to 4,800 lines. Every step below is in `check.py`, which runs in
+under a minute with no key; its setup defines
 `RECIPE` (a temporary recipe that follows the rules), `BAD` (one that
 breaks four of them, so the audit is shown to go red), `REAL` (a merged
 recipe from the repo, read only), `RESULTS` (a results.json in the house
@@ -37,9 +36,9 @@ it is the fixture the offline path runs on.
 ## 2. Freeze the test by content, and commit the pin
 
 The test is frozen the moment its hash is written, before any training.
-The pin is a sha256 over the rows in order (not the file, so a reformat
-does not change it); it is the file that stays in git when the rows leave.
-Every scorer checks the rows against the pin before it reads a number
+The pin is a sha256 over the rows in order, so a reformat does not move it;
+it stays in git when the rows leave. Every scorer checks the rows against
+it before reading a number
 (Lambert 2025, "Evaluation": held-out sets are kept apart and named).
 
 ```python
