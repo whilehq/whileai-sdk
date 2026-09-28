@@ -13,10 +13,10 @@ import json
 import sys
 from pathlib import Path
 
+from data import read_jsonl
+
 from whileai.config import provenance
 from whileai.simulations.ingest.platform import push_rows
-
-from data import read_jsonl
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "out"

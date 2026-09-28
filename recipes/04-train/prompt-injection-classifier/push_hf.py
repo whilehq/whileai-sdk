@@ -56,7 +56,11 @@ def table(r: dict, arms: list[str]) -> str:
 
 
 def model_card(r: dict) -> str:
-    lat = r["latency"]["onnx-v9-seeded"]["latency_single_thread"] if "onnx-v9-seeded" in r["latency"] else r["latency"]["onnx-v8-union"]["latency_single_thread"]
+    lat = (
+        r["latency"]["onnx-v9-seeded"]["latency_single_thread"]
+        if "onnx-v9-seeded" in r["latency"]
+        else r["latency"]["onnx-v8-union"]["latency_single_thread"]
+    )
     return f"""---
 license: apache-2.0
 base_model: nreimers/MiniLM-L6-H384-uncased
@@ -168,14 +172,31 @@ def main() -> None:
     m.mkdir(parents=True)
     d.mkdir(parents=True)
     src = OUT / f"{PICK}-seed1"
-    for f in ("config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.txt", "train_record.json"):
+    for f in (
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "vocab.txt",
+        "train_record.json",
+    ):
         shutil.copy(src / f, m / f)
     onnx = OUT / f"onnx-{PICK}"
     (m / "onnx").mkdir()
     for f in ("model.onnx", "model_int8.onnx", "export.json"):
         shutil.copy(onnx / f, m / "onnx" / f)
     (m / "README.md").write_text(model_card(r))
-    for f in ("train_v9.jsonl", "val_v9.jsonl", "train_v10.jsonl", "val_v10.jsonl", "rounds.json", "build_stats_v9.json", "build_stats_v10.json", "shortcut_probe.json"):
+    for f in (
+        "train_v9.jsonl",
+        "val_v9.jsonl",
+        "train_v10.jsonl",
+        "val_v10.jsonl",
+        "rounds.json",
+        "build_stats_v9.json",
+        "build_stats_v10.json",
+        "shortcut_probe.json",
+    ):
         if (OUT / f).exists():
             shutil.copy(OUT / f, d / f)
     for t in ("test", "test_hard", "test_paste", "test_llm", "test_external"):
@@ -183,17 +204,31 @@ def main() -> None:
         shutil.copy(HERE / f"{t}.sha256", d / f"{t}.sha256")
     shutil.copy(HERE / "results.json", d / "results.json")
     (d / "README.md").write_text(data_card(r, stats))
-    print(f"staged {sum(1 for _ in m.rglob('*') if _.is_file())} model files, {sum(1 for _ in d.rglob('*') if _.is_file())} data files under {stage}")
+    print(
+        f"staged {sum(1 for _ in m.rglob('*') if _.is_file())} model files, {sum(1 for _ in d.rglob('*') if _.is_file())} data files under {stage}"
+    )
     if a.dry_run:
         return
     from huggingface_hub import HfApi
 
     api = HfApi()
     api.create_repo(MODEL_REPO, repo_type="model", private=True, exist_ok=True)
-    api.upload_folder(folder_path=str(m), repo_id=MODEL_REPO, repo_type="model", commit_message="round 9 seed 1: weights, int8 ONNX, card")
+    api.upload_folder(
+        folder_path=str(m),
+        repo_id=MODEL_REPO,
+        repo_type="model",
+        commit_message="round 9 seed 1: weights, int8 ONNX, card",
+    )
     api.create_repo(DATA_REPO, repo_type="dataset", private=True, exist_ok=True)
-    api.upload_folder(folder_path=str(d), repo_id=DATA_REPO, repo_type="dataset", commit_message="rounds 3 to 10: rows, five frozen tests, results")
-    print(f"pushed https://huggingface.co/{MODEL_REPO} and https://huggingface.co/datasets/{DATA_REPO} (private)")
+    api.upload_folder(
+        folder_path=str(d),
+        repo_id=DATA_REPO,
+        repo_type="dataset",
+        commit_message="rounds 3 to 10: rows, five frozen tests, results",
+    )
+    print(
+        f"pushed https://huggingface.co/{MODEL_REPO} and https://huggingface.co/datasets/{DATA_REPO} (private)"
+    )
 
 
 if __name__ == "__main__":

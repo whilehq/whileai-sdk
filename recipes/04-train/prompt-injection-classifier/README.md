@@ -200,7 +200,7 @@ AUROC on the hard test, so it is a speed layer in a cascade, not a detector.
 with `execute=` and a model as `simulator=` produced the data the recipe
 needed once the hosted writer's daily quota was routed around; the
 coverage axes, a span export, classifier metrics and an encoder trainer do
-not exist and are recipe-local here; `wai.methods.route` on classifier rows
+not exist and are recipe-local here; `route` (from `whileai.routing`) on classifier rows
 picked `sft` at k=1 for the wrong reason and then refused on a truncation
 check that reads nothing a classifier row has; `hack_scan` worked as the
 shortcut detector once the pair was the ask.
@@ -227,13 +227,14 @@ shortcut detector once the pair was the ask.
 
 ## Next
 
-Push the round-7 rows and the int8 graph (`WHILEAI_API_KEY`, or `wai login`):
+Push the round-9 rows and the five frozen tests to your While account's Datasets
+page (`WHILEAI_API_KEY`, or `wai login`), and the weights and rows to Hugging
+Face under your org:
 
-```python
-import whileai as wai
-
-rows = [json.loads(line) for line in open("out/train_v7.jsonl")]
-wai.push_rows(rows, "prompt-injection-carriers-v7", gate=False)
+```bash
+python push_platform_rows.py          # train rows (purpose train) and the five tests (purpose holdout)
+python push_hf.py --dry-run           # writes the model and dataset cards, uploads nothing
+python push_hf.py                     # two private repos: the classifier with its int8 ONNX, and the rows
 ```
 
 The two rounds worth running next: a second writer family for the carriers
