@@ -256,7 +256,56 @@ def main() -> None:
         )
     except ImportError:
         pass
-    (HERE / "results.json").write_text(json.dumps(result, indent=1) + "\n")
+    # the full record (every seed, every slice, every SDK report) goes to out/; git gets the compact one
+    (OUT / "results_full.json").write_text(json.dumps(result, indent=1) + "\n")
+    compact = dict(result)
+    compact["arms"] = {}
+    for name, arm in result["arms"].items():
+        seeds = arm.get("seeds") or []
+        compact["arms"][name] = {k: v for k, v in arm.items() if k not in ("seeds", "note")} | {
+            "note": (arm.get("note") or "").split("\n")[1]
+            if arm.get("note") and "\n" in arm["note"]
+            else arm.get("note"),
+            "seeds": [
+                {
+                    "seed": e.get("seed"),
+                    "threshold": e.get("threshold"),
+                    "points": e.get("points"),
+                    "probe": e.get("probe"),
+                }
+                for e in seeds
+            ],
+        }
+    if compact.get("sdk_measure"):
+        sdk_ = compact["sdk_measure"]
+        compact["sdk_measure"] = {
+            "decontaminate": {
+                k: v for k, v in (sdk_.get("decontaminate") or {}).items() if k != "report"
+            },
+            "eval_variance": {
+                k: (sdk_.get("eval_variance") or {}).get(k)
+                for k in ("run_std", "noise_band", "mean", "stability")
+            },
+            "holdout_size": {
+                k: v.get("n_tasks")
+                for k, v in (sdk_.get("holdout_size") or {}).items()
+                if isinstance(v, dict)
+            },
+            "route": ((sdk_.get("route") or "").splitlines() or [""])[0],
+        }
+    if compact.get("shortcut_probe"):
+        compact["shortcut_probe"] = {
+            k: {
+                "threshold": v["threshold"],
+                "auroc": {s: r.get("auroc") for s, r in v["per_slice"].items() if "auroc" in r},
+            }
+            for k, v in result["shortcut_probe"].items()
+            if isinstance(v, dict)
+        }
+    compact["full_record"] = (
+        "out/results_full.json (every seed, every slice, every SDK report); also in the Hugging Face dataset"
+    )
+    (HERE / "results.json").write_text(json.dumps(compact, indent=1) + "\n")
     print(f"results.json: {verdict}")
 
 
