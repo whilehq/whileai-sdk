@@ -20299,6 +20299,45 @@
      "runs": 100
     }
    }
+  },
+  "onnx-v9-seeded": {
+   "int8_mb": 23.0,
+   "fp32_mb": 91.0,
+   "latency_single_thread": {
+    "128": {
+     "p50_ms": 7.55,
+     "p99_ms": 7.74,
+     "runs": 300
+    },
+    "256": {
+     "p50_ms": 17.29,
+     "p99_ms": 17.71,
+     "runs": 300
+    },
+    "512": {
+     "p50_ms": 44.34,
+     "p99_ms": 45.19,
+     "runs": 300
+    }
+   },
+   "cpu": "arm",
+   "machine": "macOS-26.6.2-arm64-arm-64bit",
+   "sliding_window_128": {
+    "512": {
+     "windows": 4,
+     "all_windows_p50_ms": 30.26,
+     "all_windows_p99_ms": 30.96,
+     "first_window_exit_p50_ms": 7.57,
+     "runs": 100
+    },
+    "2048": {
+     "windows": 16,
+     "all_windows_p50_ms": 121.23,
+     "all_windows_p99_ms": 122.25,
+     "first_window_exit_p50_ms": 7.58,
+     "runs": 100
+    }
+   }
   }
  },
  "shortcut_probe": {
