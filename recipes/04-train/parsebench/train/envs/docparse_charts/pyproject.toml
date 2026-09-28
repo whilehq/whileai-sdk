@@ -1,0 +1,20 @@
+[project]
+name = "docparse-charts"
+version = "0.1.0"
+description = "Chart image -> HTML data table, rewarded by ParseBench's ChartDataPointMatch on generated rules. verifiers v1 taskset, single turn, no tools."
+tags = ["docparse", "multimodal", "charts", "train", "eval", "v1"]
+requires-python = ">=3.11"
+dependencies = [
+    "verifiers>=0.3.1",
+    "parse-bench @ git+https://github.com/run-llama/ParseBench.git",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["docparse_charts"]

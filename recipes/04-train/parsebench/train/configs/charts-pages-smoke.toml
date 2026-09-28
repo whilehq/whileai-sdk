@@ -1,0 +1,138 @@
+# 3-step throughput smoke for charts-pages-v1 (same settings, small batch).
+# charts-pages-v1 (2026-09-26): same recipe as charts-v1, but tasks are whole synthetic report pages
+# (train/build_chart_data.py::build_pages) with prompts.CHART_PAGE -- the input shape and prompt the
+# agent's page chart pass uses. charts-v1 (isolated crops, crop prompt) lifted its own val reward
+# .569 -> .624 by step 100 but not ParseBench dev charts (82.1 vs base 83.5-85.2).
+# charts-v1: first full RL run of the chart stage. Qwen3.8-27B + LoRA r32 on docparse-charts
+# (ChartNet core_permissive, ParseBench-decontaminated; reward = ParseBench ChartDataPointMatch
+# share on our generated rules). H200:4 as 2 vLLM engines + 2-way FSDP trainer.
+#
+# Recipe (each choice cited inline): GRPO baseline, group 16, CISPO loss (ScaleRL), zero-variance
+# filtering + No-Positive-Resampling via the difficulty_pool curriculum, PipelineRL-style async
+# with max_off_policy_steps 8, FP32 LM head at inference (prime-rl default), thinking on (xhigh)
+# exactly as the production chart stage.
+#
+# Not available at this prime-rl pin (9ef21a64f): DAPO clip-higher (no PPO clip exists; the rl
+# losses are IPO / IcePop / custom; CISPO's eps_max is the analogous knob), prompt-level loss
+# averaging (prime-rl normalizes by global token count), batch-level advantage std-normalization.
+#
+# Cost/time estimate (from earlier text-only runs on the same base, ~5k tokens per rollout with
+# thinking): ~8-10 min/step at 256x16 -> ~150 steps per 24 h Modal segment. Plan a resume:
+#   modal run ... --spawn --extra "--resume.step N"  (N = latest checkpoints/step_N)
+
+max_steps = 3
+seq_len = 12288  # 8192 completion + ~1.5k image tokens (1400 px page) + ~0.5k prompt
+
+[deployment]
+gpus_per_node = 4
+num_infer_gpus = 3  # pages at 2/2 were rollout-bound: 56% of rollouts hit the client timeout
+num_train_gpus = 1
+
+[model]
+name = "Qwen/Qwen3.8-27B"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model]
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+# r32, the usual rank for a document-parsing LoRA; adapter is served by serve/serve_vlm.py (--max-lora-rank 64).
+[trainer.model.lora]
+rank = 32
+alpha = 64
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.optim]
+lr = 1e-5  # batch 128: the setting an earlier text-only run used at batch 128 on this base (2e-5 was for 512)
+
+# CISPO (ScaleRL arXiv:2510.13786 eq. 4, sec. 4 final recipe): sg(min(rho, eps_max)) * A * log pi.
+# Keeps a gradient on every token instead of masking (IPO default) or clipping (PPO/DAPO), and is
+# robust to eps_max (App. A.17.4). 4.0 only bites on tokens the trainer likes 4x more than vLLM did.
+[trainer.loss]
+type = "custom"
+import_path = "docparse_charts.losses.cispo_loss"
+kwargs = { eps_max = 4.0 }
+
+[orchestrator]
+batch_size = 64
+group_size = 16   # enough spread on a continuous reward to rank rollouts
+max_off_policy_steps = 8  # ScaleRL fig. 4b: PipelineRL k=8 best
+
+[orchestrator.algo]
+type = "grpo"  # reward - group mean (Dr. GRPO, no std division)
+
+[orchestrator.renderer]
+name = "qwen3.8"
+enable_thinking = true
+reasoning_effort = "medium"  # xhigh on whole pages timed out 56% of rollouts; the agent is evaluated with chart_effort="medium" to match
+
+[orchestrator.train.sampling]
+max_completion_tokens = 8192  # truncated rollouts score 0 (no closed </think>): an implicit length penalty
+temperature = 1.0
+
+[orchestrator.concurrency]
+max_inflight = 192  # page requests are slow; at 1024 the vllm-router queue (size 100, 60 s) expired ~50% of rollouts as "Request timed out"
+
+[[orchestrator.train.source]]
+name = "docparse-charts"
+env.taskset.id = "docparse-charts"
+env.taskset.split = "train"
+env.taskset.data_dir = "/data/train/chart_pages"
+env.taskset.prompt = "page"
+env.taskset.max_pixels = 1600000  # pages pre-shrunk to 1400 px long side (1082x1400 = 1.51M) = the agent's chart_page_px; 2048 px pages starved rollouts
+env.taskset.max_tasks = 300
+env.agent.harness.id = "null"
+env.agent.runtime.type = "subprocess"
+env.agent.max_turns = 1
+# Pools by latest group-mean reward. solved (> 0.9) weight 0 = ScaleRL No-Positive-Resampling
+# (sec. 3.2, pass rate >= 0.9 removed for good); advantage_range drops zero-variance groups
+# (ScaleRL zero-variance filtering). Lesson from an earlier text-only run: even weight 0.15 on solved tasks
+# let them become ~46% of draws and most of the discards.
+curriculum.sampler = { type = "difficulty_pool", pools = { hard = { threshold = 0.25, weight = 1.0 }, normal = { threshold = 0.9, weight = 1.0 }, solved = { threshold = 1.0, weight = 0.0 } } }
+curriculum.gates = { zero_advantage = { type = "advantage_range" } }
+
+[inference.vllm]
+max_model_len = 12288
+tensor_parallel_size = 1
+gpu_memory_utilization = 0.85
+api_server_count = 4  # page images are CPU-bound in the API server (398 prompt tok/s with 1); 4 processes preprocess in parallel
+
+# Online eval on the held-out val split with production chart sampling (Qwen3.8 thinking card).
+# 200 charts x 2: SE of the mean ~1.5 pts on a 0-1 share reward; the offline ParseBench run on a
+# served adapter stays the decision number.
+[orchestrator.eval]
+interval = 25
+group_size = 2
+skip_first_step = false
+
+[orchestrator.eval.sampling]
+temperature = 0.6
+top_p = 0.95
+top_k = 20
+max_completion_tokens = 8192
+
+[[orchestrator.eval.source]]
+name = "docparse-charts-val"
+num_examples = 16
+env.taskset.id = "docparse-charts"
+env.taskset.split = "val"
+env.taskset.data_dir = "/data/train/chart_pages"
+env.taskset.prompt = "page"
+env.taskset.max_pixels = 1600000  # pages pre-shrunk to 1400 px long side (1082x1400 = 1.51M) = the agent's chart_page_px; 2048 px pages starved rollouts
+env.agent.harness.id = "null"
+env.agent.runtime.type = "subprocess"
+env.agent.max_turns = 1
+
+# [monitors.prime] left out (it needs a Prime Intellect account). Progress:
+# logs/latest/*.log and monitors/file/metrics.jsonl on docparse-runs.
+
+[ckpt]
+interval = 10  # a 24 h cap kill loses at most one interval
+keep_last = 3
