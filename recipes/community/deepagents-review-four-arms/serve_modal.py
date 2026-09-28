@@ -5,9 +5,9 @@ same sampling settings is what makes the before/after about the weights and
 nothing else. Thinking is off for every request (`enable_thinking=false`),
 because smithtune's training rows omit reasoning.
 
-    MODAL_PROFILE=zeroproofai modal deploy serve_modal.py
+    modal deploy serve_modal.py
     python collect.py --arm sft-with --split holdout --base-url <url>/v1 --model sft-with --api-key-env REVIEW_SERVER_KEY
-    MODAL_PROFILE=zeroproofai modal app stop deepagents-review-serve
+    modal app stop deepagents-review-serve
 
 The tool parser (`qwen35_tool_parser.py`) parses on token ids with the
 grammar the model's renderer uses; vLLM's regex-based qwen3_xml parser leaves

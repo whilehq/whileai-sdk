@@ -15,7 +15,7 @@ convention Loops follows.
     modal run --detach train_modal.py --arm sft-without
 
 Adapters land on volume `deepagents-review-runs` under /<arm>/adapter, with
-epochs.json beside them. MODAL_PROFILE=zeroproofai.
+epochs.json beside them.
 """
 
 from __future__ import annotations
