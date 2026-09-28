@@ -144,3 +144,7 @@ recipes/01-simulate/swarm-rescue/out-*/
 !recipes/01-simulate/swarm-rescue/rescued-27b.jsonl
 !recipes/01-simulate/swarm-rescue/rescued-mbpp.jsonl
 !recipes/01-simulate/swarm-rescue/rescued-mbpp-s1.jsonl
+
+# parsebench: the benchmark clone and local run output stay local
+recipes/04-train/parsebench/ParseBench/
+recipes/04-train/parsebench/out/

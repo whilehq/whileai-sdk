@@ -1,0 +1,116 @@
+# Smoke: Qwen3.8-27B + LoRA on docparse-charts, 3 steps on H200:4 (3 vLLM engines + 1 trainer).
+# Purpose: prove the VLM stack end to end before paying for charts-v1.toml: image -> renderer
+# -> vLLM multi_modal_data -> trainer [model.vlm], thinking on, CISPO custom loss, reward from
+# parse-bench, adapter broadcast + preservation. Same recipe as charts-v1, tiny batch.
+# Watch: reward > 0 on step 1, `is_truncated` share (8192-token thinking cap), mismatch_kl
+# (higher than text-only is expected for images, prime-rl docs/advanced.md), zero-adv discards.
+
+# Top-level keys MUST precede the first [table] (a table above them swallows them).
+max_steps = 3
+seq_len = 12288  # 8192 completion + prompt up to ~2.8k tokens (selfcheck 2026-09-25: image tokens 616-2500)
+
+[deployment]
+gpus_per_node = 4
+num_infer_gpus = 3
+num_train_gpus = 1
+
+[model]
+name = "Qwen/Qwen3.8-27B"
+
+# model_type qwen3_5 VLM: registered custom impl, frozen vision encoder (LoRA cannot train it
+# anyway), bf16 mandatory (prime-rl docs/advanced.md, Multimodal Training).
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model]
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.lora]
+rank = 32
+alpha = 64
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.optim]
+lr = 1e-5
+
+# CISPO (ScaleRL, arXiv:2510.13786 eq. 4, sec. 4): truncated-IS REINFORCE, every token keeps a
+# gradient; robust to eps_max (App. A.17.4). prime-rl has no built-in CISPO, so it is the
+# custom hook into our env package. Delete this table to fall back to prime-rl's IPO default.
+[trainer.loss]
+type = "custom"
+import_path = "docparse_charts.losses.cispo_loss"
+kwargs = { eps_max = 4.0 }
+
+[orchestrator]
+batch_size = 64   # rollouts: 4 charts x 16
+group_size = 16
+max_off_policy_steps = 8  # ScaleRL fig. 4b: PipelineRL k=8 best (also prime-rl's default)
+
+# GRPO baseline (reward - group mean, no std division: Dr. GRPO style). Explicit for the record.
+[orchestrator.algo]
+type = "grpo"
+
+# qwen3.8 renderer (renderers MODEL_RENDERER_MAP maps Qwen/Qwen3.8-27B -> "qwen3.8" at this
+# pin, with image modality). Thinking ON + reasoning_effort xhigh = the production chart stage
+# (waiparse/agent.py chart_thinking=True, chart_effort="xhigh").
+[orchestrator.renderer]
+name = "qwen3.8"
+enable_thinking = true
+reasoning_effort = "xhigh"
+
+[orchestrator.train.sampling]
+max_completion_tokens = 8192
+temperature = 1.0  # full distribution: top_p/top_k < 1 would force sampling replay
+
+[orchestrator.concurrency]
+max_inflight = 256
+
+[[orchestrator.train.source]]
+name = "docparse-charts"
+env.taskset.id = "docparse-charts"
+env.taskset.split = "train"
+env.taskset.data_dir = "/data/train/charts_pb"
+env.taskset.max_tasks = 2000
+env.agent.harness.id = "null"
+env.agent.runtime.type = "subprocess"
+env.agent.max_turns = 1
+# difficulty_pool: pools by the task's latest group-mean reward. Tasks above 0.9 get weight 0,
+# i.e. never redrawn = ScaleRL's No-Positive-Resampling (sec. 3.2: drop prompts with pass
+# rate >= 0.9). advantage_range gate drops zero-variance groups (ScaleRL zero-variance filtering).
+curriculum.sampler = { type = "difficulty_pool", pools = { hard = { threshold = 0.25, weight = 1.0 }, normal = { threshold = 0.9, weight = 1.0 }, solved = { threshold = 1.0, weight = 0.0 } } }
+curriculum.gates = { zero_advantage = { type = "advantage_range" } }
+
+[inference.vllm]
+max_model_len = 12288
+tensor_parallel_size = 1
+gpu_memory_utilization = 0.85
+
+# Tiny eval to exercise the eval path; production chart sampling (Qwen3.8 thinking card).
+[orchestrator.eval]
+interval = 2
+group_size = 1
+skip_first_step = false
+
+[orchestrator.eval.sampling]
+temperature = 0.6
+top_p = 0.95
+top_k = 20
+max_completion_tokens = 8192
+
+[[orchestrator.eval.source]]
+name = "docparse-charts-val"
+num_examples = 8
+env.taskset.id = "docparse-charts"
+env.taskset.split = "val"
+env.taskset.data_dir = "/data/train/charts_pb"
+env.agent.harness.id = "null"
+env.agent.runtime.type = "subprocess"
+env.agent.max_turns = 1
+
+[ckpt]
