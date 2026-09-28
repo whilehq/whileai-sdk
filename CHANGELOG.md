@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Community recipe `recipes/community/deepagents-review-four-arms/`: fine-tune a LangChain Deep Agents
+  reviewer (Qwen3.8-27B) from its LangSmith traces with smithtune's renderer and schedule, once on
+  smithtune's council pick and once on `wai.simulations.optimize`'s pick. On SWE-bench Verified patch
+  review While's pick scores 56.8% against 46.0% (+10.8 points [+4.8, +16.8]) with 5.3 fewer model calls.
 - Recipe `recipes/04-train/parsebench/`: an open document-parsing agent (Qwen3.8-27B on vLLM plus the
   PP-DocLayoutV3 layout detector, both on Modal in your own workspace) hill-climbed on ParseBench.
   Tuned on a document-level dev split (one source report in five, by hash), reported on held-out test

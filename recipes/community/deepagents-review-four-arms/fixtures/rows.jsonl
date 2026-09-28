@@ -1,0 +1,8 @@
+{"task_id": "t1", "arm": "base", "label": "approve", "verdict": "approve", "correct": true, "model_calls": 6, "tools": ["glob", "read_file", "read_file", "grep"]}
+{"task_id": "t1", "arm": "harness", "label": "approve", "verdict": "approve", "correct": true, "model_calls": 4, "tools": ["read_file", "read_file", "read_file"]}
+{"task_id": "t2", "arm": "base", "label": "reject", "verdict": "approve", "correct": false, "model_calls": 14, "tools": ["ls", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file"]}
+{"task_id": "t2", "arm": "harness", "label": "reject", "verdict": "reject", "correct": true, "model_calls": 7, "tools": ["read_file", "read_file", "read_file", "read_file", "read_file"]}
+{"task_id": "t3", "arm": "base", "label": "approve", "verdict": "approve", "correct": true, "model_calls": 11, "tools": ["ls", "glob", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file", "read_file"]}
+{"task_id": "t3", "arm": "harness", "label": "approve", "verdict": "approve", "correct": true, "model_calls": 6, "tools": ["glob", "read_file", "read_file", "grep"]}
+{"task_id": "t4", "arm": "base", "label": "reject", "verdict": "reject", "correct": true, "model_calls": 5, "tools": ["grep", "read_file", "read_file"]}
+{"task_id": "t4", "arm": "harness", "label": "reject", "verdict": "reject", "correct": true, "model_calls": 5, "tools": ["grep", "read_file", "read_file"]}

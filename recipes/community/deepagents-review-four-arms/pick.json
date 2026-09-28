@@ -1,0 +1,185 @@
+{
+  "pick": "03_procedure_big_reads.py",
+  "scored": [
+    {
+      "candidate": "00_stock.py",
+      "accuracy": 0.7361111111111112,
+      "calls": 8.006944444444445,
+      "accuracy_vs_stock": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 0.7361111111111112,
+        "mean_b": 0.7361111111111112,
+        "delta": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "level": 0.95,
+        "p_value": 1.0,
+        "verdict": "no_difference_detected",
+        "note": ""
+      },
+      "calls_vs_stock": {
+        "metric": "marker:model_calls",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 8.006944444444445,
+        "mean_b": 8.006944444444445,
+        "delta": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "level": 0.95,
+        "p_value": 1.0,
+        "verdict": "no_difference_detected",
+        "note": ""
+      }
+    },
+    {
+      "candidate": "01_lean_tools.py",
+      "accuracy": 0.7222222222222222,
+      "calls": 6.965277777777778,
+      "accuracy_vs_stock": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 0.7361111111111112,
+        "mean_b": 0.7222222222222222,
+        "delta": -0.013888888888888888,
+        "ci95": [
+          -0.06944444444444445,
+          0.041666666666666664
+        ],
+        "level": 0.95,
+        "p_value": 0.7996001999000499,
+        "verdict": "no_difference_detected",
+        "note": ""
+      },
+      "calls_vs_stock": {
+        "metric": "marker:model_calls",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 8.006944444444445,
+        "mean_b": 6.965277777777778,
+        "delta": -1.0416666666666667,
+        "ci95": [
+          -1.7847222222222223,
+          -0.3263888888888889
+        ],
+        "level": 0.95,
+        "p_value": 0.005497251374312844,
+        "verdict": "a_better",
+        "note": ""
+      }
+    },
+    {
+      "candidate": "02_review_procedure.py",
+      "accuracy": 0.7430555555555556,
+      "calls": 5.284722222222222,
+      "accuracy_vs_stock": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 0.7361111111111112,
+        "mean_b": 0.7430555555555556,
+        "delta": 0.006944444444444444,
+        "ci95": [
+          -0.041666666666666664,
+          0.0625
+        ],
+        "level": 0.95,
+        "p_value": 1.0,
+        "verdict": "no_difference_detected",
+        "note": ""
+      },
+      "calls_vs_stock": {
+        "metric": "marker:model_calls",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 8.006944444444445,
+        "mean_b": 5.284722222222222,
+        "delta": -2.7222222222222223,
+        "ci95": [
+          -3.423611111111111,
+          -2.0625
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "a_better",
+        "note": ""
+      }
+    },
+    {
+      "candidate": "03_procedure_big_reads.py",
+      "accuracy": 0.7569444444444444,
+      "calls": 5.5,
+      "accuracy_vs_stock": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 0.7361111111111112,
+        "mean_b": 0.7569444444444444,
+        "delta": 0.020833333333333332,
+        "ci95": [
+          -0.027777777777777776,
+          0.06944444444444445
+        ],
+        "level": 0.95,
+        "p_value": 0.5822088955522239,
+        "verdict": "no_difference_detected",
+        "note": ""
+      },
+      "calls_vs_stock": {
+        "metric": "marker:model_calls",
+        "paired": true,
+        "n_paired": 144,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 144,
+        "mean_a": 8.006944444444445,
+        "mean_b": 5.5,
+        "delta": -2.5069444444444446,
+        "ci95": [
+          -3.1944444444444446,
+          -1.8680555555555556
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "a_better",
+        "note": ""
+      }
+    }
+  ]
+}
