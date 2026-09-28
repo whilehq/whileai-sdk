@@ -15,10 +15,9 @@ metadata:
 
 # Write a recipe
 
-A recipe is one run a reader can redo: the data, the frozen test, the
-train, the score with its interval, the honest limits. The repo's merged
-recipes are 5 to 33 files and 800 to 4,800 lines; rows in git are a
-fixture the README names, never the dataset. Every step below is in
+A recipe is one run a reader can redo. The merged ones are 5 to 33 files
+and 800 to 4,800 lines; rows in git are a fixture the README names, never
+the dataset. Every step below is in
 `check.py`, which runs in under a minute with no key; its setup defines
 `RECIPE` (a temporary recipe that follows the rules), `BAD` (one that
 breaks four of them, so the audit is shown to go red), `REAL` (a merged
@@ -29,12 +28,11 @@ like the API).
 ## 1. Decide what lives in git
 
 Code, the README, `results.json`, `smoke.sh`, the pins, and a fixture of at
-most a few hundred rows named in the README. The rows themselves (train,
-validation, the full frozen tests), the weights and the scores go to a
-Hugging Face repo under the org and to the recipe's gitignored `out/`;
-`fetch_tests.py` or the README's first command pulls them back. The rule
-of thumb from the merged recipes: under 5,000 lines in the pull request,
-and a JSONL in git only when it is the fixture the offline path runs on.
+most a few hundred rows named in the README. The rows (train, validation,
+the full frozen tests), the weights and the scores go to a Hugging Face repo
+under the org and to the gitignored `out/`; `fetch_tests.py` pulls them
+back. Under 5,000 lines in the pull request, and a JSONL in git only when
+it is the fixture the offline path runs on.
 
 ## 2. Freeze the test by content, and commit the pin
 
@@ -79,10 +77,9 @@ are numbered, every one cited, the textbook by chapter title. Under about
 
 ## 4. Audit the folder before the pull request
 
-The audit below is what a reviewer looks for first. It reads the folder
-and returns findings; an empty list is a recipe in shape. It goes red on
-`BAD` (no smoke.sh, a mean with no interval, 3,000 rows in git, a key in a
-script) and stays green on `REAL`, which is how you know it can fail.
+The audit is what a reviewer looks for first; an empty list is a recipe in
+shape. It goes red on `BAD` (no smoke.sh, a mean with no interval, 3,000
+rows in git, a key in a script) and green on `REAL`, so it can fail.
 
 ```python
 MAX_FIXTURE_ROWS = 500
