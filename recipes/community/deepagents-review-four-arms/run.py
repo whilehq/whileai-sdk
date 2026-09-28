@@ -34,7 +34,7 @@ FIXTURE = HERE / "fixtures" / "rows.jsonl"
 def dry_run() -> int:
     """The measurement half on eight hand-built reviews: paired deltas, the
     in-budget behavior, and While's pick rule. No key, no network, no GPU."""
-    import whileai.simulations as wai
+    import whileai as wai
 
     rows = [json.loads(line) for line in FIXTURE.read_text(encoding="utf-8").splitlines()]
     by_arm: dict[str, list[dict]] = {}
@@ -44,8 +44,8 @@ def dry_run() -> int:
         )
     base = by_arm.pop("base")
     for arm, got in by_arm.items():
-        acc = wai.compare_runs(base, got, min_paired=2)
-        calls = wai.compare_runs(base, got, metric="marker:model_calls", min_paired=2)
+        acc = wai.simulations.compare_runs(base, got, min_paired=2)
+        calls = wai.simulations.compare_runs(base, got, metric="marker:model_calls", min_paired=2)
         print(
             f"{arm}: accuracy {acc['delta']:+.2f}  calls {calls['delta']:+.1f}  (paired over {acc['n_paired']} tasks)"
         )
@@ -62,7 +62,7 @@ def dry_run() -> int:
         }
         for r in base
     ]
-    picked, _ = wai.optimize(
+    picked, _ = wai.simulations.optimize(
         pool, mode="sft", target=len(pool), output=str(HERE / ".cache" / "dry.sft.jsonl")
     )
     print(

@@ -19,7 +19,7 @@ import sys
 import data
 import report
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.config import provenance
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -43,7 +43,7 @@ ARMS = {
     "srv-sft-with": (
         "SFT: While's pick",
         "SFT",
-        "LoRA SFT on the 173 trajectories wai.optimize kept: correct, within 8 calls, spread over tool patterns",
+        "LoRA SFT on the 173 trajectories wai.simulations.optimize kept: correct, within 8 calls, spread over tool patterns",
     ),
 }
 
@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         method=(
             "Public SWE-agent patches with hidden-test outcomes as review tasks. Traces from "
-            "the stock agent in LangSmith; smithtune for the smithtune SFT arm; wai.optimize "
+            "the stock agent in LangSmith; smithtune for the smithtune SFT arm; wai.simulations.optimize "
             "for the While SFT arm; the harness searched on dev repos only."
         ),
         measure=(

@@ -13,7 +13,7 @@ import json
 import pathlib
 import sys
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.config import provenance
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -58,7 +58,7 @@ def summary(rows: list[dict]) -> str:
 
 
 def delta(a: list[dict], b: list[dict], metric: str, scale: float = 1.0, unit: str = "") -> str:
-    c = wai.compare_runs(a, b, metric=metric)
+    c = wai.simulations.compare_runs(a, b, metric=metric)
     lo, hi = c["ci95"] or (float("nan"), float("nan"))
     return f"{c['delta'] * scale:+.1f}{unit} [{lo * scale:+.1f}, {hi * scale:+.1f}] {c['verdict']}"
 

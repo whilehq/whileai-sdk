@@ -107,7 +107,7 @@ def decontaminate(tasks: list[dict]) -> dict:
     """wai.decontaminate on top of the repo split: drop train and dev reviews whose
     issue-plus-patch text near-copies a holdout one (8-grams over 80% of tokens).
     Disjoint repos should leave nothing to drop; this is the check that says so."""
-    import whileai.simulations as wai
+    import whileai as wai
 
     def as_rows(ts):
         # task_id = the GitHub issue, so the same_task rule runs too.

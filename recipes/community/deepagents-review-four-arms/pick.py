@@ -1,7 +1,7 @@
 """While's pick of the training traces: correct AND lean, spread over ways of being right.
 
 smithtune's own pick is "the traces a council of judges keeps against a rubric".
-This is the other pick, made by `wai.optimize(mode="sft")` over the same pool:
+This is the other pick, made by `wai.simulations.optimize(mode="sft")` over the same pool:
 a trace qualifies only if its verdict matched the hidden tests and it used at
 most BUDGET model calls, and among those `select_for_sft` round-robins over
 tool-call signatures so one habit does not fill the set.
@@ -23,7 +23,7 @@ import sys
 import report
 from post import BUDGET
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.config import provenance
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -88,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
             }
         )
 
-    picked, rep = wai.optimize(
+    picked, rep = wai.simulations.optimize(
         rows, mode="sft", target=args.target, output=str(HERE / ".cache" / "while_pick.sft.jsonl")
     )
     correct = sum(r["correct"] for r in pool)

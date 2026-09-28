@@ -13,7 +13,7 @@ import sys
 
 import report
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.config import provenance
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -32,7 +32,7 @@ SPLITS = {"holdout": "held-out repos (246 reviews)", "public": "SWE-bench Verifi
 
 
 def cmp(a, b, metric):
-    c = wai.compare_runs(a, b, metric=metric)
+    c = wai.simulations.compare_runs(a, b, metric=metric)
     return {
         "delta": round(c["delta"], 4),
         "ci95": [round(x, 4) for x in c["ci95"]],

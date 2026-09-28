@@ -22,7 +22,7 @@ import sys
 
 import report
 
-import whileai.simulations as wai
+import whileai as wai
 from whileai.config import provenance
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -60,8 +60,8 @@ def main(argv: list[str] | None = None) -> int:
     scored = []
     for f in files:
         rows = report.load(f"h-{f.stem}", "dev")
-        acc = wai.compare_runs(stock, rows)
-        calls = wai.compare_runs(stock, rows, metric="marker:model_calls")
+        acc = wai.simulations.compare_runs(stock, rows)
+        calls = wai.simulations.compare_runs(stock, rows, metric="marker:model_calls")
         scored.append(
             {
                 "candidate": f.name,
