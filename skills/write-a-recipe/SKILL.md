@@ -66,14 +66,12 @@ and bump it when the rows change.
 ## 3. The README, in the house shape
 
 Open with what the recipe does and the number it moved, with its interval
-and n, in the first paragraph; then **what you will learn**, **needs**,
-**takes**. `## Run it` comes next and its first command is the free one
+and n; then **what you will learn**, **needs**, **takes**. `## Run it` comes next and its first command is the free one
 (`sh smoke.sh`, `python run.py --dry-run`), the paid one and its cost
-after it, then a flags table. The result table carries every arm with a
-95% interval and the seed count; a flat or negative result is a row, not a
-footnote. `## Honest limits` says what the numbers do not show. References
-are numbered, every one cited, the textbook by chapter title. Under about
-250 lines; a climb of many rounds is a table, not a section per round.
+after it, then a flags table. Every arm gets a row with its 95% interval and seed count, a flat or
+negative result included. `## Honest limits` says what the numbers do not
+show. References are numbered, every one cited, the textbook by chapter
+title. Under about 250 lines; a climb of many rounds is a table.
 
 ## 4. Audit the folder before the pull request
 
@@ -186,9 +184,8 @@ def post(results: dict, transport) -> str:
     return str(tracked.verdict())
 ```
 
-The pull request: `gh pr create` fails in this repository; use
-`gh api -X POST repos/whilehq/whileai-sdk/pulls -f title=.. -f head=<branch>
--f base=main -F draft=true -F body=@body.md`. The body opens with `Closes
-#n` or `No issue: ...`, names what the files are when there are more than
-about fifteen, and ends with the attribution line. A pull request that conflicts
+`gh pr create` fails here; use `gh api -X POST repos/whilehq/whileai-sdk/pulls
+-f title=.. -f head=<branch> -f base=main -F draft=true -F body=@body.md`.
+The body opens with `Closes #n` or `No issue: ...`, names the files when
+there are more than about fifteen, and ends with the attribution line. A pull request that conflicts
 with main gets no CI, so rebase first. Never `git add -A`; add by path.
