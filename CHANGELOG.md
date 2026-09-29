@@ -7,6 +7,16 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/04-train/refuse-or-comply/`: does training an agent to resist a planted instruction
+  cost it the job, and does a 22M classifier in front of the tool-result channel buy the resistance
+  without the cost. Five arms on one frozen holdout (120 attacked, 120 clean prompts; the over-refusal
+  control sized like the treatment), the sibling recipe's program grader, three base draws for the
+  floor, three seeds per trained arm, the size-matched random-selection control. Reward-selected SFT:
+  +44.1 points [+37.0, +51.1] on the attack half, -5.3 [-8.4, -2.5] on the clean half (false flags,
+  not undone jobs). The classifier gate sees 37% of the planted results here and moves nothing but
+  over-refusal (+10.8 [+5.3, +16.9]); an oracle gate that withholds every planted result costs 29
+  points of safe-and-done (over-refusal +36.4 [+29.2, +43.9]): the agent files a review and stops.
+
 - Community recipe `recipes/community/deepagents-review-four-arms/`: fine-tune a LangChain Deep Agents
   reviewer (Qwen3.8-27B) from its LangSmith traces with smithtune's renderer and schedule, once on
   smithtune's council pick and once on `wai.simulations.optimize`'s pick. On SWE-bench Verified patch
