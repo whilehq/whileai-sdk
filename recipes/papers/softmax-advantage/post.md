@@ -1,0 +1,1 @@
+Reproduced 2608.09271 on Qwen2.5-1.5B: softmax group advantage vs GRPO, GSM8K pass@1 0.586 -> 0.613 (+0.027 [-0.091, +0.144], flat), 300 tasks, 2 seeds. Random reward fell to 0.121. https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/softmax-advantage

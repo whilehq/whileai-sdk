@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Paper recipe `recipes/papers/softmax-advantage/`: SoftmaxGRPO (Hernandez et al., arXiv:2608.09271), the
+  group advantage as `M * softmax(r / tau) - 1` instead of GRPO's z-score, on Qwen2.5-1.5B-Instruct and
+  300 hash-pinned GSM8K test problems, with a Bernoulli(0.5) random-reward arm at the same steps and seeds.
+  Recipe vs GRPO +0.027 pass@1 [-0.091, +0.144] across two seeds per arm, flat; the random-reward arm
+  fell from 0.415 to 0.062 and 0.180, so the verifier's +0.15 to +0.20 over the base is not a spurious-
+  reward effect. The paper's 256-token cap cut half the base's replies; the recipe runs at 1,024.
 - Community recipe `recipes/community/deepagents-review-four-arms/`: fine-tune a LangChain Deep Agents
   reviewer (Qwen3.8-27B) from its LangSmith traces with smithtune's renderer and schedule, once on
   smithtune's council pick and once on `wai.simulations.optimize`'s pick. On SWE-bench Verified patch
