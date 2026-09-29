@@ -42,6 +42,8 @@ recipes/04-train/identity/out/
 recipes/04-train/fireworks/out/
 recipes/04-train/text-to-sql/raw/
 recipes/04-train/text-to-sql/out/
+recipes/04-train/opd-text-to-sql/out/
+recipes/04-train/opd-text-to-sql/configs/
 recipes/04-train/text-to-sql/pg/
 recipes/04-train/text-to-sql/author.done.txt
 # what the smoke runs write

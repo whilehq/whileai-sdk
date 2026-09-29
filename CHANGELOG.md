@@ -7,6 +7,19 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/04-train/opd-text-to-sql/`: on-policy distillation (`wai.OPD`) from Qwen2.5-7B-Instruct
+  into Qwen2.5-1.5B-Instruct on the text-to-sql holdout (459 tasks, k=4, execution match, a reply cut at
+  the cap scores 0), with the teacher gate measured first: teacher 0.496 vs student 0.240, +0.256
+  [+0.223, +0.290] against an MDE of 0.049, teacher truncation 0%, noise floor 12.7 points from three
+  base re-runs. Two seeds an arm, 100 steps x 8 rows, LoRA r16 on one L40S. OPD with the reverse KL over
+  the full vocabulary: 0.434 and 0.438, +0.194 [+0.162, +0.226] on seed 17 (sign test p < 1e-28, across
+  seeds +0.196 [+0.154, +0.238]); sequence KD (SFT on the teacher's completions): 0.381 and 0.375,
+  +0.141 [+0.114, +0.169]; OPD against sequence KD +0.053 [+0.029, +0.076], within the eval's noise
+  band. OPD with the reverse KL summed over the teacher's top-32 tokens, the form
+  `docs/reference/methods.md` writes: 0.189 and 0.240, no gain, `has_sql` 1.00 -> 0.42, the student
+  moved its mass off the support the loss charges for. `run.py --dry-run` writes the prime-rl configs
+  and runs the selftest offline.
+
 - Community recipe `recipes/community/deepagents-review-four-arms/`: fine-tune a LangChain Deep Agents
   reviewer (Qwen3.8-27B) from its LangSmith traces with smithtune's renderer and schedule, once on
   smithtune's council pick and once on `wai.simulations.optimize`'s pick. On SWE-bench Verified patch

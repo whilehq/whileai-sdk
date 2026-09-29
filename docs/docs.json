@@ -158,6 +158,7 @@
                   "recipes/04-train/grpo",
                   "recipes/04-train/hosted-loop",
                   "recipes/04-train/identity",
+                  "recipes/04-train/opd-text-to-sql",
                   "recipes/04-train/parsebench",
                   "recipes/04-train/prime-rl",
                   "recipes/04-train/report-run",
