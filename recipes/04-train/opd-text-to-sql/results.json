@@ -1,0 +1,564 @@
+{
+ "recipe": "opd-text-to-sql",
+ "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+ "teacher": "Qwen/Qwen2.5-7B-Instruct",
+ "metric": "sql_execution_match",
+ "test_version": "t-c4e9ad09",
+ "n_holdout": 459,
+ "k": 4,
+ "max_tokens": 512,
+ "temperature": 0.7,
+ "steps": 100,
+ "rows_per_step": 8,
+ "train_prompts": 200,
+ "seeds": [
+  17,
+  23
+ ],
+ "gate": {
+  "teacher": {
+   "model": "Qwen/Qwen2.5-7B-Instruct",
+   "pass_at_1": 0.49564270152505446,
+   "ci95": [
+    0.4553376906318083,
+    0.5359477124183006
+   ],
+   "pass_at_k": 0.6056644880174292,
+   "truncated": 0.0,
+   "mean_tokens": 77.3458605664488
+  },
+  "student": {
+   "model": "Qwen/Qwen2.5-1.5B-Instruct",
+   "pass_at_1": 0.23965141612200436,
+   "ci95": [
+    0.20806100217864923,
+    0.27124183006535946
+   ],
+   "pass_at_k": 0.40522875816993464,
+   "truncated": 0.002178649237472767,
+   "mean_tokens": 90.09313725490196,
+   "reruns": [
+    0.23965141612200436,
+    0.23366013071895425,
+    0.20098039215686275
+   ]
+  },
+  "noise": {
+   "run_std": 0.0208,
+   "n_runs": 3,
+   "noise_band": 0.1267,
+   "points": 12.67
+  },
+  "paired": {
+   "n_tasks": 459,
+   "mean_delta": 0.2559912854030501,
+   "ups": 220,
+   "downs": 26,
+   "ties": 213,
+   "ties_saturated": 38,
+   "ties_floor": 166,
+   "ties_partial": 9,
+   "sign_p": 1.8437109391056556e-39,
+   "paired_sd": 0.3658071445809285,
+   "mde80_measured": 0.04780836285417069,
+   "mde80_default": 0.049140495748822954
+  },
+  "compare": {
+   "delta": 0.2559912854030501,
+   "ci95": [
+    0.2227668845315904,
+    0.289760348583878
+   ],
+   "verdict": "moved"
+  },
+  "mde": 0.049140495748822954,
+  "pool": {
+   "expected_mixed_k8": 0.2885982870795888,
+   "all_fail_k4": 0.5947712418300654,
+   "all_pass_k4": 0.09368191721132897
+  },
+  "k": 4,
+  "max_tokens": 512,
+  "n_holdout": 459,
+  "passed": true,
+  "why": "teacher - student +0.256 exceeds the MDE 0.049; teacher truncation 0.0%"
+ },
+ "checks": {
+  "run_std": 0.0208,
+  "run_std_runs": 3,
+  "noise_band": 0.1267,
+  "noise_band_points": 12.67,
+  "decontaminated_dropped": 0,
+  "decontaminate_rules_skipped": {},
+  "train_seeds": 2,
+  "grader": "program (sql_verifier.SQLExec, execution match on the seeded store)",
+  "truncation_rule": "a reply cut at the cap scores 0"
+ },
+ "arms": {
+  "base": {
+   "method": "none",
+   "score": 0.23965141612200436,
+   "ci": [
+    0.20806100217864923,
+    0.27124183006535946
+   ],
+   "ci_half": 0.031590413943355114,
+   "reruns": [
+    0.23965141612200436,
+    0.23366013071895425,
+    0.20098039215686275
+   ],
+   "pass_at_k": 0.40522875816993464,
+   "truncated": 0.002178649237472767,
+   "mean_tokens": 90.09313725490196,
+   "steps": 0,
+   "note": "Changed: nothing.\nMoved: the base, three re-runs.\nWhy: the noise floor.\nLearned: what a re-run moves.\nReproduce: python run.py --stage gate"
+  },
+  "opd": {
+   "method": "on-policy distillation, reverse KL on the teacher's top-32 tokens",
+   "score": 0.21459694989106753,
+   "ci": [
+    0.1655773420479303,
+    0.26851851851851855
+   ],
+   "ci_half": 0.027233115468409605,
+   "delta": -0.05065359477124183,
+   "delta_ci": [
+    -0.07679738562091504,
+    -0.023420479302832243
+   ],
+   "delta_p": 0.0009995002498750624,
+   "within_noise": true,
+   "seed_delta": -0.025054466230936823,
+   "seed_delta_ci": [
+    -0.3514100777256612,
+    0.30130114526378754
+   ],
+   "seed_std": {
+    "before": null,
+    "after": 0.03620263476663151
+   },
+   "verdict": "within_eval_noise",
+   "markers": {
+    "marker:executes": {
+     "before": 0.5179738562091504,
+     "after": 0.28540305010893247,
+     "delta": -0.23257080610021785,
+     "ci95": [
+      -0.264161220043573,
+      -0.20152505446623092
+     ]
+    },
+    "marker:has_sql": {
+     "before": 1.0,
+     "after": 0.41830065359477125,
+     "delta": -0.5816993464052288,
+     "ci95": [
+      -0.6023965141612201,
+      -0.5626361655773421
+     ]
+    }
+   },
+   "per_seed": {
+    "17": {
+     "score": 0.18899782135076254,
+     "ci": [
+      0.1655773420479303,
+      0.21350762527233116
+     ],
+     "pass_at_k": 0.4139433551198257,
+     "delta": -0.05065359477124183,
+     "ups": 74,
+     "downs": 128,
+     "ties": 257,
+     "ties_floor": 226,
+     "ties_saturated": 1,
+     "sign_p": 0.00017723598006826218,
+     "truncated": 0.004357298474945534,
+     "mean_tokens": 88.07080610021787,
+     "gpu_minutes": 52.9
+    },
+    "23": {
+     "score": 0.24019607843137256,
+     "ci": [
+      0.21405228758169934,
+      0.26851851851851855
+     ],
+     "pass_at_k": 0.4662309368191721,
+     "delta": 0.0005446623093681918,
+     "ups": 105,
+     "downs": 96,
+     "ties": 258,
+     "ties_floor": 214,
+     "ties_saturated": 4,
+     "sign_p": 0.5726756419095728,
+     "truncated": 0.049019607843137254,
+     "mean_tokens": 109.3578431372549,
+     "gpu_minutes": 53.8
+    }
+   },
+   "pooled": {
+    "n_tasks": 459,
+    "mean_delta": -0.02505446623093682,
+    "ups": 108,
+    "downs": 119,
+    "ties": 232,
+    "ties_saturated": 1,
+    "ties_floor": 204,
+    "ties_partial": 27,
+    "sign_p": 0.5069556871220083,
+    "paired_sd": 0.2786888600097973,
+    "mde80_measured": 0.036422629629137664,
+    "mde80_default": 0.049140495748822954
+   },
+   "truncated": 0.026688453159041396,
+   "mean_tokens": 98.71432461873638,
+   "steps": 100,
+   "gpu_minutes": 106.6,
+   "config": {
+    "method": "opd",
+    "student": "Qwen/Qwen2.5-1.5B-Instruct",
+    "teacher": "Qwen/Qwen2.5-7B-Instruct",
+    "vocab": {
+     "tokenizer": 151665,
+     "student_config": 151936,
+     "teacher_config": 152064
+    },
+    "divergence": "reverse_kl",
+    "top_k": 32,
+    "samples": 4,
+    "temperature": 1.0,
+    "max_tokens": 512,
+    "learning_rate": 0.0001,
+    "lora_rank": 16,
+    "steps": 100,
+    "rows_per_step": 8,
+    "n_prompts": 200,
+    "prompt_seed": 0,
+    "seed": 17,
+    "trainer": "trl-0.19.1 GKDTrainer, compute_loss = top-k reverse KL",
+    "gpu": "L40S"
+   }
+  },
+  "opd-full": {
+   "method": "on-policy distillation, reverse KL over the full vocabulary",
+   "score": 0.43572984749455335,
+   "ci": [
+    0.39324618736383443,
+    0.4803921568627451
+   ],
+   "ci_half": 0.04302832244008714,
+   "delta": 0.19389978213507625,
+   "delta_ci": [
+    0.16176470588235295,
+    0.22603485838779958
+   ],
+   "delta_p": 0.0004997501249375312,
+   "within_noise": false,
+   "seed_delta": 0.196078431372549,
+   "seed_delta_ci": [
+    0.1536643810323231,
+    0.23849248171277487
+   ],
+   "seed_std": {
+    "before": null,
+    "after": 0.003081075299287791
+   },
+   "verdict": "moved",
+   "markers": {
+    "marker:executes": {
+     "before": 0.5179738562091504,
+     "after": 0.6938997821350763,
+     "delta": 0.17592592592592593,
+     "ci95": [
+      0.14596949891067537,
+      0.20642701525054466
+     ]
+    },
+    "marker:has_sql": {
+     "before": 1.0,
+     "after": 1.0,
+     "delta": 0.0,
+     "ci95": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "per_seed": {
+    "17": {
+     "score": 0.4335511982570806,
+     "ci": [
+      0.39324618736383443,
+      0.47657952069716775
+     ],
+     "pass_at_k": 0.5185185185185185,
+     "delta": 0.19389978213507625,
+     "ups": 180,
+     "downs": 26,
+     "ties": 253,
+     "ties_floor": 201,
+     "ties_saturated": 40,
+     "sign_p": 1.567711737408533e-29,
+     "truncated": 0.0,
+     "mean_tokens": 73.92701525054466,
+     "gpu_minutes": 24.7
+    },
+    "23": {
+     "score": 0.43790849673202614,
+     "ci": [
+      0.39433551198257083,
+      0.4803921568627451
+     ],
+     "pass_at_k": 0.5119825708061002,
+     "delta": 0.19825708061002179,
+     "ups": 170,
+     "downs": 20,
+     "ties": 269,
+     "ties_floor": 208,
+     "ties_saturated": 42,
+     "sign_p": 7.905290080352722e-31,
+     "truncated": 0.0005446623093681918,
+     "mean_tokens": 72.48148148148148,
+     "gpu_minutes": 41.3
+    }
+   },
+   "pooled": {
+    "n_tasks": 459,
+    "mean_delta": 0.19607843137254902,
+    "ups": 191,
+    "downs": 27,
+    "ties": 241,
+    "ties_saturated": 40,
+    "ties_floor": 195,
+    "ties_partial": 6,
+    "sign_p": 1.299346189584812e-31,
+    "paired_sd": 0.3300795150009274,
+    "mde80_measured": 0.043139018626799516,
+    "mde80_default": 0.049140495748822954
+   },
+   "truncated": 0.0002723311546840959,
+   "mean_tokens": 73.20424836601308,
+   "steps": 100,
+   "gpu_minutes": 66.0,
+   "config": {
+    "method": "opd",
+    "student": "Qwen/Qwen2.5-1.5B-Instruct",
+    "teacher": "Qwen/Qwen2.5-7B-Instruct",
+    "vocab": {
+     "tokenizer": 151665,
+     "student_config": 151936,
+     "teacher_config": 152064
+    },
+    "divergence": "reverse_kl",
+    "support": "full",
+    "top_k": null,
+    "samples": 4,
+    "temperature": 1.0,
+    "max_tokens": 512,
+    "learning_rate": 0.0001,
+    "lora_rank": 16,
+    "steps": 100,
+    "rows_per_step": 8,
+    "n_prompts": 200,
+    "prompt_seed": 0,
+    "seed": 17,
+    "trainer": "trl-0.19.1 GKDTrainer, compute_loss = top-k reverse KL",
+    "gpu": "L40S"
+   }
+  },
+  "seqkd": {
+   "method": "sequence KD (SFT on teacher completions)",
+   "score": 0.3777233115468409,
+   "ci": [
+    0.3382352941176471,
+    0.41721132897603486
+   ],
+   "ci_half": 0.037037037037037035,
+   "delta": 0.14106753812636166,
+   "delta_ci": [
+    0.11437908496732026,
+    0.16938997821350762
+   ],
+   "delta_p": 0.0004997501249375312,
+   "within_noise": false,
+   "seed_delta": 0.13807189542483655,
+   "seed_delta_ci": [
+    0.09111112599109569,
+    0.18503266485857742
+   ],
+   "seed_std": {
+    "before": null,
+    "after": 0.004236478536520707
+   },
+   "verdict": "moved",
+   "markers": {
+    "marker:executes": {
+     "before": 0.5179738562091504,
+     "after": 0.673202614379085,
+     "delta": 0.15522875816993464,
+     "ci95": [
+      0.12690631808278868,
+      0.1830065359477124
+     ]
+    },
+    "marker:has_sql": {
+     "before": 1.0,
+     "after": 1.0,
+     "delta": 0.0,
+     "ci95": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "per_seed": {
+    "17": {
+     "score": 0.380718954248366,
+     "ci": [
+      0.3464052287581699,
+      0.41721132897603486
+     ],
+     "pass_at_k": 0.5315904139433552,
+     "delta": 0.14106753812636166,
+     "ups": 161,
+     "downs": 36,
+     "ties": 262,
+     "ties_floor": 198,
+     "ties_saturated": 36,
+     "sign_p": 4.5250753202768064e-20,
+     "truncated": 0.0005446623093681918,
+     "mean_tokens": 71.91884531590414,
+     "gpu_minutes": 2.1
+    },
+    "23": {
+     "score": 0.3747276688453159,
+     "ci": [
+      0.3382352941176471,
+      0.41230936819172115
+     ],
+     "pass_at_k": 0.514161220043573,
+     "delta": 0.13507625272331156,
+     "ups": 152,
+     "downs": 37,
+     "ties": 270,
+     "ties_floor": 206,
+     "ties_saturated": 35,
+     "sign_p": 9.459176223023853e-18,
+     "truncated": 0.0005446623093681918,
+     "mean_tokens": 73.82244008714596,
+     "gpu_minutes": 2.0
+    }
+   },
+   "pooled": {
+    "n_tasks": 459,
+    "mean_delta": 0.1380718954248366,
+    "ups": 172,
+    "downs": 40,
+    "ties": 247,
+    "ties_saturated": 34,
+    "ties_floor": 192,
+    "ties_partial": 21,
+    "sign_p": 1.0713844677365182e-20,
+    "paired_sd": 0.2875515247092915,
+    "mde80_measured": 0.03758091616368218,
+    "mde80_default": 0.049140495748822954
+   },
+   "truncated": 0.0005446623093681918,
+   "mean_tokens": 72.87064270152506,
+   "steps": 100,
+   "gpu_minutes": 4.1,
+   "config": {
+    "method": "seqkd",
+    "student": "Qwen/Qwen2.5-1.5B-Instruct",
+    "teacher_rows": "teacher-train",
+    "rows": 800,
+    "rows_dropped_truncated": 0,
+    "teacher_pass_rate_on_rows": 0.5025,
+    "learning_rate": 0.0001,
+    "lora_rank": 16,
+    "steps": 100,
+    "rows_per_step": 8,
+    "seed": 17,
+    "trainer": "trl-0.19.1 SFTTrainer, completion_only_loss",
+    "gpu": "L40S"
+   }
+  }
+ },
+ "verdicts": {
+  "opd": "within_eval_noise",
+  "opd-full": "moved",
+  "seqkd": "moved"
+ },
+ "pairs": {
+  "opd-full_vs_opd": {
+   "delta": 0.2445533769063181,
+   "ci95": [
+    0.21187363834422657,
+    0.2739651416122004
+   ],
+   "p_value": 0.0004997501249375312,
+   "verdict": "moved",
+   "paired": {
+    "n_tasks": 459,
+    "mean_delta": 0.2445533769063181,
+    "ups": 211,
+    "downs": 16,
+    "ties": 232,
+    "ties_saturated": 7,
+    "ties_floor": 212,
+    "ties_partial": 13,
+    "sign_p": 1.3864665355924218e-44,
+    "paired_sd": 0.33694573123893906,
+    "mde80_measured": 0.044036383706199805,
+    "mde80_default": 0.049140495748822954
+   }
+  },
+  "seqkd_vs_opd": {
+   "delta": 0.19172113289760348,
+   "ci95": [
+    0.16230936819172112,
+    0.22004357298474944
+   ],
+   "p_value": 0.0004997501249375312,
+   "verdict": "moved",
+   "paired": {
+    "n_tasks": 459,
+    "mean_delta": 0.19172113289760348,
+    "ups": 201,
+    "downs": 29,
+    "ties": 229,
+    "ties_saturated": 4,
+    "ties_floor": 206,
+    "ties_partial": 19,
+    "sign_p": 7.483843093643079e-33,
+    "paired_sd": 0.31399297934580495,
+    "mde80_measured": 0.04103662411357123,
+    "mde80_default": 0.049140495748822954
+   }
+  },
+  "seqkd_vs_opd-full": {
+   "delta": -0.0528322440087146,
+   "ci95": [
+    -0.07625272331154684,
+    -0.02886710239651416
+   ],
+   "p_value": 0.0004997501249375312,
+   "verdict": "within_eval_noise",
+   "paired": {
+    "n_tasks": 459,
+    "mean_delta": -0.0528322440087146,
+    "ups": 50,
+    "downs": 105,
+    "ties": 304,
+    "ties_saturated": 85,
+    "ties_floor": 195,
+    "ties_partial": 24,
+    "sign_p": 1.1820918114862997e-05,
+    "paired_sd": 0.2631356007972828,
+    "mde80_measured": 0.034389930511550135,
+    "mde80_default": 0.049140495748822954
+   }
+  }
+ }
+}

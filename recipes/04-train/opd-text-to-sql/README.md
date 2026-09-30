@@ -1,0 +1,203 @@
+# On-policy distillation on text-to-SQL, with the teacher gate measured first
+
+A 1.5B student samples its own SQL, a frozen 7B teacher scores every token
+it wrote, and the loss is the reverse KL between them at the states the
+student visited (`wai.OPD`). Against it: the offline control, SFT on the
+teacher's own completions to the same prompts (sequence KD), and the
+untrained base. Before any of that, the gate: on the same 459 held-out
+tasks at the student's token cap, the teacher has to beat the student by
+more than the eval can resolve, without running out of tokens.
+
+The gate passed (+0.256, MDE 0.049), and OPD moved execution-match pass@1
+from **0.240 to 0.434 and 0.438 on two training seeds** (+0.194 [+0.162,
++0.226] on seed 17, exact sign test p < 1e-28, 459 paired tasks), above
+sequence KD's 0.381 and 0.375 (+0.141 [+0.114, +0.169]). OPD against
+sequence KD is +0.053 [+0.029, +0.076], p < 1e-4 on the sign test, and
+under the eval's 12.7-point re-run band, so that second gap is not yet a
+result. The same OPD with the loss summed over the teacher's top-32 tokens
+instead of the vocabulary gained nothing (0.189 and 0.240) and stopped
+writing SQL on 58% of replies.
+
+What you will learn: how to measure the teacher gate before spending a GPU
+(the gap, the MDE, the truncation share, the noise floor from three base
+re-runs), what on-policy distillation looks like as a TRL loop with the
+reverse KL as the loss, why the support the KL sums over decides the run,
+and how to read a two-seed result with its interval, its tie split and its
+sign test. You need a Modal account and one L40S; `--dry-run` needs
+nothing. About 20 minutes for the gate and under an hour an arm.
+
+## Run it
+
+```bash
+uv add whileai modal
+cd recipes/04-train/opd-text-to-sql
+sh smoke.sh                          # free: the prime-rl configs, the selftest, the plan
+modal deploy opd_modal.py            # the sampler and the two trainers, once
+python run.py --stage gate           # teacher x1, student x3, the teacher's train rows: about $1
+python run.py                        # gate, then the arms, then eval and report: about $9 in all
+```
+
+| flag | default | what it does |
+|---|---|---|
+| `--stage` | `all` | `gate`, `train`, `eval` or `report` on its own |
+| `--arms` | `opd opd-full seqkd` | which trained arms to run |
+| `--steps` | 100 | optimizer steps an arm, 8 rows each |
+| `--limit` | all | first N holdout tasks, a smoke run |
+| `--dry-run` | off | offline: writes `configs/opd.toml` and `configs/opsd.toml`, runs the selftest, prints the plan |
+
+The gate stops the run when it fails; that is the recipe's result then, and
+`out/gate.json` carries it. Each stage resumes from rows already on the
+`opd-runs` volume, so a killed run re-spends nothing. Every number below is
+in `results.json`, which `--stage report` writes.
+
+## What you get
+
+The holdout is the text-to-sql recipe's: 459 of its 2,223 tasks by a hash
+of the id, pinned by content in `holdout.sha256` (the platform test
+`t-c4e9ad09`), graded by its execution-match verifier on the seeded store.
+Four samples a task at temperature 0.7, a 512-token cap, and a reply the
+cap cut scores 0 whatever it contains. No judge anywhere.
+
+**The gate** (`python run.py --stage gate`):
+
+| | pass@1 (95% CI) | pass@4 | cut at the cap | mean reply |
+|---|---|---|---|---|
+| teacher, Qwen2.5-7B-Instruct | 0.496 (0.455..0.536) | 0.606 | 0.0% | 77 tokens |
+| student, Qwen2.5-1.5B-Instruct | 0.240 (0.208..0.271) | 0.405 | 0.2% | 90 tokens |
+
+Teacher minus student, paired over the 459 tasks: **+0.256 (+0.223..+0.290)**,
+220 tasks up, 26 down, 213 tied (166 both at zero, 38 both at one, 9 equal
+partial rates), exact sign test p < 1e-30. The MDE at n=459 is 0.049 (2.8
+x sd / sqrt(n); the measured paired sd is 0.366, the default 0.376), so the
+gap is five times what the eval can resolve, and the teacher never hit the
+cap. The gate passes. The student's three re-runs (0.240, 0.234, 0.201)
+give run_std 0.021 and a noise floor of **12.7 points** (t at df=2, 4.30,
+times run_std times sqrt 2); `wai.compare` applies it as 11.0 points to a
+one-run-against-two-seed delta. The student's pool is near the floor: 59%
+of holdout tasks fail all four samples, and the expected mixed-group share
+at k=8 is 0.29, so a group-relative method would have little to work with
+here; distillation does not read a reward and is the method for exactly
+this pool.
+
+**The arms**, two training seeds each, the same 200 train prompts, 100
+steps of 8 rows, LoRA rank 16, learning rate 1e-4, one L40S:
+
+| Arm | seed | pass@1 (95% CI) | vs base, paired | ties (floor / sat) | sign test | cut | mean reply | GPU min |
+|---|---|---|---|---|---|---|---|---|
+| base | 3 re-runs | 0.240 (0.208..0.271); re-runs 0.240, 0.234, 0.201 | | | | 0.2% | 90 | |
+| OPD, reverse KL over the vocabulary | 17 | **0.434** (0.393..0.477) | **+0.194** (+0.162..+0.226) | 253 (201 / 40) | p = 1.6e-29 | 0.0% | 74 | 24.7 |
+| | 23 | **0.438** (0.394..0.480) | +0.198 | 269 (208 / 42) | p = 7.9e-31 | 0.1% | 72 | 41.3 |
+| | across seeds | mean 0.436 | +0.196 (+0.154..+0.238) | | | | | |
+| sequence KD, SFT on the teacher's completions | 17 | 0.381 (0.346..0.417) | +0.141 (+0.114..+0.169) | 262 (198 / 36) | p = 4.5e-20 | 0.1% | 72 | 2.1 |
+| | 23 | 0.375 (0.338..0.412) | +0.135 | 270 (206 / 35) | p = 9.5e-18 | 0.1% | 74 | 2.0 |
+| | across seeds | mean 0.378 | +0.138 (+0.091..+0.185) | | | | | |
+| OPD, reverse KL on the teacher's top-32 tokens | 17 | 0.189 (0.166..0.214) | -0.051 (-0.077..-0.023) | 257 (226 / 1) | p = 1.8e-4 | 0.4% | 88 | 52.9 |
+| | 23 | 0.240 (0.214..0.269) | +0.001 | 258 (214 / 4) | p = 0.57 | 4.9% | 109 | 53.8 |
+| | across seeds | mean 0.215 | -0.025 (-0.351..+0.301) | | | | | |
+
+Intervals on a single seed are the paired bootstrap over tasks; the
+across-seeds line adds the between-seed term at t(df=1) = 12.7 the way
+`wai.compare(train_runs=)` does, which is why a two-seed arm with a 0.036
+seed spread (top-k OPD) carries a 65-point interval and one with 0.003
+(full-vocabulary OPD) keeps most of its width. Both moved arms clear the
+noise band on both seeds; the sign test counts the discordant tasks at
+equal k, and every moved arm has over 200 tasks up against under 30 down.
+
+Between the two moved arms: OPD minus sequence KD on seed 17 is +0.053
+(+0.029..+0.076), 105 tasks up, 50 down, 304 tied, sign test p = 1.2e-5,
+and `wai.compare` files it as within the eval's noise band, because the
+band is the base's re-run spread and that spread is wide (three draws,
+t = 4.30). Both seeds put OPD above both seeds of sequence KD; a third base
+re-run pair, or three seeds an arm, is what would turn that ordering into
+a result.
+
+The training curves say the same thing the holdout does. On the
+full-vocabulary arm the teacher-minus-student log-probability on the
+student's own sampled tokens went from -0.65 to -0.13 (seed 17) and -0.53
+to -0.08 (seed 23): the teacher came to agree with what the student
+writes. On the top-k arm the training loss fell (0.48 to 0.25) while that
+gap widened to -1.28: the student's samples drifted to tokens outside the
+teacher's top-32, where the truncated loss charges nothing.
+
+## How the arms are built
+
+- **OPD** (`opd_modal.py::train_opd`): TRL 0.19.1 `GKDTrainer` with
+  `lmbda=1` (every batch is the student's own sample at temperature 1.0,
+  the on-policy end of GKD [1]) and `compute_loss` replaced by the
+  per-token reverse KL, masked to the sampled tokens. `support="full"`
+  sums it over the vocabulary (Agarwal et al. Eq. 1 at beta = 1, what
+  prime-rl scores); `support="top_k"` sums it over the teacher's top-32
+  tokens, the form `docs/reference/methods.md` writes for `wai.OPD`, with
+  `top_k`, `samples`, `temperature`, `max_tokens` and `learning_rate` at
+  the object's defaults, each sourced in `defaults.py`. No gold SQL enters
+  either arm. The two checkpoints share a tokenizer (151,665 tokens,
+  checked on a probe string in the container) but pad their embedding
+  tables to 151,936 and 152,064, so both log-softmaxes run over the
+  tokenizer's vocabulary; a mismatch would drop the signal silently [5].
+- **Sequence KD** (`train_seqkd`): the teacher's four samples on the same
+  200 prompts (`out/teacher-train.jsonl`, pass rate 0.50, none cut), SFT
+  with the loss on the completion tokens only, the same LoRA, steps, rows
+  and seeds. The teacher's samples are taken as they are, right or wrong:
+  sequence KD imitates the teacher, not the gold [2, 3].
+- **Base**: the student, three re-runs, the noise floor.
+- `configs/opd.toml` and `configs/opsd.toml` are the two methods in
+  prime-rl's words, written by `wai.prime_rl_config` for a reader with two
+  GPUs and a served teacher; this recipe trains on TRL because the pair
+  fits one GPU there. The OPSD config names the gold SQL as the privileged
+  context (`privileged="reference"`): the fallback when no teacher beats
+  the student, not run here because the gate passed and the student is
+  under the size at which the OPSD papers report it working [4].
+
+## Learned
+
+- **The support the reverse KL sums over decides the run.** Summed over
+  the teacher's top-32 tokens, the loss is minimised by moving probability
+  mass off that support: `has_sql` went 1.00 to 0.42 and `executes` 0.52
+  to 0.29 (both intervals well below zero), the student wrote a doubled
+  code fence (` ```sql ```lua SELECT ...`) the verifier cannot read, and
+  the holdout gained nothing while the training loss fell by half. Summed
+  over the vocabulary, the same loop, prompts, seeds and steps gave +0.19
+  on both seeds. The top-k form is what `docs/reference/methods.md`
+  writes for `wai.OPD`; as written it is not a divergence, and a trainer
+  that follows it needs either the full sum or a renormalised
+  top-k pair (Li et al. 2026, Fu et al. 2026, the papers `OPD_TOP_K`
+  cites). This recipe does not change the page; the number is here so the
+  fix has a measurement to point at.
+- **The gate is cheap and it was right.** Four sampling runs, about a
+  dollar, said the teacher had 25 points to give and that a 5-point
+  effect was the smallest the eval could see. The moved arms landed at
+  +0.14 and +0.19, inside that range.
+- **On-policy beat offline at the same steps, but the eval's own band is
+  the bar.** +0.053 with both seeds ordered the same way is a strong hint
+  and not yet a result; the 12.7-point band comes from three base draws
+  and t(df=2). The cheapest way to settle it is more base re-runs, not
+  more training.
+- **Replies got shorter on every moved arm** (90 to 72-74 tokens) with
+  `has_sql` at 1.00 and truncation under 0.2%, so the gain is not a
+  brevity artifact of the cap; the top-k arm went the other way (109
+  tokens, 4.9% cut) on one seed.
+
+## Honest limits
+
+- Two seeds an arm is the floor for a verdict, not a headline; the
+  across-seeds interval carries t(df=1) = 12.7 and says so.
+- The noise floor is large (12.7 points) because it is three draws with
+  t(df=2); more base re-runs would tighten it but not the delta.
+- The teacher's ceiling bounds the student: the gap is 0.256, so no arm can
+  show more than that, and OPD took 0.196 of it.
+- One schema, one style of question. The tasks were authored, not
+  simulated; the verifier is exact, so a valid reading the question leaves
+  open scores 0 on every arm alike.
+- The training prompts and the holdout are disjoint by task id;
+  `decontaminate` at 8-gram and by task dropped 0 of the 200 train prompts.
+- The OPD arms ran 25 to 54 GPU minutes each on an L40S with HF generation
+  at micro-batches of 2; a vLLM sampler would cut that several-fold.
+
+## References
+
+1. Agarwal, R. et al. On-Policy Distillation of Language Models: Learning from Self-Generated Mistakes. ICLR 2024. arXiv:2306.13649.
+2. Kim, Y., Rush, A. Sequence-Level Knowledge Distillation. EMNLP 2016.
+3. Lambert, N. Reinforcement Learning from Human Feedback. arXiv:2504.12501, 2025. Chapter *Synthetic Data and Distillation* (offline versus on-policy distillation, OPD as a policy gradient with the log-probability gap as the advantage); chapter *Evaluation* (the eval's own run-to-run spread, decontamination); chapter *Reinforcement Learning* (score only completions that ended on their own).
+4. Shenfeld, I. et al. Self-Distillation Fine-Tuning. arXiv:2601.19897; Zhao, Y. et al. Self-distilled reasoner. arXiv:2601.18734; Hübotter, J. et al. Reinforcement learning via self-distillation. arXiv:2601.20802.
+5. Qwen Team. Qwen3 Technical Report. arXiv:2505.09388 (on-policy distillation at a tenth of the RL GPU hours); SimCT, arXiv:2605.07711 (a tokenizer mismatch drops the distillation signal).
+6. Miller, E. Adding Error Bars to Evals. arXiv:2411.00640 (the unit of the interval is the task).
