@@ -1,0 +1,645 @@
+{
+ "recipe": "prompt-injection-classifier",
+ "date": "2026-09-28",
+ "claim": "a 22M encoder trained on planted indirect injections with matched twins beats the accessible 184M baseline on indirect and pasted injection at CPU latency; direct attacks are where it still loses",
+ "verdict": "v10-multilingual: clears the baseline on 8 of 10 headline slices; loses on ['multilingual_direct']",
+ "verdict_rule": "a slice is cleared when the Wilson 95% intervals of correctness at the run's threshold are apart; three seeds per round, spread reported",
+ "tests": {
+  "test": {
+   "rows": 2142,
+   "sha256_rows": "fcaff01e077debb4c17aebf28e3eefa85417d143d3f49d47d2e2210c4f59e71a"
+  },
+  "test_hard": {
+   "rows": 316,
+   "sha256_rows": "693f5a0b069c8699c481235e39a06c6425b97fadc7f82220b43bbbad0e08edd6"
+  },
+  "test_paste": {
+   "rows": 300,
+   "sha256_rows": "371b20a4cd70bcf809717e24261e5f0584cc38caa695730919ed4d059fa7ff63"
+  },
+  "test_llm": {
+   "rows": 422,
+   "sha256_rows": "157cf4eee27a701c327fdc005b21e75d8e04b375e50e72b81a36b08e0485639e"
+  },
+  "test_external": {
+   "rows": 1674,
+   "sha256_rows": "109345aaecbf3bcf4fe4812b9fe0e4053a9320c0f2f48300d9527d265fcee187"
+  }
+ },
+ "heldout_families": [
+  "agentdojo",
+  "bipia_test",
+  "roletag"
+ ],
+ "heldout_carriers": [
+  "slack_thread",
+  "csv_table"
+ ],
+ "arms": {
+  "protectai-v2": {
+   "model": "protectai/deberta-v3-base-prompt-injection-v2",
+   "method": "eval",
+   "trained_on": null,
+   "n_train": null,
+   "moved": "Served baseline, ProtectAI deberta-v3-base-prompt-injection-v2 (184M, Apache-2.0) at its shipped 0.5. Prompt Guard 2 is gated (403 with this account). Misses are the planted carriers: AUROC 0.50 on indirect in-dist, 0.41 on hard; flags 43 of 100 NotInject sentences.",
+   "points_seed1": {
+    "deepset": "76.1 \u00b1 3.2 (n=662)",
+    "sim_tool": "41.8 \u00b1 9.9 (n=91)",
+    "notinject": "56.6 \u00b1 5.2 (n=339)",
+    "indirect_heldout_family": "18.0 \u00b1 4.8 (n=250)",
+    "hard": "47.8 \u00b1 5.5 (n=316)",
+    "paste": "44.7 \u00b1 5.6 (n=300)",
+    "llm_heldout_domain": "48.6 \u00b1 4.7 (n=422)",
+    "agentdojo_docs": "49.0 \u00b1 9.6 (n=100)",
+    "llmail_inject": "27.0 \u00b1 3.5 (n=600)",
+    "multilingual_direct": "98.2 \u00b1 0.9 (n=974)"
+   }
+  },
+  "v1-templates": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v1",
+   "n_train": 9183,
+   "moved": "Moved: NotInject 57 to 0 points; deepset 76 to 0; the threshold at 1% benign FPR on carriers was 0.0008, so every user turn was flagged.",
+   "points_seed1": {
+    "deepset": "39.7 \u00b1 3.7 (n=662)",
+    "sim_tool": "50.5 \u00b1 10.1 (n=91)",
+    "notinject": "0.0 \u00b1 0.6 (n=339)",
+    "indirect_heldout_family": "99.2 \u00b1 1.3 (n=250)",
+    "hard": "73.4 \u00b1 4.8 (n=316)",
+    "paste": "53.3 \u00b1 5.6 (n=300)",
+    "llm_heldout_domain": "50.0 \u00b1 4.7 (n=422)",
+    "agentdojo_docs": "75.0 \u00b1 8.4 (n=100)",
+    "llmail_inject": "100.0 \u00b1 0.3 (n=600)",
+    "multilingual_direct": "100.0 \u00b1 0.2 (n=974)"
+   },
+   "seed_spread": {
+    "deepset": "39.7 sd 0.0 over 3 seeds",
+    "sim_tool": "50.5 sd 0.0 over 3 seeds",
+    "notinject": "0.0 sd 0.0 over 3 seeds",
+    "indirect_heldout_family": "99.5 sd 0.2 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.001; deepset 40, sim_tool 50, notinject 0, indirect_heldout_family 99, hard 73, paste 53, llm_heldout_domain 50, agentdojo_docs 75, llmail_inject 100, multilingual_direct 100",
+    "seed 2: threshold 0.001; deepset 40, sim_tool 50, notinject 0, indirect_heldout_family 100",
+    "seed 3: threshold 0.001; deepset 40, sim_tool 50, notinject 0, indirect_heldout_family 100"
+   ],
+   "slices_clearing_baseline": 5
+  },
+  "v3-twins-dedupe": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v3",
+   "n_train": 12118,
+   "moved": "Moved: NotInject 57 to 97 points, sim_tool 42 to 84, held-out families 18 to 55, hard 55 to 63; deepset 76 to 67, DOWN.",
+   "points_seed1": {
+    "deepset": "67.4 \u00b1 3.6 (n=662)",
+    "sim_tool": "83.5 \u00b1 7.6 (n=91)",
+    "notinject": "97.1 \u00b1 1.9 (n=339)",
+    "indirect_heldout_family": "54.8 \u00b1 6.1 (n=250)",
+    "hard": "62.3 \u00b1 5.3 (n=316)",
+    "paste": "60.3 \u00b1 5.5 (n=300)",
+    "llm_heldout_domain": "62.6 \u00b1 4.6 (n=422)",
+    "agentdojo_docs": "72.0 \u00b1 8.7 (n=100)",
+    "llmail_inject": "37.0 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "15.9 \u00b1 2.3 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "61.9 sd 0.8 over 3 seeds",
+    "hard": "62.0 sd 0.5 over 3 seeds",
+    "paste": "62.0 sd 1.5 over 3 seeds",
+    "deepset": "67.5 sd 0.4 over 3 seeds",
+    "sim_tool": "86.1 sd 2.8 over 3 seeds",
+    "notinject": "94.5 sd 2.5 over 3 seeds",
+    "indirect_heldout_family": "58.5 sd 3.6 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.995; deepset 67, sim_tool 84, notinject 97, indirect_heldout_family 55, hard 62, paste 60, llm_heldout_domain 63, agentdojo_docs 72, llmail_inject 37, multilingual_direct 16; pair accuracy 0.53, twin FPR 0.000",
+    "seed 2: threshold 0.996; deepset 68, sim_tool 86, notinject 92, indirect_heldout_family 59, hard 62, paste 63, llm_heldout_domain 61; pair accuracy 0.58, twin FPR 0.000",
+    "seed 3: threshold 0.978; deepset 67, sim_tool 89, notinject 94, indirect_heldout_family 62, hard 61, paste 63, llm_heldout_domain 62; pair accuracy 0.62, twin FPR 0.005"
+   ],
+   "slices_clearing_baseline": 8
+  },
+  "v4-spml-direct": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v4-spml",
+   "n_train": 25461,
+   "moved": "Moved: deepset 67 to 69 points (AUROC 0.69/0.71/0.80 over seeds, baseline 0.88); NotInject 97 to 82; hard 62 to 52; sim_tool 84 to 78. DOWN on three of five headline slices.",
+   "points_seed1": {
+    "deepset": "65.7 \u00b1 3.6 (n=662)",
+    "sim_tool": "86.8 \u00b1 7.0 (n=91)",
+    "notinject": "82.3 \u00b1 4.1 (n=339)",
+    "indirect_heldout_family": "49.2 \u00b1 6.2 (n=250)",
+    "hard": "56.0 \u00b1 5.4 (n=316)",
+    "paste": "57.0 \u00b1 5.6 (n=300)",
+    "llm_heldout_domain": "52.1 \u00b1 4.7 (n=422)",
+    "agentdojo_docs": "44.0 \u00b1 9.6 (n=100)",
+    "llmail_inject": "58.8 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "21.8 \u00b1 2.6 (n=974)"
+   },
+   "seed_spread": {
+    "hard": "56.6 sd 0.7 over 3 seeds",
+    "paste": "59.0 sd 2.4 over 3 seeds",
+    "deepset": "65.6 sd 0.2 over 3 seeds",
+    "sim_tool": "86.4 sd 0.6 over 3 seeds",
+    "notinject": "88.0 sd 5.0 over 3 seeds",
+    "indirect_heldout_family": "48.9 sd 0.5 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.993; deepset 66, sim_tool 87, notinject 82, indirect_heldout_family 49, hard 56, paste 57, llm_heldout_domain 52, agentdojo_docs 44, llmail_inject 59, multilingual_direct 22; pair accuracy 0.52, twin FPR 0.005",
+    "seed 2: threshold 0.995; deepset 66, sim_tool 87, notinject 90, indirect_heldout_family 49, hard 57, paste 62; pair accuracy 0.51, twin FPR 0.000",
+    "seed 3: threshold 0.997; deepset 65, sim_tool 86, notinject 92, indirect_heldout_family 48, hard 57, paste 58; pair accuracy 0.48, twin FPR 0.005"
+   ],
+   "slices_clearing_baseline": 5
+  },
+  "v5-channels": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v5-channels",
+   "n_train": 15588,
+   "moved": "Moved: sim_tool 84 to 92 points (AUROC 0.99 over seeds); held-out family 55 to 64; paste 60 to 64; NotInject 97 to 93; hard 62 to 60 (inside the 5-point noise band); deepset 67 to 69 (AUROC 0.71 to 0.73, baseline 0.88, still a loss).",
+   "points_seed1": {
+    "deepset": "68.7 \u00b1 3.5 (n=662)",
+    "sim_tool": "92.3 \u00b1 5.6 (n=91)",
+    "notinject": "93.2 \u00b1 2.7 (n=339)",
+    "indirect_heldout_family": "64.0 \u00b1 5.9 (n=250)",
+    "hard": "59.8 \u00b1 5.4 (n=316)",
+    "paste": "64.0 \u00b1 5.4 (n=300)",
+    "llm_heldout_domain": "66.6 \u00b1 4.5 (n=422)",
+    "agentdojo_docs": "81.0 \u00b1 7.6 (n=100)",
+    "llmail_inject": "42.3 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "22.2 \u00b1 2.6 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "63.7 sd 2.7 over 3 seeds",
+    "hard": "58.8 sd 2.2 over 3 seeds",
+    "paste": "64.0 sd 2.0 over 3 seeds",
+    "deepset": "68.9 sd 0.7 over 3 seeds",
+    "sim_tool": "91.9 sd 0.6 over 3 seeds",
+    "notinject": "93.5 sd 1.1 over 3 seeds",
+    "indirect_heldout_family": "62.9 sd 2.2 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.818; deepset 69, sim_tool 92, notinject 93, indirect_heldout_family 64, hard 60, paste 64, llm_heldout_domain 67, agentdojo_docs 81, llmail_inject 42, multilingual_direct 22; pair accuracy 0.62, twin FPR 0.020",
+    "seed 2: threshold 0.696; deepset 70, sim_tool 92, notinject 93, indirect_heldout_family 64, hard 56, paste 62, llm_heldout_domain 63; pair accuracy 0.62, twin FPR 0.025",
+    "seed 3: threshold 0.952; deepset 68, sim_tool 91, notinject 95, indirect_heldout_family 60, hard 60, paste 66, llm_heldout_domain 61; pair accuracy 0.56, twin FPR 0.010"
+   ],
+   "slices_clearing_baseline": 8
+  },
+  "v6-twin-margin": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v6-twin",
+   "n_train": 15588,
+   "moved": "Moved: hard 60 to 54 points, held-out family 64 to 58, paste 64 to 61, sim_tool 92 to 90; deepset 69 flat; NotInject 93 to 94. Pair accuracy 55 to 58 against v5's 56 to 62: the loss aimed at pairs did not raise pair accuracy.",
+   "points_seed1": {
+    "deepset": "68.7 \u00b1 3.5 (n=662)",
+    "sim_tool": "90.1 \u00b1 6.2 (n=91)",
+    "notinject": "93.5 \u00b1 2.7 (n=339)",
+    "indirect_heldout_family": "57.6 \u00b1 6.1 (n=250)",
+    "hard": "54.4 \u00b1 5.5 (n=316)",
+    "paste": "61.0 \u00b1 5.5 (n=300)",
+    "llm_heldout_domain": "62.6 \u00b1 4.6 (n=422)",
+    "agentdojo_docs": "80.0 \u00b1 7.8 (n=100)",
+    "llmail_inject": "43.0 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "20.3 \u00b1 2.5 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "63.1 sd 2.0 over 3 seeds",
+    "hard": "54.8 sd 0.8 over 3 seeds",
+    "paste": "60.3 sd 0.9 over 3 seeds",
+    "deepset": "68.5 sd 0.9 over 3 seeds",
+    "sim_tool": "88.6 sd 2.5 over 3 seeds",
+    "notinject": "94.1 sd 1.3 over 3 seeds",
+    "indirect_heldout_family": "59.5 sd 2.9 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.959; deepset 69, sim_tool 90, notinject 94, indirect_heldout_family 58, hard 54, paste 61, llm_heldout_domain 63, agentdojo_docs 80, llmail_inject 43, multilingual_direct 20; pair accuracy 0.55, twin FPR 0.035",
+    "seed 2: threshold 0.992; deepset 68, sim_tool 86, notinject 96, indirect_heldout_family 58, hard 54, paste 59, llm_heldout_domain 65; pair accuracy 0.57, twin FPR 0.015",
+    "seed 3: threshold 0.985; deepset 69, sim_tool 90, notinject 93, indirect_heldout_family 63, hard 56, paste 61, llm_heldout_domain 61; pair accuracy 0.58, twin FPR 0.015"
+   ],
+   "slices_clearing_baseline": 7
+  },
+  "v7-llm-carriers": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v7-llm",
+   "n_train": 10851,
+   "moved": "Moved: llm (legal documents) 67 to 73 points, AUROC 0.71 to 0.83 with 0 false positives (baseline 49, AUROC 0.50); sim_tool 92 to 89; NotInject 93 flat; deepset 69 flat; hard 60 to 41 and paste 64 to 47, DOWN; held-out family 64 to 41, DOWN.",
+   "points_seed1": {
+    "deepset": "68.9 \u00b1 3.5 (n=662)",
+    "sim_tool": "89.0 \u00b1 6.5 (n=91)",
+    "notinject": "92.6 \u00b1 2.8 (n=339)",
+    "indirect_heldout_family": "40.8 \u00b1 6.0 (n=250)",
+    "hard": "40.5 \u00b1 5.4 (n=316)",
+    "paste": "47.0 \u00b1 5.6 (n=300)",
+    "llm_heldout_domain": "72.5 \u00b1 4.2 (n=422)",
+    "agentdojo_docs": "53.0 \u00b1 9.6 (n=100)",
+    "llmail_inject": "44.3 \u00b1 4.0 (n=600)",
+    "multilingual_direct": "17.1 \u00b1 2.4 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "76.0 sd 3.5 over 3 seeds",
+    "hard": "42.4 sd 1.9 over 3 seeds",
+    "paste": "46.3 sd 2.1 over 3 seeds",
+    "deepset": "69.3 sd 0.5 over 3 seeds",
+    "sim_tool": "91.6 sd 2.3 over 3 seeds",
+    "notinject": "91.9 sd 1.7 over 3 seeds",
+    "indirect_heldout_family": "47.7 sd 8.2 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.114; deepset 69, sim_tool 89, notinject 93, indirect_heldout_family 41, hard 40, paste 47, llm_heldout_domain 72, agentdojo_docs 53, llmail_inject 44, multilingual_direct 17; pair accuracy 0.41, twin FPR 0.040",
+    "seed 2: threshold 0.146; deepset 69, sim_tool 92, notinject 90, indirect_heldout_family 57, hard 44, paste 48, llm_heldout_domain 79; pair accuracy 0.49, twin FPR 0.085",
+    "seed 3: threshold 0.180; deepset 70, sim_tool 93, notinject 93, indirect_heldout_family 46, hard 42, paste 44, llm_heldout_domain 76; pair accuracy 0.46, twin FPR 0.060"
+   ],
+   "slices_clearing_baseline": 5
+  },
+  "v7-mined-weights": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v7mine",
+   "n_train": 15588,
+   "moved": "Moved: over three seeds, hard 59 to 56, paste 64 to 62, sim_tool 92 to 93, NotInject 94 to 93, held-out family 63 to 62, deepset 69 to 68; every move inside the seed spread (0.8 to 2.6 points). The random-weight control: hard 58, paste 62, sim_tool 92, NotInject 93, family 63.",
+   "points_seed1": {
+    "deepset": "68.0 \u00b1 3.5 (n=662)",
+    "sim_tool": "94.5 \u00b1 4.9 (n=91)",
+    "notinject": "93.5 \u00b1 2.7 (n=339)",
+    "indirect_heldout_family": "59.6 \u00b1 6.0 (n=250)",
+    "hard": "56.3 \u00b1 5.4 (n=316)",
+    "paste": "63.0 \u00b1 5.4 (n=300)",
+    "llm_heldout_domain": "62.3 \u00b1 4.6 (n=422)",
+    "agentdojo_docs": "78.0 \u00b1 8.0 (n=100)",
+    "llmail_inject": "39.7 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "21.1 \u00b1 2.6 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "63.3 sd 1.8 over 3 seeds",
+    "hard": "55.7 sd 0.8 over 3 seeds",
+    "paste": "62.3 sd 1.1 over 3 seeds",
+    "deepset": "68.4 sd 1.5 over 3 seeds",
+    "sim_tool": "93.0 sd 2.5 over 3 seeds",
+    "notinject": "93.4 sd 2.2 over 3 seeds",
+    "indirect_heldout_family": "62.3 sd 2.6 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.919; deepset 68, sim_tool 94, notinject 94, indirect_heldout_family 60, hard 56, paste 63, llm_heldout_domain 62, agentdojo_docs 78, llmail_inject 40, multilingual_direct 21; pair accuracy 0.54, twin FPR 0.020",
+    "seed 2: threshold 0.911; deepset 70, sim_tool 94, notinject 91, indirect_heldout_family 65, hard 55, paste 63, llm_heldout_domain 65; pair accuracy 0.60, twin FPR 0.025",
+    "seed 3: threshold 0.956; deepset 67, sim_tool 90, notinject 96, indirect_heldout_family 62, hard 56, paste 61, llm_heldout_domain 62; pair accuracy 0.58, twin FPR 0.025"
+   ],
+   "slices_clearing_baseline": 7
+  },
+  "v7-random-weights-control": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v7mine-random",
+   "n_train": 15588,
+   "moved": "Moved: hard 58, paste 62, deepset 69, sim_tool 92, NotInject 93, held-out family 63: v5 within the seed spread on every slice, and the mined arm within the seed spread of this one.",
+   "points_seed1": {
+    "deepset": "69.0 \u00b1 3.5 (n=662)",
+    "sim_tool": "93.4 \u00b1 5.3 (n=91)",
+    "notinject": "93.8 \u00b1 2.6 (n=339)",
+    "indirect_heldout_family": "62.4 \u00b1 6.0 (n=250)",
+    "hard": "57.3 \u00b1 5.4 (n=316)",
+    "paste": "62.3 \u00b1 5.5 (n=300)",
+    "llm_heldout_domain": "62.1 \u00b1 4.6 (n=422)",
+    "agentdojo_docs": "82.0 \u00b1 7.5 (n=100)",
+    "llmail_inject": "41.3 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "21.7 \u00b1 2.6 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "63.9 sd 1.9 over 3 seeds",
+    "hard": "57.7 sd 2.5 over 3 seeds",
+    "paste": "62.1 sd 0.2 over 3 seeds",
+    "deepset": "69.1 sd 0.9 over 3 seeds",
+    "sim_tool": "91.9 sd 1.3 over 3 seeds",
+    "notinject": "93.0 sd 1.6 over 3 seeds",
+    "indirect_heldout_family": "63.1 sd 1.1 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.929; deepset 69, sim_tool 93, notinject 94, indirect_heldout_family 62, hard 57, paste 62, llm_heldout_domain 62, agentdojo_docs 82, llmail_inject 41, multilingual_direct 22; pair accuracy 0.59, twin FPR 0.020",
+    "seed 2: threshold 0.793; deepset 70, sim_tool 91, notinject 91, indirect_heldout_family 64, hard 55, paste 62, llm_heldout_domain 66; pair accuracy 0.61, twin FPR 0.040",
+    "seed 3: threshold 0.846; deepset 68, sim_tool 91, notinject 94, indirect_heldout_family 62, hard 60, paste 62, llm_heldout_domain 64; pair accuracy 0.59, twin FPR 0.025"
+   ],
+   "slices_clearing_baseline": 7
+  },
+  "v7b-llm-heldout-domain": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v7b-llm",
+   "n_train": 9972,
+   "moved": "Moved: llm 49 to 73/80/73 points over seeds (AUROC 0.83 to 0.89, 0 to 2 false positives in 211), against v5's 62 to 67 and the baseline's 49; sim_tool 93, NotInject 92 to 96; hard 46 and paste 49, DOWN from v5's 59 and 64; held-out family 42 to 54, DOWN; deepset 68 flat.",
+   "points_seed1": {
+    "deepset": "68.6 \u00b1 3.5 (n=662)",
+    "sim_tool": "93.4 \u00b1 5.3 (n=91)",
+    "notinject": "92.3 \u00b1 2.9 (n=339)",
+    "indirect_heldout_family": "41.6 \u00b1 6.1 (n=250)",
+    "hard": "45.9 \u00b1 5.5 (n=316)",
+    "paste": "48.7 \u00b1 5.6 (n=300)",
+    "llm_heldout_domain": "72.7 \u00b1 4.2 (n=422)",
+    "agentdojo_docs": "68.0 \u00b1 9.0 (n=100)",
+    "llmail_inject": "43.0 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "16.6 \u00b1 2.3 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "75.1 sd 3.9 over 3 seeds",
+    "hard": "46.0 sd 0.2 over 3 seeds",
+    "paste": "48.3 sd 0.9 over 3 seeds",
+    "deepset": "68.4 sd 0.5 over 3 seeds",
+    "sim_tool": "91.6 sd 1.7 over 3 seeds",
+    "notinject": "93.1 sd 2.5 over 3 seeds",
+    "indirect_heldout_family": "45.6 sd 6.9 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.161; deepset 69, sim_tool 93, notinject 92, indirect_heldout_family 42, hard 46, paste 49, llm_heldout_domain 73, agentdojo_docs 68, llmail_inject 43, multilingual_direct 17; pair accuracy 0.41, twin FPR 0.035",
+    "seed 2: threshold 0.183; deepset 68, sim_tool 91, notinject 91, indirect_heldout_family 54, hard 46, paste 49, llm_heldout_domain 80; pair accuracy 0.47, twin FPR 0.050",
+    "seed 3: threshold 0.713; deepset 69, sim_tool 90, notinject 96, indirect_heldout_family 42, hard 46, paste 47, llm_heldout_domain 73; pair accuracy 0.41, twin FPR 0.025"
+   ],
+   "slices_clearing_baseline": 6
+  },
+  "v8-union": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v8-union",
+   "n_train": 23960,
+   "moved": "Moved: llm 49 to 73/76/72 points (AUROC 0.79 to 0.81); hard 51 to 56, paste 55 to 61, held-out family 56 to 64: between v5 and v7b on each; sim_tool 93 to 95, NotInject 93 to 95; deepset 69 to 70, still 6 points under the 184M baseline.",
+   "points_seed1": {
+    "deepset": "69.2 \u00b1 3.5 (n=662)",
+    "sim_tool": "93.4 \u00b1 5.3 (n=91)",
+    "notinject": "94.1 \u00b1 2.5 (n=339)",
+    "indirect_heldout_family": "55.6 \u00b1 6.1 (n=250)",
+    "hard": "50.6 \u00b1 5.5 (n=316)",
+    "paste": "55.3 \u00b1 5.6 (n=300)",
+    "llm_heldout_domain": "73.2 \u00b1 4.2 (n=422)",
+    "agentdojo_docs": "67.0 \u00b1 9.1 (n=100)",
+    "llmail_inject": "39.7 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "19.8 \u00b1 2.5 (n=974)"
+   },
+   "seed_spread": {
+    "llm_heldout_domain": "73.5 sd 2.1 over 3 seeds",
+    "hard": "54.0 sd 3.0 over 3 seeds",
+    "paste": "59.0 sd 3.2 over 3 seeds",
+    "deepset": "69.3 sd 0.2 over 3 seeds",
+    "sim_tool": "93.8 sd 0.6 over 3 seeds",
+    "notinject": "94.0 sd 1.1 over 3 seeds",
+    "indirect_heldout_family": "58.3 sd 4.6 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.569; deepset 69, sim_tool 93, notinject 94, indirect_heldout_family 56, hard 51, paste 55, llm_heldout_domain 73, agentdojo_docs 67, llmail_inject 40, multilingual_direct 20; pair accuracy 0.53, twin FPR 0.060",
+    "seed 2: threshold 0.579; deepset 70, sim_tool 94, notinject 93, indirect_heldout_family 64, hard 55, paste 61, llm_heldout_domain 76; pair accuracy 0.56, twin FPR 0.060",
+    "seed 3: threshold 0.574; deepset 69, sim_tool 93, notinject 95, indirect_heldout_family 56, hard 56, paste 61, llm_heldout_domain 72; pair accuracy 0.54, twin FPR 0.045"
+   ],
+   "slices_clearing_baseline": 5
+  },
+  "v9-seeded-world": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v9-seeded",
+   "n_train": 24406,
+   "moved": "Moved: AgentDojo documents 67 to 74/82/78 points over seeds (external, AUROC in results.json); held-out business 73 to 78/78/79; hard 51 to 54/58/61; paste 55 to 58/62/62; sim_tool 93 to 98; held-out family 56 to 67/64/58; NotInject 94 to 93/96/95; LLMail recall 40 to 44/36/45; deepset 69 flat; multilingual 20 flat.",
+   "points_seed1": {
+    "deepset": "68.9 \u00b1 3.5 (n=662)",
+    "sim_tool": "97.8 \u00b1 3.5 (n=91)",
+    "notinject": "92.6 \u00b1 2.8 (n=339)",
+    "indirect_heldout_family": "66.8 \u00b1 5.8 (n=250)",
+    "hard": "54.1 \u00b1 5.5 (n=316)",
+    "paste": "58.3 \u00b1 5.5 (n=300)",
+    "llm_heldout_domain": "78.7 \u00b1 3.9 (n=422)",
+    "agentdojo_docs": "82.0 \u00b1 7.5 (n=100)",
+    "llmail_inject": "43.5 \u00b1 4.0 (n=600)",
+    "multilingual_direct": "20.9 \u00b1 2.6 (n=974)"
+   },
+   "seed_spread": {
+    "agentdojo_docs": "78.0 sd 4.0 over 3 seeds",
+    "llmail_inject": "41.5 sd 4.5 over 3 seeds",
+    "multilingual_direct": "20.8 sd 0.7 over 3 seeds",
+    "llm_heldout_domain": "78.3 sd 0.7 over 3 seeds",
+    "hard": "57.6 sd 3.4 over 3 seeds",
+    "paste": "60.7 sd 2.1 over 3 seeds",
+    "deepset": "68.3 sd 0.5 over 3 seeds",
+    "sim_tool": "97.4 sd 0.6 over 3 seeds",
+    "notinject": "94.5 sd 1.7 over 3 seeds",
+    "indirect_heldout_family": "62.9 sd 4.2 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.708; deepset 69, sim_tool 98, notinject 93, indirect_heldout_family 67, hard 54, paste 58, llm_heldout_domain 79, agentdojo_docs 82, llmail_inject 44, multilingual_direct 21; pair accuracy 0.56, twin FPR 0.035",
+    "seed 2: threshold 0.876; deepset 68, sim_tool 98, notinject 96, indirect_heldout_family 64, hard 58, paste 62, llm_heldout_domain 78, agentdojo_docs 74, llmail_inject 36, multilingual_direct 21; pair accuracy 0.62, twin FPR 0.025",
+    "seed 3: threshold 0.945; deepset 68, sim_tool 97, notinject 95, indirect_heldout_family 58, hard 61, paste 62, llm_heldout_domain 79, agentdojo_docs 78, llmail_inject 45, multilingual_direct 20; pair accuracy 0.56, twin FPR 0.030"
+   ],
+   "slices_clearing_baseline": 7
+  },
+  "v10-multilingual": {
+   "model": "microsoft/Multilingual-MiniLM-L12-H384",
+   "method": "classify",
+   "trained_on": "planted-carriers-v10-multilingual",
+   "n_train": 26082,
+   "moved": "Moved: multilingual direct recall 20 to 45/45/36 (baseline 98); deepset 69 to 70/73/72 (baseline 76, still a loss); held-out business 78 to 84/81/77; hard 58 to 62/64/57; paste 61 to 63/68/58; sim_tool 98 to 97/100/98; held-out family 63 to 69/68/64; AgentDojo documents 78 to 85/68/62 (n=100, seed spread 23 points); LLMail 42 to 43/50/36.",
+   "points_seed1": {
+    "deepset": "69.9 \u00b1 3.5 (n=662)",
+    "sim_tool": "96.7 \u00b1 4.1 (n=91)",
+    "notinject": "95.0 \u00b1 2.4 (n=339)",
+    "indirect_heldout_family": "69.2 \u00b1 5.7 (n=250)",
+    "hard": "62.0 \u00b1 5.3 (n=316)",
+    "paste": "63.0 \u00b1 5.4 (n=300)",
+    "llm_heldout_domain": "83.9 \u00b1 3.5 (n=422)",
+    "agentdojo_docs": "85.0 \u00b1 7.0 (n=100)",
+    "llmail_inject": "43.3 \u00b1 4.0 (n=600)",
+    "multilingual_direct": "44.7 \u00b1 3.1 (n=974)"
+   },
+   "seed_spread": {
+    "agentdojo_docs": "71.7 sd 11.9 over 3 seeds",
+    "llmail_inject": "42.9 sd 6.8 over 3 seeds",
+    "multilingual_direct": "41.8 sd 5.0 over 3 seeds",
+    "llm_heldout_domain": "80.3 sd 3.7 over 3 seeds",
+    "hard": "61.1 sd 3.4 over 3 seeds",
+    "paste": "63.1 sd 5.2 over 3 seeds",
+    "deepset": "71.6 sd 1.6 over 3 seeds",
+    "sim_tool": "98.2 sd 1.7 over 3 seeds",
+    "notinject": "95.2 sd 0.3 over 3 seeds",
+    "indirect_heldout_family": "67.1 sd 2.4 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.938; deepset 70, sim_tool 97, notinject 95, indirect_heldout_family 69, hard 62, paste 63, llm_heldout_domain 84, agentdojo_docs 85, llmail_inject 43, multilingual_direct 45; pair accuracy 0.70, twin FPR 0.005",
+    "seed 2: threshold 0.189; deepset 73, sim_tool 100, notinject 95, indirect_heldout_family 68, hard 64, paste 68, llm_heldout_domain 81, agentdojo_docs 68, llmail_inject 50, multilingual_direct 45; pair accuracy 0.66, twin FPR 0.010",
+    "seed 3: threshold 0.267; deepset 72, sim_tool 98, notinject 96, indirect_heldout_family 64, hard 57, paste 58, llm_heldout_domain 76, agentdojo_docs 62, llmail_inject 36, multilingual_direct 36; pair accuracy 0.59, twin FPR 0.030"
+   ],
+   "slices_clearing_baseline": 8
+  },
+  "v9-size-minilm-l12": {
+   "model": "nreimers/MiniLM-L6-H384-uncased",
+   "method": "classify",
+   "trained_on": "planted-carriers-v9-minilm-l12",
+   "n_train": 24406,
+   "moved": "pending",
+   "points_seed1": {
+    "deepset": "69.6 \u00b1 3.5 (n=662)",
+    "sim_tool": "96.7 \u00b1 4.1 (n=91)",
+    "notinject": "95.0 \u00b1 2.4 (n=339)",
+    "indirect_heldout_family": "64.0 \u00b1 5.9 (n=250)",
+    "hard": "65.5 \u00b1 5.2 (n=316)",
+    "paste": "64.0 \u00b1 5.4 (n=300)",
+    "llm_heldout_domain": "83.9 \u00b1 3.5 (n=422)",
+    "agentdojo_docs": "74.0 \u00b1 8.5 (n=100)",
+    "llmail_inject": "42.7 \u00b1 3.9 (n=600)",
+    "multilingual_direct": "29.5 \u00b1 2.9 (n=974)"
+   },
+   "seed_spread": {
+    "agentdojo_docs": "71.0 sd 7.0 over 3 seeds",
+    "llmail_inject": "37.0 sd 8.1 over 3 seeds",
+    "multilingual_direct": "28.4 sd 5.1 over 3 seeds",
+    "llm_heldout_domain": "81.0 sd 2.5 over 3 seeds",
+    "hard": "63.3 sd 3.5 over 3 seeds",
+    "paste": "63.4 sd 2.2 over 3 seeds",
+    "deepset": "70.0 sd 0.4 over 3 seeds",
+    "sim_tool": "97.8 sd 1.1 over 3 seeds",
+    "notinject": "93.5 sd 1.7 over 3 seeds",
+    "indirect_heldout_family": "63.1 sd 0.8 over 3 seeds"
+   },
+   "seeds": [
+    "seed 1: threshold 0.642; deepset 70, sim_tool 97, notinject 95, indirect_heldout_family 64, hard 66, paste 64, llm_heldout_domain 84, agentdojo_docs 74, llmail_inject 43, multilingual_direct 30; pair accuracy 0.59, twin FPR 0.035",
+    "seed 2: threshold 0.622; deepset 70, sim_tool 98, notinject 94, indirect_heldout_family 63, hard 59, paste 61, llm_heldout_domain 79, agentdojo_docs 76, llmail_inject 41, multilingual_direct 23; pair accuracy 0.58, twin FPR 0.035",
+    "seed 3: threshold 0.730; deepset 70, sim_tool 99, notinject 92, indirect_heldout_family 62, hard 65, paste 65, llm_heldout_domain 80, agentdojo_docs 63, llmail_inject 28, multilingual_direct 33; pair accuracy 0.60, twin FPR 0.005"
+   ],
+   "slices_clearing_baseline": 8
+  }
+ },
+ "byte_stage": {
+  "byte-v4": {
+   "latency_ms_2000_chars": {
+    "p50": 0.832,
+    "p99": 0.953
+   },
+   "auroc_hard": 0.4870682730923695
+  },
+  "byte-v5": {
+   "latency_ms_2000_chars": {
+    "p50": 0.852,
+    "p99": 0.973
+   },
+   "auroc_hard": 0.49939759036144576
+  }
+ },
+ "latency": {
+  "onnx-seed1": {
+   "int8_mb": 23.0,
+   "p50_ms_1_thread": {
+    "128": 7.54,
+    "256": 17.28,
+    "512": 44.06
+   },
+   "window_128_all_windows_p50_ms": {
+    "512": 30.18,
+    "2048": 120.85
+   }
+  },
+  "onnx-v10-multilingual": {
+   "int8_mb": 118.2,
+   "p50_ms_1_thread": {
+    "128": 15.4,
+    "256": 35.58,
+    "512": 90.37
+   },
+   "window_128_all_windows_p50_ms": {
+    "512": 61.65,
+    "2048": 245.8
+   }
+  },
+  "onnx-v8-union": {
+   "int8_mb": 23.0,
+   "p50_ms_1_thread": {
+    "128": 7.6,
+    "256": 17.49,
+    "512": 44.89
+   },
+   "window_128_all_windows_p50_ms": {
+    "512": 30.51,
+    "2048": 122.26
+   }
+  },
+  "onnx-v9-seeded": {
+   "int8_mb": 23.0,
+   "p50_ms_1_thread": {
+    "128": 7.55,
+    "256": 17.29,
+    "512": 44.34
+   },
+   "window_128_all_windows_p50_ms": {
+    "512": 30.26,
+    "2048": 121.23
+   }
+  }
+ },
+ "shortcut_probe": {
+  "bag_of_words": {
+   "threshold": 0.5135,
+   "auroc": {
+    "all": 0.754,
+    "deepset": 0.53,
+    "indirect_heldout_carrier": 0.827,
+    "indirect_in_dist": 0.838,
+    "sim_tool": 0.876,
+    "indirect_heldout": 0.887
+   }
+  },
+  "length_only": {
+   "threshold": 0.6218,
+   "auroc": {
+    "all": 0.757,
+    "deepset": 0.812,
+    "indirect_heldout_carrier": 0.581,
+    "indirect_in_dist": 0.521,
+    "sim_tool": 0.814,
+    "indirect_heldout": 0.742
+   }
+  }
+ },
+ "sdk_measure": {
+  "decontaminate": {
+   "train_rows": 23960,
+   "kept": 23327,
+   "dropped": 633
+  },
+  "eval_variance": {
+   "run_std": 0.0086,
+   "noise_band": 0.0526,
+   "mean": 0.7753,
+   "stability": "high_variance"
+  },
+  "holdout_size_n_tasks": {
+   "deepset": 1052,
+   "indirect_heldout_carrier": 1565,
+   "indirect_heldout_family": 1020,
+   "indirect_in_dist": 1564,
+   "notinject": 1514,
+   "sim_tool": 1546
+  },
+  "route": "route: nothing trains yet"
+ },
+ "versions": {
+  "python": "3.12.13",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "torch": "2.14.0",
+  "transformers": "5.17.0",
+  "onnxruntime": "1.30.0"
+ },
+ "checks": {
+  "train_seeds": {
+   "protectai-v2": 1,
+   "v1-templates": 3,
+   "v3-twins-dedupe": 3,
+   "v4-spml-direct": 3,
+   "v5-channels": 3,
+   "v6-twin-margin": 3,
+   "v7-llm-carriers": 3,
+   "v7-mined-weights": 3,
+   "v7-random-weights-control": 3,
+   "v7b-llm-heldout-domain": 3,
+   "v8-union": 3,
+   "v9-seeded-world": 3,
+   "v10-multilingual": 3,
+   "v9-size-minilm-l12": 3
+  },
+  "bootstrap": "percentile, 1000 resamples over rows, seed 0; Wilson for correctness"
+ },
+ "full_record": "out/results_full.json (every seed, every slice, every SDK report); also in the Hugging Face dataset"
+}

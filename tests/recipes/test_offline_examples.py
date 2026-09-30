@@ -96,6 +96,7 @@ NEEDS_MODAL = {
     # boto3 is the ``whileai[bedrock]`` extra, not a dev dependency; compiled, not run
     "05-export/bedrock-import/presign.py",
     "04-train/sft/train_modal.py",
+    "04-train/prompt-injection-classifier/train_modal.py",
     "community/which-half-can-a-small-model-take/train_modal.py",
     # judge-aware-hacking: the trainer is a Modal app; the probe and grader need OPENROUTER_API_KEY
     "community/judge-aware-hacking/recipe.py",

@@ -19,6 +19,17 @@ to 0.109 releases under the wrong numbers; they are yanked.
   runs (CISPO on ChartNet crops and synthetic pages) that did not transfer, and an offline
   `selftest.py` for the split, the endpoints and the layout mapping. Every server URL comes from
   `DOCPARSE_WORKSPACE`; nothing points at our workspace.
+- Recipe `recipes/04-train/prompt-injection-classifier/`: a 22M MiniLM-L6 binary classifier for
+  prompt injection in any text an agent reads (tool results, emails, retrieved passages, pasted
+  documents, user turns), as a seven-round climb on three frozen, content-hashed tests. Public attack
+  strings (InjecAgent, AgentDojo, BIPIA, Gandalf; MIT) planted by program with a matched benign twin
+  per row; round 7's carriers are what `wai.simulate` wrote for six businesses with a model as
+  situation writer, user and world (`execute=`). ProtectAI v2 is the served baseline (Prompt Guard 2
+  is gated); three seeds per round; shortcut probes (bag of words, length, payload removed,
+  `hack_scan`) each round; a random-weight control beside hard-negative mining; int8 ONNX latency
+  at 128/256/512 tokens and a 128-token window. The climb is posted to the platform
+  (`post_platform.py`). `sdk_findings.md` records eight places the SDK could not express a
+  classifier and the one (`execute=` plus a model `simulator=`) that gave it the data.
 
 ## 0.126 (2026-09-25)
 

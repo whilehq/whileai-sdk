@@ -160,6 +160,7 @@
                   "recipes/04-train/identity",
                   "recipes/04-train/parsebench",
                   "recipes/04-train/prime-rl",
+                  "recipes/04-train/prompt-injection-classifier",
                   "recipes/04-train/report-run",
                   "recipes/04-train/resist-planted-instruction",
                   "recipes/04-train/sft",
