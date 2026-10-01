@@ -7,6 +7,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai compare` and `wai.harness.compare(before, after, tasks, reward, model=)`: the before-and-after
+  prompt check. Runs the old and the new prompt (or two `wai.Harness` configs) on the same tasks and the same
+  per-draw seeds on a local model (`ollama:qwen3:4b-instruct`, any spec, or a `(messages, seed) -> str`
+  callable), three eval runs a side by default so the noise floor is measured, grades with `wai.rows`, and
+  prints `wai.compare`'s gain, 95% range and verdict. Seed 0 by
+  default and printed; same seed, same output. `wai compare --demo` runs it offline on a scripted model.
+  Recipe `recipes/02-measure/before-and-after/`; a "First command" section on the Quickstart. Packages the
+  gentlyventures.com case study (whileai 0.126, qwen3:4b-instruct on one laptop, 22 minutes, free).
 - `wai.compare` (`delta_report`) prints a per-slice table by default when rows carry a `category` or `slice`
   key: before, after, interval and n per slice, weakest first, with `WEAK` on a slice still under 0.5 or with no gain
   its interval supports, and `low n` on a slice under six paired tasks. The report gains `groups_weak` and

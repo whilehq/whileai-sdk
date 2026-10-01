@@ -132,6 +132,7 @@
               {
                 "group": "Measure",
                 "pages": [
+                  "recipes/02-measure/before-and-after",
                   "recipes/02-measure/character-to-the-wall",
                   "recipes/02-measure/compare-judges",
                   "recipes/02-measure/eval-your-agent",

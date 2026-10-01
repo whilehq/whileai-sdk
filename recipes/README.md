@@ -87,6 +87,7 @@ platform.
 
 | Recipe | What you learn | Needs | Takes | Costs |
 |---|---|---|---|---|
+| [`before-and-after`](02-measure/before-and-after) | did my prompt rewrite really help: the old and the new prompt on the same tasks and seeds, on a model on your machine, one verdict with the gain and its 95% range; `wai compare --demo` is the same check from the terminal | nothing offline; Ollama for a real model | seconds offline, minutes on a laptop model | free; Ollama runs on your machine |
 | [`eval-your-agent`](02-measure/eval-your-agent) | evals for the agent you already have: wrap it, write the policy as a judge, pass@1 with an interval per policy branch, the coverage warnings that catch a hollow run, a CI gate | nothing | seconds | free |
 | [`is-your-eval-any-good`](02-measure/is-your-eval-any-good) | whether a number your eval produced means anything: ceiling, headroom, criteria that cannot fail, self-noise, the judge, contamination, and the three checks that void a base-vs-tuned comparison outright | nothing | seconds | free |
 | [`character-to-the-wall`](02-measure/character-to-the-wall) | whether a persona holds when two of its own values collide: situations built so no reply can honor both principles, the spec's authority ordering as the answer key, held_wall and kept_lower graded apart to tell caving from rigidity, a judge checked against the set's own labels, before/after on held-out walls | nothing offline; a model endpoint and a judge for the live run | seconds offline, about 2 min live | free offline; model calls live |

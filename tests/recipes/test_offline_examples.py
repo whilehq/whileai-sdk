@@ -41,6 +41,7 @@ CLI_EXAMPLES = [
     "04-train/identity/generate.py",
     "02-measure/pass-at-k/measure.py",
     "02-measure/public-benchmark/run.py",
+    "02-measure/before-and-after/run.py",
     "02-measure/model-router/run.py",
     "02-measure/is-your-eval-any-good/check_eval.py",
     "02-measure/character-to-the-wall/run.py",

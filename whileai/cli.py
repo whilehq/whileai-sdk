@@ -1,6 +1,8 @@
 """The `wai` command (`whileai` runs the same entry point): accounts, and the platform objects a coding agent
 manages from a terminal.
 
+    wai compare --demo
+    wai compare --model ollama:qwen3:4b-instruct --before old.txt --after new.txt         --tasks tasks.jsonl --reward Numeric
     wai login | signup --email | status | logout
     wai init-evals
     wai self-check [--full] [--trials N] [--seed S] [--json]
@@ -13,7 +15,7 @@ manages from a terminal.
     wai keys
     wai live refund-bot --day 2026-09-17 --version v3 --replies 2400 --flagged 98
 
-Platform commands print JSON (``--json``) or a short table, and exit 1 on
+``compare`` runs on your machine and needs no account. Platform commands print JSON (``--json``) or a short table, and exit 1 on
 an API error with the reason on stderr. They are thin calls into
 ``whileai.platform``; nothing here talks to anything else.
 """
@@ -93,6 +95,12 @@ def main(argv: list[str] | None = None) -> int:
         help="write an eval harness (agent, judge, run, test) wired to this project",
     )
     init_evals_args(p_init)
+
+    p_compare = sub.add_parser(
+        "compare",
+        help="did my prompt rewrite help: run old and new prompts locally, print the verdict",
+    )
+    _compare_args(p_compare)
 
     p_check = sub.add_parser(
         "self-check",
@@ -190,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
         )
 
+    if args.command == "compare":
+        return _compare(args)
+
     if args.command == "self-check":
         from .selfcheck import self_check
         from .simulations.defaults import (
@@ -227,6 +238,122 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     return _platform_command(args)
+
+
+def _compare_args(p: argparse.ArgumentParser) -> None:
+    from .before_after import RUNS, SEED, TEMPERATURE, K
+
+    p.add_argument(
+        "--demo",
+        action="store_true",
+        help="run the built-in scripted model on 24 arithmetic tasks: offline, no Ollama, seconds",
+    )
+    p.add_argument(
+        "--model",
+        help="where the prompts run: ollama:<model>, vllm:<model>@<url>, openai:<model>, ...",
+    )
+    p.add_argument("--before", help="the old system prompt: a file path, or the text itself")
+    p.add_argument("--after", help="the new system prompt: a file path, or the text itself")
+    p.add_argument("--tasks", help='JSONL test set, one {"prompt": ..., "reference": ...} per line')
+    p.add_argument(
+        "--reward",
+        default="Numeric",
+        help="a wai.verify class (Numeric, ExactMatch, Includes, MathEqual, ...) or "
+        "module:function (default: Numeric)",
+    )
+    p.add_argument("--k", type=int, default=K, help=f"replies per task per arm (default: {K})")
+    p.add_argument(
+        "--runs",
+        type=int,
+        default=RUNS,
+        help=f"times the whole eval runs per arm, for the noise floor (default: {RUNS})",
+    )
+    p.add_argument(
+        "--seed", type=int, default=SEED, help=f"seed for sampling and bootstrap (default: {SEED})"
+    )
+    p.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help=f"sampling temperature for both arms (default: {TEMPERATURE})",
+    )
+    p.add_argument("--json", action="store_true", help="print the report as JSON")
+
+
+def _prompt_text(value: str | None) -> str | None:
+    """A file's text when ``value`` names a file, else ``value`` itself."""
+    if value is None:
+        return None
+    from pathlib import Path
+
+    path = Path(value)
+    try:
+        if path.is_file():
+            return path.read_text(encoding="utf-8")
+    except OSError:  # a long prompt is not a valid path on every OS
+        pass
+    return value
+
+
+def _reward(name: str) -> Any:
+    """``Numeric`` -> ``wai.verify.Numeric()``; ``pkg.mod:fn`` -> that callable."""
+    import importlib
+
+    if ":" in name:
+        module, _, attr = name.partition(":")
+        return getattr(importlib.import_module(module), attr)
+    from .simulations import verify
+
+    cls = getattr(verify, name, None)
+    if cls is None:
+        raise ValueError(
+            f"--reward {name!r} is not a wai.verify class; use Numeric, ExactMatch, Includes, "
+            "MathEqual, MultipleChoice, or module:function"
+        )
+    return cls()
+
+
+def _compare(args: argparse.Namespace) -> int:
+    from . import before_after
+
+    try:
+        if args.demo:
+            model: Any = before_after.demo_model
+            before: Any = before_after.DEMO_BEFORE
+            after: Any = before_after.DEMO_AFTER
+            tasks: Any = before_after.demo_tasks()
+        else:
+            missing = [f"--{n}" for n in ("model", "tasks") if not getattr(args, n)]
+            if missing:
+                raise ValueError(
+                    f"{' and '.join(missing)} required (or --demo for the offline example): "
+                    "wai compare --model ollama:qwen3:4b-instruct --before old.txt "
+                    "--after new.txt --tasks tasks.jsonl"
+                )
+            model = args.model
+            before = _prompt_text(args.before)
+            after = _prompt_text(args.after)
+            tasks = args.tasks
+        if args.temperature is not None:
+            # the temperature is harness configuration, so it rides on the arms
+            from .harness import Disclosure, Harness
+
+            sampling = Disclosure(sampling={"temperature": args.temperature})
+            before = Harness(instructions=before, label="before", disclosure=sampling)
+            after = Harness(instructions=after, label="after", disclosure=sampling)
+        report = before_after.compare(
+            before,
+            after,
+            tasks,
+            _reward(args.reward),
+            model=model,
+            k=args.k,
+            runs=args.runs,
+            seed=args.seed,
+        )
+    except (ValueError, TypeError, OSError, ImportError) as err:
+        return _fail(err)
+    return _emit(report, args.json, lambda: print(report))
 
 
 def _platform_command(args: argparse.Namespace) -> int:
