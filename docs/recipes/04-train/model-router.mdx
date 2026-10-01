@@ -31,6 +31,7 @@ cd recipes/04-train/model-router
 python run.py --dry-run     # offline: a seeded stand-in table, what smoke.sh runs
 python prepare.py           # once: download LLMRouterBench, build the table, embed the questions
 python run.py               # train three routers, score them on held-out questions
+python charts.py            # redraw the two charts from results.json (needs matplotlib)
 ```
 
 | flag | default | what it does |
@@ -84,6 +85,8 @@ ArenaHard ties (score 0.5) are written as one pass and one fail out of two.
 Held out, 1,061 questions. The routers ran on 2026-10-01 over answers
 LLMRouterBench collected in late 2025: no model was called for this recipe.
 
+![Accuracy against cost per 1,000 questions for twelve models, the Avengers-Pro and kNN routers, and the perfect router](/figures/model-router-frontier.png)
+
 | | accuracy | USD per 1k questions | vs best single |
 |---|---|---|---|
 | Gemini 2.5 Pro (best single model on train) | 0.620 | 91.43 | |
@@ -109,6 +112,8 @@ reports up to +4% [2].
 
 **Against OpenRouter's auto router**, on the 915 held-out questions the
 benchmark ran it on:
+
+![Accuracy of OpenRouter's auto router, Avengers-Pro and kNN at or under OpenRouter's cost](/figures/model-router-vs-openrouter.png)
 
 | router, at or under OpenRouter's cost | accuracy | USD per 1k | vs OpenRouter auto (0.525, $31.56) |
 |---|---|---|---|

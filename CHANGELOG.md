@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
+  OpenRouter comparison) into `docs/figures/`, and the recipe page shows them. `scripts/gen_recipe_docs.py`
+  now maps a README image under `docs/` to its Mintlify path, so one link renders on GitHub and on the docs.
 - Recipe `recipes/04-train/model-router/`: train a model router over twelve frontier models from
   LLMRouterBench's graded answers (kNN, Avengers-Pro clusters, a linear baseline, one cost knob). On 1,061
   held-out questions Avengers-Pro matches Gemini 2.5 Pro's accuracy (+0.1 [-2.7, +2.9] points) at 38% of its

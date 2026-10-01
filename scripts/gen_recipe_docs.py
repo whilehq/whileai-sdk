@@ -38,6 +38,7 @@ OUT = DOCS / "recipes"
 DOCS_JSON = DOCS / "docs.json"
 BLOB = "https://github.com/whilehq/whileai-sdk/blob/main"
 TREE = "https://github.com/whilehq/whileai-sdk/tree/main"
+IMAGE_SUFFIXES = {".png", ".svg", ".jpg", ".jpeg", ".gif", ".webp"}
 # No "*/" anywhere in here: it would close the MDX comment early and the page
 # would fail to parse ("Could not parse expression with acorn").
 GENERATED = (
@@ -177,6 +178,10 @@ def _rewrite_link(target: str, page_dir: Path, broken: list[str]) -> str:
     if not resolved.exists():
         broken.append(target)
         return f"{TREE}/{rel}{anchor}"
+    if rel.startswith("docs/") and resolved.suffix.lower() in IMAGE_SUFFIXES:
+        # A figure in docs/ is served by Mintlify from the docs root, so a
+        # README can embed it by a path that also renders on GitHub.
+        return "/" + rel[len("docs/") :]
     page = _recipe_page(rel) or _doc_page(rel)
     if page:
         return f"{page}{anchor}"
