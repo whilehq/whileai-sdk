@@ -132,6 +132,10 @@ untested rules
 `.py` or `.jsonl` file. From a `.py` file the asks are the string literals
 that look like asks, a heuristic, so read `report["asks"]` first.
 
+A standing rule that names no tool and no condition ("Never modify data.")
+counts as covered only when an ask shares a word with it. A rule no ask goes
+near is listed under `untested rules`, not counted as covered.
+
 The report is in the engine's words: `untested_rules`, `untested_tools`,
 `single_shot`, and `notes` naming each fix. `world_state` and
 `tool_condition` are not readable from an ask, which is why a hand-written
