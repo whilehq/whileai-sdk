@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/04-train/decision-router` adds `pointer-kind`: the 0.6B pointer plus the kind of question as a prior (Jev's
+  answer through part 1's table, leave-one-out on training rows). It ties Jev at every budget (−0.6 [−1.5, +0.2] at $5,
+  where the plain pointer trailed by 3.0) and beats Avengers-Pro at $10 (+1.7 [+0.1, +3.3]); the question text adds
+  under a point on top of the prior. Part 1's `jev.py --all` asks Jev about the training questions too.
 - `wai compare` and `wai.harness.compare(before, after, tasks, reward, model=)`: the before-and-after
   prompt check. Runs the old and the new prompt (or two `wai.Harness` configs) on the same tasks and the same
   per-draw seeds on a local model (`ollama:qwen3:4b-instruct`, any spec, or a `(messages, seed) -> str`
