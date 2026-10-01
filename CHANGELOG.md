@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.compare` (`delta_report`) prints a per-slice table by default when rows carry a `category` or `slice`
+  key: before, after, interval and n per slice, weakest first, with `WEAK` on a slice still under 0.5 or with no gain
+  its interval supports, and `low n` on a slice under six paired tasks. The report gains `groups_weak` and
+  `by_source`; rows without a slice key print as before, and `by=False` turns it off. From a case study on 0.126
+  where the overall 0.46 -> 0.76 hid a "missing file" slice at 0.00 -> 0.17.
 - `wai self-check` (`wai.self_check()`): check the statistics behind every verdict by simulation, offline. Scripted
   agents with known truth run through `stats.compare_runs`, the comparison `wai.compare` calls (the first trial of each
   check also goes through `wai.compare` and must match exactly), and the report prints false alarms on identical arms,

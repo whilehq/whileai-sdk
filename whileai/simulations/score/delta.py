@@ -167,6 +167,41 @@ GROUP_SEED_OFFSET = 100
 # streams (``seed + i``) and the per-group ones (``seed + 100 + i``) for
 # any report with under 900 groups. Any offset past both works.
 REPEAT_SEED_OFFSET = 1000
+#: SLICE_KEYS: the row keys ``delta_report`` reads as a slice (the kind of
+#: question a case is) when ``by=`` is not given, in this order. ``category``
+#: is the key the ``wai init`` evals template stamps on every row and
+#: ``slice`` the one the recipes split on; the first key that carries two or
+#: more values on both row sets wins. Engine-made keys (``tier``,
+#: ``ask_family``) are left out on purpose: every simulated row has them,
+#: and a table nobody asked for on every report is noise.
+SLICE_KEYS = ("category", "slice")
+# WEAK_SLICE_SCORE = 0.5: a slice whose after-side rate sits under this
+# still fails more of its cases than it passes, and the slice table flags
+# it as weak whatever its gain. Half is the point where the agent is wrong
+# more often than right on that kind of question (convention, untested on
+# the exact share; a gentlyventures case study on whileai 0.126 had the
+# slice to fix next at 0.17 after training, under any reasonable bar).
+WEAK_SLICE_SCORE = 0.5
+
+
+def slice_min_tasks(alpha: float = ALPHA) -> int:
+    """The fewest paired tasks a slice needs before its delta can be read.
+
+    The smallest ``n`` for which the most lopsided paired outcome there is
+    (every task moved the same way) clears a two-sided exact sign test at
+    ``alpha``: ``2 * 0.5**n <= alpha``, so ``n = ceil(log2(2 / alpha))``.
+    At ``alpha=0.05`` that is 6 (five tasks all moving up is p=0.0625;
+    six is p=0.031). Under it no result on that slice can be significant
+    under an exact test, so a bootstrap interval that clears zero there is
+    the bootstrap's small-sample optimism, not evidence (Efron and
+    Tibshirani 1993, ch. 13, on percentile intervals at small n). The
+    slice table marks such slices ``low n`` instead of reading them.
+    """
+    return max(MIN_HOLDOUT_TASKS, math.ceil(math.log2(2.0 / alpha)))
+
+
+#: SLICE_MIN_TASKS: ``slice_min_tasks()`` at the default ``ALPHA`` (6).
+SLICE_MIN_TASKS = slice_min_tasks()
 # TRUNCATED_SHARE_GAP = 0.05: the two arms' token-cap cut shares may
 # differ by this before the report warns that one side was cut more
 # often. Five points is the smallest gap that has moved a pass rate on
@@ -651,6 +686,69 @@ def _by_group(
     return out
 
 
+def _detect_slice_key(before: Sequence[dict], after: Sequence[dict]) -> str | None:
+    """The first ``SLICE_KEYS`` key with two or more values on both sides."""
+    for key in SLICE_KEYS:
+        seen = []
+        for rows in (before, after):
+            values = {
+                str(r[key])
+                for r in rows
+                if isinstance(r, dict) and r.get(key) is not None and r.get(key) != ""
+            }
+            seen.append(values)
+        if len(seen[0] & seen[1]) >= 2:  # noqa: PLR2004  # one slice is the headline again
+            return key
+    return None
+
+
+def _flag_slices(groups: dict[str, dict[str, Any]], *, min_tasks: int, metric: str) -> list[str]:
+    """Mark each group ``low_n`` and ``weak`` and return the weak ones,
+    weakest first.
+
+    Weak is ``low`` (a rate under ``WEAK_SLICE_SCORE`` after) or
+    ``no_gain`` (the interval does not support a gain, and a rate is not
+    already at ``CEILING_PASS_RATE``). A ``low_n`` slice is never
+    ``no_gain``: it could not have shown a gain at any size, so saying it
+    did not would be reading it. Weakest is the worst after-side
+    score, then the smallest gain. The ``low`` reading needs a 0..1 rate,
+    so it is skipped on a down-is-the-win metric or one off that scale.
+    """
+    for r in groups.values():
+        n = int(r.get("n_paired") or 0)
+        r["low_n"] = n < min_tasks
+        reasons: list[str] = []
+        if r.get("delta") is not None:
+            lower = bool(r.get("lower_is_better"))
+            mean_a, mean_b = float(r["mean_a"]), float(r["mean_b"])
+            is_rate = not lower and (
+                metric == "pass_at_1" or (0.0 <= mean_a <= 1.0 and 0.0 <= mean_b <= 1.0)
+            )
+            if is_rate and mean_b < WEAK_SLICE_SCORE:
+                reasons.append("low")
+            at_ceiling = is_rate and mean_b >= CEILING_PASS_RATE
+            if r.get("gain_verdict") != "b_better" and not at_ceiling and not r["low_n"]:
+                reasons.append("no_gain")
+        r["weak_reasons"] = reasons
+        r["weak"] = bool(reasons)
+    return [name for name in _slice_order(groups) if groups[name]["weak"]]
+
+
+def _slice_order(groups: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    """Weak slices first, worst after-side score first, then the rest the
+    same way; slices with no delta last."""
+
+    def key(name: str) -> tuple:
+        r = groups[name]
+        if r.get("delta") is None:
+            return (2, 0.0, 0.0, name)
+        sign = -1.0 if r.get("lower_is_better") else 1.0
+        gain = sign * float(r["delta"])
+        return (0 if r.get("weak") else 1, sign * float(r["mean_b"]), gain, name)
+
+    return sorted(groups, key=key)
+
+
 # ANSWERED_GAP_POINTS = 0.10: with no re-run band to read the gap against,
 # a difference in answered share this large between the arms fails the
 # comparison on its own. Ten points is above the widest re-run band
@@ -732,7 +830,7 @@ def delta_report(
     must_not_regress: Sequence[str] = (),
     lower_is_better: Sequence[str] | Mapping[str, bool] | None = None,
     markers: Sequence[str] | None = None,
-    by: str | Callable[[dict], Any] | None = None,
+    by: str | Callable[[dict], Any] | bool | None = None,
     run_std: float | Mapping[str, float | None] | None = None,
     run_std_runs: int | None = None,
     train_runs: TrainRuns | None = None,
@@ -792,7 +890,11 @@ def delta_report(
       group whose target dropped significantly is listed in
       ``groups_down`` and warned about; it does not flip ``ok``, which
       stays the ``must_not_regress`` contract (name the group's metric
-      there if it should).
+      there if it should). Left out, the split is on by default when the
+      rows carry a slice: the first ``SLICE_KEYS`` key (``category``,
+      then ``slice``) with two or more values on both sides, and
+      ``by_source`` says ``"auto"``. Rows with neither key print exactly
+      as before; ``by=False`` turns the table off.
     * ``run_std`` and ``run_std_runs``: the evaluation's own re-run
       standard deviation, per metric or as one number, and how many
       re-runs it was computed from. See the noise floor below.
@@ -817,6 +919,19 @@ def delta_report(
       ``answered_gap_points`` (``ANSWERED_GAP_POINTS``, 0.1) and
       ``answered_alpha`` (``ANSWERED_P_MAX``, 0.01): the thresholds of the
       ``ceiling`` and ``answered`` flags below.
+
+    The slice table. Printed under the metric lines, weakest slice first,
+    each with before, after, the delta and its interval, and ``n`` (paired
+    tasks). A slice is WEAK when its after-side rate is still under
+    ``WEAK_SLICE_SCORE`` (0.5) or its interval does not support a gain
+    (and it is not already at ``CEILING_PASS_RATE``); ``groups_weak``
+    lists them in print order. A slice with fewer paired tasks than
+    ``slice_min_tasks(alpha)`` (6 at the default ``alpha``, the smallest
+    n where an exact sign test can clear ``alpha`` at all) is marked
+    ``low n`` and never called WEAK for want of a gain it could not have
+    shown. The headline reads the same either way: an overall 0.46 ->
+    0.76 can sit over a "missing file" slice at 0.00 -> 0.17, and the
+    table is where that shows.
 
     Direction. A metric is higher-is-better unless ``lower_is_better``
     or ``LOWER_IS_BETTER_MARKERS`` says otherwise, and the direction is
@@ -1457,6 +1572,16 @@ def delta_report(
         warnings.append(f"target {target!r} is not on both row sets")
     groups: dict[str, dict[str, Any]] | None = None
     groups_down: list[str] = []
+    groups_weak: list[str] = []
+    by_source: str | None = "given" if not isinstance(by, bool) and by is not None else None
+    if by is None or by is True:
+        # No by= given: a slice key the rows already carry (``SLICE_KEYS``)
+        # turns the slice table on by default; rows without one print as
+        # they always did. ``by=False`` turns it off.
+        by = _detect_slice_key(before, after)
+        by_source = "auto" if by is not None else None
+    elif by is False:
+        by = None
     if by is not None:
         group_metric = target_key if target_key in results else "pass_at_1"
         group_lower = lower.get(group_metric, False)
@@ -1471,6 +1596,7 @@ def delta_report(
             lower_is_better=group_lower,
         )
         groups_down = [g for g, r in groups.items() if r.get("gain_verdict") == "a_better"]
+        groups_weak = _flag_slices(groups, min_tasks=slice_min_tasks(alpha), metric=group_metric)
         way = " (lower is better)" if group_lower else ""
         for g in groups_down:
             r = groups[g]
@@ -1724,6 +1850,11 @@ def delta_report(
             #: range per side (``_repeats``); ``note`` is "k/n runs agree" or
             #: "1 run, noise unknown"
             "repeats": repeats,
+            #: the groups flagged weak, weakest first (``_flag_slices``)
+            "groups_weak": groups_weak,
+            #: "given" (by= named it), "auto" (a ``SLICE_KEYS`` key on the rows) or None
+            "by_source": by_source,
+            "slice_min_tasks": slice_min_tasks(alpha) if groups is not None else None,
         }
     )
 
@@ -1821,6 +1952,47 @@ def _metric_tag(result: Mapping[str, Any]) -> tuple[str, str]:
     lower = bool(result.get("lower_is_better"))
     tag = (_DOWN_TAGS if lower else _UP_TAGS)[result["verdict"]]
     return tag, (f"  {LOWER_IS_BETTER_TAG}" if lower else "")
+
+
+def _slice_table(
+    report: Mapping[str, Any], groups: Mapping[str, Mapping[str, Any]], level: float
+) -> list[str]:
+    """The per-slice section: weakest first, each line before -> after,
+    the delta and its interval, the paired-task count, and the flags."""
+    min_tasks = report.get("slice_min_tasks") or SLICE_MIN_TASKS
+    weak = list(report.get("groups_weak") or [])
+    head = f"by {report.get('by')}: {len(groups)} slices"
+    if weak:
+        head += f", {len(weak)} weak, weakest first"
+    lines = [
+        head,
+        f"  (WEAK = after under {WEAK_SLICE_SCORE:.2f} or no gain the {level:.0%} interval "
+        f"supports; low n = under {min_tasks} paired tasks, too few for any delta to be read)",
+    ]
+    for name in _slice_order(groups):
+        r = groups[name]
+        n = r.get("n_paired") or 0
+        low = "  low n" if r.get("low_n") else ""
+        if r.get("delta") is None:
+            lines.append(
+                f"  {name:<28} insufficient data "
+                f"({r.get('rows_a', 0)}/{r.get('rows_b', 0)} rows){low}"
+            )
+            continue
+        ci = r.get("ci95")
+        span = f"{ci[0]:+.3f}..{ci[1]:+.3f}" if ci else "n/a"
+        tag, way = _metric_tag(r)
+        reasons = r.get("weak_reasons") or []
+        flag = "  WEAK: " + ", ".join(_WEAK_WORDS[x] for x in reasons) if reasons else ""
+        lines.append(
+            f"  {name:<28} {r['mean_a']:.3f} -> {r['mean_b']:.3f}  {r['delta']:+.3f} "
+            f"[{span}]  {tag}  (n={n} tasks, {r['rows_a']}/{r['rows_b']} rows){way}{flag}{low}"
+        )
+    return lines
+
+
+#: the printed words for each ``weak_reasons`` entry
+_WEAK_WORDS = {"low": "still low", "no_gain": "no clear gain"}
 
 
 def format_delta_report(report: dict[str, Any]) -> str:
@@ -1953,20 +2125,7 @@ def format_delta_report(report: dict[str, Any]) -> str:
         )
     groups = report.get("groups")
     if groups:
-        lines.append(f"by {report.get('by')}:")
-        for name, r in groups.items():
-            if r.get("delta") is None:
-                lines.append(
-                    f"  {name:<28} insufficient data ({r.get('rows_a', 0)}/{r.get('rows_b', 0)} rows)"
-                )
-                continue
-            ci = r.get("ci95")
-            span = f"{ci[0]:+.3f}..{ci[1]:+.3f}" if ci else "n/a"
-            tag, way = _metric_tag(r)
-            lines.append(
-                f"  {name:<28} {r['mean_a']:.3f} -> {r['mean_b']:.3f}  {r['delta']:+.3f} "
-                f"[{span}]  {tag}  ({r['rows_a']}/{r['rows_b']} rows){way}"
-            )
+        lines.extend(_slice_table(report, groups, level))
     for w in report.get("warnings") or []:
         lines.append(f"! {w}")
     return "\n".join(lines)
