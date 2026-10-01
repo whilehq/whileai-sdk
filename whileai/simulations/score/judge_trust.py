@@ -714,7 +714,8 @@ def judge_trust(
     halves; if they diverge the rubric is fit to its examples),
     ``length_sensitivity`` (judge pass rate on short versus long replies
     among rows humans agreed on, a length bias the labels rule out as
-    real), ``perturbation`` and ``probes`` when a judge callable is
+    real, flagged only when the gap is beyond noise, so a judge that
+    guesses is told it guesses rather than that it reads length), ``perturbation`` and ``probes`` when a judge callable is
     given, ``disagreements`` (the review queue of rows the judge and the
     humans disagree on), ``floors``, ``n_labeled`` and ``n_rows``.
     ``print(report)`` writes the whole thing
