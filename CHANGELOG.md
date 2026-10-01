@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.cheat_probes(cases, scorer)` (and `scored.cheat_probes(scorer)`) plays six degenerate agents over your
+  test cases (always refuse, always ask a clarifying question, empty, echo the prompt, long filler, the most
+  common reference answer) and grades them with your own scorer, no model call. A probe is flagged when the 95%
+  lower bound of its score reaches `CHEAT_PROBE_FLAG` (0.10); the warning names the probe, its score and its
+  interval, so a gameable reward is caught before training on it. Docs: reward-hacking, "Cheat probes".
 - `coverage_gap` no longer counts a standing rule as covered when no ask touches it. A rule that names no
   tool and no condition ("Never modify data.") was reached by every ask, so a suite with no ask near it read
   "8 of 8". It now needs an ask that shares a word with it, and otherwise lands in `untested_rules`.
