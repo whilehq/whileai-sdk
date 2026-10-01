@@ -184,10 +184,12 @@ _VERDICT_WORDS = {
 # words a person reads. ``PASS`` is reserved for a gain the report
 # supports; a delta the interval cannot distinguish from zero reads as
 # what it is, not as a pass (a negative point estimate under ``PASS``
-# was the 2026-09-18 live test).
+# was the 2026-09-18 live test). A gain seen on one eval run is not a
+# pass either: with no run-to-run spread it reads ``INCONCLUSIVE`` and
+# says why (``_unreplicated_word``), not ``PASS`` beside a warning that
+# it could be noise (external case study on 0.126).
 _HEADLINE_WORDS = {
     "moved": "PASS",
-    "moved_unreplicated": "PASS",
     "within_eval_noise": "NO DIFFERENCE (within eval noise)",
     "no_change_detected": "NO DIFFERENCE",
     "insufficient_data": "INSUFFICIENT DATA",
@@ -201,11 +203,28 @@ _HEADLINE_WORDS = {
 UNRESOLVED_LINE = "one training seed per arm; add a seed to resolve"
 
 
+def _unreplicated_word(report: Mapping[str, Any]) -> str:
+    """The headline for ``moved_unreplicated``: a gain the interval
+    supports but no re-run spread checks, so ``INCONCLUSIVE`` with the
+    reason. Rows without ``lineage.eval_run`` count as one run."""
+    runs = report.get("eval_runs") or {}
+    single = [side for side in ("before", "after") if int(runs.get(side) or 0) < 2]  # noqa: PLR2004  # two runs before a run std exists
+    if len(single) == 2:  # noqa: PLR2004  # both sides
+        why = "1 eval run a side"
+    elif single:
+        why = f"1 eval run {single[0]}"
+    else:
+        why = "no re-run floor"
+    return f"INCONCLUSIVE ({why}, rerun to confirm)"
+
+
 def headline_word(report: Mapping[str, Any]) -> str:
     """The one-word reading of a ``delta_report``: ``NOT COMPARABLE``
     with the causes when the arms cannot be compared, ``FAIL`` when a
     guard failed, else the headline verdict spelled out (``PASS`` only
-    for a supported gain, ``NO DIFFERENCE`` for an interval over zero)."""
+    for a gain repeated past the re-run band, ``INCONCLUSIVE`` for a
+    gain seen on one eval run, ``NO DIFFERENCE`` for an interval over
+    zero)."""
     causes = list(report.get("not_comparable") or [])
     gate = "" if report.get("ok") else "FAIL: "
     if causes:
@@ -213,6 +232,8 @@ def headline_word(report: Mapping[str, Any]) -> str:
     if gate:
         return "FAIL"
     verdict = report.get("headline_verdict")
+    if verdict == "moved_unreplicated":
+        return _unreplicated_word(report)
     return _HEADLINE_WORDS.get(str(verdict), "PASS")
 
 
