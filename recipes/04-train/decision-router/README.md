@@ -1,0 +1,211 @@
+# Train your own Jev router
+
+Part 2 of building your own model router. In part 1
+([`model-router`](../model-router)) an untrained decision model, TypeSafe's
+Jev, routed twelve frontier models as well as the routers trained for it.
+This recipe works out what Jev is from the outside, then trains two small
+models of that shape on the same table and puts them, Jev and part 1's best
+router through one test: the same budgets, the same 1,061 held-out
+questions, every pair compared question by question.
+
+What you will learn: what is known about how Jev is built and how the
+evidence was gathered; how a decision model reads a question once and
+scores every candidate in one forward pass, with no text generated; why it
+is trained with log loss and then a single temperature; and whether a
+0.6B model you train in minutes matches Jev on routing. You need part 1's
+`out/` (run its `prepare.py`, and its `jev.py` for the Jev rows), a Modal
+token for training, and a TypeSafe key only for `probe_jev.py`.
+`--dry-run` needs only `numpy`.
+
+## Run it
+
+```bash
+uv add whileai numpy modal
+cd recipes/04-train/decision-router
+python run.py --dry-run     # offline: seeded stand-in predictions through the scoring, what smoke.sh runs
+python probe_jev.py         # optional: the seven Jev probes below (TYPESAFE_API_KEY, a few cents)
+python run.py --train       # train both shapes, three seeds each, on Modal L40S, then score
+python run.py               # rescore from out/*.json without training
+```
+
+| flag | default | what it does |
+|---|---|---|
+| `--part1` | `../model-router/out` | where part 1 wrote the table, the questions and `jev.jsonl` |
+| `--out` | `out/` | training rows, one result file per arm and seed, `results.json` |
+| `--train` | off | build the rows and train every arm and seed that has no result file yet |
+| `--dry-run` | off | stand-in predictions, no table, no GPU |
+
+## What Jev is
+
+TypeSafe has published no paper, weights or parameter count. What it says
+[1, 2]: Jev is a transformer with a new architecture and a "parallel
+sampler", trained on synthetic data only with a method it calls
+reinforcement learning for calibrated decisions (RLCD). It takes a block of
+state and typed questions (pick one option, score on a scale, or say whether
+a statement is true) and returns probabilities, never text. One limit gives
+the shape away: a request may carry 32k tokens of "state plus the longest
+question" [2], so each question is its own sequence over a shared state.
+
+Two outside studies fill in the rest. Hume [3] made more than 10,000
+requests. Jev's tokenizer matched Qwen's on 348 of 415 probes, with some
+merges changed. The `output_tokens` it bills is counted from the reply, not
+generated. Latency grows with the state and barely with the number of
+questions. Adding an irrelevant option shifted the odds between two others
+(−0.28 log-odds [−0.36, −0.19]), so the options are read together, not
+scored one by one. Deußer et al. [4] ran Jev on 37 datasets and found its
+choice probabilities well calibrated.
+
+`probe_jev.py` repeats the checks that matter for training a copy
+(`probe.json` holds one run, 2026-10-01, jev-1.13.0):
+
+| probe | result | what it says |
+|---|---|---|
+| the same request, 12 times | 0.96 or 0.97 every time | a computed probability, rounded; not counted from ~100 samples, which would spread ±0.02 |
+| four options shuffled, 12 orders | the right option gets 0.87 listed first, 0.75 otherwise | the options are read in order, as a language model reads a list [5] |
+| labels swapped against descriptions | follows the description | the label is only a key |
+| a statement and its negation | 0.98 and 0.11; 0.39 and 0.46 | one pass per question, no rule ties them; TypeSafe documents this [6] |
+| 4 to 64 questions (one question: 0.42 s, the first call) | 0.23-0.27 s | questions run in parallel over a state read once [7] |
+| 2 to 64 options | 0.30-0.33 s | options are cheap |
+| 200 to 18,000 tokens of state | 0.25 to 0.70 s | the state is the cost |
+
+The best-supported reading: a causal transformer, likely Qwen-derived,
+reads the state once and shares it; each question is a separate branch over
+it; a head reads a probability for every option from that branch, with the
+options listed in the input; and the training rewards honest probabilities
+with a proper scoring rule, the property RLCR proves for a Brier reward [8].
+The size (Hume estimates about 10B active parameters) and whether the
+backbone is a mixture of experts are guesses.
+
+## Two models of that shape
+
+`train_modal.py` trains both on part 1's split (3,305 questions to fit,
+1,163 to pick the epoch, the temperature and the knob, 1,061 held out). The
+target for each question is twelve numbers: whether each model got it right
+(ArenaHard ties count 0.5).
+
+- **`pointer`**, the Jev shape. Qwen3-0.6B [9] with a LoRA adapter [10]
+  reads `Question: ...`, then the twelve model names, each followed by a
+  reserved marker token that question text cannot forge (Hume found Jev's
+  option boundaries cannot be forged either [3]). A linear head reads the
+  hidden state at every marker: one logit per model. Later names attend to
+  earlier ones, so the list is read together. The list is shuffled on every
+  training pass so no position means anything, and val and test average
+  four shuffled orders.
+- **`encoder`**, the fast baseline the open copies use [11]. ModernBERT-base
+  [12], 150M parameters, reads the question; a fixed twelve-way head scores
+  the models. It cannot take a model it was not trained on, which the
+  pointer can.
+
+Both minimise log loss, a proper scoring rule, so the best answer is the
+true probability. They keep the epoch with the lowest val loss and then fit
+one temperature on val, the standard fix for over-confident networks [13].
+Each runs with three seeds; the seed with the lowest val loss is reported
+and the other two give the spread. As a router, each turns its probabilities
+into a pick with part 1's knob: probability right minus the knob times the
+model's mean cost.
+
+## Result
+
+Held out, 1,061 questions. Trained on 2026-10-01: six runs on Modal L40S,
+about 30 minutes and about $5. Jev's rows are part 1's, from the same day.
+
+![Accuracy at five budgets for Jev, Avengers-Pro, the two trained models and the true-dataset control](../../../docs/figures/decision-router-budgets.png)
+
+| budget per 1k | `avengers-pro` | `jev-task` | `pointer` (seed 1) | `encoder` (seed 0) | true dataset (control) |
+|---|---|---|---|---|---|
+| $5 | 0.560 ($5.25) | 0.576 ($4.55) | 0.546 ($6.27) | 0.549 ($5.86) | 0.581 ($6.51) |
+| $10 | 0.565 ($5.64) | 0.583 ($7.05) | 0.561 ($11.82) | 0.559 ($12.69) | 0.585 ($6.89) |
+| $20 | 0.595 ($19.48) | 0.615 ($26.47) | 0.599 ($24.07) | 0.581 ($23.83) | 0.585 ($6.89) |
+| $35 | 0.622 ($35.09) | 0.628 ($38.04) | 0.625 ($37.70) | 0.624 ($40.51) | 0.646 ($41.92) |
+| $50 | 0.638 ($53.21) | 0.643 ($56.58) | 0.636 ($54.62) | 0.630 ($48.09) | 0.645 ($43.80) |
+
+Each cell is accuracy, with the held-out cost per 1,000 questions in
+brackets. The knob is picked on val, so a router can spend somewhat more or
+less than the budget on held-out questions.
+
+**Our pointer model ties part 1's best router and loses to Jev at low
+budgets.** Paired, pointer minus Avengers-Pro is −1.4 points [−3.0, +0.2] at
+$5 and +0.4 [−1.4, +2.0] at $35: no difference we can see. Pointer minus Jev
+is −3.0 [−4.7, −1.5] at $5 and −2.2 [−4.2, −0.3] at $10. From $20 up the
+interval covers zero. The other two seeds land within 1.5 points of the
+reported one at every budget. The encoder does the same or slightly worse.
+
+**Our models estimate each model's chance better, and it does not turn into
+better routing.** Over every (question, model) pair on held out, the
+pointer's probability of "this model gets it right" has a Brier score of
+0.162 (seeds 0.161 to 0.165) and a calibration error of 0.013 to 0.037. kNN's
+neighbour averages, the input to part 1's routers, score 0.190 and 0.025. A
+better estimate per model still picks about the same model, because the
+twelve flagship models get mostly the same questions right. What decides a
+pick is which model is better on this question, and the question alone
+barely says. That is the routing plateau again [14].
+
+**Jev's edge is that it recognises the benchmark.** The control row routes
+with each question's true dataset and part 1's table: 0.581 at $5 and 0.585
+at $10, against Jev's 0.576 and 0.583. Jev names the dataset right 75.7% of
+the time, and that accounts for its lead. On real traffic there are no
+twelve tidy benchmarks to recognise, so this is the part of part 1's result
+least likely to carry over. A 3,305-question training set did not teach our
+models to separate the twelve sources as sharply as a model that reads them
+in plain English.
+
+**Speed.** One question at a time on an L40S: the encoder takes 14 to 20 ms,
+the pointer 58 to 60 ms (twelve markers, one order). Jev took 0.27 s median
+over the network with eight requests in flight. Either of ours is fast
+enough to update the pick as someone types; Jev is fast enough to update it
+when they pause.
+
+### Limits
+
+- **One benchmark and one split**, as in part 1. Three seeds per model give
+  the training spread; they say nothing about other traffic.
+- **The trained models never see costs or the knob.** They estimate
+  correctness only, and part 1's knob trades it against each model's mean
+  cost. A model that predicts cost per question too (reasoning models spend
+  very different amounts on different questions) might pick better.
+- **Small, untuned models.** One size each, four epochs, LoRA rank 16, the
+  learning rates are conventions. A larger base, or a pointer started from
+  a model that already reads lists of options, might close the gap to Jev;
+  we did not test it.
+- **Jev's architecture is inferred, not known.** The pointer copies the
+  shape the evidence supports, not Jev itself.
+
+## Next
+
+The control row points at the cheapest gain: give the trained model the
+kind of question as an input or a second head (Jev's `task` answer, or a
+classifier over your own traffic's categories) and let the table supply
+the prior. A reply to part 1 suggested the other: let people overrule the
+pick, and train on the overrules. They are a label no
+question-only router has [14].
+
+## References
+
+1. TypeSafe AI. *Introducing System One Models & Jev.*
+   typesafe.ai/blog/introducing-system-one-models-and-jev, 2026-09-15.
+2. TypeSafe AI. *Models* (model card, jev-1.13.0). docs.typesafe.ai/models,
+   read 2026-10-01.
+3. Hume, A. *Jev's Architecture Unmasked.*
+   archerhume.com/posts/jevs-architecture-unmasked, 2026-09-17.
+4. Deußer, Sparrenberg and Sifa 2026. *Evaluating and Benchmarking the
+   System One Model Jev.* arXiv:2609.37647.
+5. Zheng et al. 2024. *Large Language Models Are Not Robust Multiple Choice
+   Selectors.* ICLR 2024. arXiv:2309.03882.
+6. TypeSafe AI. *Jev 1.13 jaggedness.*
+   docs.typesafe.ai/model-jaggedness/jev-1.13, read 2026-10-01.
+7. Juravsky et al. 2024. *Hydragen: High-Throughput LLM Inference with
+   Shared Prefixes.* ICML 2024. arXiv:2402.05099.
+8. Damani et al. 2025. *Beyond Binary Rewards: Training LMs to Reason About
+   Their Uncertainty.* ICLR 2026. arXiv:2507.16806.
+9. Qwen Team 2025. *Qwen3 Technical Report.* arXiv:2505.09388.
+10. Hu et al. 2021. *LoRA: Low-Rank Adaptation of Large Language Models.*
+    arXiv:2106.09685.
+11. wfzyx. *Von: the open-source System One decision model* (ModernBERT,
+    395M). github.com/wfzyx/von, read 2026-10-01.
+12. Warner et al. 2024. *Smarter, Better, Faster, Longer: A Modern
+    Bidirectional Encoder for Fast, Memory Efficient, and Long Context
+    Finetuning and Inference* (ModernBERT). arXiv:2412.13663.
+13. Guo et al. 2017. *On Calibration of Modern Neural Networks.* ICML 2017.
+    arXiv:1706.04599.
+14. Lu et al. 2026. *The Routing Plateau: Understanding the Accuracy Limits
+    of LLM Routers.* arXiv:2606.07587.
