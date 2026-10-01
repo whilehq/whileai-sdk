@@ -100,8 +100,8 @@ LLMRouterBench collected in late 2025: no model was called for this recipe.
 
 **The router keeps the best model's accuracy at 38% of its cost.**
 Avengers-Pro at the matched point is about the same as Gemini 2.5 Pro (+0.1
-points, interval [−2.7, +2.9]) for $34 per thousand questions instead of
-$91. Against GPT-5, which is about as accurate and half Gemini's price, the
+points, interval [−2.7, +2.9]) for &#36;34 per thousand questions instead of
+&#36;91. Against GPT-5, which is about as accurate and half Gemini's price, the
 saving is 24%. That is close to what Avengers-Pro's authors report against
 GPT-5 (27% [1]). It sends 55% of questions to GPT-5, 23% to Qwen3-235B and
 the rest to Kimi K2 and the two reasoning models.
@@ -115,7 +115,7 @@ benchmark ran it on:
 
 ![Accuracy of OpenRouter's auto router, Avengers-Pro and kNN at or under OpenRouter's cost](/figures/model-router-vs-openrouter.png)
 
-| router, at or under OpenRouter's cost | accuracy | USD per 1k | vs OpenRouter auto (0.525, $31.56) |
+| router, at or under OpenRouter's cost | accuracy | USD per 1k | vs OpenRouter auto (0.525, &#36;31.56) |
 |---|---|---|---|
 | `avengers-pro` | 0.580 | 23.29 | +0.056 [+0.022, +0.087] |
 | `knn` | 0.592 | 32.28 | +0.068 [+0.035, +0.098] |
@@ -139,8 +139,8 @@ miss the questions only one or two models get right.
   datasets.** A router on traffic unlike any of them would do worse.
 - **One train/test split.** K-means is the only random step: over five seeds
   Avengers-Pro at the matched point ranges 0.615 to 0.623 in accuracy and
-  $32.82 to $34.41 per 1k. The point closest to OpenRouter's cost varies
-  more ($21.60 to $32.66), because two knob settings sit close on val.
+  &#36;32.82 to &#36;34.41 per 1k. The point closest to OpenRouter's cost varies
+  more (&#36;21.60 to &#36;32.66), because two knob settings sit close on val.
 - **Costs are what the benchmark recorded**, including reasoning tokens. A
   router that picks a reasoning model pays for its thinking.
 

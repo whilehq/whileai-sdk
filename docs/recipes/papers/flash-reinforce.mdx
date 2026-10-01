@@ -121,7 +121,7 @@ minute, the current setting needs a second training seed per arm.
 - `wai.FlashReinforce().update(batch)` is the whole update: the loop hands it 64 dicts of `reward`, `logprobs` and `behavior_logprobs` and multiplies its coefficients into a padded log-probability tensor. The baseline is the same loop with a different coefficient list, so the two arms cannot drift apart in anything but the rule.
 - A correction can only be tested where there is something to correct. At 1e-5 on a rank-16 adapter the four-update lag left the ratio within a tenth of a percent of 1 and the gate touching one trajectory in five steps, so the paper's stability claim was not exercised, and what the delta measured instead is the paper's `1/T_i` against the token mean, which at this scale kept long truncated failures alive that the baseline learned to cut. Check the KL the log prints on the first refreshed step before reading the delta.
 
-Verified 2026-09-22, whileai 0.114 (this branch's source tree, mounted into the container: the wheel on the index does not carry `FlashReinforce` yet), HF transformers 4.54.0 + PEFT 0.16.0 on torch 2.7.1. 44.3 GPU minutes, $1.48 on one L40S. Run page: none (no `WHILEAI_API_KEY` in the environment; the Modal app is `ap-xW5lCwuwsVAis7rgzAypL6`).
+Verified 2026-09-22, whileai 0.114 (this branch's source tree, mounted into the container: the wheel on the index does not carry `FlashReinforce` yet), HF transformers 4.54.0 + PEFT 0.16.0 on torch 2.7.1. 44.3 GPU minutes, &#36;1.48 on one L40S. Run page: none (no `WHILEAI_API_KEY` in the environment; the Modal app is `ap-xW5lCwuwsVAis7rgzAypL6`).
 
 ## Artifacts on Hugging Face
 

@@ -105,8 +105,8 @@ PYTHONUTF8=1 modal run --detach train_grpo_modal.py --spawn --run-name t2s-r1 \
 ```
 
 About 65 s a step in thinking mode on an H100 (completions average 900
-tokens; $3.95 an hour at Modal's on-demand price), so 100 steps is under
-two hours and roughly $8. `--skip-eval`
+tokens; &#36;3.95 an hour at Modal's on-demand price), so 100 steps is under
+two hours and roughly &#36;8. `--skip-eval`
 skips the slow in-container before/after sampling; the measurement comes
 from the served adapter in the next step, through vLLM, in minutes. `--spawn`
 submits the call and returns, so nothing depends on your laptop staying

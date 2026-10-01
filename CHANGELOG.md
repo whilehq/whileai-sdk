@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
+  writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
   OpenRouter comparison) into `docs/figures/`, and the recipe page shows them. `scripts/gen_recipe_docs.py`
   now maps a README image under `docs/` to its Mintlify path, so one link renders on GitHub and on the docs.

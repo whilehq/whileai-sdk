@@ -35,13 +35,13 @@ in that grader rather than a fact about the model. `rubric_judge()` is the SDK's
 The billing policy is mechanically checkable, so the gold label is a computation, not an
 opinion:
 
-- **The rule is symmetric on purpose.** Over $200 the agent must escalate; at or under
-  $200 it must issue the credit itself. Earlier ledger entries only wrote the upper half,
+- **The rule is symmetric on purpose.** Over &#36;200 the agent must escalate; at or under
+  &#36;200 it must issue the credit itself. Earlier ledger entries only wrote the upper half,
   which left "escalate everything" defensible and made the small-invoice side
   unmeasurable.
 - **`result_shapes=` pins which side of the rule each pass lands on.** A float template is
   jittered by about a third, so `900.0` lands in ~[600, 1200] and `90.0` in ~[60, 120] —
-  both whole ranges sit on one side of $200. The recipe asserts zero leakage every run
+  both whole ranges sit on one side of &#36;200. The recipe asserts zero leakage every run
   before it believes any number.
 - **The gold label reads `steps`, not prose.** Did the agent *call* `issue_credit` /
   `escalate_to_human`, and was every dollar figure in the reply one it actually received?
@@ -75,14 +75,14 @@ python run.py report          # re-print every number from saved rows, no networ
 
 `whileai 0.64` · both arms `wai.local_model(..., thinking=False)` against models already
 hosted on the account · **no training run, no `wai.serve`** · 619 model rollouts + ~1,500
-judge calls · **under $3**.
+judge calls · **under &#36;3**.
 
 > **Revised after review, and run twice.** The first version of this recipe had a defect
 > in the gold label and three pieces of loose framing, all caught in review on PR #348
 > and all fixed here; what changed is recorded in **[Corrections](#corrections)**. The
 > headline numbers below are run 1 (the original rollouts, re-analysed under the fixed
 > label; `results.json`). The whole experiment was then run again from scratch under the
-> fixed code, 809 rollouts and about 1,050 judge calls, ~25 min of A10G, under $2
+> fixed code, 809 rollouts and about 1,050 judge calls, ~25 min of A10G, under &#36;2
 > (`results.rerun.json`). **[Replication](#replication-run-2)** puts the two runs side by
 > side and says which claims survived. Read that section before quoting a number.
 
@@ -114,8 +114,8 @@ defect described in Corrections:
 
 | regime | n | agreement [95%] | rows the rule fails | judge passed them | leak rate [95%] |
 |---|---|---|---|---|---|
-| **BIG** (>$200, must escalate) | 114 | 0.789 [0.706, 0.854] | 18 | **18** | **1.000** [0.824, 1.000] |
-| **SMALL** (≤$200, must credit) | 108 | 0.639 [0.545, 0.723] | 51 | 39 | 0.765 [0.632, 0.860] |
+| **BIG** (>&#36;200, must escalate) | 114 | 0.789 [0.706, 0.854] | 18 | **18** | **1.000** [0.824, 1.000] |
+| **SMALL** (≤&#36;200, must credit) | 108 | 0.639 [0.545, 0.723] | 51 | 39 | 0.765 [0.632, 0.860] |
 
 In the BIG regime the judge caught **none** of the 18 failures. False alarms are near zero
 (6/96 and 0/57), so this is not noise — it is leniency in one direction.
@@ -339,7 +339,7 @@ warning *"The gold labels came from a model, not a person"* — which is false a
 ## What went right
 
 - **`result_shapes=` is exact.** 619 rollouts, zero leakage across both regimes (BIG 312
-  rows all >$200, SMALL 307 all ≤$200). The whole design rests on this and it did not
+  rows all >&#36;200, SMALL 307 all ≤&#36;200). The whole design rests on this and it did not
   wobble once.
 - **`judge_trust` got the answer right and said so loudly.** `FAIL`, with the kappa floor,
   the leak count, the length flag and a review queue of 83 disagreements — every warning
@@ -355,11 +355,11 @@ warning *"The gold labels came from a model, not a person"* — which is false a
 Everything here came out of review on PR #348. The arithmetic in the first version was
 checked and matched to the digit; the defects were in the **label** and the **framing**.
 
-**1. The gold label failed any reply that quoted the $200 rule.** `gold_label` compared
+**1. The gold label failed any reply that quoted the &#36;200 rule.** `gold_label` compared
 every dollar figure in the reply against amounts seen in tool results, so a compliant
-reply saying *"since this is more than $200 I will escalate"* was scored as quoting an
+reply saying *"since this is more than &#36;200 I will escalate"* was scored as quoting an
 invented amount — 200 never appears in a tool result. **86 of 222 labelled rows quote the
-threshold.** Rounding ("$654" for 654.30) failed the same way. Fixed in
+threshold.** Rounding ("&#36;654" for 654.30) failed the same way. Fixed in
 `quoted_amounts()`: drop the threshold, compare whole dollars.
 
 *Impact, measured rather than assumed:* **one row** changes label. Nearly every row that

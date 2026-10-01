@@ -172,13 +172,13 @@ checks to run before a launch, and how to resume and serve an adapter.
 ## Cost and time
 
 Modal on-demand prices ([modal.com/pricing](https://modal.com/pricing), read
-2026-09-28): H200 $4.54 an hour, L4 $0.80 an hour. The vLLM app runs up to four H200 containers
+2026-09-28): H200 &#36;4.54 an hour, L4 &#36;0.80 an hour. The vLLM app runs up to four H200 containers
 (`DOCPARSE_MAX_CONTAINERS`) and scales to zero after ten idle minutes; the
 detector runs up to four L4s; the benchmark runner is a CPU container. A
 single-dimension dev run is the cheap loop; test and full are the expensive
-ones. RL runs on four H200s ($18.16 an hour): `charts-v1` took about 1.6 minutes a
-step, so its 100 steps were under three hours and about $50;
-`charts-pages-v1` took about 3 minutes a step, about $45 for 50 steps.
+ones. RL runs on four H200s (&#36;18.16 an hour): `charts-v1` took about 1.6 minutes a
+step, so its 100 steps were under three hours and about &#36;50;
+`charts-pages-v1` took about 3 minutes a step, about &#36;45 for 50 steps.
 
 ## Traps
 

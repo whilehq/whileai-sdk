@@ -48,7 +48,7 @@ why `profile()["mixed_tasks"]` is the number that predicts whether a GRPO run wi
 anything, why a guard marker belongs in `must_not_regress` even when it reads 1.000,
 and that `wai.hf_publish_run` works in 20 seconds.
 
-You need `WHILEAI_API_KEY`; `--dry-run` needs nothing. Two hosted runs, **under $1**
+You need `WHILEAI_API_KEY`; `--dry-run` needs nothing. Two hosted runs, **under &#36;1**
 of GPU (see **Cost**, and note the SDK gave me no way to compute that).
 
 ## Run it
@@ -206,11 +206,11 @@ at the top of this README.
 
 | item | measured | estimate |
 |---|---|---|
-| hosted SFT | **56.4 s** on A10G | $0.02 (`cost_usd`) |
-| hosted GRPO | **329.5 s** on L40S | $0.18 (`cost_usd`) |
-| 5 rollout passes (data + 3 eval arms) + cold starts | ~10 min on the shared serving GPU | ~$0.2–0.4 |
+| hosted SFT | **56.4 s** on A10G | &#36;0.02 (`cost_usd`) |
+| hosted GRPO | **329.5 s** on L40S | &#36;0.18 (`cost_usd`) |
+| 5 rollout passes (data + 3 eval arms) + cold starts | ~10 min on the shared serving GPU | ~&#36;0.2–0.4 |
 | `hf_publish_run` | 20 s | — |
-| **total** | | **under $1** |
+| **total** | | **under &#36;1** |
 
 **The two training rows are the SDK's estimate.** `run.summary` gives `seconds` and
 `gpu`, and since [#399](https://github.com/whilehq/whileai-sdk/issues/399) it gives
