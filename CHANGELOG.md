@@ -20,6 +20,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
   common reference answer) and grades them with your own scorer, no model call. A probe is flagged when the 95%
   lower bound of its score reaches `CHEAT_PROBE_FLAG` (0.10); the warning names the probe, its score and its
   interval, so a gameable reward is caught before training on it. Docs: reward-hacking, "Cheat probes".
+- `compare` (`delta_report`) prints a `repeated:` line beside every verdict and returns `report["repeats"]`:
+  how many runs reach the pooled verdict on their own ("3/3 runs agree", each run's `up`/`flat`/`DOWN`),
+  the run-to-run range of each side's score (max minus min of the per-run means), and the pooled 95%
+  interval when no line above prints it. One run a side says "1 run, noise unknown". Runs come from
+  `lineage.eval_run` (`simulate(runs=3)`) or `train_runs=` seeds. Additive: no key or verdict changes.
+  Asked for by an external case study on 0.126, where re-runs that "differed by only 0.01 to 0.02" were
+  what made a 0.46 -> 0.76 gain believable.
 - `coverage_gap` no longer counts a standing rule as covered when no ask touches it. A rule that names no
   tool and no condition ("Never modify data.") was reached by every ask, so a suite with no ask near it read
   "8 of 8". It now needs an ask that shares a word with it, and otherwise lands in `untested_rules`.
