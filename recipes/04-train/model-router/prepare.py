@@ -128,11 +128,14 @@ def main() -> int:
         dtype=np.float32,
     )
     np.save(out / "embeddings.npy", emb)
+    with (out / "queries.jsonl").open("w", encoding="utf-8") as fh:
+        for r in rows:  # the question text, for a router that reads it (jev.py)
+            fh.write(json.dumps({"id": r["id"], "query": r["query"]}) + "\n")
     with (out / "table.jsonl").open("w", encoding="utf-8") as fh:
         for r in rows:
-            r.pop("query")  # the table carries grades and costs; the text lives in the release
+            r.pop("query")  # the table carries grades and costs
             fh.write(json.dumps(r) + "\n")
-    print(f"wrote {out / 'table.jsonl'} and {out / 'embeddings.npy'}")
+    print(f"wrote {out / 'table.jsonl'}, {out / 'queries.jsonl'} and {out / 'embeddings.npy'}")
     return 0
 
 

@@ -13,7 +13,7 @@ HERE = Path(__file__).resolve().parent
 FIGURES = HERE.parents[2] / "docs" / "figures"
 
 INK, MUTED, GRID = "#0b0b0b", "#898781", "#e1e0d9"
-GRAY, BLUE, ORANGE, GREEN = "#888780", "#2a78d6", "#eb6834", "#1baf7a"
+GRAY, BLUE, ORANGE, GREEN, PURPLE = "#888780", "#2a78d6", "#eb6834", "#1baf7a", "#8a5cd6"
 SHORT = {
     "qwen3-235b-a22b-2507": "Qwen3-235B",
     "qwen3-235b-a22b-thinking-2507": "Qwen3-235B thinking",
@@ -77,7 +77,10 @@ def chart_frontier(res, path):
     for name, color, dash, label in (
         ("avengers-pro", BLUE, "-", "Avengers-Pro router"),
         ("knn", ORANGE, "--", "kNN router"),
+        ("jev-task", PURPLE, ":", "Jev router (TypeSafe, untrained)"),
     ):
+        if name not in res["routers"]:
+            continue
         x, y = zip(*frontier(res["routers"][name]["curve"]))
         ax.plot(x, y, dash, color=color, lw=2.2, label=label, zorder=4)
     o = res["oracle"]
@@ -116,7 +119,7 @@ def chart_frontier(res, path):
     ax.set_xlabel("Cost per 1,000 questions (log scale)", color=MUTED, fontsize=11)
     ax.set_ylabel("Accuracy on held-out questions", color=MUTED, fontsize=11)
     ax.set_title(
-        f"Twelve models, three routers, {res['n']['test']:,} held-out questions",
+        f"Twelve models, {res['n']['test']:,} held-out questions",
         color=INK,
         fontsize=14,
         loc="left",
