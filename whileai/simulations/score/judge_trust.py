@@ -121,6 +121,10 @@ HALVES_MIN_ROWS = 10
 # short/long split is read; a median split of fewer leaves under three a
 # side (convention).
 LENGTH_MIN_ROWS_PER_LABEL = 6
+# GUESSING_KAPPA = 0.2: kappa under which the verdicts match the labels
+# about as often as a coin flip would. Landis and Koch (1977) call
+# 0.00-0.20 "slight"; the warning names guessing rather than a tuning gap.
+GUESSING_KAPPA = 0.2
 # LABEL_SEARCH_MAX = 1000: the most labels the "label more" search will
 # consider before giving up; past it the Wilson bound has converged to
 # within 0.03 of the point estimate and more labels cannot lift it.
@@ -253,9 +257,15 @@ def length_sensitivity(
     labeled: Sequence[dict], *, gold: str = GOLD_KEY, length_gap_flag: float = LENGTH_GAP_FLAG
 ) -> dict[str, Any]:
     """Judge pass rate on short vs long replies, within each gold label;
-    ``flagged`` when the widest gap reaches ``length_gap_flag``."""
+    ``flagged`` when a gap reaches ``length_gap_flag`` and is beyond noise.
+
+    A judge that guesses shows a short/long gap of 15 points or more on a
+    hundred rows by chance, so a gap only flags when a two-proportion z
+    test also rejects at ``ALPHA`` split over the two labels (``p_value``
+    per label). Guessing is the kappa warning's job, not this one's."""
     out: dict[str, Any] = {}
     max_gap = 0.0
+    flagged = False
     for label in (1, 0):
         rows = [r for r in labeled if _label(r, gold) == label]
         if len(rows) < LENGTH_MIN_ROWS_PER_LABEL:
@@ -272,15 +282,20 @@ def length_sensitivity(
         rate_l = sum(_label(r, "reward") or 0 for r in long) / len(long)
         gap = rate_l - rate_s
         max_gap = max(max_gap, abs(gap))
+        pooled = (rate_s * len(short) + rate_l * len(long)) / len(rows)
+        se = math.sqrt(pooled * (1 - pooled) * (1 / len(short) + 1 / len(long)))
+        p_value = 2 * (1 - NormalDist().cdf(abs(gap) / se)) if se else (0.0 if gap else 1.0)
+        flagged = flagged or (abs(gap) >= length_gap_flag and p_value < ALPHA / 2)
         out[f"gold_{label}"] = {
             "n": len(rows),
             "median_chars": median,
             "judge_pass_short": rate_s,
             "judge_pass_long": rate_l,
             "gap_long_minus_short": gap,
+            "p_value": p_value,
         }
     out["max_gap"] = max_gap
-    out["flagged"] = max_gap >= length_gap_flag
+    out["flagged"] = flagged
     return out
 
 
@@ -568,7 +583,13 @@ def perturbation(
     flip_flag: float = FLIP_FLAG,
 ) -> dict[str, Any]:
     """Re-judge a sample as-is (consistency) and with filler (length);
-    a flip rate at or over ``flip_flag`` is flagged."""
+    a flip rate at or over ``flip_flag`` is flagged.
+
+    Filler reads as length only when it moves verdicts one way: the net
+    flips ``|up - down| / n`` reach ``flip_flag`` and an exact sign test
+    on up versus down rejects at ``ALPHA``. A judge that guesses flips
+    about as many up as down, which is noise, not a length preference
+    (the same net rule as the probes, #347)."""
     from .judging import run_judge
 
     picked = _pick(rows, sample, seed)
@@ -603,6 +624,18 @@ def perturbation(
         for o, p in zip(picked, padded.rows)
         if _label(o, "reward") == 1 and _label(p, "reward") == 0
     )
+    net = abs(pad_up - pad_down)
+    discordant = pad_up + pad_down
+    sign_p = (
+        min(
+            1.0,
+            2
+            * sum(math.comb(discordant, k) for k in range(min(pad_up, pad_down) + 1))
+            / 2**discordant,
+        )
+        if discordant
+        else 1.0
+    )
     return {
         "n": len(picked),
         "consistency_flip_rate": consistency,
@@ -610,7 +643,9 @@ def perturbation(
         "filler_flips_up": pad_up,
         "filler_flips_down": pad_down,
         "flagged_consistency": consistency is not None and consistency >= flip_flag,
-        "flagged_length": length is not None and length >= flip_flag,
+        "filler_net_flip_rate": (net / n_pad) if n_pad else None,
+        "filler_sign_p": sign_p,
+        "flagged_length": bool(n_pad) and net / n_pad >= flip_flag and sign_p < ALPHA,
         "errors": sum(1 for r in again.rows + padded.rows if r.get("judge_status") != "ok"),
     }
 
@@ -858,10 +893,17 @@ def judge_trust(
                 )
         kappa = agree["kappa"]
         if not degenerate_gold and kappa is not None and kappa < min_kappa:
+            guessing = (
+                f"; under {GUESSING_KAPPA:.1f} its verdicts match the labels about as often as "
+                "a coin flip would: the judge is guessing, so fix what it is asked before "
+                "reading any bias check"
+                if kappa < GUESSING_KAPPA
+                else ""
+            )
             warnings.append(
                 f"Judge agreement with {labels_word} beyond chance (kappa) is {kappa:.2f}, "
-                f"under the {min_kappa:.2f} floor. Change the judge prompt or the judge model, "
-                "then run judge_trust again."
+                f"under the {min_kappa:.2f} floor{guessing}. Change the judge prompt or the "
+                "judge model, then run judge_trust again."
             )
     if halves["a"]["agreement"] is not None and halves["b"]["agreement"] is not None:
         gap = abs(halves["a"]["agreement"] - halves["b"]["agreement"])

@@ -9,6 +9,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
+- `judge_trust` no longer tells a guessing judge it reads length. The short/long gap and the filler re-judge flag
+  only when the gap is beyond noise (two-proportion z test; sign test on filler flips up versus down), and a kappa
+  under 0.2 now says the judge is guessing. Found by an external case study (gentlyventures.com) where a coin-flip
+  judge (kappa 0.04) got the length warning.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
   OpenRouter comparison) into `docs/figures/`, and the recipe page shows them. `scripts/gen_recipe_docs.py`
   now maps a README image under `docs/` to its Mintlify path, so one link renders on GitHub and on the docs.
