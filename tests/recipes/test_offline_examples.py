@@ -66,6 +66,7 @@ CLI_EXAMPLES = [
     "04-train/resist-planted-instruction/run.py",
     "04-train/resist-planted-instruction/analyse.py",
     "04-train/parsebench/selftest.py",
+    "04-train/model-router/prepare.py",
     "04-train/parsebench/scores.py",
     "01-simulate/verifiers/run.py",
     "community/same-entrypoint-before-after/run.py",

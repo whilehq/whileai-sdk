@@ -110,6 +110,7 @@ platform.
 
 | Recipe | What you learn | Needs | Takes | Costs |
 |---|---|---|---|---|
+| [`model-router`](04-train/model-router) | train a router over twelve frontier models from LLMRouterBench's graded answers: kNN, Avengers-Pro clusters and a linear baseline, one cost knob, scored against the best single model, a random pick, the oracle and OpenRouter's auto router with intervals | `numpy`, `fastembed`, `huggingface_hub`; no key | about 10 min once to download and embed, then 2 min on CPU | free |
 | [`hosted-loop`](04-train/hosted-loop) | push graded rows, `wai.train` SFT on Qwen3-4B, `wai.serve` the adapter, one chat completion from the endpoint | `WHILEAI_API_KEY` | about a minute of A10G, plus a cold start | about 5 cents (one A10G minute, plus the cold start) |
 | [`report-run`](04-train/report-run) | the typed objects the platform tracks (a tracked agent with its harness, behaviors, runs, live traffic), why a harness is versioned by its fingerprint, and why a version is scored on every behavior | `WHILEAI_API_KEY` for the real thing; nothing for the smoke run | 10 seconds | free |
 | [`identity`](04-train/identity) | a leak-free SFT set that teaches a name and maker, with Modal scripts for the LoRA and for the identity/leak eval | nothing to generate; Modal and an A10G to train | seconds to generate | free to generate; A10G minutes to train and eval, at $1.10 an hour |
