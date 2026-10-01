@@ -17,7 +17,7 @@ gap to a perfect router still is. You need an OpenAI-compatible key
 ## Run it
 
 ```bash
-uv add whileai openai numpy
+uv add whileai openai
 cd recipes/02-measure/model-router
 python run.py --dry-run          # offline: seeded stand-in models, what smoke.sh runs
 python run.py                    # live: 3,988 calls, about $6 on OpenRouter

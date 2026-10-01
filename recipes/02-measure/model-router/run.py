@@ -218,9 +218,8 @@ def fit_text_router(train: list[dict], epochs: int = 30, lr: float = 0.5):
     that halves the noise of a single draw (RouteLLM, Ong et al. 2024,
     arXiv:2406.18665, trains its routers on the same kind of win label).
     """
-    import numpy as np
-
-    w, b = np.zeros(HASH_DIM), 0.0
+    w: dict[int, float] = {}  # sparse: only the buckets a training question touched
+    b = 0.0
     xs = [features(t["question"]) for t in train]
     ys = [1 - (t["r"]["cheap", 0] + t["r"]["cheap", 1]) / 2 for t in train]
     rng = random.Random(0)
@@ -229,11 +228,13 @@ def fit_text_router(train: list[dict], epochs: int = 30, lr: float = 0.5):
         rng.shuffle(order)
         step = lr / (1 + epoch)
         for i in order:
-            z = b + w[xs[i]].sum()
+            z = b + math.fsum(w.get(j, 0.0) for j in xs[i])
             g = 1 / (1 + math.exp(-z)) - ys[i]
-            w[xs[i]] -= step * (g + L2 * w[xs[i]] / len(train))
+            for j in xs[i]:
+                wj = w.get(j, 0.0)
+                w[j] = wj - step * (g + L2 * wj / len(train))
             b -= step * g
-    return lambda t: float(b + w[features(t["question"])].sum())
+    return lambda t: b + math.fsum(w.get(j, 0.0) for j in features(t["question"]))
 
 
 def subject_router(train: list[dict]):
