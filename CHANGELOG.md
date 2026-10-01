@@ -14,6 +14,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
   `smithtune_modal.py` runs the smithtune CLI on Modal where Docker is unavailable; `train_modal.py --seed`
   and `collect.py --tasks` support the new arms.
 
+- `recipes/04-train/model-router` adds an untrained router: `jev.py` asks TypeSafe's Jev what kind of
+  question each one is and which model will get it right, and `run.py` scores both against Avengers-Pro at
+  equal budgets. Naming the kind of question is enough to match the trained router, and beats it at $5
+  per 1k (+1.6 points [+0.2, +3.0]). `prepare.py` now also writes `queries.jsonl`.
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
