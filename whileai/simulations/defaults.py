@@ -499,6 +499,60 @@ ROLLOUTS_PER_TASK = 4
 # noise floors. (convention, untested; sits above the measured noise)
 PROVE_EFFECT = 0.05
 
+# ``wai.self_check()`` (``whileai/selfcheck.py``): the simulation that
+# checks the comparison ``wai.compare`` runs, on scripted agents whose
+# truth is known. The scenario sizes follow the external case study that
+# first graded the grader by hand on whileai 0.126
+# (gentlyventures.com/casestudies/whileai): 300-400 trials, 30 and 60
+# cases, gains of 10 and 16 points, intervals at 10 and 20 cases.
+#
+# SELF_CHECK_SEED = 0: the seed every trial's draws derive from, printed on
+# the report so a run can be repeated exactly (DEFAULT_SEED's convention).
+SELF_CHECK_SEED = 0
+# SELF_CHECK_TRIALS = 40: trials per check in the default (fast) run, about
+# 10 to 15 seconds on a laptop. Its Monte Carlo error at a 5% rate is 3.4
+# points, so it catches a broken interval (a false-alarm rate of 20%), not
+# a miss of a few points; ``SELF_CHECK_FULL_TRIALS`` resolves one of about
+# three (convention, untested: sized to the runtime, not to a precision).
+SELF_CHECK_TRIALS = 40
+# SELF_CHECK_FULL_TRIALS = 400: trials per check under ``wai self-check
+# --full``, the top of the case study's 300-400 range. Monte Carlo error 1.1
+# points at a 5% rate and 2.5 at 50% power; two to three minutes.
+SELF_CHECK_FULL_TRIALS = 400
+# SELF_CHECK_FLAG_ERRORS = 3.0: how many Monte Carlo errors a measured rate
+# may sit on the bad side of its target before the check is flagged. Three
+# keeps the chance that a correct check is flagged by its own sampling
+# noise near 0.1% per one-sided check, so a flag is worth reading
+# (convention, untested: the three-sigma rule).
+SELF_CHECK_FLAG_ERRORS = 3.0
+# SELF_CHECK_CASES = 30: cases per arm in the false-alarm and near-duplicate
+# checks, the case study's smaller eval.
+SELF_CHECK_CASES = 30
+# SELF_CHECK_COVERAGE_CASES = (10, 20): eval sizes the interval coverage is
+# measured at. The case study found the 95% range slightly narrow at 10
+# cases and on target from 20; a percentile bootstrap undercovers on small
+# samples (Efron and Tibshirani 1993, chapter 13).
+SELF_CHECK_COVERAGE_CASES = (10, 20)
+# SELF_CHECK_POWER_CASES = (30, 60): eval sizes the detection rate is
+# measured at, against the power ``holdout_size`` predicts (the case study's
+# two sizes).
+SELF_CHECK_POWER_CASES = (30, 60)
+# SELF_CHECK_EFFECTS = (0.10, 0.16): true gains in pass rate the power check
+# plants (the case study's +10 and +16 points). The first is also the gain
+# the coverage check plants.
+SELF_CHECK_EFFECTS = (0.10, 0.16)
+# SELF_CHECK_DIFFICULTY = (0.2, 0.7): the range each case's pass chance is
+# drawn from, uniformly, in the false-alarm, coverage and near-duplicate
+# checks. Cases differ in difficulty in a real eval; the range sits inside
+# DIFFICULTY_BAND so a planted +0.16 never clips at 1 and the true gain
+# stays exactly the planted one (convention, untested).
+SELF_CHECK_DIFFICULTY = (0.2, 0.7)
+# SELF_CHECK_DUPLICATE_SHARE = 0.5: the share of cases in the near-duplicate
+# check that restate another case (same pass chance, separate task id, a
+# fresh draw). Half is the worst plausible contamination of an eval set by
+# rephrasings (convention, untested).
+SELF_CHECK_DUPLICATE_SHARE = 0.5
+
 # ---------------------------------------------------------------------
 # score: difficulty band
 # ---------------------------------------------------------------------
@@ -2239,6 +2293,16 @@ __all__ = [
     "SATURATION_CAP",
     "SCENARIO_ID_CHARS",
     "SECONDS_PER_HOUR",
+    "SELF_CHECK_CASES",
+    "SELF_CHECK_COVERAGE_CASES",
+    "SELF_CHECK_DIFFICULTY",
+    "SELF_CHECK_DUPLICATE_SHARE",
+    "SELF_CHECK_EFFECTS",
+    "SELF_CHECK_FLAG_ERRORS",
+    "SELF_CHECK_FULL_TRIALS",
+    "SELF_CHECK_POWER_CASES",
+    "SELF_CHECK_SEED",
+    "SELF_CHECK_TRIALS",
     "SEMANTIC_SIMILARITY",
     "SFT_COMPLETIONS_PER_PROMPT",
     "SFT_PHRASINGS_PER_SITUATION",

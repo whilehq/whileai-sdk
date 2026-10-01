@@ -3,6 +3,7 @@ manages from a terminal.
 
     wai login | signup --email | status | logout
     wai init-evals
+    wai self-check [--full] [--trials N] [--seed S] [--json]
     wai agents
     wai agent refund-bot
     wai runs refund-bot
@@ -93,6 +94,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     init_evals_args(p_init)
 
+    p_check = sub.add_parser(
+        "self-check",
+        help="check the statistics by simulation: false alarms, coverage, power (offline)",
+    )
+    p_check.add_argument(
+        "--full",
+        action="store_true",
+        help="the case study's trial count (400 per check, two to three minutes)",
+    )
+    p_check.add_argument(
+        "--trials", type=int, default=None, help="trials per check (default 40, 10-15 s)"
+    )
+    p_check.add_argument(
+        "--seed", type=int, default=None, help="seed every draw derives from (default 0)"
+    )
+    p_check.add_argument("--json", action="store_true", help="print the report as JSON")
+
     def platform_parser(name: str, help_text: str):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--json", action="store_true", help="print the API's JSON")
@@ -171,6 +189,20 @@ def main(argv: list[str] | None = None) -> int:
             out=args.dir,
             force=args.force,
         )
+
+    if args.command == "self-check":
+        from .selfcheck import self_check
+        from .simulations.defaults import (
+            SELF_CHECK_FULL_TRIALS,
+            SELF_CHECK_SEED,
+            SELF_CHECK_TRIALS,
+        )
+
+        trials = args.trials or (SELF_CHECK_FULL_TRIALS if args.full else SELF_CHECK_TRIALS)
+        seed = SELF_CHECK_SEED if args.seed is None else args.seed
+        report = self_check(trials=trials, seed=seed)
+        _emit(dict(report), args.json, lambda: print(str(report)))
+        return 0 if report["ok"] else 1
 
     if args.command == "logout":
         print("Logged out." if auth.logout() else "No saved key.")
