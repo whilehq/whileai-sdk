@@ -29,6 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--arm", required=True)
     p.add_argument("--split", required=True, choices=["train", "dev", "holdout", "public"])
     p.add_argument("--limit", type=int)
+    p.add_argument("--tasks", help="FILE:KEY, a task-id list in a JSON file (aim.json:aimed)")
     p.add_argument("--workers", type=int, default=8)
     p.add_argument("--base-url", default=agent.OPENROUTER)
     p.add_argument("--model", default=agent.BASE_MODEL)
@@ -53,6 +54,10 @@ def main(argv: list[str] | None = None) -> int:
             if not r["error"] or r["error"].startswith("GraphRecursionError")
         }
     tasks = [t for t in data.load(args.split, args.limit) if t["id"] not in done]
+    if args.tasks:
+        path, key = args.tasks.rsplit(":", 1)
+        wanted = set(json.loads(pathlib.Path(path).read_text(encoding="utf-8"))[key])
+        tasks = [t for t in tasks if t["id"] in wanted]
     print(f"{args.arm}/{args.split}: {len(tasks)} to run, {len(done)} done", file=sys.stderr)
 
     chat = agent.model(args.base_url, args.model, os.environ[args.api_key_env])

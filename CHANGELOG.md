@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/community/deepagents-review-four-arms/`: a pre-registered fair rerun (`PREREGISTRATION.md`).
+  The first smithtune arm skipped smithtune's rubric co-design step; the rerun uses `rubric_codesigned.md`
+  (written after reading 20 traces, checked on a 20-trace trial), equal training-set sizes, three seeds per
+  arm, and a second experiment on aiming 400 new rollouts (`aim.py`) against drawing them at random.
+  `smithtune_modal.py` runs the smithtune CLI on Modal where Docker is unavailable; `train_modal.py --seed`
+  and `collect.py --tasks` support the new arms.
+
 - `recipes/04-train/model-router` adds an untrained router: `jev.py` asks TypeSafe's Jev what kind of
   question each one is and which model will get it right, and `run.py` scores both against Avengers-Pro at
   equal budgets. Naming the kind of question is enough to match the trained router, and beats it at $5

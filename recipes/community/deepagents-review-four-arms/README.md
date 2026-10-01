@@ -12,6 +12,12 @@ why a single base run is not a baseline. You need `OPENROUTER_API_KEY` and `LANG
 for traces, Docker for smithtune (it imports `fcntl`, so Linux or macOS), and a Modal account for
 training and serving. `python run.py --dry-run` needs none of it.
 
+> **Rerun in progress.** The smithtune arm below skipped smithtune's central step: we wrote its
+> rubric without reading traces with an agent and did not calibrate it, so its council kept 258 of
+> 260. The arms also trained one seed each on sets of different size. `PREREGISTRATION.md` fixes
+> all three (a co-designed rubric, equal set sizes, three seeds) and adds a generation experiment.
+> Every rule in it was merged before the new arms were trained.
+
 ## Result
 
 SWE-bench Verified patch review, 250 reviews on 125 issues, 50/50 approve/reject, labels from the
