@@ -1,9 +1,11 @@
 # Rubric: code review trajectories (the smithtune arm)
 
-Written the way the smithtune docs ask: the task, what to keep, what to drop,
-and an example of each. It is the rubric a LangChain user would write for this
-agent without While; it says nothing about call counts on purpose, because the
-point of this arm is the default path.
+The rubric the first result used. It has the parts the smithtune docs ask for
+(the task, what to keep, what to drop, an example of each) but skips the step
+the smithtune skill centers: it was written without reading any traces and was
+not calibrated on a trial, and it leaves call counts out on purpose. The
+council kept 258 of 260 with it. `rubric_codesigned.md` is the rubric written
+the recommended way, used by the rerun in PREREGISTRATION.md.
 
 ## Task
 

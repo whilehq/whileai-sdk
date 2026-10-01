@@ -116,7 +116,8 @@ def test_cli_runs_offline_and_writes_json(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr
     assert "REGRESSION marker:helpful_on_benign" in proc.stdout
-    assert proc.stdout.count("PASS") >= 1 and proc.stdout.count("FAIL") >= 1
+    # a one-run gain reads INCONCLUSIVE, not PASS (it has no re-run spread)
+    assert "INCONCLUSIVE (1 eval run a side" in proc.stdout and "FAIL" in proc.stdout
     report = json.loads(out.read_text())
     assert set(report) == {"trusting", "judge_trust", "locked-down", "hardened"}
     assert report["locked-down"]["delta"]["ok"] is False

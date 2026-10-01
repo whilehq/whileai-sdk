@@ -113,6 +113,9 @@ _REFERENCE_KEY = re.compile(
     r"^number$|^repo$|^asin$|^sku$)",
     re.I,
 )
+# The narrower set: a parameter that takes a record number (order_id,
+# ref), not a path or a name. Only these make an invented REF-nnnn fit.
+_RECORD_ID_KEY = re.compile(r"(^id$|_id$|^ref$|^reference$|_ref$|^number$|_number$)", re.I)
 
 TOOL_CONDITIONS = ["success", "timeout", "malformed_result", "stale_result", "permission_denied"]
 STANCES = [
@@ -271,10 +274,10 @@ def _intent_kinds(tools: list[dict]) -> dict[str, str]:
     return kinds
 
 
-def _has_reference_keys(tools: list[dict]) -> bool:
+def _has_reference_keys(tools: list[dict], pattern: re.Pattern = _REFERENCE_KEY) -> bool:
     def scan(schema: dict) -> bool:
         for key, child in (schema.get("properties") or {}).items():
-            if _REFERENCE_KEY.search(str(key)):
+            if pattern.search(str(key)):
                 return True
             if isinstance(child, dict) and child.get("type") == "object" and scan(child):
                 return True
@@ -951,13 +954,21 @@ def _reference_id(region: dict, tools: list[dict], variant: int = 0) -> str:
     ids = known_ids(tools)
     if ids:
         return ids[draw % len(ids)]
-    prefix = "REF"
+    prefix = ""
     for name in _tool_names(tools):
         if _tool_kind(name) == "read":
             rest = _tokens(name)[1:]
             if rest:
                 prefix = rest[0][:3].upper()
                 break
+    if not prefix:
+        # No id on file, no record a read tool fetches, no id parameter:
+        # the world has no records, so an invented REF-nnnn turns every
+        # ask into a support ticket (94 of 115 for a code-history agent,
+        # gentlyventures case study). Say nothing about a reference.
+        if not _has_reference_keys(tools, _RECORD_ID_KEY):
+            return ""
+        prefix = "REF"
     return f"{prefix}-{1000 + draw % 9000}"
 
 
@@ -1005,6 +1016,13 @@ _MULTI_STEP = [
     "Tell me when each one is done.",
     "I have a list. {ref} first, then whatever is outstanding on the {noun}, "
     "and a summary at the end please.",
+]
+# Multi-step openers for a world with no record ids to name.
+_MULTI_STEP_NO_REF = [
+    "Hi, I have a few things to ask about the {noun}, and I would like a summary at the end.",
+    "Hello, three things today. Check the {noun}, compare it with last time, and tell me what changed.",
+    "There are two parts to this. First the {noun}, then whatever depends on it. "
+    "Tell me when each one is done.",
 ]
 # Three ways to say each axis value, so offline rows do not share a sentence.
 _WORLD_LINES = {
@@ -1155,7 +1173,8 @@ def render_situation(region: dict, tools: list[dict], variant: int = 0) -> str:
     if intent == "ask something unrelated":
         sentences = [_line(tuple(_UNRELATED_OPENERS), rid, "opener", v)]
     elif intent == "multi step request":
-        sentences = [fill(_line(tuple(_MULTI_STEP), rid, "opener", v))]
+        pool = _MULTI_STEP if ref else _MULTI_STEP_NO_REF
+        sentences = [fill(_line(tuple(pool), rid, "opener", v))]
     else:
         sentences = [fill(_line(tuple(_OPENERS), rid, "opener", v))]
 
@@ -1176,6 +1195,8 @@ def render_situation(region: dict, tools: list[dict], variant: int = 0) -> str:
     )
     for axis, table, value in axes:
         pool = table.get(value)
+        if pool and not ref:
+            pool = tuple(text for text in pool if "{ref}" not in text)
         if pool:
             line = fill(_line(pool, rid, axis, v))
             if line:
