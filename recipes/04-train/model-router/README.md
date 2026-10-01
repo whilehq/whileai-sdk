@@ -4,14 +4,16 @@ A model router reads a question and picks one model from a pool, trading
 accuracy against cost with one knob. This recipe trains three routers from
 the 2025-2026 research on twelve frontier models and scores them on held-out
 questions against the best single model, a random pick, the perfect router,
-and OpenRouter's auto router.
+and OpenRouter's auto router. It then asks an untrained decision model,
+TypeSafe's Jev, to route the same questions.
 
 What you will learn: how a router is trained (it is a table lookup more than
 a neural network); why the cluster-based router from Avengers-Pro [1] is the
-one to start from; what the knob does to cost and accuracy; and how far every
-router still sits from the perfect one. You need `numpy`, `fastembed` and
+one to start from; what the knob does to cost and accuracy; how far every
+router still sits from the perfect one; and why a model that only names the
+kind of question can match them. You need `numpy`, `fastembed` and
 `huggingface_hub`, and no API key: the answers were already collected by
-LLMRouterBench [2]. `--dry-run` needs only `numpy`. `prepare.py` takes about 10
+LLMRouterBench [2]. Only the optional Jev section needs a TypeSafe key. `--dry-run` needs only `numpy`. `prepare.py` takes about 10
 minutes on a laptop CPU once (it downloads 1.3 GB); `run.py` takes about 2.
 
 ## Run it
@@ -122,6 +124,56 @@ points of each other, which is the routing plateau [7]: routers that read
 only the question learn which model is good at which kind of question, and
 miss the questions only one or two models get right.
 
+### A Jev router, untrained
+
+Can a model that was never trained on this table route as well as one that
+was? `jev.py` sends each val and held-out question to TypeSafe's Jev [9], a
+decision model that answers typed questions with a probability per answer
+and writes no text. One request asks two things:
+
+- **`jev-task`**: which of the twelve kinds of question is this? Each kind
+  is one sentence ("A short factual question with one specific answer").
+  `run.py` averages each model's training accuracy and cost over the kinds
+  Jev thinks the question could be. This is a task-type router, like
+  OpenRouter's [6].
+- **`jev-pick`**: which model will answer correctly? Each model is listed
+  with its training accuracy on every kind of question.
+
+```bash
+python jev.py               # needs TYPESAFE_API_KEY; 2,224 questions, about 30 cents
+python run.py               # picks up out/jev.jsonl and scores both Jev routers
+```
+
+Jev named the kind of question correctly 75.7% of the time. That was
+enough. **`jev-task` matched Avengers-Pro and beat it at low budgets.**
+Both knobs were picked on val at the same budget and compared on the same
+held-out questions:
+
+| budget per 1k | `avengers-pro` | `jev-task` | Jev minus Avengers-Pro |
+|---|---|---|---|
+| $5 | 0.560 ($5.25) | 0.576 ($4.55) | +0.016 [+0.002, +0.030] |
+| $10 | 0.565 ($5.64) | 0.583 ($7.05) | +0.018 [+0.003, +0.032] |
+| $20 | 0.595 ($19.48) | 0.615 ($26.47) | +0.021 [+0.000, +0.041] |
+| $35 | 0.622 ($35.09) | 0.628 ($38.04) | +0.007 [−0.009, +0.023] |
+| $50 | 0.638 ($53.21) | 0.643 ($56.58) | +0.005 [−0.006, +0.016] |
+
+At $5, Jev is 1.6 points more accurate for less money. From $20 up it
+spends more than Avengers-Pro on held-out questions, so the comparison is no
+longer at equal cost. At the top budgets the two tie. Asking Jev for the
+model directly (`jev-pick`) did worse than asking it for the kind of
+question: 0.617 against 0.636 at the matched-accuracy point. Jev is better
+at reading a question than at reading a table of percentages.
+
+Two caveats. The twelve kinds are the twelve source datasets, which is the
+best case for a task classifier: real traffic does not arrive sorted into
+twelve benchmarks. And Jev's median reply took 0.27 s with eight requests
+in flight. That is fast enough to update a suggestion after the user stops
+typing, but not on every keystroke. The embedding routers answer in
+milliseconds on a CPU.
+
+The result fits the plateau [7]. Jev reads only the question, like the other
+routers, so it lands on the same line. It gets there without training.
+
 ### Limits
 
 - **One benchmark, answers from late 2025.** Prices and models have moved,
@@ -161,3 +213,5 @@ collects exactly that for two models), and keep `run.py`.
    LLM Routers.* arXiv:2606.07587.
 8. Varshney et al. 2026. *LLM Router: Rethinking Routing with Prefill
    Activations.* arXiv:2603.20895.
+9. TypeSafe AI. *Jev, System One API.* api.typesafe.ai/v1/systemone, model
+   jev-1.13.0, called 2026-10-01.

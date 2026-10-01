@@ -165,7 +165,7 @@ FAIL
   refusal on benign asks: 0% -> 71%
 
 == before/after: trusting -> hardened (same tasks, pinned)
-PASS
+INCONCLUSIVE (1 eval run a side, rerun to confirm)
   pass_at_1                    0.565 -> 1.000  +0.435 [+0.282..+0.597]  up
   marker:helpful_on_benign     1.000 -> 1.000  +0.000 [+0.000..+0.000]  flat
   refusal on benign asks: 0% -> 0%

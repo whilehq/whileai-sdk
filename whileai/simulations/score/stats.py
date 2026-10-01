@@ -355,10 +355,10 @@ def _independence_ratio(rates: Sequence[float]) -> float | None:
 
 def _paired_sd_from_rows(
     before: Sequence[dict], after: Sequence[dict]
-) -> tuple[float, int, float, int]:
+) -> tuple[float, int, float, int, list[float]]:
     """The per-task paired sd measured off both arms: the sample sd of
     ``after - before`` per shared task, so the covariance pairing buys is
-    in it. Returns ``(sd, n_paired, base, k)``."""
+    in it. Returns ``(sd, n_paired, base, k, diffs)``."""
     means_a = _by_task(before, _binary)
     means_b = _by_task(after, _binary)
     shared = sorted(set(means_a) & set(means_b))
@@ -371,7 +371,7 @@ def _paired_sd_from_rows(
     diffs = [_mean(means_b[t]) - _mean(means_a[t]) for t in shared]
     base = _mean([_mean(means_a[t]) for t in shared])
     k = min(min(len(means_a[t]), len(means_b[t])) for t in shared)
-    return _sample_sd(diffs), len(shared), base, k
+    return _sample_sd(diffs), len(shared), base, k, diffs
 
 
 def eval_power(
@@ -537,6 +537,11 @@ class HoldoutSizeReport(Report):
         lines.append(
             f"task_std {self['task_std']:.4f} ({where}), half-width {self['half_width']:.4f}"
         )
+        if self.get("n_tasks_low") is not None:
+            lines.append(
+                f"range {self['n_tasks_low']}-{self['n_tasks_high']} tasks "
+                f"({self['n_tasks_range_method']})"
+            )
         lines += [f"warning: {w}" for w in self.get("warnings") or ()]
         lines += [f"note: {n}" for n in self.get("notes") or ()]
         return "\n".join(lines)
@@ -605,10 +610,27 @@ def holdout_size(
     name) reads ``base`` and ``k`` off the data. Returns ``n_tasks``
     plus the inputs, ``task_std``, ``sd_source``, ``half_width`` (the 95%
     band on the delta at that ``n``), ``n_tasks_concentrated``,
-    ``base_spread``, ``n_paired``, ``saturated``, ``notes`` and
+    ``base_spread``, ``n_paired``, ``saturated``, ``n_tasks_low``,
+    ``n_tasks_high``, ``n_tasks_range_method``, ``notes`` and
     ``warnings``; every key is present on every path (``None``, ``False``
     or ``[]`` where it does not apply). The default answer is unchanged;
     the honest paths are the two that measure.
+
+    A count read off a small pilot is right on average and noisy: twelve
+    paired tasks from one distribution gave anywhere from 30 to 166 for
+    the same gain, against 97 from five thousand (a case study saw 10 to
+    52). So when the answer was read off rows, ``n_tasks_low`` and
+    ``n_tasks_high`` bound it: a percentile bootstrap over the pilot's
+    tasks (``BOOTSTRAP_DRAWS`` resamples, seed 0, the central
+    ``CI_LEVEL`` = 95% of the resampled counts; Efron and Tibshirani
+    1993, chapter 13). With ``after=`` each resample re-measures the
+    paired sd; with ``before=`` alone it re-measures ``base`` and runs the
+    model. ``n_tasks_range_method`` says which. ``None`` when nothing was
+    measured (``task_std=`` given, no rows, saturated rows) or fewer than
+    ``MIN_CI_TASKS`` tasks. On twelve-task pilots the range held the
+    five-thousand-task answer in 29 of 40 draws (a percentile bootstrap
+    runs narrow on a dozen tasks), so read it as the pilot's own noise,
+    not a guarantee. A wide range says pilot more tasks, then size again.
 
     A saturated ``base=`` cannot size anything (``base`` is the before
     arm's pass rate; there is no ``baseline=``). Rows whose tasks all pass
@@ -652,10 +674,11 @@ def holdout_size(
     ratio: float | None = None
     n_paired: int | None = None
     saturated = False
+    diffs: list[float] = []  # per-task paired differences, when after= is given
     if before is not None:
         base, k, spread, ratio = _rows_base_and_k(before)
     if before is not None and after is not None:
-        sd, n_paired, base, k = _paired_sd_from_rows(before, after)
+        sd, n_paired, base, k, diffs = _paired_sd_from_rows(before, after)
         source = "rows"
         notes.append(
             f"task_std {sd:.3f} measured as the sample sd of the per-task paired difference "
@@ -705,6 +728,29 @@ def holdout_size(
         return max(MIN_HOLDOUT_TASKS, math.ceil((z * s / float(effect)) ** 2) if s > 0 else 1)
 
     n = _n(sd)
+    n_low: int | None = None
+    n_high: int | None = None
+    range_method: str | None = None
+    if not saturated and before is not None and source != "given":
+        draws = DEFAULT_BOOT
+        rng = random.Random(0)
+        pool = diffs if source == "rows" else [_mean(v) for v in _by_task(before, _binary).values()]
+        if len(pool) >= MIN_CI_TASKS:
+            if source == "rows":
+                boot = [_n(_sample_sd(rng.choices(pool, k=len(pool)))) for _ in range(draws)]
+            else:
+                boot = [
+                    _n(_paired_task_sd(_mean(rng.choices(pool, k=len(pool))), effect, k))
+                    for _ in range(draws)
+                ]
+            boot.sort()
+            n_low = min(n, boot[max(0, int((1 - CI_LEVEL) / 2 * draws))])
+            n_high = max(n, boot[min(draws - 1, int((1 + CI_LEVEL) / 2 * draws) - 1)])
+            what = "paired sd" if source == "rows" else "base pass rate"
+            range_method = (
+                f"percentile bootstrap of the {what} over {len(pool)} tasks, "
+                f"{draws} draws, {CI_LEVEL:.0%}"
+            )
     concentrated: int | None = None
     if source == "model":
         model_base = BASE_PASS_RATE if saturated else base
@@ -747,6 +793,9 @@ def holdout_size(
             "base_spread": round(spread, 4) if spread is not None else None,
             "n_paired": n_paired,
             "saturated": saturated,
+            "n_tasks_low": n_low,
+            "n_tasks_high": n_high,
+            "n_tasks_range_method": range_method,
             "notes": notes,
             "warnings": warnings,
         }
@@ -1416,6 +1465,12 @@ def _distinct_task_similarity(
     return min(1.0, sims[round(DISTINCT_TASK_PERCENTILE * (len(sims) - 1))])
 
 
+# Set once ``decontaminate`` has warned that, without ``embedder=``,
+# reworded copies of eval questions pass: one line per process, so a
+# pipeline that decontaminates many shards is not buried in the same note.
+_DECONTAM_PARAPHRASE_WARNED = False
+
+
 def decontaminate(
     rows: Sequence[dict],
     against: Sequence[Any] | Any,
@@ -1487,7 +1542,11 @@ def decontaminate(
     row of a template-written set; the coverage rule counts a row when one
     eval text accounts for most of it.
 
-    Word overlap does not see a paraphrase. A holdout written by
+    Word overlap does not see a paraphrase, and the run says so: without
+    ``embedder`` the report's ``notes`` carry a line that reworded copies
+    of eval questions are not caught and that ``embedder=`` catches them,
+    and the first such call in a process raises it as a ``UserWarning``
+    (once, so many shards do not repeat it). A holdout written by
     re-running the generator on the same briefs was 70% within 0.85
     cosine of the training batch and 5 of 133 byte-identical; the 8-gram
     rule flagged 4 of 101 prompts and the semantic pass 16. With
@@ -1633,6 +1692,17 @@ def decontaminate(
         )
         notes.append(line)
         warnings.warn(f"decontaminate: {line}", UserWarning, stacklevel=2)
+    if embedder is None and n_eval:
+        line = (
+            "the text rules catch exact and lightly edited copies of eval questions, not "
+            "reworded ones; pass embedder= (any texts -> vectors callable) to turn on the "
+            "semantic rule that catches paraphrases."
+        )
+        notes.append(line)
+        global _DECONTAM_PARAPHRASE_WARNED  # warn once per process
+        if not _DECONTAM_PARAPHRASE_WARNED:
+            _DECONTAM_PARAPHRASE_WARNED = True
+            warnings.warn(f"decontaminate: {line}", UserWarning, stacklevel=2)
     n_semantic = 0
     if embedder is not None and eval_prompts:
         eval_norms = list(eval_prompts)
