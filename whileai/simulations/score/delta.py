@@ -162,6 +162,11 @@ DEGENERATE_CHECK_DRAWS = 10
 # comparisons at ``seed + i`` (a headline and a group would otherwise
 # resample identically). Any offset past the metric count works.
 GROUP_SEED_OFFSET = 100
+# REPEAT_SEED_OFFSET = 1000: the run-by-run comparisons behind ``repeats``
+# draw from ``seed + REPEAT_SEED_OFFSET + i``, clear of the per-metric
+# streams (``seed + i``) and the per-group ones (``seed + 100 + i``) for
+# any report with under 900 groups. Any offset past both works.
+REPEAT_SEED_OFFSET = 1000
 #: SLICE_KEYS: the row keys ``delta_report`` reads as a slice (the kind of
 #: question a case is) when ``by=`` is not given, in this order. ``category``
 #: is the key the ``wai init`` evals template stamps on every row and
@@ -442,6 +447,187 @@ def _train_spread(
     out["ci95"] = (centre - half, centre + half)
     out["rule"] = f"t(df={df})={q:.2f} x sqrt({terms}), added in quadrature to the task interval"
     return out
+
+
+def _run_order(label: str) -> tuple[int, int | str]:
+    """``lineage.eval_run`` labels in run order: numbers by value, then text."""
+    try:
+        return (0, int(label))
+    except ValueError:
+        return (1, label)
+
+
+def _side_runs(rows: Sequence[dict], seeds: Sequence[Sequence[dict]] | None) -> list[list[dict]]:
+    """One side's rows split into its repeat runs: by ``lineage.eval_run``
+    when the rows carry two or more values (``simulate(runs=N)``), else the
+    row sets ``train_runs`` named for this arm, else the rows as one run."""
+    split: dict[str, list[dict]] = {}
+    for row in rows:
+        lineage = row.get("lineage") if isinstance(row, dict) else None
+        if isinstance(lineage, dict) and lineage.get("eval_run") is not None:
+            split.setdefault(str(lineage["eval_run"]), []).append(row)
+    if len(split) >= 2:  # noqa: PLR2004  # two runs before there is a repeat
+        return [split[k] for k in sorted(split, key=_run_order)]
+    if seeds is not None and len(seeds) >= 2:  # noqa: PLR2004  # same
+        return [list(s) for s in seeds]
+    return [list(rows)]
+
+
+def _tag(result: Mapping[str, Any], band: float | None) -> str:
+    """One comparison as the table's tag, read in goodness terms: ``up``
+    (the after arm is better), ``DOWN``, ``flat``, or ``n/a``; a delta
+    inside ``band`` is ``flat``, the way the pooled verdict reads it."""
+    if result.get("delta") is None:
+        return "n/a"
+    if band is not None and abs(float(result["delta"])) < band:
+        return "flat"
+    return {"b_better": "up", "a_better": "DOWN"}.get(
+        str(result.get("gain_verdict") or result.get("verdict")), "flat"
+    )
+
+
+def _repeats(
+    before: Sequence[dict],
+    after: Sequence[dict],
+    arms: Mapping[str, Sequence[Sequence[dict]] | None] | None,
+    *,
+    metric: str,
+    pooled: Mapping[str, Any],
+    floor_given: bool,
+    n_boot: int,
+    seed: int,
+    level: float,
+) -> dict[str, Any]:
+    """Whether the verdict repeated, and how far the eval moved between runs.
+
+    Each side splits into its repeat runs (``_side_runs``). The spread is
+    the **range** of the per-run means on each side, ``max - min``: with
+    the two to five runs an eval gets, the range is the number a person
+    can check by eye against the runs themselves and is what a reader
+    quotes ("identical re-runs differed by only 0.01 to 0.02"), and it
+    assumes no distribution. The sample standard deviation from three runs
+    has two degrees of freedom and is already in the report as ``run_std``,
+    the input to the noise band (Lambert 2025, chapter Evaluation and its
+    evaluation-variance appendix); the range sits beside it and does not
+    replace it.
+
+    Agreement re-runs the comparison one run at a time: with the same run
+    count on both sides, run i before against run i after; otherwise each
+    run of the side with more runs against all rows of the other. Each
+    pair gets its own paired bootstrap at the report's level and reads
+    ``up``, ``DOWN`` or ``flat`` off its own interval, which is the verdict
+    that run would have printed had it been the only one. The re-run band
+    is not applied run by run: it is estimated from these same runs'
+    spread, so applying it would call every run flat exactly when the
+    runs disagree most. The pooled headline keeps its band. A run agrees
+    when its tag is the pooled headline's tag, so runs that read ``up``,
+    ``flat`` and ``DOWN`` show as ``1/3 runs agree`` and a pooled gain
+    that no single run reaches reads ``0/3`` rather than a win.
+    With one run on each side nothing repeats: ``agree`` is ``None`` and
+    the note says ``1 run, noise unknown``, or ``1 run, noise from the
+    given run_std`` when the caller passed a floor measured elsewhere
+    (``floor_given``).
+    """
+    runs_a = _side_runs(before, (arms or {}).get("before"))
+    runs_b = _side_runs(after, (arms or {}).get("after"))
+
+    def _means(runs: list[list[dict]]) -> list[float | None]:
+        out: list[float | None] = []
+        for run in runs:
+            per_task = task_means(run, metric)
+            out.append(_mean(list(per_task.values())) if per_task else None)
+        return out
+
+    means = {"before": _means(runs_a), "after": _means(runs_b)}
+    spread: dict[str, float | None] = {}
+    span: dict[str, tuple[float, float] | None] = {}
+    for side, values in means.items():
+        seen = [v for v in values if v is not None]
+        if len(seen) >= 2:  # noqa: PLR2004  # a range needs two runs
+            span[side] = (min(seen), max(seen))
+            spread[side] = max(seen) - min(seen)
+        else:
+            span[side], spread[side] = None, None
+    pooled_tag = _tag(pooled, pooled.get("noise_band"))
+    out: dict[str, Any] = {
+        "metric": metric,
+        "n_runs": {"before": len(runs_a), "after": len(runs_b)},
+        "run_means": means,
+        "range": span,
+        "spread": spread,
+        "spread_stat": "range (max - min of per-run means)",
+        "pairing": None,
+        "run_deltas": [],
+        "run_tags": [],
+        "pooled_tag": pooled_tag,
+        "agree": None,
+        "n": 1,
+        "note": "1 run, noise from the given run_std" if floor_given else "1 run, noise unknown",
+    }
+    if len(runs_a) < 2 and len(runs_b) < 2:  # noqa: PLR2004  # two runs before there is a repeat
+        return out
+    pairs: list[tuple[list[dict], list[dict]]]
+    if len(runs_a) == len(runs_b):
+        pairs = list(zip(runs_a, runs_b))
+        out["pairing"] = "run i before vs run i after"
+    elif len(runs_b) > len(runs_a):
+        flat_a = [r for run in runs_a for r in run]
+        pairs = [(flat_a, b) for b in runs_b]
+        out["pairing"] = "each after run vs all before runs"
+    else:
+        flat_b = [r for run in runs_b for r in run]
+        pairs = [(a, flat_b) for a in runs_a]
+        out["pairing"] = "each before run vs all after runs"
+    lower = bool(pooled.get("lower_is_better"))
+    for i, (a, b) in enumerate(pairs):
+        r = compare_runs(
+            a, b, metric=metric, n_boot=n_boot, seed=seed + REPEAT_SEED_OFFSET + i, level=level
+        )
+        r["gain_verdict"] = _gain_verdict(str(r.get("verdict")), lower)
+        out["run_deltas"].append(r.get("delta"))
+        out["run_tags"].append(_tag(r, None))
+    out["n"] = len(pairs)
+    out["agree"] = sum(1 for t in out["run_tags"] if t == pooled_tag)
+    out["note"] = f"{out['agree']}/{out['n']} runs agree"
+    return out
+
+
+def _repeats_line(report: Mapping[str, Any], level: float) -> str | None:
+    """The ``repeated:`` line: how many runs reached the pooled verdict on
+    their own, the run-to-run range per side, and the pooled interval when
+    no line above already printed it."""
+    rep = report.get("repeats")
+    if not rep:
+        return None
+    metric = rep["metric"]
+    r = (report.get("metrics") or {}).get(metric) or {}
+    ci = r.get("ci95")
+    pooled = (
+        f"{metric} {r['delta']:+.3f}, {level:.0%} {ci[0]:+.3f}..{ci[1]:+.3f}"
+        if r.get("delta") is not None and ci
+        else f"{metric} insufficient data"
+    )
+    shown = bool(report.get("target")) and report.get("target") == metric and bool(ci)
+    if rep["agree"] is None:
+        where = "" if shown else f"{pooled}; "
+        return (
+            f"repeated: {rep['note']} ({where}simulate(tasks=..., runs=3) shows whether "
+            "the verdict repeats)"
+        )
+
+    def _side(side: str) -> str:
+        n = rep["n_runs"][side]
+        if rep["spread"][side] is None:
+            return f"1 run {side}" if n == 1 else f"{n} runs {side}, no range"
+        lo, hi = rep["range"][side]
+        return f"{rep['spread'][side]:.3f} {side} ({n} runs, {lo:.3f}..{hi:.3f})"
+
+    tags = ", ".join(rep["run_tags"])
+    tail = "" if shown else f"; pooled {pooled}"
+    return (
+        f"repeated: {rep['note']} on {metric} (each run alone: {tags}; pooled: "
+        f"{rep['pooled_tag']}); run-to-run range {_side('before')}, {_side('after')}{tail}"
+    )
 
 
 def _group_of(row: dict, by: str | Callable[[dict], Any]) -> str | None:
@@ -1214,6 +1400,21 @@ def delta_report(
                 "credit (Gao et al. 2022, arXiv:2210.10760)"
             )
     headline_noise = results[headline_metric]["noise_band"]
+    # Did the verdict repeat? The run-by-run reading of the headline metric
+    # and the run-to-run range beside it, so one lucky run never reads as a
+    # win (the 0.126 case study: "identical re-runs differed by only 0.01
+    # to 0.02" was what made a 0.46 -> 0.76 gain believable).
+    repeats = _repeats(
+        before,
+        after,
+        train_arms,
+        metric=headline_metric,
+        pooled=results[headline_metric],
+        floor_given=run_std_source == "given" and headline_run_std is not None,
+        n_boot=n_boot,
+        seed=seed,
+        level=level,
+    )
     if headline_noise is not None and target_verdict == "within_eval_noise" and target_result:
         warnings.append(
             f"{target_key}: {target_result['delta']:+.3f} is inside the eval's own re-run band "
@@ -1645,6 +1846,10 @@ def delta_report(
             ),
             "groups": groups,
             "groups_down": groups_down,
+            #: did the headline verdict repeat run by run, and the run-to-run
+            #: range per side (``_repeats``); ``note`` is "k/n runs agree" or
+            #: "1 run, noise unknown"
+            "repeats": repeats,
             #: the groups flagged weak, weakest first (``_flag_slices``)
             "groups_weak": groups_weak,
             #: "given" (by= named it), "auto" (a ``SLICE_KEYS`` key on the rows) or None
@@ -1832,6 +2037,9 @@ def format_delta_report(report: dict[str, Any]) -> str:
         )
         per_metric = ", per metric below" if len(set(floors.values())) > 1 else ""
         lines.append(f"eval noise: {head} ({report['noise_rule']}; {source}{per_metric})")
+    repeated = _repeats_line(report, level)
+    if repeated:
+        lines.append(repeated)
     counts = report.get("train_runs")
     if counts is not None:
         # The between-seed arithmetic, printed the way run_std is above.
