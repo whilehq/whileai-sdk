@@ -25,6 +25,15 @@ to 0.109 releases under the wrong numbers; they are yanked.
   question each one is and which model will get it right, and `run.py` scores both against Avengers-Pro at
   equal budgets. Naming the kind of question is enough to match the trained router, and beats it at $5
   per 1k (+1.6 points [+0.2, +3.0]). `prepare.py` now also writes `queries.jsonl`.
+- `wai.seeds` writes `simulate(seeds=)` asks from real material instead of the generic template:
+  `from_repo(path)` (tracked file paths, months with and without commits, a path never in the history; it
+  never reads an author, committer or message), `from_schema(source)` (tables, columns and foreign keys
+  from a SQLite file or DDL, plus an absent table; no row is read) and `from_traces(traces)` (ids the agent
+  really passed to its tools, plus one it never saw; prompts and email-shaped values are never copied).
+  Each returns `Seeds`, a `list[str]` that prints what it read and marks its negative asks; the same
+  material and `seed` give the same list. Asked for by an outside case study on 0.126 (94 of 115 offline
+  cases for a code-history agent carried a ticket id, none named a file).
+  `docs/evals.md` section 3c; `tests/api/test_seeds_from_real_material.py`.
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
 - `judge_trust` no longer tells a guessing judge it reads length. The short/long gap and the filler re-judge flag

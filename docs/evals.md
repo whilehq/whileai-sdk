@@ -149,6 +149,71 @@ every clause on the axis (`rule_cap=None`); `rule_cap=16` keeps the first
 sixteen. The generation grid keeps its own cap (`RULE_AXIS_CAP_GRID`, 16)
 and a run with more clauses says so in `data.warnings`.
 
+## 3c. Start the writer from real material
+
+The writer knows only what the tool descriptions and `seeds=` tell it.
+Offline, with neither, it falls back to a customer-service template, so an
+agent that answers questions about a code history gets asked about ticket
+`REF-1388` and never about a file. An outside case study on whileai 0.126
+counted it: 94 of 115 offline cases carried a ticket id and none named a
+file in the repository; with real examples in `seeds=`, the cases that fit
+the agent rose from 34 to 57 of 115 [6]. `wai.seeds` writes those examples
+from material you already have:
+
+```python
+import whileai as wai
+
+repo_asks = wai.seeds.from_repo(".", n=12, seed=0)  # run inside your checkout
+schema_asks = wai.seeds.from_schema(
+    "CREATE TABLE orders (id INTEGER PRIMARY KEY, total_usd REAL, status TEXT);", n=4, seed=0
+)  # or a SQLite file, or a .sql file
+asks = [*repo_asks, *schema_asks]  # pass as simulate(seeds=asks, ...)
+```
+
+| Call | Reads | Real asks name | The negative ask names |
+|---|---|---|---|
+| `from_repo(path)` | `git ls-files`, commit months | tracked paths, months with commits | a path never in the history, a month with no commit |
+| `from_schema(source)` | table and column names | tables, columns, foreign keys | a table the schema does not have |
+| `from_traces(traces)` | tool-call arguments, id-like result keys | ids your agent really used | an id of the same shape it never saw |
+
+```python
+traces = [  # recorded tool calls, in any shape load_traces reads
+    {"prompt": "Where is A1001?", "steps": [
+        {"tool": "lookup_order", "arguments": {"order_id": "A1001"}, "result": {"status": "delivered"}}]},
+    {"prompt": "Refund A1002", "steps": [
+        {"tool": "issue_refund", "arguments": {"order_id": "A1002"}, "result": {"ok": True}}]},
+]
+print(wai.seeds.from_traces(traces, n=4, seed=0))
+```
+
+```text
+4 seeds from traces, 2 rows: 2 tools, 2 values, 1 absent values
+  + Pull up everything on order A1002.
+  + What is the status of order A1002?
+  + What is the status of order A1001?
+  - Can you look up order A7892?
+  (+ names something real, - names something absent: expect 'not found')
+```
+
+- **It is a list.** A `Seeds` is a `list[str]` that `simulate(seeds=)`
+  takes as is. `facts` holds what the asks name and `negatives` the asks
+  whose subject does not exist, so your judge can expect "not found" on
+  exactly those (one in six, at least one).
+- **The same material and `seed` give the same list.** Change `seed` for a
+  different draw.
+- **No personal data leaves the helper.** `from_repo` never asks git for an
+  author, committer or message. `from_schema` reads no row. `from_traces`
+  skips free text and anything shaped like an email, and never copies a
+  trace's prompt, so a trace you hold out for evaluation stays out of the
+  generated set.
+- Offline the seeds run verbatim and the template fills the rest of the
+  budget. On a five-file fixture repo at `budget=24`, 0 of 24 cases named a
+  real file without seeds and 8 of 24 with `from_repo(n=12)`; cases with a
+  ticket id fell from 19 to 8
+  (`uv run pytest tests/api/test_seeds_from_real_material.py -s -k share`).
+  With a model writer (`simulator="hosted"`), the seeds are also the
+  examples it mints new asks from.
+
 ## 4. Run it
 
 ```python
@@ -351,3 +416,4 @@ are trusted), `n_labeled`,
 3. Miller, E. [Adding Error Bars to Evals: A Statistical Approach to Language Model Evaluations](https://arxiv.org/abs/2411.00640). 2024. Intervals over questions, and pairing when two models answer the same ones.
 4. Lambert, N. [Reinforcement Learning from Human Feedback](https://rlhfbook.com), chapter [Evaluation](https://rlhfbook.com/c/16-evaluation). 2025.
 5. Zheng, L. et al. [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685). NeurIPS 2023. Agreement with people, and the length bias.
+6. Gently Ventures. [Case study: whileai](https://gentlyventures.com/casestudies/whileai). 2026. The offline writer on a code-history agent, without and with real seeds, on whileai 0.126.
