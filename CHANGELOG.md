@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.compare` (`delta_report`) prints a per-slice table by default when rows carry a `category` or `slice`
+  key: before, after, interval and n per slice, weakest first, with `WEAK` on a slice still under 0.5 or with no gain
+  its interval supports, and `low n` on a slice under six paired tasks. The report gains `groups_weak` and
+  `by_source`; rows without a slice key print as before, and `by=False` turns it off. From a case study on 0.126
+  where the overall 0.46 -> 0.76 hid a "missing file" slice at 0.00 -> 0.17.
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
