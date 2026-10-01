@@ -34,7 +34,14 @@ AP_BETA = 9.0  # softmax temperature over cluster similarity, same config
 RIDGE = 1.0  # linear router's L2 penalty: convention, untested
 KMEANS_ITERS = 50
 SEED = 0
-SEED_RUNS = 5  # k-means restarts read for the Avengers-Pro spread
+SEED_RUNS = 5
+BUDGETS = (
+    5,
+    10,
+    20,
+    35,
+    50,
+)  # USD per 1,000 questions, for the equal-budget comparison  # k-means restarts read for the Avengers-Pro spread
 
 
 # --- data ---------------------------------------------------------------------
@@ -173,7 +180,86 @@ class AvengersPro:
         return np.argmax((1 - lam) * nacc + lam * cscore, axis=1)
 
 
-ROUTERS = {"knn": KNN, "linear": Linear, "avengers-pro": AvengersPro}
+class JevTask:
+    """TypeSafe's Jev names the kind of question (jev.py); the training table
+    says how each model does on that kind. Fit reads the true kind of every
+    training question, as one-hot rows; predict reads Jev's probabilities, so
+    each model's expected accuracy and cost are averaged over the kinds Jev
+    thinks the question could be. A task-type router, the way OpenRouter's
+    auto router picks [6]."""
+
+    def fit(self, x, s, c):
+        w = x / x.sum(0).clip(1)
+        self.acc, self.cost = w.T @ s, w.T @ c
+        self.c_ref = c.mean(0).max()
+        return self
+
+    def predict(self, x):
+        return x @ self.acc, x @ self.cost
+
+    route = KNN.route
+
+
+class JevPick:
+    """Jev picks the model directly: it reads the question and each model's
+    training accuracy by kind of question (jev.py), and returns a probability
+    per model. The knob weighs that probability against the model's mean cost."""
+
+    def fit(self, x, s, c):
+        self.cost = c.mean(0)
+        self.c_ref = self.cost.max()
+        return self
+
+    def predict(self, x):
+        return x, np.broadcast_to(self.cost, x.shape)
+
+    route = KNN.route
+
+
+ROUTERS = {
+    "knn": KNN,
+    "linear": Linear,
+    "avengers-pro": AvengersPro,
+    "jev-task": JevTask,
+    "jev-pick": JevPick,
+}
+JEV_ROUTERS = ("jev-task", "jev-pick")
+
+
+def jev_features(out: Path, rows, models, datasets):
+    """(fit features, predict features) for the two Jev routers from out/jev.jsonl,
+    or None when jev.py has not run. Rows Jev was not asked about are zeros."""
+    path = out / "jev.jsonl"
+    if not path.exists():
+        return None
+    cache = {}
+    for line in path.open(encoding="utf-8"):
+        rec = json.loads(line)
+        cache[rec["id"]] = rec
+    onehot = np.array([[float(r["dataset"] == d) for d in datasets] for r in rows])
+    task = np.zeros_like(onehot)
+    pick = np.zeros((len(rows), len(models)))
+    for i, r in enumerate(rows):
+        rec = cache.get(r["id"])
+        if rec:
+            task[i] = [rec["task"].get(d, 0.0) for d in datasets]
+            pick[i] = [rec["model"].get(m, 0.0) for m in models]
+    stats = {
+        "model": sorted({rec["jev"] for rec in cache.values()}),
+        "questions": len(cache),
+        "median_seconds": float(np.median([rec["seconds"] for rec in cache.values()])),
+        "input_tokens": int(sum(rec["input_tokens"] or 0 for rec in cache.values())),
+        "task_accuracy": float(
+            np.mean(
+                [
+                    task[i].argmax() == onehot[i].argmax()
+                    for i, r in enumerate(rows)
+                    if r["id"] in cache
+                ]
+            )
+        ),
+    }
+    return {"jev-task": (onehot, task), "jev-pick": (onehot, pick)}, stats, set(cache)
 
 
 # --- measuring ----------------------------------------------------------------
@@ -223,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         rows, emb, models = stand_in()
     else:
-        from prepare import MODELS, OPENROUTER
+        from prepare import DATASETS, MODELS, OPENROUTER
 
         rows, emb = load(out)
         models = list(MODELS)
@@ -265,11 +351,24 @@ def main(argv: list[str] | None = None) -> int:
         },
         "routers": {},
     }
+    feats = {}
+    jev = None if args.dry_run else jev_features(out, rows, models, [d for d, _ in DATASETS])
+    if jev:
+        feats, res["jev"], asked = jev
+        if not all(i in asked for i in ids[val | test]):
+            print(
+                "out/jev.jsonl does not cover val and held out yet: skipping Jev", file=sys.stderr
+            )
+            feats = {}
 
+    at_budget: dict = {}
     for name, cls in ROUTERS.items():
+        if name in JEV_ROUTERS and name not in feats:
+            continue
+        xf, xp = feats.get(name, (emb, emb))  # fit reads xf, predict reads xp
         # Pick two operating points on val, with the router fit on `fit` only.
-        r = cls().fit(emb[fit], S[fit], C[fit])
-        pv = r.predict(emb[val])
+        r = cls().fit(xf[fit], S[fit], C[fit])
+        pv = r.predict(xp[val])
         curve = []
         for lam in KNOBS:
             pick = r.route(pv, lam)
@@ -300,8 +399,8 @@ def main(argv: list[str] | None = None) -> int:
             if under:
                 points.append(("at_openrouter_cost", max(under)[2]))
         # Refit on all of train, then read the held-out questions once per operating point.
-        r = cls().fit(emb[train], S[train], C[train])
-        pt = r.predict(emb[test])
+        r = cls().fit(xf[train], S[train], C[train])
+        pt = r.predict(xp[test])
         arms = {}
         full_curve = []
         for lam in KNOBS:
@@ -313,6 +412,15 @@ def main(argv: list[str] | None = None) -> int:
                     "usd_per_1k": per_1k(C[test][np.arange(test.sum()), pick]),
                 }
             )
+        # Equal budgets: the most accurate knob on val at or under each budget, read on held out.
+        for b in BUDGETS:
+            fits = [t for t in curve if 1000 * t[2] <= b]
+            if fits:
+                pick = r.route(pt, max(fits, key=lambda t: t[1])[0])
+                at_budget.setdefault(name, {})[b] = (
+                    S[test][np.arange(test.sum()), pick],
+                    C[test][np.arange(test.sum()), pick],
+                )
         for point, lam in points:
             pick = r.route(pt, lam)
             sc = S[test][np.arange(test.sum()), pick]
@@ -363,6 +471,17 @@ def main(argv: list[str] | None = None) -> int:
                 }
             res["routers"][name]["seed_spread"] = spread
 
+    if "jev-task" in at_budget:
+        # Jev's task router against Avengers-Pro, paired by question, at each budget both reach.
+        res["jev_vs_avengers_pro"] = {}
+        for b in BUDGETS:
+            if b in at_budget["jev-task"] and b in at_budget["avengers-pro"]:
+                (sa, ca), (sj, cj) = at_budget["avengers-pro"][b], at_budget["jev-task"][b]
+                res["jev_vs_avengers_pro"][b] = {
+                    "avengers_pro": {"accuracy": sa.mean(), "usd_per_1k": per_1k(ca)},
+                    "jev_task": {"accuracy": sj.mean(), "usd_per_1k": per_1k(cj)},
+                    "delta": delta(as_rows(ids[test], sa), as_rows(ids[test], sj)),
+                }
     report(res)
     for point, sp in res["routers"]["avengers-pro"]["seed_spread"].items():
         print(
@@ -397,6 +516,17 @@ def report(res):
                 f"  {name:<13}{point:<20}{a['accuracy']:>6.3f}{a['usd_per_1k']:>8.2f}{a['cost_vs_best_single']:>6.2f}x  "
                 f"{fmt(a['vs_best_single']):<26}{fmt(a['vs_random']):<26}{otxt}"
             )
+    if res.get("jev"):
+        j = res["jev"]
+        print(
+            f"\n  Jev ({', '.join(j['model'])}): {j['questions']} questions, median {j['median_seconds']:.2f} s, "
+            f"{j['input_tokens']:,} input tokens, names the kind of question right {j['task_accuracy']:.1%}"
+        )
+    for b, h in res.get("jev_vs_avengers_pro", {}).items():
+        print(
+            f"  at ${b}/1k  avengers-pro {h['avengers_pro']['accuracy']:.3f} (${h['avengers_pro']['usd_per_1k']:.2f})  "
+            f"jev-task {h['jev_task']['accuracy']:.3f} (${h['jev_task']['usd_per_1k']:.2f})  jev - ap {fmt(h['delta'])}"
+        )
 
 
 if __name__ == "__main__":
