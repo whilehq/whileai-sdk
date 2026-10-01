@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import itertools
 import json
 import math
 import os
@@ -40,7 +41,7 @@ MARGIN = 0.02  # "keeps quality" = interval's lower end above -2 points: convent
 HASH_DIM = 2**16  # hashed word n-grams; a 4x smaller table costs <0.01 AUC on similar text
 L2 = 1.0  # logistic-regression ridge, per example: convention, untested
 TEMPERATURE = 0.7  # >0 so the two cheap draws can disagree, which the cascade reads
-MAX_TOKENS = 1200
+MAX_TOKENS = 2048  # 1,200 cut off 4% of Sonnet answers in the pilot
 RANDOM_ROLLOUTS = 40  # the random control's share resolves to 1/40 = 2.5 points
 
 PROMPT = (
@@ -149,14 +150,18 @@ def stand_in_samples(tasks, models, seed: int):
     """Seeded stand-in for --dry-run: per-subject skill, so routing has something to find."""
     rng = random.Random(seed)
     subjects = sorted({t["subject"] for t in tasks})
-    skill = {s: {"cheap": rng.uniform(0.3, 0.8), "strong": rng.uniform(0.75, 0.95)} for s in subjects}
+    skill = {
+        s: {"cheap": rng.uniform(0.3, 0.8), "strong": rng.uniform(0.75, 0.95)} for s in subjects
+    }
     cache = {}
     for t in tasks:
         hard = random.Random(t["id"]).random()  # a per-question difficulty both models share
         for role in ("cheap", "strong"):
             for d in range(draws_wanted(t, role)):
                 p = skill[t["subject"]][role] * (1.3 - 0.6 * hard)
-                letter = t["answer"] if rng.random() < p else rng.choice(LETTERS[: len(t["options"])])
+                letter = (
+                    t["answer"] if rng.random() < p else rng.choice(LETTERS[: len(t["options"])])
+                )
                 cache[(t["id"], models[role], d)] = {
                     "text": f"... The answer is ({letter})",
                     "in_tokens": 350,
@@ -188,7 +193,9 @@ def grade(tasks, samples, models, prices):
             pin, pout = prices[role]
             for t, s, row in zip(batch, got, rows):
                 t["r"][role, d] = float(row["reward"]) if s else 0.0
-                t["cost"][role, d] = (s["in_tokens"] * pin + s["out_tokens"] * pout) / 1e6 if s else 0.0
+                t["cost"][role, d] = (
+                    (s["in_tokens"] * pin + s["out_tokens"] * pout) / 1e6 if s else 0.0
+                )
                 m = re.findall(r"answer is \(?([A-J])\)?", s["text"]) if s else []
                 t["letter"][role, d] = m[-1] if m else None
 
@@ -200,7 +207,7 @@ def grade(tasks, samples, models, prices):
 
 def features(text: str) -> list[int]:
     words = re.findall(r"[a-z0-9]+", text.lower())
-    grams = words + [a + " " + b for a, b in zip(words, words[1:])]
+    grams = words + [a + " " + b for a, b in itertools.pairwise(words)]
     return sorted({int(hashlib.md5(g.encode()).hexdigest()[:8], 16) % HASH_DIM for g in grams})
 
 
@@ -250,14 +257,22 @@ def escalate(holdout, score, share):
 
 def arm_rows(holdout, reward_of):
     return [
-        {"task_id": t["id"], "prompt": t["prompt"], "final_text": "routed", "reward": reward_of(t), "markers": {}}
+        {
+            "task_id": t["id"],
+            "prompt": t["prompt"],
+            "final_text": "routed",
+            "reward": reward_of(t),
+            "markers": {},
+        }
         for t in holdout
     ]
 
 
 def routed(holdout, sent, d, cascade=False):
     """Rows and total cost when the tasks in `sent` go to the frontier model, on draw d."""
-    rows = arm_rows(holdout, lambda t: t["r"]["strong", d] if t["id"] in sent else t["r"]["cheap", d])
+    rows = arm_rows(
+        holdout, lambda t: t["r"]["strong", d] if t["id"] in sent else t["r"]["cheap", d]
+    )
     cost = 0.0
     for t in holdout:
         if cascade:  # the cascade always pays for both cheap draws first
@@ -277,8 +292,13 @@ def at_random(holdout, share, d):
     """
     n_strong = round(share * RANDOM_ROLLOUTS)
     return [
-        {"task_id": t["id"], "prompt": t["prompt"], "final_text": "routed", "markers": {},
-         "reward": t["r"]["strong", d] if j < n_strong else t["r"]["cheap", d]}
+        {
+            "task_id": t["id"],
+            "prompt": t["prompt"],
+            "final_text": "routed",
+            "markers": {},
+            "reward": t["r"]["strong", d] if j < n_strong else t["r"]["cheap", d],
+        }
         for t in holdout
         for j in range(RANDOM_ROLLOUTS)
     ]
@@ -290,7 +310,12 @@ def mean(rows):
 
 def delta(before, after):
     m = wai.compare(before, after, target="pass_at_1")["metrics"]["pass_at_1"]
-    return {"delta": m["delta"], "ci95": list(m["ci95"]), "verdict": m["verdict"], "n": m["n_paired"]}
+    return {
+        "delta": m["delta"],
+        "ci95": list(m["ci95"]),
+        "verdict": m["verdict"],
+        "n": m["n_paired"],
+    }
 
 
 def auc(scores, labels):
@@ -308,7 +333,11 @@ def measure(holdout, routers, cascade_sent, d):
     acc_s, acc_c = mean(strong_rows), mean(cheap_rows)
     out = {
         "all_frontier": {"accuracy": acc_s, "cost_usd": strong_cost},
-        "all_cheap": {"accuracy": acc_c, "cost_usd": cheap_cost, "vs_frontier": delta(strong_rows, cheap_rows)},
+        "all_cheap": {
+            "accuracy": acc_c,
+            "cost_usd": cheap_cost,
+            "vs_frontier": delta(strong_rows, cheap_rows),
+        },
         "arms": [],
     }
 
@@ -357,12 +386,18 @@ def report(res, title):
     print(f"\n{title}")
     print(f"  all frontier  {res['all_frontier']['accuracy']:.3f}   cost 1.00x")
     ac = res["all_cheap"]
-    print(f"  all cheap     {ac['accuracy']:.3f}   cost {ac['cost_usd'] / res['all_frontier']['cost_usd']:.2f}x   "
-          f"vs frontier {fmt(ac['vs_frontier'])}")
-    print(f"  {'router':<8} {'share':>5} {'acc':>6} {'cost':>6} {'gap':>5}  {'vs random at same share':<30} vs all frontier")
+    print(
+        f"  all cheap     {ac['accuracy']:.3f}   cost {ac['cost_usd'] / res['all_frontier']['cost_usd']:.2f}x   "
+        f"vs frontier {fmt(ac['vs_frontier'])}"
+    )
+    print(
+        f"  {'router':<8} {'share':>5} {'acc':>6} {'cost':>6} {'gap':>5}  {'vs random at same share':<30} vs all frontier"
+    )
     for a in res["arms"]:
-        print(f"  {a['router']:<8} {a['frontier_share']:>5.2f} {a['accuracy']:>6.3f} {a['cost_vs_frontier']:>5.2f}x "
-              f"{a['gap_recovered']:>5.2f}  {fmt(a['vs_random']):<30} {fmt(a['vs_frontier'])}")
+        print(
+            f"  {a['router']:<8} {a['frontier_share']:>5.2f} {a['accuracy']:>6.3f} {a['cost_vs_frontier']:>5.2f}x "
+            f"{a['gap_recovered']:>5.2f}  {fmt(a['vs_random']):<30} {fmt(a['vs_frontier'])}"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -370,15 +405,26 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--cheap", default=CHEAP, help="the model most traffic should land on")
     p.add_argument("--strong", default=STRONG, help="the frontier model it replaces")
-    p.add_argument("--cheap-price", default=",".join(map(str, CHEAP_PRICE)), help="USD per M tokens: in,out")
-    p.add_argument("--strong-price", default=",".join(map(str, STRONG_PRICE)), help="USD per M tokens: in,out")
+    p.add_argument(
+        "--cheap-price", default=",".join(map(str, CHEAP_PRICE)), help="USD per M tokens: in,out"
+    )
+    p.add_argument(
+        "--strong-price", default=",".join(map(str, STRONG_PRICE)), help="USD per M tokens: in,out"
+    )
     p.add_argument("--base-url", default=os.environ.get("OPENAI_BASE_URL", BASE_URL))
     p.add_argument("--concurrency", type=int, default=16)
     p.add_argument("--limit", type=int, default=None, help="fewer questions, for a smoke run")
-    p.add_argument("--margin", type=float, default=MARGIN, help="how far below all-frontier still counts as kept")
+    p.add_argument(
+        "--margin",
+        type=float,
+        default=MARGIN,
+        help="how far below all-frontier still counts as kept",
+    )
     p.add_argument("--out", default=str(HERE / "out"))
     p.add_argument("--fresh", action="store_true", help="ignore cached samples and call again")
-    p.add_argument("--dry-run", action="store_true", help="seeded stand-in models: no key, no calls")
+    p.add_argument(
+        "--dry-run", action="store_true", help="seeded stand-in models: no key, no calls"
+    )
     args = p.parse_args(argv)
 
     models = {"cheap": args.cheap, "strong": args.strong}
@@ -395,17 +441,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         samples = stand_in_samples(tasks, models, seed=0)
     else:
-        samples = asyncio.run(sample_all(tasks, models, cache_path, args.concurrency, args.base_url))
+        samples = asyncio.run(
+            sample_all(tasks, models, cache_path, args.concurrency, args.base_url)
+        )
     grade(tasks, samples, models, prices)
 
     train = [t for t in tasks if t["split"] == "train"]
     holdout = [t for t in tasks if t["split"] == "holdout"]
-    print(f"{len(train)} train, {len(holdout)} held out; {args.cheap} vs {args.strong}", file=sys.stderr)
+    print(
+        f"{len(train)} train, {len(holdout)} held out; {args.cheap} vs {args.strong}",
+        file=sys.stderr,
+    )
 
     routers = {"subject": subject_router(train), "text": fit_text_router(train)}
     # The cascade: answer with the cheap model twice; escalate when the two disagree.
     cascade_sent = {
-        t["id"] for t in holdout
+        t["id"]
+        for t in holdout
         if t["letter"]["cheap", 0] is None or t["letter"]["cheap", 0] != t["letter"]["cheap", 1]
     }
 
@@ -422,7 +474,8 @@ def main(argv: list[str] | None = None) -> int:
         "draw_1": measure(holdout, routers, cascade_sent, d=0),
         "draw_2": measure(holdout, routers, cascade_sent, d=1),
         "kept_share": {
-            name: smallest_share_that_keeps(holdout, score, 0, args.margin) for name, score in routers.items()
+            name: smallest_share_that_keeps(holdout, score, 0, args.margin)
+            for name, score in routers.items()
         },
         "margin": args.margin,
     }
@@ -430,11 +483,15 @@ def main(argv: list[str] | None = None) -> int:
     report(results["draw_2"], "held out, draw 2 (same routers, fresh answers from both models)")
     print(f"\ntext router AUC for 'cheap model misses': {results['text_router_auc']:.3f}")
     for name, share in results["kept_share"].items():
-        print(f"{name}: smallest frontier share within {args.margin:.0%} of all-frontier = {share:.0%}")
+        print(
+            f"{name}: smallest frontier share within {args.margin:.0%} of all-frontier = {share:.0%}"
+        )
     (out / "results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"\nwrote {out / 'results.json'}")
     if not args.dry_run:
-        print("\nNext: swap tasks.jsonl for a sample of your own traffic and a grader for it; the routers do not change.")
+        print(
+            "\nNext: swap tasks.jsonl for a sample of your own traffic and a grader for it; the routers do not change."
+        )
     return 0
 
 

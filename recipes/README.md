@@ -96,6 +96,7 @@ platform.
 | [`safety-evals`](02-measure/safety-evals) | a safety suite for a tool-using agent: prompt injection, exfiltration, secret leakage, unauthorized writes, benign controls; four trajectory markers as the judge, pass^k per attack class, a before/after that fails the fix which got safe by refusing | nothing | seconds | free |
 | [`safety-evals-marketplace`](02-measure/safety-evals-marketplace) | the same eval where the untrusted text is user-generated content and the private data is per tenant; `live.py` runs it on a local model through Ollama | nothing offline; Ollama for `live.py` | seconds offline, minutes live | free; Ollama runs on your machine |
 | [`public-benchmark`](02-measure/public-benchmark) | a public benchmark (200 GSM8K test questions) into the measurement: `wai.rows` with `MathEqual` as the reward, pass@1 with its interval, the eval's own noise over three passes, `holdout_size`, `select` dropping the groups that carry no gradient, and a `compare` report | nothing | seconds | free |
+| [`model-router`](02-measure/model-router) | whether a router that sends some traffic to a cheap model beats random routing at the same frontier share: a subject rule, a text classifier, a two-draw cascade and the oracle, on 1,190 MMLU-Pro questions, paired against random and against all-frontier with intervals | an OpenAI-compatible key (offline with `--dry-run`) | ~12 min live, seconds offline | about $6 of model calls live |
 
 ## 03-select
 
