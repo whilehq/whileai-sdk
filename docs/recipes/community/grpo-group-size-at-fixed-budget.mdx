@@ -188,7 +188,7 @@ its *outcome* not at all, and it says which is which.
 
 Three L40S containers in parallel, one per arm: base eval (~4 min), 48 steps
 (16:24), trained eval (~4 min). About 25 minutes wall clock, ~75 GPU-minutes
-total, **about $2.40** at Modal's posted L40S rate. No model API key is used
+total, **about &#36;2.40** at Modal's posted L40S rate. No model API key is used
 by this recipe at any point.
 
 Run ids: `ap-S1wLfBnYlccNubBrzbNfw9` (the sweep),
@@ -199,7 +199,7 @@ Run ids: `ap-S1wLfBnYlccNubBrzbNfw9` (the sweep),
 1. **More steps, not more arms.** The mechanism table says G=8 gets 552
    gradient-carrying rollouts per 768 against G=2's 236. If that matters it
    should show up over 300–500 steps, not 48. Same three arms, same holdout,
-   `--steps 400`: about $12 and it is the run this one earns.
+   `--steps 400`: about &#36;12 and it is the run this one earns.
 2. **Filter instead of enlarging.** Add a fourth arm at G=2 *with* unanimous
    groups dropped and refilled, so it spends its 768 rollouts on prompts that
    carry advantage. If the 19× number means anything, that arm should beat

@@ -314,7 +314,7 @@ holdout evidence, not a fresh draw; the `weights` and `both` cells are fresh.
 |---|---|---|---|
 | 0 | dry run, scripted stand-in, 16 tasks a split | `harness` 0.80, `neither` 0.41 (planted rates) | not a result |
 | smoke | `Qwen/Qwen2.5-1.5B-Instruct`, 16 tasks a split, search only | 0, 4 and 2 of 128 rollouts under the three harnesses | floor; base switched to the coder variant |
-| smoke | `Qwen/Qwen2.5-Coder-1.5B-Instruct`, 2 steps, 16 tasks a split | `neither` 0.02, `harness` 0.06, `weights` 0.02, `both` 0.06 | the path, not a result; 10.4 GPU min, $0.69 |
+| smoke | `Qwen/Qwen2.5-Coder-1.5B-Instruct`, 2 steps, 16 tasks a split | `neither` 0.02, `harness` 0.06, `weights` 0.02, `both` 0.06 | the path, not a result; 10.4 GPU min, &#36;0.69 |
 | 1 | the full run: 40 steps, 79 held-out tasks | `neither` 0.003, `harness` 0.085, `weights` 0.025, `both` 0.085 | `both` vs `weights` +0.060 [+0.028, +0.095]; `both` vs `harness` +0.00 [-0.04, +0.04]; unresolved, 1 seed |
 
 Round 2 is a second training seed on both trained arms, which is what
@@ -330,7 +330,7 @@ the text alone.
 - A templated task set and an 8-gram contamination rule do not mix: split by task, and every train prompt is a near-copy of a holdout prompt. Split by template family, and the holdout is clean and harder. The recipe measures both and says which it uses.
 - A skills file in the harness is a prompt edit with a fingerprint: `wai.Harness` makes the version without anyone naming it, so the proposer can edit SKILLS.md between rounds and every row still says which text it ran under.
 
-Verified 2026-09-21, whileai 0.114, TRL 1.13.0 + PEFT 0.21.0 on torch 2.13.0, vLLM 0.29.0. 36.1 GPU minutes, $2.38 on one H100 by the recipe's clock (function bodies; Modal bills the three cold starts too). Runs: https://while.ai/platform/runs?agent=harness-and-weights
+Verified 2026-09-21, whileai 0.114, TRL 1.13.0 + PEFT 0.21.0 on torch 2.13.0, vLLM 0.29.0. 36.1 GPU minutes, &#36;2.38 on one H100 by the recipe's clock (function bodies; Modal bills the three cold starts too). Runs: https://while.ai/platform/runs?agent=harness-and-weights
 
 ## Artifacts on Hugging Face
 

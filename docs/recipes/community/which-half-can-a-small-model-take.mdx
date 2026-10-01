@@ -22,7 +22,7 @@ not the trained one's.
 
 `Qwen/Qwen2.5-1.5B-Instruct`, LoRA SFT on 129 rows (24 distinct asks) from the
 incumbent's own clean traces on the boring half only. One L40S, 159 seconds,
-**$0.09**. Paired on the same held-out asks, 8 rollouts each; noise floor from
+**&#36;0.09**. Paired on the same held-out asks, 8 rollouts each; noise floor from
 three passes of identical untrained weights on the same container.
 
 | held-out slice | asks | incumbent | base 1.5B | trained 1.5B | trained − base | noise band |
@@ -122,19 +122,19 @@ built-in leak gate did not make this mistake — it dropped 0 of the same rows.
 ## Cost line
 
 Measured on this run, not estimated from a spec sheet. Generation throughput
-is 496 replies per 25.5 s on one L40S at $1.95/hour:
+is 496 replies per 25.5 s on one L40S at &#36;1.95/hour:
 
-| item | measured | $ |
+| item | measured | &#36; |
 |---|---|---|
 | LoRA SFT, 129 rows, 3 epochs, 51 steps | 17 s | 0.009 |
 | one held-out eval pass (496 replies) | 25.5 s | 0.014 |
 | whole run (3 base passes + train + 1 trained pass) | 159 s | **0.09** |
 | **serving: 1000 replies** | 51 s | **0.028** |
 
-$0.028 per 1000 replies is the number to hold against your own agent's API
+&#36;0.028 per 1000 replies is the number to hold against your own agent's API
 bill for the same 1000 replies; substitute your price, since the break-even
 depends entirely on it. The training cost is not the interesting term — at
-$0.009 you can retrain on every deploy and never notice.
+&#36;0.009 you can retrain on every deploy and never notice.
 
 Add the cold start if you serve scale-to-zero: model load was ~25 s of the
 first pass's 51 s.

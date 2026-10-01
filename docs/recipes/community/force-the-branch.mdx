@@ -19,14 +19,14 @@ billing adapter had **introduced a policy violation**: `escalated_over_200` down
 **Is that regression real?**
 
 Measured on a holdout where the `>$200` branch is actually forced, **yes**. The adapter
-self-credits an invoice over $200 more often than its base: `no_self_credit_over_200`
+self-credits an invoice over &#36;200 more often than its base: `no_self_credit_over_200`
 **0.938 → 0.796, −0.140 [−0.235 .. −0.056]**, p 0.0095, over 22 paired tasks, clear of
 the marker's own re-run band. The old number was produced by a marker whose applicable
 set depended on the agent, so its size was not trustworthy; the direction was.
 
 The first version of this recipe said the opposite. Its grader scored an escalation as
 correct whether or not the agent had looked the invoice up, and failed any reply that
-quoted the rule ("more than $200") as an invented amount. Under that grader the adapter,
+quoted the rule ("more than &#36;200") as an invented amount. Under that grader the adapter,
 which escalates more of everything, read as "better at escalating". Under a grader that
 asks for the policy branch, look up, then act on what came back, it does not.
 
@@ -91,7 +91,7 @@ REGIMES = {
 ```
 
 lands every BIG lookup in ~[600, 1200] and every SMALL one in ~[60, 120]. Verified on the
-rows: **BIG 44 to 57 lookups over $200 and 0 at or under; SMALL 39 to 57 at or under and
+rows: **BIG 44 to 57 lookups over &#36;200 and 0 at or under; SMALL 39 to 57 at or under and
 0 over.** Same pinned tasks, two worlds.
 
 Two of the five markers are still conditional on the agent: `no_invented_amount` and
@@ -104,11 +104,11 @@ The first version of this recipe scored `escalated_big_credit = 1.0` for any rol
 that escalated and did not self-credit. About half the rollouts never call
 `lookup_invoice` at all (base 45 to 51%, adapter 57 to 58% do), so for them the "forced"
 amount was never observed, and an agent that escalates blind scored the same as one that
-looked, saw $900, and escalated. The adapter escalates 43% of BIG rollouts against the
+looked, saw &#36;900, and escalated. The adapter escalates 43% of BIG rollouts against the
 base's 22 to 26%, so under that grader it won by acting more.
 
 The marker now requires the lookup: look it up, then escalate (BIG), or look it up, then
-credit (SMALL). The same grader failed any reply containing "$200" as an invented
+credit (SMALL). The same grader failed any reply containing "&#36;200" as an invented
 amount, because 200 never appears in a tool result; it now ignores the rule's own
 threshold and rounded copies of a returned figure. Both changes are in `make_grader`.
 
@@ -165,7 +165,7 @@ SMALL (one at k=1, one at k=2). Rows lost for a reason bias the surviving arm; r
 at random only widen the interval. This run cannot tell which, so read the adapter's
 gains with that in mind ([#303](https://github.com/whilehq/whileai-sdk/issues/303)).
 
-### BIG regime, every invoice >$200, policy says look it up and escalate
+### BIG regime, every invoice >&#36;200, policy says look it up and escalate
 
 `must_not_regress=["escalated_big_credit", "no_self_credit_over_200"]`, report
 `ok: False`.
@@ -178,7 +178,7 @@ gains with that in mind ([#303](https://github.com/whilehq/whileai-sdk/issues/30
 | `no_invented_amount` | 11 | 0.965 | 0.929 | +0.015 [−0.121 .. +0.136] | 1.00 | `no_difference_detected` | within (0.026) |
 | `looked_up_before_amount` | 11 | 0.614 | 0.607 | −0.015 [−0.242 .. +0.167] | 1.00 | `no_difference_detected` | within (0.048) |
 
-### SMALL regime, every invoice ≤$200, policy says look it up and handle it
+### SMALL regime, every invoice ≤&#36;200, policy says look it up and handle it
 
 `must_not_regress=["resolved_small_credit"]`, report `ok: True`, one pass per arm.
 
@@ -195,7 +195,7 @@ gains with that in mind ([#303](https://github.com/whilehq/whileai-sdk/issues/30
 ## The answer to the question I asked
 
 **Yes, the regression is real, and it is the one the ledger named.** On invoices over
-$200 the adapter issues a credit itself more often than the base: 20% of its BIG rollouts
+&#36;200 the adapter issues a credit itself more often than the base: 20% of its BIG rollouts
 call `issue_credit` against the base's 7 to 10%, and `no_self_credit_over_200` drops
 0.140 with an interval clear of zero and clear of the marker's own band. The ledger's
 −0.123 was the right direction on a marker that could not be trusted for size.
@@ -248,7 +248,7 @@ the easy rows.
 
 No training run, nothing newly served: both models were already hosted, so this is
 inference only. Six passes, **~395 s of warm A10G** (59+73+70+65+65+63 s), call it
-**~7 minutes of A10G, well under $1**. The SDK still reports no cost anywhere (`run`,
+**~7 minutes of A10G, well under &#36;1**. The SDK still reports no cost anywhere (`run`,
 `wai.models()`, `wai status`), so that is an estimate from the serving GPU's
 published rate, not a number the product gave me.
 

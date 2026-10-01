@@ -85,7 +85,7 @@ this sample size", and 37 tasks is too few to resolve a 7-point effect.
 **But the headline was hiding a trade, in both directions.** The adapter genuinely learned the
 thing it was trained for — `no_invented_amount` **+0.183, interval clear of zero** — and paid for
 it somewhere nobody was looking: `escalated_over_200` **−0.123, interval clear of zero**. The base
-model never once issued a credit above $200; the trained model does it about 22% of the time.
+model never once issued a credit above &#36;200; the trained model does it about 22% of the time.
 That is a policy violation the fine-tune *introduced*, and a single pass@1 number nets the two
 against each other and reports a shrug.
 
@@ -115,7 +115,7 @@ before/after that strips on one side and not the other — which is what `hosted
 **Copy this: grade a thinking model's reply with the reasoning stripped, and say which you did.**
 Every one of 151 rows came back with `<think>` still in `final_text`, and 34 of them were cut off
 before `</think>` — so `final_text` was reasoning and nothing else. Markers that read prose then
-score the model's *hypotheticals* ("if the invoice were $500…") as claims it made. Stripping the
+score the model's *hypotheticals* ("if the invoice were &#36;500…") as claims it made. Stripping the
 reasoning moved `no_invented_amount` from 0.310 to 0.577 and pass@1 from 0.485 to 0.750. The
 noise band from three re-runs of the same model on the same pinned tasks is 0.055, so the
 artefact is about **4.8× the noise band** — much larger than the thing the SDK correctly tells
@@ -164,7 +164,7 @@ sets. The script prints the task overlap so you cannot miss it.
 ## Cost
 
 No training run was started and nothing new was served — both models were already hosted, so this
-is inference only: **four passes × ~151 rows ≈ 33 minutes of an already-warm A10G, well under $1**.
+is inference only: **four passes × ~151 rows ≈ 33 minutes of an already-warm A10G, well under &#36;1**.
 The SDK still reports no cost anywhere (`run`, `wai.models()`, `wai status`), so that is an
 estimate from the serving GPU's published rate, not a number the product gave me.
 

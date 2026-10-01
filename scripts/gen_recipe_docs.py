@@ -117,11 +117,13 @@ def _map_prose(chunk: str, fn) -> str:
 
 
 def _escape_jsx(prose: str) -> str:
-    """Mintlify parses .md as MDX, so a bare < or { is read as JSX."""
+    """Mintlify parses .md as MDX, so a bare < or { is read as JSX and $...$ as math."""
     prose = re.sub(r"<(?![a-zA-Z/!][^<>]*>)", "&lt;", prose)
     # An angle-bracket placeholder or a bare tag-looking word is text, not JSX.
     prose = re.sub(r"<(?=[a-zA-Z_][a-zA-Z0-9_ -]*>)", "&lt;", prose)
-    return prose.replace("{", "&#123;").replace("}", "&#125;")
+    # Mintlify renders text between two dollar signs as LaTeX, so "$34 instead
+    # of $91" became italic math. A recipe README never means math by "$".
+    return prose.replace("{", "&#123;").replace("}", "&#125;").replace("$", "&#36;")
 
 
 # --------------------------------------------------------------------------

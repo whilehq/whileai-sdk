@@ -82,7 +82,7 @@ and you run it yourself.
 - `README.md` in the shape of [`_template/README.md`](https://github.com/whilehq/whileai-sdk/blob/main/recipes/papers/_template/README.md): Paper, Claim, The change, numbered steps, one command, the Result table, the Climb table, three Learned bullets, the Verified line, the References list.
 - `recipe.py`: one file. Data, then train, then eval, then `results.json`. Two arms on the same holdout: the baseline and the paper's change. Paired delta with a 95% interval (`wai.compare`).
 - `results.json`: the numbers the table above reads. Shape in [`_template/results.json`](https://github.com/whilehq/whileai-sdk/blob/main/recipes/papers/_template/results.json).
-- Default run: under 60 GPU minutes, under $10. Bigger runs behind a flag.
+- Default run: under 60 GPU minutes, under &#36;10. Bigger runs behind a flag.
 - Public data or a seeded environment that lives in the recipe directory. No customer data.
 - A flat result is a result. Say so in the table.
 - One training seed per arm is never "moved": the verdict is "unresolved" until both arms have `MIN_TRAIN_SEEDS` (2) independent seeds, and the README's result line says in one sentence what would resolve it. `results.json` records the seeds per arm in `checks.train_seeds`.
