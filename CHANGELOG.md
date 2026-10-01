@@ -12,6 +12,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
   OpenRouter comparison) into `docs/figures/`, and the recipe page shows them. `scripts/gen_recipe_docs.py`
   now maps a README image under `docs/` to its Mintlify path, so one link renders on GitHub and on the docs.
+- `format_delta_report` no longer prints `PASS` for a gain seen on one eval run. A `moved_unreplicated`
+  headline now reads `INCONCLUSIVE (1 eval run a side, rerun to confirm)` (or names the one side, or
+  "no re-run floor"), so the headline and the "could be noise" warning agree. `PASS` stays for `moved`,
+  a gain past the re-run band. `report["ok"]`, `headline_verdict` and exit codes are unchanged; only the
+  printed headline (`headline_word`) moved. From an external case study on 0.126.
 - Recipe `recipes/04-train/model-router/`: train a model router over twelve frontier models from
   LLMRouterBench's graded answers (kNN, Avengers-Pro clusters, a linear baseline, one cost knob). On 1,061
   held-out questions Avengers-Pro matches Gemini 2.5 Pro's accuracy (+0.1 [-2.7, +2.9] points) at 38% of its
