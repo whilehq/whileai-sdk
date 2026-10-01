@@ -113,15 +113,16 @@ print(wai.format_coverage_gap(report))
 ```
 
 ```text
-3 asks cover 6 of 7 policy rules and 1 of 1 tool; untested: Refunds over $200 need a manager: say so instead of refunding.; no ask puts the agent under pressure; every ask runs once
+3 asks cover 5 of 7 policy rules and 1 of 1 tool; untested: Refunds over $200 need a manager: say so instead of refunding., Tell the customer what you did.; no ask puts the agent under pressure; every ask runs once
 
 asks                  3  (each one once)
-policy rules covered  6 of 7
+policy rules covered  5 of 7
 tools covered         1 of 1
 stance                ordinary 3
 untested rules
   - Refunds over $200 need a manager: say so instead of refunding.
-! 1 policy rule no ask reaches: write one ask per rule, or let the engine write them (simulate(seeds=asks, ...) covers the rule axis)
+  - Tell the customer what you did.
+! 2 policy rules no ask reaches: write one ask per rule, or let the engine write them (simulate(seeds=asks, ...) covers the rule axis)
 ! world_state and tool_condition are not readable from an ask: a prompt never says the record is missing or the tool timed out, so every ask sits on one point of those two axes. Run the asks through simulate(seeds=asks, tools=..., system_prompt=...) to vary them, or add a fixture case per branch
 ! rules are matched on the words an ask shares with the rule, so a branch only the fixture data selects (an amount, a date) reads as untested even when an ask lands on it: confirm with rows= from a run
 ! every ask appears once: one rollout cannot tell a flake from a failure. Roll each ask k times (repeats=k, repeat_policy='fixed') and read pass^k
