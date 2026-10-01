@@ -38,7 +38,9 @@ BASE_URL = "https://openrouter.ai/api/v1"
 HOLDOUT_SHARE = 1 / 3  # a third of each subject held out: convention, powers ~0.07 at k=1
 SHARES = (0.2, 0.4, 0.6)  # frontier-call budgets reported in the table
 MARGIN = 0.02  # "keeps quality" = interval's lower end above -2 points: convention, untested
-HASH_DIM = 2**16  # hashed word n-grams; a 4x smaller table costs <0.01 AUC on similar text
+HASH_DIM = (
+    2**16
+)  # hashed word uni+bigrams (Weinberger et al. 2009, arXiv:0902.2206): convention, untested here
 L2 = 1.0  # logistic-regression ridge, per example: convention, untested
 TEMPERATURE = 0.7  # >0 so the two cheap draws can disagree, which the cascade reads
 MAX_TOKENS = 2048  # 1,200 cut off 4% of Sonnet answers in the pilot
@@ -211,7 +213,7 @@ def features(text: str) -> list[int]:
     return sorted({int(hashlib.md5(g.encode()).hexdigest()[:8], 16) % HASH_DIM for g in grams})
 
 
-def fit_text_router(train: list[dict], epochs: int = 30, lr: float = 0.5):
+def fit_text_router(train: list[dict], epochs: int = 30, lr: float = 0.5):  # convention, untested
     """Logistic regression on hashed n-grams of the prompt: P(cheap model gets it wrong).
 
     The label is the cheap model's miss rate over its two draws, a soft label
