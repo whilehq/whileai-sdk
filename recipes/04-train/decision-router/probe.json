@@ -1,0 +1,331 @@
+﻿{
+ "repeat_choice": [
+  {
+   "writing": 0.0,
+   "code": 0.0,
+   "math": 1.0,
+   "trivia": 0.0
+  },
+  {
+   "math": 1.0,
+   "trivia": 0.0,
+   "code": 0.0,
+   "writing": 0.0
+  },
+  {
+   "writing": 0.0,
+   "trivia": 0.0,
+   "code": 0.0,
+   "math": 1.0
+  },
+  {
+   "writing": 0.0,
+   "code": 0.0,
+   "math": 1.0,
+   "trivia": 0.0
+  },
+  {
+   "code": 0.0,
+   "writing": 0.0,
+   "math": 1.0,
+   "trivia": 0.0
+  },
+  {
+   "code": 0.0,
+   "trivia": 0.0,
+   "math": 1.0,
+   "writing": 0.0
+  },
+  {
+   "writing": 0.0,
+   "code": 0.0,
+   "trivia": 0.0,
+   "math": 1.0
+  },
+  {
+   "trivia": 0.0,
+   "code": 0.0,
+   "math": 1.0,
+   "writing": 0.0
+  },
+  {
+   "code": 0.0,
+   "trivia": 0.0,
+   "writing": 0.0,
+   "math": 1.0
+  },
+  {
+   "math": 1.0,
+   "trivia": 0.0,
+   "code": 0.0,
+   "writing": 0.0
+  },
+  {
+   "math": 1.0,
+   "writing": 0.0,
+   "trivia": 0.0,
+   "code": 0.0
+  },
+  {
+   "writing": 0.0,
+   "trivia": 0.0,
+   "code": 0.0,
+   "math": 1.0
+  }
+ ],
+ "repeat_noul": [
+  0.96,
+  0.97,
+  0.97,
+  0.96,
+  0.97,
+  0.96,
+  0.96,
+  0.96,
+  0.96,
+  0.97,
+  0.96,
+  0.97
+ ],
+ "order": [
+  {
+   "first": "trivia",
+   "last": "writing",
+   "p": {
+    "trivia": 0.0,
+    "writing": 0.77,
+    "code": 0.23,
+    "math": 0.0
+   }
+  },
+  {
+   "first": "writing",
+   "last": "code",
+   "p": {
+    "writing": 0.85,
+    "trivia": 0.0,
+    "math": 0.0,
+    "code": 0.15
+   }
+  },
+  {
+   "first": "code",
+   "last": "math",
+   "p": {
+    "writing": 0.8,
+    "code": 0.2,
+    "trivia": 0.0,
+    "math": 0.0
+   }
+  },
+  {
+   "first": "writing",
+   "last": "code",
+   "p": {
+    "trivia": 0.0,
+    "code": 0.17,
+    "writing": 0.83,
+    "math": 0.0
+   }
+  },
+  {
+   "first": "trivia",
+   "last": "code",
+   "p": {
+    "math": 0.0,
+    "writing": 0.78,
+    "trivia": 0.0,
+    "code": 0.22
+   }
+  },
+  {
+   "first": "math",
+   "last": "trivia",
+   "p": {
+    "writing": 0.64,
+    "trivia": 0.0,
+    "math": 0.0,
+    "code": 0.36
+   }
+  },
+  {
+   "first": "writing",
+   "last": "math",
+   "p": {
+    "trivia": 0.0,
+    "math": 0.0,
+    "writing": 0.9,
+    "code": 0.1
+   }
+  },
+  {
+   "first": "writing",
+   "last": "trivia",
+   "p": {
+    "code": 0.13,
+    "writing": 0.87,
+    "trivia": 0.0,
+    "math": 0.0
+   }
+  },
+  {
+   "first": "math",
+   "last": "code",
+   "p": {
+    "trivia": 0.0,
+    "writing": 0.78,
+    "code": 0.22,
+    "math": 0.0
+   }
+  },
+  {
+   "first": "math",
+   "last": "writing",
+   "p": {
+    "writing": 0.78,
+    "trivia": 0.0,
+    "math": 0.0,
+    "code": 0.22
+   }
+  },
+  {
+   "first": "writing",
+   "last": "math",
+   "p": {
+    "math": 0.0,
+    "writing": 0.9,
+    "trivia": 0.0,
+    "code": 0.1
+   }
+  },
+  {
+   "first": "math",
+   "last": "writing",
+   "p": {
+    "trivia": 0.0,
+    "writing": 0.73,
+    "code": 0.27,
+    "math": 0.0
+   }
+  }
+ ],
+ "opaque_labels": {
+  "opt1": 0.0,
+  "opt0": 1.0,
+  "opt3": 0.0,
+  "opt2": 0.0
+ },
+ "labels_swapped_vs_descriptions": {
+  "trivia": 0.0,
+  "code": 0.0,
+  "math": 0.03,
+  "writing": 0.97
+ },
+ "negation": [
+  [
+   "This question needs arithmetic.",
+   0.97,
+   0.03
+  ],
+  [
+   "This question is about trains.",
+   0.98,
+   0.11
+  ],
+  [
+   "This question is hard for a 10 year old.",
+   0.39,
+   0.46
+  ]
+ ],
+ "latency_vs_questions": {
+  "1": [
+   0.422,
+   {
+    "input_tokens": 317,
+    "output_tokens": 21
+   }
+  ],
+  "4": [
+   0.228,
+   {
+    "input_tokens": 362,
+    "output_tokens": 72
+   }
+  ],
+  "16": [
+   0.259,
+   {
+    "input_tokens": 548,
+    "output_tokens": 282
+   }
+  ],
+  "64": [
+   0.266,
+   {
+    "input_tokens": 1316,
+    "output_tokens": 1146
+   }
+  ]
+ },
+ "latency_vs_state_chars": {
+  "200": [
+   0.25,
+   {
+    "input_tokens": 366,
+    "output_tokens": 20
+   }
+  ],
+  "2000": [
+   0.318,
+   {
+    "input_tokens": 766,
+    "output_tokens": 20
+   }
+  ],
+  "20000": [
+   0.307,
+   {
+    "input_tokens": 4766,
+    "output_tokens": 20
+   }
+  ],
+  "80000": [
+   0.695,
+   {
+    "input_tokens": 18099,
+    "output_tokens": 20
+   }
+  ]
+ },
+ "latency_vs_options": {
+  "2": [
+   0.296,
+   {
+    "input_tokens": 367,
+    "output_tokens": 34
+   }
+  ],
+  "12": [
+   0.302,
+   {
+    "input_tokens": 541,
+    "output_tokens": 116
+   }
+  ],
+  "64": [
+   0.327,
+   {
+    "input_tokens": 1529,
+    "output_tokens": 585
+   }
+  ],
+  "250": [
+   0.446,
+   {
+    "input_tokens": 5363,
+    "output_tokens": 2409
+   }
+  ]
+ }
+}

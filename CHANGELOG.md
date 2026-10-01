@@ -43,6 +43,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 - `coverage_gap` no longer counts a standing rule as covered when no ask touches it. A rule that names no
   tool and no condition ("Never modify data.") was reached by every ask, so a suite with no ask near it read
   "8 of 8". It now needs an ask that shares a word with it, and otherwise lands in `untested_rules`.
+- New recipe `recipes/04-train/decision-router`, part 2 of the model router: what TypeSafe's Jev is (its docs, an
+  outside reverse-engineering, and `probe_jev.py`'s seven probes), then a Qwen3-0.6B pointer model and a ModernBERT
+  encoder trained on part 1's table. Both tie Avengers-Pro and trail Jev by 3.0 points [1.5, 4.7] at $5 per 1k; a
+  true-dataset control matches Jev, so Jev's lead is recognising the benchmark.
 - Recipe `recipes/community/deepagents-review-four-arms/`: a pre-registered fair rerun (`PREREGISTRATION.md`).
   The first smithtune arm skipped smithtune's rubric co-design step; the rerun uses `rubric_codesigned.md`
   (written after reading 20 traces, checked on a 20-trace trial), equal training-set sizes, three seeds per
