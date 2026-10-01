@@ -113,6 +113,8 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "hub": ("whileai.hub", None),  # push to the Hugging Face Hub with your own token
     "platform": ("whileai.platform", None),
     "methods": ("whileai.methods", None),
+    # asks from a git repo, a schema or recorded tool calls, for simulate(seeds=)
+    "seeds": ("whileai.seeds", None),
     "simulations": ("whileai.simulations", None),
     # the platform client's old top-level names, kept importable; their
     # home is whileai.platform
@@ -141,7 +143,7 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:  # so editors and mypy see the lazy names
-    from . import hub
+    from . import hub, seeds
     from .auth import LoginError, account, login, logout, resolve_api_key, signup
     from .groupwise import GroupwiseGrading
     from .judge import Judge
