@@ -105,6 +105,7 @@ NEEDS_MODAL = {
     "community/judge-aware-hacking/recipe.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
+    "04-train/decision-router/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic
     "04-train/text-to-sql/author.py",
     "04-train/text-to-sql/train_grpo_modal.py",

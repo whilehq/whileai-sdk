@@ -28,11 +28,12 @@ from __future__ import annotations
 import json
 import math
 import random
+import sys
 import time
 
 import modal
 
-from whileai.config import requirement
+from whileai.config import provenance, requirement
 
 POINTER_BASE = "Qwen/Qwen3-0.6B"
 ENCODER_BASE = "answerdotai/ModernBERT-base"
@@ -290,6 +291,7 @@ def train(arm: str, seed: int, models: list[str], rows: list[dict]) -> dict:
 
 @app.local_entrypoint()
 def main(arm: str = "pointer", seed: int = 0, data: str = "out/train_rows.json", out: str = "out"):
+    print(provenance(), file=sys.stderr)
     payload = json.loads(open(data, encoding="utf-8").read())
     res = train.remote(arm, seed, payload["models"], payload["rows"])
     path = f"{out}/{arm}-s{seed}.json"
