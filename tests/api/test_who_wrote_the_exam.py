@@ -30,7 +30,8 @@ def test_offline_rows_and_metadata_say_who_wrote_what(tmp_path):
     assert data.metadata["user_model"] is None
     assert data.metadata["judge_model"] is None
     assert "same_model" not in data.degraded
-    assert data.warnings == []
+    # the one note an offline run without seeds= always carries
+    assert [w for w in data.warnings if "generic template" not in w] == []
 
     path = str(tmp_path / "run.jsonl")
     data.save(path, meta=True)
@@ -42,7 +43,7 @@ def test_offline_rows_and_metadata_say_who_wrote_what(tmp_path):
         meta = json.load(fh)
     assert meta["writer_model"] == "template"
     assert meta["user_model"] is None
-    assert meta["warnings"] == []
+    assert [w for w in meta["warnings"] if "generic template" not in w] == []
 
 
 def test_provenance_survives_export_and_the_typed_round_trip():

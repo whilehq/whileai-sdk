@@ -656,6 +656,16 @@ LENGTH_GAP_FLAG = 0.15
 # 0.992 on MT-Bench (arXiv:2606.19544), so a tenth of verdicts moving is
 # far outside the measured range. Convention on the exact number.
 FLIP_FLAG = 0.10
+# CHEAT_PROBE_FLAG = 0.10: mean score at which a degenerate agent (always
+# refuse, always ask a question, empty, echo, filler, the most common
+# answer) is flagged by ``cheat_probes``, read on the lower end of its 95%
+# interval. Such an agent carries no task content, so a sound scorer pays
+# it nothing; a lower bound at 0.10 means the scorer reliably pays at least
+# one case in ten for no work. Same size as FLIP_FLAG, so this and
+# ``judge_probes`` fire at one sensitivity, and a clean scorer on
+# JUDGE_CHECK_SAMPLE cases (0 of 40, Wilson upper 0.09) clears it.
+# Convention on the exact number (convention, untested).
+CHEAT_PROBE_FLAG = 0.10
 # PROBE_MIN_N = 20: rows a judge probe needs in its denominator (originally
 # failing replies for an additive probe, re-judged replies for a
 # replacement one) before ``flagged`` may be true. Under it one flipped row
@@ -2111,6 +2121,7 @@ __all__ = [
     "BPCO_TEMPERATURE",
     "CEILING_PASS_RATE",
     "CHARS_PER_TOKEN",
+    "CHEAT_PROBE_FLAG",
     "CI_LEVEL",
     "DEAD_AGENT_BUDGET_MULTIPLE",
     "DEAD_AGENT_MIN_ERRORS",

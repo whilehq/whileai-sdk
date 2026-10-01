@@ -15,16 +15,48 @@ to 0.109 releases under the wrong numbers; they are yanked.
   per check by default (10-15 s), `--full` for 400 (the case study's count); seed printed, exit 1 on a flag. Full run,
   seed 0: false alarm 6.0% (target 5.0%, MC error 1.1), coverage 91.8% at 10 cases and 94.0% at 20; all eight within
   three errors. Page: [check the math yourself](https://docs.while.ai/concepts/check-the-math).
+- `wai.cheat_probes(cases, scorer)` (and `scored.cheat_probes(scorer)`) plays six degenerate agents over your
+  test cases (always refuse, always ask a clarifying question, empty, echo the prompt, long filler, the most
+  common reference answer) and grades them with your own scorer, no model call. A probe is flagged when the 95%
+  lower bound of its score reaches `CHEAT_PROBE_FLAG` (0.10); the warning names the probe, its score and its
+  interval, so a gameable reward is caught before training on it. Docs: reward-hacking, "Cheat probes".
+- `coverage_gap` no longer counts a standing rule as covered when no ask touches it. A rule that names no
+  tool and no condition ("Never modify data.") was reached by every ask, so a suite with no ask near it read
+  "8 of 8". It now needs an ask that shares a word with it, and otherwise lands in `untested_rules`.
+- Recipe `recipes/community/deepagents-review-four-arms/`: a pre-registered fair rerun (`PREREGISTRATION.md`).
+  The first smithtune arm skipped smithtune's rubric co-design step; the rerun uses `rubric_codesigned.md`
+  (written after reading 20 traces, checked on a 20-trace trial), equal training-set sizes, three seeds per
+  arm, and a second experiment on aiming 400 new rollouts (`aim.py`) against drawing them at random.
+  `smithtune_modal.py` runs the smithtune CLI on Modal where Docker is unavailable; `train_modal.py --seed`
+  and `collect.py --tasks` support the new arms.
+- `recipes/04-train/model-router` adds an untrained router: `jev.py` asks TypeSafe's Jev what kind of
+  question each one is and which model will get it right, and `run.py` scores both against Avengers-Pro at
+  equal budgets. Naming the kind of question is enough to match the trained router, and beats it at $5
+  per 1k (+1.6 points [+0.2, +3.0]). `prepare.py` now also writes `queries.jsonl`.
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
+- `judge_trust` no longer tells a guessing judge it reads length. The short/long gap and the filler re-judge flag
+  only when the gap is beyond noise (two-proportion z test; sign test on filler flips up versus down), and a kappa
+  under 0.2 now says the judge is guessing. Found by an external case study (gentlyventures.com) where a coin-flip
+  judge (kappa 0.04) got the length warning.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
   OpenRouter comparison) into `docs/figures/`, and the recipe page shows them. `scripts/gen_recipe_docs.py`
   now maps a README image under `docs/` to its Mintlify path, so one link renders on GitHub and on the docs.
+- `format_delta_report` no longer prints `PASS` for a gain seen on one eval run. A `moved_unreplicated`
+  headline now reads `INCONCLUSIVE (1 eval run a side, rerun to confirm)` (or names the one side, or
+  "no re-run floor"), so the headline and the "could be noise" warning agree. `PASS` stays for `moved`,
+  a gain past the re-run band. `report["ok"]`, `headline_verdict` and exit codes are unchanged; only the
+  printed headline (`headline_word`) moved. From an external case study on 0.126.
 - Recipe `recipes/04-train/model-router/`: train a model router over twelve frontier models from
   LLMRouterBench's graded answers (kNN, Avengers-Pro clusters, a linear baseline, one cost knob). On 1,061
   held-out questions Avengers-Pro matches Gemini 2.5 Pro's accuracy (+0.1 [-2.7, +2.9] points) at 38% of its
   cost, and beats OpenRouter's auto router by +5.6 [+2.2, +8.7] points at 74% of its cost; every router sits
   about 19 points under the oracle.
+- `holdout_size` reports the noise in a count read off a small pilot: `n_tasks_low` and `n_tasks_high` are a 95%
+  percentile bootstrap over the pilot's tasks (2000 draws, seed 0), and `n_tasks_range_method` says what was
+  resampled. Twelve-task pilots from one distribution gave 30 to 166 for a gain that needs 97. `n_tasks` is unchanged.
+- `decontaminate` without `embedder=` now says, in `notes` and once per process as a `UserWarning`, that reworded
+  copies of eval questions are not caught and that `embedder=` catches them.
 - Recipe `recipes/02-measure/model-router/`: route each request to a cheap model (Gemma 3 12B) or the
   frontier model (Claude Sonnet 5.5) and score every router against random routing at the same frontier
   share. On 418 held-out MMLU-Pro questions a two-draw cascade beats random by +5.4 points [+2.4, +8.4]
@@ -53,6 +85,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   at 128/256/512 tokens and a 128-token window. The climb is posted to the platform
   (`post_platform.py`). `sdk_findings.md` records eight places the SDK could not express a
   classifier and the one (`execute=` plus a model `simulator=`) that gave it the data.
+- `simulate(simulator=False)` without `seeds=` now warns that the situations come from a generic
+  template that knows only the tool names, and the offline writer no longer invents a support
+  reference (`REF-nnnn`) when the tools name no record ids, take no id parameter and have no read
+  tool. A code-history agent got one in 94 of 115 asks before, 0 after (gentlyventures case study,
+  whileai 0.126).
 
 ## 0.126 (2026-09-25)
 

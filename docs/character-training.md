@@ -88,7 +88,7 @@ pairs 20 (chosen longer 0.7) -> out/pairs.jsonl | sft 133 -> out/sft.jsonl
 
 ```text
 marker:trait: moved_unreplicated (+0.500, 95% +0.408..+0.592, 30 paired tasks)
-PASS
+INCONCLUSIVE (1 eval run a side, rerun to confirm)
   pass_at_1                    0.375 -> 0.792  +0.417 [+0.319..+0.521]  up  (36 paired)
   marker:no_filler             0.681 -> 0.986  +0.306 [+0.229..+0.389]  up  (36 paired)
   marker:on_task               1.000 -> 1.000  +0.000 [+0.000..+0.000]  flat  (36 paired)
