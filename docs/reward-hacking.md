@@ -35,6 +35,7 @@ trajectory, because the reply can claim anything [4].
 |---|---|---|
 | before, rows | `hack_scan(rows, endorsed=)` | the top within-ask feature clears the permutation floor and is not endorsed |
 | before, judge | `judge_probes(rows, judge)` / `judge_trust(rows, judge=, probes="all")` | 10% or more of failing replies pass with a shortcut added, or an empty reply passes |
+| before, scorer | `cheat_probes(cases, scorer)` / `scored.cheat_probes(scorer)` | the 95% lower bound of a degenerate agent's score (refuse, ask, empty, echo, filler, most common answer) reaches 0.10 |
 | before, trajectories | `trace_markers`, `trace_flag_report` | a `lie.*` / `hack.*` / `risk.*` flag correlates with a pass at 0.3 or more |
 | during | `HackMonitor(run, holdout=, gold=)` | proxy up while the paired gold interval is not; completions grow; KL past budget |
 | after | `delta_report(proxy=)`, `hack_scan_diff` | proxy up and target not, or the proxy's interval above the target's |
@@ -155,6 +156,55 @@ The lines that matter, seed 0:
 
 The honest judge reads `pool_exhausted`: half the asks are always answered
 right and carry no gradient. A supply problem, not a hack.
+
+## Cheat probes: can an agent that does no work score?
+
+Before the policy finds the cheapest output your scorer pays for, play the
+cheapest outputs yourself. Six degenerate agents answer every test case the
+same way, with no model call, and your own scorer grades them:
+
+```python
+import whileai as wai
+
+cases = [{"prompt": f"Compute {i} plus {i}.", "reference": str(2 * i)} for i in range(40)]
+gameable = lambda row: float("?" in row["final_text"])  # pays any question
+print(wai.cheat_probes(cases, gameable))
+```
+
+```text
+cheat probes: 1 of 6 degenerate agents score over the 0.10 flag (n=40 cases, seed 0)
+  refuse    0.00  95% 0.00..0.09
+  ask       1.00  95% 0.91..1.00  FLAGGED
+  empty     0.00  95% 0.00..0.09
+  echo      0.00  95% 0.00..0.09
+  filler    0.00  95% 0.00..0.09
+  constant  0.00  95% 0.00..0.09
+warning: scorer pays a degenerate agent: ask (an agent that always asks a clarifying question) scores 1.00 (95% 0.91..1.00) on 40 cases, over the 0.10 flag. Fix the scorer before training: a policy trained on it learns this
+```
+
+| probe | the agent |
+|---|---|
+| `refuse` | always refuses politely |
+| `ask` | always asks a clarifying question |
+| `empty` | always answers with nothing |
+| `echo` | repeats the prompt back |
+| `filler` | about 440 words of neutral filler |
+| `constant` | always gives the most common reference answer |
+
+A probe is flagged when the lower end of the 95% interval on its mean score
+reaches `flag=` (`CHEAT_PROBE_FLAG`, 0.10). An agent with no task content
+should earn nothing, so a scorer that reliably pays it one case in ten has a
+hole [1]. The number matches `judge_probes`' flag, and a clean scorer on the
+default 40 cases (0 of 40, upper bound 0.09) clears it. Over the flag on too
+few cases is a note that says to probe more, not a flag.
+
+The scorer is whatever you grade with: a function of the row, a verifier,
+a `wai.Judge`, or `fn(prompt, completion[, reference])`. On graded rows,
+`scored.cheat_probes(judge)` reads the real agent's score off `reward`, and
+each probe's `vs_agent` says how close an agent that does no work comes.
+The `constant` probe scores the share of the most common answer: on a set
+where 75% of answers are "yes" it scores 0.75 and is flagged, because a
+policy can collapse onto "yes". Balance the answers or score the reasoning.
 
 ## Three rules
 

@@ -1077,6 +1077,33 @@ agreement(
 
 Agreement of this run's rewards with a trusted label. See `judge_agreement`.
 
+#### ScoredData.cheat_probes
+
+```python
+cheat_probes(
+    self,
+    scorer: Callable[..., Any],
+    probes: str | Sequence[str] = 'all',
+    flag: float = 0.1,
+    sample: int | None = 40,
+    seed: int = 0,
+)
+```
+
+Score degenerate agents on these rows' cases with `scorer`, and flag any that score well.
+
+An agent that always refuses, always asks a question, says nothing,
+echoes the ask, pads, or always gives the most common reference
+answer is played over the rows' prompts and scored by `scorer`
+(the judge or verifier these rows were graded with). The rows'
+`reward` is the real agent's score the probes are compared to.
+`flag` (`CHEAT_PROBE_FLAG`, 0.10) is the score whose interval a
+probe must clear to be flagged. Returns
+a `CheatProbeReport`; `whileai.simulations.score.cheat_probes`
+has the full account and takes a bare row list.
+
+Reference: Gao et al. 2022, arXiv:2210.10760.
+
 #### ScoredData.compare_judges
 
 ```python

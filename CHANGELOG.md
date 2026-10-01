@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.cheat_probes(cases, scorer)` (and `scored.cheat_probes(scorer)`) plays six degenerate agents over your
+  test cases (always refuse, always ask a clarifying question, empty, echo the prompt, long filler, the most
+  common reference answer) and grades them with your own scorer, no model call. A probe is flagged when the 95%
+  lower bound of its score reaches `CHEAT_PROBE_FLAG` (0.10); the warning names the probe, its score and its
+  interval, so a gameable reward is caught before training on it. Docs: reward-hacking, "Cheat probes".
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
