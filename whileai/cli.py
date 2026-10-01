@@ -209,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _compare_args(p: argparse.ArgumentParser) -> None:
-    from .before_after import SEED, TEMPERATURE, K
+    from .before_after import RUNS, SEED, TEMPERATURE, K
 
     p.add_argument(
         "--demo",
@@ -231,13 +231,19 @@ def _compare_args(p: argparse.ArgumentParser) -> None:
     )
     p.add_argument("--k", type=int, default=K, help=f"replies per task per arm (default: {K})")
     p.add_argument(
+        "--runs",
+        type=int,
+        default=RUNS,
+        help=f"times the whole eval runs per arm, for the noise floor (default: {RUNS})",
+    )
+    p.add_argument(
         "--seed", type=int, default=SEED, help=f"seed for sampling and bootstrap (default: {SEED})"
     )
     p.add_argument(
         "--temperature",
         type=float,
-        default=TEMPERATURE,
-        help=f"sampling temperature (default: {TEMPERATURE})",
+        default=None,
+        help=f"sampling temperature for both arms (default: {TEMPERATURE})",
     )
     p.add_argument("--json", action="store_true", help="print the report as JSON")
 
@@ -281,8 +287,8 @@ def _compare(args: argparse.Namespace) -> int:
     try:
         if args.demo:
             model: Any = before_after.demo_model
-            before: str | None = before_after.DEMO_BEFORE
-            after: str | None = before_after.DEMO_AFTER
+            before: Any = before_after.DEMO_BEFORE
+            after: Any = before_after.DEMO_AFTER
             tasks: Any = before_after.demo_tasks()
         else:
             missing = [f"--{n}" for n in ("model", "tasks") if not getattr(args, n)]
@@ -296,6 +302,13 @@ def _compare(args: argparse.Namespace) -> int:
             before = _prompt_text(args.before)
             after = _prompt_text(args.after)
             tasks = args.tasks
+        if args.temperature is not None:
+            # the temperature is harness configuration, so it rides on the arms
+            from .harness import Disclosure, Harness
+
+            sampling = Disclosure(sampling={"temperature": args.temperature})
+            before = Harness(instructions=before, label="before", disclosure=sampling)
+            after = Harness(instructions=after, label="after", disclosure=sampling)
         report = before_after.compare(
             before,
             after,
@@ -303,8 +316,8 @@ def _compare(args: argparse.Namespace) -> int:
             _reward(args.reward),
             model=model,
             k=args.k,
+            runs=args.runs,
             seed=args.seed,
-            temperature=args.temperature,
         )
     except (ValueError, TypeError, OSError, ImportError) as err:
         return _fail(err)

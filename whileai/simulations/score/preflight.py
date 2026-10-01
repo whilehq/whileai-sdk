@@ -498,8 +498,9 @@ _ASK_MIN_CHARS = 15
 
 #: A rule clause that carries one of these words, or an amount, is a
 #: *branch*: it applies only to asks that match its condition, so it needs
-#: an ask aimed at it. A clause without one is a standing rule that every
-#: ask reaching its tool puts in play ("never invent order details"). A
+#: an ask aimed at it. A clause without one is a standing rule: an ask
+#: reaching its tool, or sharing a word with it, puts it in play ("never
+#: invent order details"). A
 #: bare number is not enough: "Today is 2026-09-17" is a fact, not a branch.
 _BRANCH_WORDS = frozenset(
     {
@@ -885,9 +886,11 @@ def coverage_gap(
             elif rule_tools[rule]:
                 reached = any(n in hit_tools for n in rule_tools[rule])
             else:
-                # An unconditional rule that names no tool ("never invent
-                # order details") is in play on every ask.
-                reached = True
+                # A standing rule that names no tool ("never invent order
+                # details") is reached by an ask that shares a word with it.
+                # Counting it reached on every ask read "8 of 8" with no ask
+                # near "never modify data" (case study, whileai 0.126).
+                reached = bool(words & rule_words[rule])
             if reached:
                 hit_rules.append(rule)
         stance = _ask_stance(ask)

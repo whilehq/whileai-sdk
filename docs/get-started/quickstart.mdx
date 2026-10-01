@@ -24,15 +24,15 @@ wai compare --demo
 ```
 
 ```text
-before-and-after check: 24 tasks x 4 replies per arm, model demo_model, temperature 0.7, seed 0 (same seed, same output)
-  before d9bf2a5cae9d  pass@1 0.49 [0.41..0.58]
-  after  c5bdd38064fb  pass@1 0.84 [0.76..0.92]
+before-and-after check: 24 tasks x 4 replies x 3 runs per arm, model demo_model, temperature 0.7, seed 0 (same seed, same output)
+  before d9bf2a5cae9d  pass@1 0.55 [0.47..0.63]
+  after  c5bdd38064fb  pass@1 0.85 [0.80..0.90]
 
-pass_at_1: moved_unreplicated (+0.354, 95% +0.271..+0.448, 24 paired tasks)
+pass_at_1: moved (+0.306, 95% +0.253..+0.358, 24 paired tasks)
 PASS
+eval noise: run_std 0.015, a delta under 0.035 is noise (t(df=4)=2.78 x run_std x sqrt(1/3 + 1/3); 3 eval runs before, 3 after)
 answered: 100.0% before, 100.0% after
-  pass_at_1                    0.490 -> 0.844  +0.354 [+0.271..+0.448]  up  (24 paired)
-! One eval run on each side, so this could be noise. Run each side three times with simulate(tasks=..., runs=3) and the report will say.
+  pass_at_1                    0.549 -> 0.854  +0.306 [+0.253..+0.358]  up  (24 paired)  noise<0.035
 ```
 
 With your prompts, your test set and a local model it is free: no key,
@@ -68,9 +68,10 @@ report = wai.harness.compare(
 print(report["verdict"], report["compare"]["metrics"]["pass_at_1"]["ci95"])
 ```
 
-Both prompts draw reply `j` of a question on the same seed, and the two
-row sets go to `wai.compare` unchanged: the interval and the verdict are
-its own. The [before-and-after recipe](/recipes/02-measure/before-and-after)
+Both prompts draw reply `j` of a question on the same seed, the eval runs
+three times a side so the report can measure its own noise (one run reads
+INCONCLUSIVE), and the two row sets go to `wai.compare` unchanged: the
+interval and the verdict are its own. The [before-and-after recipe](/recipes/02-measure/before-and-after)
 has the null check (the old prompt on both arms reads `NO DIFFERENCE`).
 
 ## The loop, offline

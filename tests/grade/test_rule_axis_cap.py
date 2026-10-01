@@ -71,12 +71,13 @@ def test_coverage_gap_reports_the_whole_policy_and_prints_the_count_when_capped(
     capped = coverage_gap(asks, tools=TOOLS, system_prompt=POLICY, rule_cap=16)
     assert len(capped["rules"]) == 16 and capped["rules_truncated"] is True
     assert f"of 16 policy rules (of {full['n_rules_total']} in the prompt)" in capped["summary"]
-    [note] = [n for n in capped["notes"] if "rule axis" in n]
+    [note] = [n for n in capped["notes"] if "rule axis" in n and "rule_cap" in n]
     assert "rule_cap=None to coverage_gap" in note
     text = format_coverage_gap(capped)
+    covered = 16 - len(capped["untested_rules"])
     assert (
-        f"policy rules covered  16 of 16 (of {full['n_rules_total']} in the prompt; rule_cap=16)"
-        in text
+        f"policy rules covered  {covered} of 16 "
+        f"(of {full['n_rules_total']} in the prompt; rule_cap=16)" in text
     )
     # the same line is plain when nothing was dropped
     assert "in the prompt" not in format_coverage_gap(full)

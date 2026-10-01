@@ -13,6 +13,7 @@ convention Loops follows.
     modal run train_modal.py --arm sft-with --smoke        # 4 datums, 1 step: load, loss, save
     modal run --detach train_modal.py --arm sft-with       # the run
     modal run --detach train_modal.py --arm sft-without
+    modal run --detach train_modal.py --arm a-with --seed 43   # a replicate: /a-with-s43/adapter
 
 Adapters land on volume `deepagents-review-runs` under /<arm>/adapter, with
 epochs.json beside them.
@@ -82,7 +83,7 @@ TARGETS = r"^(?!.*visual).*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down
     volumes={"/runs": runs, "/hf": hf},
     secrets=[modal.Secret.from_name("hforg")],
 )
-def train(arm: str, smoke: bool = False) -> dict:
+def train(arm: str, smoke: bool = False, seed: int | None = None) -> dict:
     import math
     import random
     import time
@@ -91,7 +92,8 @@ def train(arm: str, smoke: bool = False) -> dict:
     from peft import LoraConfig, get_peft_model
     from transformers import AutoModelForImageTextToText
 
-    torch.manual_seed(SETTINGS["seed"])
+    settings = {**SETTINGS, "seed": SETTINGS["seed"] if seed is None else seed}
+    torch.manual_seed(settings["seed"])
     data = pathlib.Path("/runs/data") / arm  # `modal volume put` of export_sft.py's output
     train_rows = _read(data / "train.tokens.jsonl")
     val_rows = _read(data / "validation.tokens.jsonl")
@@ -147,9 +149,10 @@ def train(arm: str, smoke: bool = False) -> dict:
 
     if smoke:
         train_rows, val_rows = train_rows[:4], val_rows[:2]
-    out = pathlib.Path("/runs") / arm
+    # A seed other than the default trains a replicate beside the arm: /runs/<arm>-s<seed>.
+    out = pathlib.Path("/runs") / (arm if seed is None else f"{arm}-s{seed}")
     out.mkdir(parents=True, exist_ok=True)
-    rng = random.Random(SETTINGS["seed"])
+    rng = random.Random(settings["seed"])
     epochs, best, bad = [], math.inf, 0
     first = val_loss()
     print(f"epoch 0 val_loss {first:.4f}", flush=True)
@@ -192,12 +195,12 @@ def train(arm: str, smoke: bool = False) -> dict:
         else:
             bad += 1
         (out / "epochs.json").write_text(
-            json.dumps({"settings": SETTINGS, "epochs": epochs}, indent=2)
+            json.dumps({"settings": settings, "epochs": epochs}, indent=2)
         )
         runs.commit()
         if bad >= SETTINGS["patience"]:
             break
-    return {"arm": arm, "epochs": epochs, "best_val_loss": best}
+    return {"arm": out.name, "epochs": epochs, "best_val_loss": best}
 
 
 @app.function(image=image, gpu="H200", timeout=60 * 60, volumes={"/runs": runs, "/hf": hf})
@@ -244,8 +247,8 @@ def _read(path: pathlib.Path) -> list[dict]:
 
 
 @app.local_entrypoint()
-def main(arm: str, smoke: bool = False, prof: bool = False):
+def main(arm: str, smoke: bool = False, prof: bool = False, seed: int | None = None):
     if prof:
         profile.remote(arm)
         return
-    print(json.dumps(train.remote(arm, smoke), indent=2))
+    print(json.dumps(train.remote(arm, smoke, seed), indent=2))

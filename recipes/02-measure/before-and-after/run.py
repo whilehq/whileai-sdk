@@ -1,7 +1,7 @@
 """Did my prompt rewrite really help? Both prompts on one local model, one verdict.
 
 The old prompt and the new one each answer the same 24 questions four
-times, on the same sampling seeds, and ``wai.harness.compare`` hands the
+times, in three runs, on the same sampling seeds, and ``wai.harness.compare`` hands the
 two sets of graded replies to ``wai.compare``: the gain, its 95% interval
 over tasks, and PASS only when the interval supports it.
 
@@ -55,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         "--model", default=None, help="ollama:qwen3:4b-instruct or any spec (default: scripted)"
     )
     p.add_argument("--k", type=int, default=4, help="replies per task per arm")
+    p.add_argument("--runs", type=int, default=3, help="eval runs per arm, for the noise floor")
     p.add_argument("--seed", type=int, default=0, help="same seed, same output")
     p.add_argument("--same", action="store_true", help="old prompt on both arms: the null check")
     args = p.parse_args(argv)
@@ -66,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         reward=wai.verify.Numeric(),
         model=args.model or scripted_model,
         k=args.k,
+        runs=args.runs,
         seed=args.seed,
     )
     print(report)

@@ -18,13 +18,16 @@ model, is ``wai compare --demo``; with your own model it is
 --tasks tasks.jsonl --reward Numeric``.
 
 Mechanism. Each task is sent ``k`` times to each arm, the arm's prompt as
-the system message and the task as the user message. Draw ``j`` of task
-``t`` carries the same sampling seed on both arms (common random numbers:
-the sampler's own luck is shared, so the paired difference is the prompt's
-and not the dice's). The replies become rows through ``wai.rows`` with the
-reward you name, and the two row sets go to ``wai.compare`` unchanged: the
-paired task differences, the bootstrap interval and the verdict are that
-call's, not this module's. Nothing here computes a statistic.
+the system message and the task as the user message, and the whole eval
+runs ``runs`` times. Draw ``j`` of task ``t`` in run ``r`` carries the
+same sampling seed on both arms (common random numbers: the sampler's own
+luck is shared, so the paired difference is the prompt's and not the
+dice's). The replies become rows through ``wai.rows`` with the reward you
+name, each stamped with its ``lineage.eval_run`` the way
+``simulate(runs=N)`` stamps it, and the two row sets go to
+``wai.compare`` unchanged: the paired task differences, the bootstrap
+interval, the re-run noise floor and the verdict are that call's, not
+this module's. Nothing here computes a statistic.
 
 Reference: Lambert 2025 (rlhfbook.com), chapter Evaluation, on comparing
 two configurations on one fixed task set; Miller 2024 (arXiv:2411.00640),
@@ -55,9 +58,16 @@ K = 4
 #: the same default ``wai.compare`` resamples its bootstrap with. Printed
 #: on every report so a rerun with the same value reproduces it.
 SEED = 0
-#: TEMPERATURE = 0.7: the sampling temperature both arms run at. Qwen3's
-#: model card recommends 0.7 for its non-thinking (instruct) mode, and it
-#: is the temperature ``complete()`` uses when a caller names none.
+#: RUNS = 3: times the whole eval runs per arm, ``MIN_RERUNS``: the fewest
+#: re-runs a sample sd has two degrees of freedom from, so ``wai.compare``
+#: can measure the eval's own noise floor and call a gain past it PASS. One
+#: run is one draw of the eval, and ``wai.compare`` reads a gain on one run
+#: as INCONCLUSIVE (Lambert 2025, chapter Evaluation).
+RUNS = 3
+#: TEMPERATURE = 0.7: the sampling temperature an arm runs at unless its
+#: harness says otherwise (``Disclosure(sampling={"temperature": t})``).
+#: Qwen3's model card recommends 0.7 for its non-thinking (instruct) mode,
+#: and it is the temperature ``complete()`` uses when a caller names none.
 #: Temperature 0 would make the k replies identical and k pointless.
 TEMPERATURE = 0.7
 #: MAX_TOKENS = 1024: the reply budget per draw, ``COMPLETE_MAX_TOKENS``,
@@ -118,7 +128,10 @@ def _arm(side: Any, label: str, model: Any) -> tuple[Harness, Any]:
     if isinstance(side, Harness):
         if side.kind == "prompted" and side.model is None:
             named = Harness(
-                _identity(model), instructions=side.instructions, label=side.label or label
+                _identity(model),
+                instructions=side.instructions,
+                label=side.label or label,
+                disclosure=side.disclosure,
             )
             return named, model
         return side, side.model
@@ -172,12 +185,18 @@ def _tasks(tasks: Any) -> tuple[list[str], list[Any] | None, list[str] | None]:
     return prompts, references, task_ids
 
 
-def _draw_seeds(prompts: Sequence[str], k: int, seed: int) -> list[list[int]]:
-    """One sampling seed per (task, draw), the same on both arms."""
+def _draw_seeds(prompts: Sequence[str], k: int, seed: int, run: int) -> list[list[int]]:
+    """One sampling seed per (task, draw) in one run, the same on both arms."""
     return [
-        [random.Random(f"{seed}:{prompt}:{j}").randrange(SEED_SPACE) for j in range(k)]
+        [random.Random(f"{seed}:{run}:{prompt}:{j}").randrange(SEED_SPACE) for j in range(k)]
         for prompt in prompts
     ]
+
+
+def _temperature(harness: Harness) -> float:
+    """The arm's sampling temperature: its harness's, else ``TEMPERATURE``."""
+    sampling = harness.disclosure.sampling or {}
+    return float(sampling.get("temperature", TEMPERATURE))
 
 
 def _replies(
@@ -209,8 +228,9 @@ def _replies(
 class BeforeAfter(Report):
     """What ``wai.harness.compare`` ran and what ``wai.compare`` said.
 
-    A dict: ``seed``, ``k``, ``temperature``, ``model``, ``n_tasks``,
-    ``before`` and ``after`` (each ``{label, hash, pass_at_1, ci95}``),
+    A dict: ``seed``, ``k``, ``runs``, ``temperature``, ``model``,
+    ``n_tasks``, ``before`` and ``after`` (each ``{label, hash, model,
+    temperature, pass_at_1, ci95}``, pass@1 over every run),
     ``verdict`` (the word the compare block prints: ``PASS``, ``NO
     DIFFERENCE``, ``FAIL``), ``headline_verdict``, ``ok``, and
     ``compare``, the ``DeltaReport`` itself. ``before_rows`` and
@@ -227,9 +247,9 @@ class BeforeAfter(Report):
 
     def __str__(self) -> str:
         lines = [
-            f"before-and-after check: {self['n_tasks']} tasks x {self['k']} replies per arm, "
-            f"model {self['model']}, temperature {self['temperature']}, seed {self['seed']} "
-            f"(same seed, same output)"
+            f"before-and-after check: {self['n_tasks']} tasks x {self['k']} replies x "
+            f"{self['runs']} runs per arm, model {self['model']}, temperature "
+            f"{self['temperature']}, seed {self['seed']} (same seed, same output)"
         ]
         for side in ("before", "after"):
             arm = self[side]
@@ -248,8 +268,8 @@ def compare(
     *,
     model: Any = None,
     k: int = K,
+    runs: int = RUNS,
     seed: int = SEED,
-    temperature: float = TEMPERATURE,
 ) -> BeforeAfter:
     """Run an old and a new prompt (or two harnesses) on the same tasks
     and say whether the new one is really better.
@@ -263,8 +283,10 @@ def compare(
 
     * ``before`` / ``after``: the system prompt each arm runs with (a
       string, or ``None`` for no system prompt), or a ``wai.Harness`` to
-      compare two whole configurations (two models, two instruction sets).
-      A prompted harness with no model borrows ``model=``.
+      compare two whole configurations (two models, two instruction sets,
+      two temperatures via ``Disclosure(sampling={"temperature": t})``;
+      ``TEMPERATURE`` = 0.7 otherwise, Qwen3's recommended value for its
+      instruct mode). A prompted harness with no model borrows ``model=``.
     * ``tasks``: the test set, the same for both arms. A list of prompts,
       a list of ``{"prompt", "reference", "id"}`` dicts (``question`` and
       ``answer`` are read too), or a path to a JSONL file of those.
@@ -276,20 +298,19 @@ def compare(
       (``"ollama:qwen3:4b-instruct"``), or a ``(messages, seed) -> str``
       callable, which is how the tests script a fake model. No default:
       a check that silently ran on a hosted model would spend credits.
-    * ``k`` (``K`` = 4): replies per task per arm.
+    * ``k`` (``K`` = 4): replies per task per arm in each run.
+    * ``runs`` (``RUNS`` = 3): times the whole eval runs per arm, so
+      ``wai.compare`` measures the eval's own noise and can say PASS. With
+      ``runs=1`` a gain reads INCONCLUSIVE, because one run is one draw.
+      Cost is ``2 * runs * k * len(tasks)`` model calls.
     * ``seed`` (``SEED`` = 0): every per-draw sampling seed and the
-      bootstrap are derived from it. Draw ``j`` of a task gets the same
-      seed on both arms. Same seed, same model, same output; the report
-      prints it.
-    * ``temperature`` (``TEMPERATURE`` = 0.7): the sampling temperature,
-      Qwen3's recommended value for its instruct mode.
+      bootstrap are derived from it. Draw ``j`` of a task in run ``r``
+      gets the same seed on both arms. Same seed, same model, same
+      output; the report prints it.
 
     Nothing here does statistics: the rows go to ``wai.compare(before,
-    after, seed=seed)`` unchanged, and its ``DeltaReport`` is
-    ``report["compare"]``. One run per arm is one draw of the eval, so a
-    gain the interval supports still reads as unreplicated there; rerun
-    with two more seeds and pass ``wai.eval_variance`` to ``wai.compare``
-    when the call is close.
+    after, target="pass_at_1", seed=seed)`` unchanged, and its
+    ``DeltaReport`` is ``report["compare"]``.
 
     Reference: Lambert 2025, chapter Evaluation; Miller 2024,
     arXiv:2411.00640.
@@ -298,16 +319,21 @@ def compare(
     from .simulations.score.delta import delta_report, headline_word
     from .simulations.score.passat import pass_at
 
-    if k < 1:
-        raise ValueError(f"k must be at least 1, got {k}")
+    if k < 1 or runs < 1:
+        raise ValueError(f"k and runs must be at least 1, got k={k}, runs={runs}")
     prompts, references, task_ids = _tasks(tasks)
     arms = {"before": _arm(before, "before", model), "after": _arm(after, "after", model)}
-    seeds = _draw_seeds(prompts, k, seed)
     graded: dict[str, list[dict]] = {}
     summary: dict[str, dict[str, Any]] = {}
     for side, (harness, runs_on) in arms.items():
-        replies = _replies(harness, runs_on, prompts, seeds, temperature)
-        out = list(rows(prompts, replies, reward, references=references, task_ids=task_ids))
+        out: list[dict] = []
+        for run in range(runs):
+            seeds = _draw_seeds(prompts, k, seed, run)
+            replies = _replies(harness, runs_on, prompts, seeds, _temperature(harness))
+            one = list(rows(prompts, replies, reward, references=references, task_ids=task_ids))
+            for row in one:
+                row.setdefault("lineage", {})["eval_run"] = f"run-{run}"
+            out.extend(one)
         harness.stamp_rows(out)
         graded[side] = out
         passed = pass_at(out)
@@ -315,16 +341,19 @@ def compare(
             "label": harness.version,
             "hash": harness.fingerprint,
             "model": harness.model_name,
+            "temperature": _temperature(harness),
             "pass_at_1": passed.pass_at_1,
             "ci95": passed.ci95,
             "pass_at": str(passed).split(" | ")[0],
         }
     delta = delta_report(graded["before"], graded["after"], target=TARGET, seed=seed)
     models = {_model_name(h.model) for h, _ in arms.values()}
+    temps = sorted({summary[side]["temperature"] for side in arms})
     report = BeforeAfter(
         seed=seed,
         k=k,
-        temperature=temperature,
+        runs=runs,
+        temperature=temps[0] if len(temps) == 1 else " vs ".join(map(str, temps)),
         model=" vs ".join(sorted(models)) if len(models) > 1 else models.pop(),
         n_tasks=len(prompts),
         before=summary["before"],
@@ -384,4 +413,13 @@ def demo_model(messages: list[dict], seed: int) -> str:
     return f"{a} times {b}: multiply the tens, then the ones.\nThe answer is {number}"
 
 
-__all__ = ["SEED", "TEMPERATURE", "BeforeAfter", "K", "compare", "demo_model", "demo_tasks"]
+__all__ = [
+    "RUNS",
+    "SEED",
+    "TEMPERATURE",
+    "BeforeAfter",
+    "K",
+    "compare",
+    "demo_model",
+    "demo_tasks",
+]

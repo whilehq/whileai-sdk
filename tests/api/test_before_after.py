@@ -76,11 +76,17 @@ def test_both_arms_draw_on_the_same_seeds_through_a_spec_string(monkeypatch):
 
     monkeypatch.setattr("whileai.simulations.generate.agents.complete", fake_complete)
     report = wai.harness.compare(
-        "old", "new", ["What is 2 + 2?"], lambda p, c: 1.0, model="ollama:qwen3:4b-instruct", k=3
+        "old",
+        "new",
+        ["What is 2 + 2?"],
+        lambda p, c: 1.0,
+        model="ollama:qwen3:4b-instruct",
+        k=3,
+        runs=2,
     )
     old = [(q, s) for system, q, s in seen if system == "old"]
     new = [(q, s) for system, q, s in seen if system == "new"]
-    assert len(old) == 3 and old == new  # common random numbers: draw j shares its seed
+    assert len(old) == 6 and old == new  # common random numbers: draw j shares its seed
     assert report["model"] == "ollama:qwen3:4b-instruct"
 
 
@@ -95,6 +101,31 @@ def test_two_harnesses_compare_two_configurations():
     )
     assert (report["before"]["label"], report["after"]["label"]) == ("v1", "v2")
     assert report.after_rows[0]["harness"]["label"] == "v2"
+
+
+def test_one_run_is_not_called_a_pass():
+    # one eval run per arm is one draw; wai.compare decides what that reads as
+    report = _check(runs=1)
+    assert report["compare"]["metrics"]["pass_at_1"]["delta"] > 0
+    assert report["verdict"] != "PASS"
+
+
+def test_a_harness_carries_its_temperature(monkeypatch):
+    temps: list[float] = []
+
+    def fake_complete(base_url, model, messages, **kw):
+        temps.append(kw["temperature"])
+        return {"content": "4"}
+
+    monkeypatch.setattr("whileai.simulations.generate.agents.complete", fake_complete)
+    cold = wai.Harness(
+        instructions="new", disclosure=wai.harness.Disclosure(sampling={"temperature": 0.1})
+    )
+    report = wai.harness.compare(
+        "old", cold, ["q"], lambda p, c: 1.0, model="ollama:qwen3:4b-instruct", k=1, runs=1
+    )
+    assert temps == [before_after.TEMPERATURE, 0.1]
+    assert report["temperature"] == "0.1 vs 0.7"
 
 
 def test_no_model_names_the_fix():

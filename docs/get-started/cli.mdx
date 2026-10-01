@@ -36,9 +36,11 @@ wai compare --model ollama:qwen3:4b-instruct   --before old.txt --after new.txt 
 
 Runs both prompts on the same tasks and seeds on a model on your machine,
 then prints what `wai.compare` says: the gain, its 95% range and the
-verdict. `--k` (4) sets replies per task per arm, `--seed` (0) makes a
-rerun print the same report, `--temperature` (0.7) the sampling, `--json`
-the whole report. Needs no account. The Python call is
+verdict. `--k` (4) sets replies per task per arm, `--runs` (3) how many
+times the whole eval runs per arm so the report can measure its own
+noise (one run reads INCONCLUSIVE), `--seed` (0) makes a rerun print the
+same report, `--temperature` (0.7) the sampling, `--json` the whole
+report. Needs no account. The Python call is
 `wai.harness.compare`; the walk-through is on
 [Quickstart](/get-started/quickstart).
 
