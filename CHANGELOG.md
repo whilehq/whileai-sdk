@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/02-measure/model-router/`: route each request to a cheap model (Gemma 3 12B) or the
+  frontier model (Claude Sonnet 5.5) and score every router against random routing at the same frontier
+  share. On 418 held-out MMLU-Pro questions a two-draw cascade beats random by +5.4 points [+2.4, +8.4]
+  (replicated on a second draw, +4.5 [+1.4, +7.5]) at 0.40x the all-frontier cost; prompt-only routers
+  do not separate from random; the oracle beats all-frontier by +6.9 [+4.8, +9.3] at 0.39x.
 - Community recipe `recipes/community/deepagents-review-four-arms/`: fine-tune a LangChain Deep Agents
   reviewer (Qwen3.8-27B) from its LangSmith traces with smithtune's renderer and schedule, once on
   smithtune's council pick and once on `wai.simulations.optimize`'s pick. On SWE-bench Verified patch

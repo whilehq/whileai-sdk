@@ -135,6 +135,7 @@
                   "recipes/02-measure/compare-judges",
                   "recipes/02-measure/eval-your-agent",
                   "recipes/02-measure/is-your-eval-any-good",
+                  "recipes/02-measure/model-router",
                   "recipes/02-measure/pass-at-k",
                   "recipes/02-measure/public-benchmark",
                   "recipes/02-measure/reward-hacking",
