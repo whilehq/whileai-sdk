@@ -79,7 +79,7 @@ async def sample_all(tasks, models, cache_path: Path, concurrency: int, base_url
     key = os.environ.get("OPENAI_API_KEY")
     if not key:
         raise SystemExit("set OPENAI_API_KEY (an OpenRouter key works with the default --base-url)")
-    client = AsyncOpenAI(api_key=key, base_url=base_url)
+    client = AsyncOpenAI(api_key=key, base_url=base_url, timeout=120)
     cache = {}
     if cache_path.exists():
         for line in cache_path.open(encoding="utf-8"):
@@ -109,7 +109,7 @@ async def sample_all(tasks, models, cache_path: Path, concurrency: int, base_url
                     break
                 except APIStatusError as e:
                     if e.status_code in (400, 401, 402, 403, 404):  # a retry will not fix these
-                        raise SystemExit(f"{model}: {e.status_code} {e.message}") from None
+                        raise RuntimeError(f"{model}: {e.status_code} {e.message}") from None
                     if attempt == 3:
                         print(f"  gave up on {t['id']} {model}: {e}", file=sys.stderr)
                         return
@@ -133,8 +133,15 @@ async def sample_all(tasks, models, cache_path: Path, concurrency: int, base_url
             out.write(json.dumps(rec) + "\n")
             out.flush()
 
-    await asyncio.gather(*(one(*x) for x in todo))
-    out.close()
+    jobs = [asyncio.create_task(one(*x)) for x in todo]
+    try:
+        await asyncio.gather(*jobs)
+    except RuntimeError as e:  # stop every call still in flight, keep what landed
+        for j in jobs:
+            j.cancel()
+        raise SystemExit(str(e)) from None
+    finally:
+        out.close()
     return cache
 
 
