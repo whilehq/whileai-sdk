@@ -60,7 +60,14 @@ import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any
 
-from ..defaults import DIFFICULTY_BAND, JUDGE_COMPARE_CONCURRENCY, MIN_AGREEMENT, MIN_KAPPA
+from ..defaults import (
+    CHEAT_PROBE_FLAG,
+    DIFFICULTY_BAND,
+    JUDGE_CHECK_SAMPLE,
+    JUDGE_COMPARE_CONCURRENCY,
+    MIN_AGREEMENT,
+    MIN_KAPPA,
+)
 from ..tools import schemas as _tool_schemas
 from .hygiene import coverage_warnings
 from .passat import degenerate_note
@@ -315,6 +322,40 @@ class ScoredData:
             policy=str(getattr(profile, "policy", "") or "") if profile else "",
             tools=list(getattr(profile, "tools", None) or []) if profile else None,
             floors=floors,
+        )
+
+    def cheat_probes(
+        self,
+        scorer: Callable[..., Any],
+        *,
+        probes: str | Sequence[str] = "all",
+        flag: float = CHEAT_PROBE_FLAG,
+        sample: int | None = JUDGE_CHECK_SAMPLE,
+        seed: int = 0,
+    ):
+        """Score degenerate agents on these rows' cases with ``scorer``, and flag any that score well.
+
+        An agent that always refuses, always asks a question, says nothing,
+        echoes the ask, pads, or always gives the most common reference
+        answer is played over the rows' prompts and scored by ``scorer``
+        (the judge or verifier these rows were graded with). The rows'
+        ``reward`` is the real agent's score the probes are compared to.
+        ``flag`` (``CHEAT_PROBE_FLAG``, 0.10) is the score whose interval a
+        probe must clear to be flagged. Returns
+        a ``CheatProbeReport``; ``whileai.simulations.score.cheat_probes``
+        has the full account and takes a bare row list.
+
+        Reference: Gao et al. 2022, arXiv:2210.10760.
+        """
+        from .cheat_probes import cheat_probes
+
+        return cheat_probes(
+            self.rows,
+            scorer,
+            probes=probes,
+            flag=flag,
+            sample=sample,
+            seed=seed,
         )
 
     def __len__(self) -> int:

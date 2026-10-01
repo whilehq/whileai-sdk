@@ -15,6 +15,19 @@ to 0.109 releases under the wrong numbers; they are yanked.
   default and printed; same seed, same output. `wai compare --demo` runs it offline on a scripted model.
   Recipe `recipes/02-measure/before-and-after/`; a "First command" section on the Quickstart. Packages the
   gentlyventures.com case study (whileai 0.126, qwen3:4b-instruct on one laptop, 22 minutes, free).
+- `wai self-check` (`wai.self_check()`): check the statistics behind every verdict by simulation, offline. Scripted
+  agents with known truth run through `stats.compare_runs`, the comparison `wai.compare` calls (the first trial of each
+  check also goes through `wai.compare` and must match exactly), and the report prints false alarms on identical arms,
+  95% coverage at 10 and 20 cases, detection power at 30 and 60 cases for +10 and +16 points against `holdout_size`'s
+  prediction, and false alarms with half the cases restated, each with its Monte Carlo error and OK or FLAG. 40 trials
+  per check by default (10-15 s), `--full` for 400 (the case study's count); seed printed, exit 1 on a flag. Full run,
+  seed 0: false alarm 6.0% (target 5.0%, MC error 1.1), coverage 91.8% at 10 cases and 94.0% at 20; all eight within
+  three errors. Page: [check the math yourself](https://docs.while.ai/concepts/check-the-math).
+- `wai.cheat_probes(cases, scorer)` (and `scored.cheat_probes(scorer)`) plays six degenerate agents over your
+  test cases (always refuse, always ask a clarifying question, empty, echo the prompt, long filler, the most
+  common reference answer) and grades them with your own scorer, no model call. A probe is flagged when the 95%
+  lower bound of its score reaches `CHEAT_PROBE_FLAG` (0.10); the warning names the probe, its score and its
+  interval, so a gameable reward is caught before training on it. Docs: reward-hacking, "Cheat probes".
 - `coverage_gap` no longer counts a standing rule as covered when no ask touches it. A rule that names no
   tool and no condition ("Never modify data.") was reached by every ask, so a suite with no ask near it read
   "8 of 8". It now needs an ask that shares a word with it, and otherwise lands in `untested_rules`.
@@ -80,6 +93,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   at 128/256/512 tokens and a 128-token window. The climb is posted to the platform
   (`post_platform.py`). `sdk_findings.md` records eight places the SDK could not express a
   classifier and the one (`execute=` plus a model `simulator=`) that gave it the data.
+- `simulate(simulator=False)` without `seeds=` now warns that the situations come from a generic
+  template that knows only the tool names, and the offline writer no longer invents a support
+  reference (`REF-nnnn`) when the tools name no record ids, take no id parameter and have no read
+  tool. A code-history agent got one in 94 of 115 asks before, 0 after (gentlyventures case study,
+  whileai 0.126).
 
 ## 0.126 (2026-09-25)
 

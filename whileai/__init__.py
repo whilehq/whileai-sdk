@@ -72,8 +72,16 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     # versioned like weights; `wai.harness.attribute` says which lever moved
     "Harness": ("whileai.harness", "Harness"),
     "harness": ("whileai.harness", None),
+    # check the comparison behind every verdict by simulation, on scripted
+    # agents with known truth; docs/concepts/check-the-math.mdx spells it
+    # wai.self_check, so it resolves here and stays off __all__
+    "self_check": ("whileai.selfcheck", "self_check"),
     "decontaminate": ("whileai.simulations.score.stats", "decontaminate"),
     "hack_scan": ("whileai.simulations.score.hack_scan", "hack_scan"),
+    # degenerate agents (refuse, ask, empty, echo, filler, the most common
+    # answer) scored by your scorer; docs/reward-hacking.md spells it
+    # `wai.cheat_probes`. Its home is whileai.simulations.score.cheat_probes.
+    "cheat_probes": ("whileai.simulations.score.cheat_probes", "cheat_probes"),
     "preflight": ("whileai.simulations.score.preflight", "preflight"),
     "export": ("whileai.simulations.export", "export_dataset"),
     # an RL environment out of graded rows, and the same package loaded
@@ -139,11 +147,13 @@ if TYPE_CHECKING:  # so editors and mypy see the lazy names
     from .judge import Judge
     from .methods import BPCO, OPD, OPSD, SAO, Async, FlashReinforce, prime_rl_config
     from .selection import Selection, select
+    from .selfcheck import self_check
     from .simulations import methods, platform, simulations, verify  # type: ignore[attr-defined]
     from .simulations.data import SimulationData
     from .simulations.export import export_dataset as export
     from .simulations.generate.offline_agent import seeded_agent
     from .simulations.schema import rows
+    from .simulations.score.cheat_probes import cheat_probes
     from .simulations.score.delta import delta_report as compare
     from .simulations.score.hack_scan import hack_scan
     from .simulations.score.judge_trust import judge_trust
