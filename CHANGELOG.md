@@ -72,6 +72,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   at 128/256/512 tokens and a 128-token window. The climb is posted to the platform
   (`post_platform.py`). `sdk_findings.md` records eight places the SDK could not express a
   classifier and the one (`execute=` plus a model `simulator=`) that gave it the data.
+- `simulate(simulator=False)` without `seeds=` now warns that the situations come from a generic
+  template that knows only the tool names, and the offline writer no longer invents a support
+  reference (`REF-nnnn`) when the tools name no record ids, take no id parameter and have no read
+  tool. A code-history agent got one in 94 of 115 asks before, 0 after (gentlyventures case study,
+  whileai 0.126).
 
 ## 0.126 (2026-09-25)
 

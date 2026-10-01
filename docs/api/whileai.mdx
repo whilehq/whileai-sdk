@@ -2011,7 +2011,8 @@ What the situations come from:
 
 * `simulator`: the situation writer. `"hosted"` is the default
   written out, the same as leaving it unset; `False` is the offline
-  template writer, no key needed. `user_model` plays the simulated
+  template writer, no key needed. It knows only the tool names, so
+  without `seeds=` its asks are generic and `warnings` says so. `user_model` plays the simulated
   person (a backend spec; `None` means the writer's model, the
   agent's own by default).
 * `seeds`: opening asks the writer keeps and varies. Every seed is
