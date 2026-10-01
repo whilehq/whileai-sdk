@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/community/deepagents-review-four-arms/`: a pre-registered fair rerun (`PREREGISTRATION.md`).
+  The first smithtune arm skipped smithtune's rubric co-design step; the rerun uses `rubric_codesigned.md`
+  (written after reading 20 traces, checked on a 20-trace trial), equal training-set sizes, three seeds per
+  arm, and a second experiment on aiming 400 new rollouts (`aim.py`) against drawing them at random.
+  `smithtune_modal.py` runs the smithtune CLI on Modal where Docker is unavailable; `train_modal.py --seed`
+  and `collect.py --tasks` support the new arms.
+
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
