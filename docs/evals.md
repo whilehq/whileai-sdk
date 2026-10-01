@@ -178,10 +178,22 @@ asks = [*repo_asks, *schema_asks]  # pass as simulate(seeds=asks, ...)
 
 ```python
 traces = [  # recorded tool calls, in any shape load_traces reads
-    {"prompt": "Where is A1001?", "steps": [
-        {"tool": "lookup_order", "arguments": {"order_id": "A1001"}, "result": {"status": "delivered"}}]},
-    {"prompt": "Refund A1002", "steps": [
-        {"tool": "issue_refund", "arguments": {"order_id": "A1002"}, "result": {"ok": True}}]},
+    {
+        "prompt": "Where is A1001?",
+        "steps": [
+            {
+                "tool": "lookup_order",
+                "arguments": {"order_id": "A1001"},
+                "result": {"status": "delivered"},
+            }
+        ],
+    },
+    {
+        "prompt": "Refund A1002",
+        "steps": [
+            {"tool": "issue_refund", "arguments": {"order_id": "A1002"}, "result": {"ok": True}}
+        ],
+    },
 ]
 print(wai.seeds.from_traces(traces, n=4, seed=0))
 ```
@@ -208,8 +220,7 @@ print(wai.seeds.from_traces(traces, n=4, seed=0))
   generated set.
 - Offline the seeds run verbatim and the template fills the rest of the
   budget. On a five-file fixture repo at `budget=24`, 0 of 24 cases named a
-  real file without seeds and 8 of 24 with `from_repo(n=12)`; cases with a
-  ticket id fell from 19 to 8
+  real file without seeds and 8 of 24 with `from_repo(n=12)`
   (`uv run pytest tests/api/test_seeds_from_real_material.py -s -k share`).
   With a model writer (`simulator="hosted"`), the seeds are also the
   examples it mints new asks from.

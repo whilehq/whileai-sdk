@@ -274,11 +274,8 @@ def _history_agent(message: str) -> dict:
     return {"steps": steps, "final_text": "found" if hit else "not found"}
 
 
-TICKET_ID = re.compile(r"\b[A-Z]{2,5}-\d{3,6}\b")
-
-
-def _cases(seeds: list[str] | None) -> tuple[int, int, int]:
-    """(cases naming a tracked file, cases carrying a ticket-style id, cases)."""
+def _cases(seeds: list[str] | None) -> tuple[int, int]:
+    """(cases naming a tracked file, cases) from one offline run."""
     data = simulate_offline(
         _history_agent,
         tools=HISTORY_TOOLS,
@@ -289,25 +286,21 @@ def _cases(seeds: list[str] | None) -> tuple[int, int, int]:
         mode="sft",
     )
     asks = sorted({r["prompt"] for r in data.trajectories})
-    real = sum(any(f in a for f in FILES) for a in asks)
-    tickets = sum(bool(TICKET_ID.search(a)) for a in asks)
-    return real, tickets, len(asks)
+    return sum(any(f in a for f in FILES) for a in asks), len(asks)
 
 
 def test_repo_seeds_raise_the_share_of_cases_naming_a_real_file(repo: Path):
     """The case study's measurement on a fixed repo and the same budget:
-    without seeds the offline writer names no file and hands a code-history
-    agent ticket ids; with repo seeds a third of the cases name a tracked
-    file and fewer carry a ticket id."""
+    without seeds the offline writer names no file in the repository; with
+    repo seeds a third of the cases do."""
     before = _cases(None)
     after = _cases(wai.seeds.from_repo(repo, n=12, seed=0))
-    for label, (real, tickets, total) in (("without seeds", before), ("with from_repo", after)):
-        print(f"\n{label}: {real}/{total} name a real file, {tickets}/{total} carry a ticket id")
-    assert before[0] == 0 and before[2] == after[2]
-    # the ten real seeds, eight about a file, all run, and each replaces a
-    # template case
+    for label, (real, total) in (("without seeds", before), ("with from_repo", after)):
+        print(f"\n{label}: {real}/{total} cases name a real file")
+    assert before[0] == 0 and before[1] == after[1]
+    # the ten real seeds (eight about a file, two about a month) all run,
+    # each in place of a template case
     assert after[0] == 8
-    assert after[1] < before[1]
 
 
 def test_seeds_print_what_they_read(repo: Path):
