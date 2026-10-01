@@ -131,6 +131,9 @@ def test_the_result_has_the_same_keys_on_every_path():
         "base_spread",
         "n_paired",
         "saturated",
+        "n_tasks_low",
+        "n_tasks_high",
+        "n_tasks_range_method",
         "notes",
         "warnings",
     }

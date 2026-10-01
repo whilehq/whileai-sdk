@@ -33,6 +33,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   held-out questions Avengers-Pro matches Gemini 2.5 Pro's accuracy (+0.1 [-2.7, +2.9] points) at 38% of its
   cost, and beats OpenRouter's auto router by +5.6 [+2.2, +8.7] points at 74% of its cost; every router sits
   about 19 points under the oracle.
+- `holdout_size` reports the noise in a count read off a small pilot: `n_tasks_low` and `n_tasks_high` are a 95%
+  percentile bootstrap over the pilot's tasks (2000 draws, seed 0), and `n_tasks_range_method` says what was
+  resampled. Twelve-task pilots from one distribution gave 30 to 166 for a gain that needs 97. `n_tasks` is unchanged.
+- `decontaminate` without `embedder=` now says, in `notes` and once per process as a `UserWarning`, that reworded
+  copies of eval questions are not caught and that `embedder=` catches them.
 - Recipe `recipes/02-measure/model-router/`: route each request to a cheap model (Gemma 3 12B) or the
   frontier model (Claude Sonnet 5.5) and score every router against random routing at the same frontier
   share. On 418 held-out MMLU-Pro questions a two-draw cascade beats random by +5.4 points [+2.4, +8.4]

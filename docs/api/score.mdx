@@ -2889,7 +2889,11 @@ that say nothing about which question was asked, so any-n-gram flags every
 row of a template-written set; the coverage rule counts a row when one
 eval text accounts for most of it.
 
-Word overlap does not see a paraphrase. A holdout written by
+Word overlap does not see a paraphrase, and the run says so: without
+`embedder` the report's `notes` carry a line that reworded copies
+of eval questions are not caught and that `embedder=` catches them,
+and the first such call in a process raises it as a `UserWarning`
+(once, so many shards do not repeat it). A holdout written by
 re-running the generator on the same briefs was 70% within 0.85
 cosine of the training batch and 5 of 133 byte-identical; the 8-gram
 rule flagged 4 of 101 prompts and the semantic pass 16. With
@@ -3056,10 +3060,27 @@ is the whole question, and there are three ways to answer it, best first:
 name) reads `base` and `k` off the data. Returns `n_tasks`
 plus the inputs, `task_std`, `sd_source`, `half_width` (the 95%
 band on the delta at that `n`), `n_tasks_concentrated`,
-`base_spread`, `n_paired`, `saturated`, `notes` and
+`base_spread`, `n_paired`, `saturated`, `n_tasks_low`,
+`n_tasks_high`, `n_tasks_range_method`, `notes` and
 `warnings`; every key is present on every path (`None`, `False`
 or `[]` where it does not apply). The default answer is unchanged;
 the honest paths are the two that measure.
+
+A count read off a small pilot is right on average and noisy: twelve
+paired tasks from one distribution gave anywhere from 30 to 166 for
+the same gain, against 97 from five thousand (a case study saw 10 to
+52). So when the answer was read off rows, `n_tasks_low` and
+`n_tasks_high` bound it: a percentile bootstrap over the pilot's
+tasks (`BOOTSTRAP_DRAWS` resamples, seed 0, the central
+`CI_LEVEL` = 95% of the resampled counts; Efron and Tibshirani
+1993, chapter 13). With `after=` each resample re-measures the
+paired sd; with `before=` alone it re-measures `base` and runs the
+model. `n_tasks_range_method` says which. `None` when nothing was
+measured (`task_std=` given, no rows, saturated rows) or fewer than
+`MIN_CI_TASKS` tasks. On twelve-task pilots the range held the
+five-thousand-task answer in 29 of 40 draws (a percentile bootstrap
+runs narrow on a dozen tasks), so read it as the pilot's own noise,
+not a guarantee. A wide range says pilot more tasks, then size again.
 
 A saturated `base=` cannot size anything (`base` is the before
 arm's pass rate; there is no `baseline=`). Rows whose tasks all pass
