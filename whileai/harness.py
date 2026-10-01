@@ -23,6 +23,7 @@ like weights, run like an agent, and compared like a training arm::
     data = wai.simulate(careful, mode="rl", repeats=4)      # rows carry the harness
     scored = data.grade(judge)
     print(wai.harness.attribute(rows))   # which lever moved the score: harness or model
+    print(wai.harness.compare(OLD_PROMPT, NEW_PROMPT, tasks, reward, model=wai.Ollama("qwen3:4b-instruct")))
 
 Three ways to make one:
 
@@ -1092,6 +1093,12 @@ def __getattr__(name: str) -> Any:
         from . import sweep
 
         return getattr(sweep, name)
+    # Run two prompts (or two harnesses) on one model and `wai.compare` the
+    # arms; it lives in whileai.before_after and imports Harness from here.
+    if name in ("compare", "BeforeAfter"):
+        from . import before_after
+
+        return getattr(before_after, name)
     raise AttributeError(f"module 'whileai.harness' has no attribute {name!r}")
 
 

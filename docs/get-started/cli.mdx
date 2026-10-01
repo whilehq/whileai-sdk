@@ -13,6 +13,7 @@ coding agents. Everything else is Python.
 
 | Command | What it does |
 |---|---|
+| `wai compare --demo` | Did a prompt rewrite help: old and new prompt on a local model, one verdict. No account. |
 | `wai login` | Sign in from this terminal. Opens the browser, saves a key. |
 | `wai signup --email you@example.com` | Create an account and a key, no browser. |
 | `wai status` | Show which key the SDK will use and where it came from. |
@@ -25,6 +26,21 @@ coding agents. Everything else is Python.
 | `wai promote <id> <version>` | Make a version the served one. |
 | `wai live <id> ...` | Report one day of traffic on the served version. |
 | `wai keys` | List the API keys on your account, names and prefixes. |
+
+## Check a prompt rewrite
+
+```bash
+wai compare --demo                                  # offline, a scripted model
+wai compare --model ollama:qwen3:4b-instruct   --before old.txt --after new.txt --tasks tasks.jsonl --reward Numeric
+```
+
+Runs both prompts on the same tasks and seeds on a model on your machine,
+then prints what `wai.compare` says: the gain, its 95% range and the
+verdict. `--k` (4) sets replies per task per arm, `--seed` (0) makes a
+rerun print the same report, `--temperature` (0.7) the sampling, `--json`
+the whole report. Needs no account. The Python call is
+`wai.harness.compare`; the walk-through is on
+[Quickstart](/get-started/quickstart).
 
 ## Sign in
 
