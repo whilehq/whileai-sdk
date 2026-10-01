@@ -1,0 +1,154 @@
+---
+title: "Check the math yourself"
+sidebarTitle: "Check the math"
+description: "One command simulates agents whose truth is known and runs them through the comparison behind every verdict: false alarms, interval coverage, detection power and near-duplicate cases, each with its Monte Carlo error."
+---
+
+**What you get:** a measured false-alarm rate, interval coverage and
+detection power for the comparison `wai.compare` runs, so you can see
+the statistics hold instead of taking our word for it.
+**Who it is for:** anyone about to trust a "moved" or "no change" from
+this library.
+**Needs:** nothing. No key, no network, no GPU.
+
+```bash
+wai self-check           # 40 trials per check, 10-15 seconds
+wai self-check --full    # 400 trials per check, two to three minutes
+```
+
+## What it does
+
+Every verdict this library prints rests on one comparison: per-case
+differences between two runs, a bootstrap interval around their mean, and
+"moved" only when that interval leaves out zero. The question is whether
+that rule does what it claims: say "moved" by accident 5% of the time,
+cover the true change 95% of the time, and catch a real gain as often as
+the sizing in `holdout_size` promised.
+
+You can answer that without trusting us. Script two agents whose chance of
+passing every case is set by hand, run the comparison hundreds of times,
+and count. That is what `wai self-check` does. It runs the same function
+`wai.compare` calls (`stats.compare_runs`), and the first trial of every
+check also goes through `wai.compare` itself and has to give the identical
+answer, so the check is on the code your verdict comes from, not on a copy.
+
+The idea is not ours. An external case study graded the grader by hand on
+whileai 0.126 with scripted stand-in agents
+([Gently Ventures](https://gentlyventures.com/casestudies/whileai)); this
+command packages their checks at their sizes.
+
+## The checks
+
+| Check | What the scripted agents do | Target |
+|---|---|---|
+| False alarm, 30 cases | Both arms are the same agent. Each case has its own pass chance, drawn between 0.2 and 0.7. | "Moved" either way in 5% of trials (`alpha`) |
+| Coverage, 10 and 20 cases | The after arm passes every case 10 points more often. | The 95% range holds +0.10 in 95% of trials |
+| Power, 30 and 60 cases, +10 and +16 points | Every case at 0.6 before, 0.6 plus the gain after: the world `holdout_size` sizes for. | The detection rate `holdout_size`'s formula predicts |
+| Near-duplicates, 30 cases | Identical arms; half the cases restate another case (same pass chance, own task id, a fresh try). | "Moved" in 5% of trials |
+
+Each agent tries each case once per arm. Each trial draws fresh cases and
+fresh outcomes from a seed that derives from `seed`, the check and the trial
+number, so a report reproduces on any machine.
+
+## Run it
+
+```python
+import whileai as wai
+
+report = wai.self_check()  # trials=400 is what --full runs
+print(report)
+```
+
+```
+self-check: the comparison wai.compare runs, on scripted agents with known truth
+seed 0, 40 trials per check, 2000 bootstrap draws, alpha 0.05
+
+check                                    measured  target  MC error
+false alarm, identical arms, 30 cases       5.0%    5.0%     3.4%  OK
+95% range holds the true gain, 10 cases    92.5%   95.0%     3.4%  OK
+95% range holds the true gain, 20 cases    95.0%   95.0%     3.4%  OK
+detects +10 points, 30 cases (theory)       7.5%   12.6%     5.3%  OK
+detects +16 points, 30 cases (theory)      22.5%   27.0%     7.0%  OK
+detects +10 points, 60 cases (theory)      17.5%   21.0%     6.4%  OK
+detects +16 points, 60 cases (theory)      37.5%   47.9%     7.9%  OK
+false alarm, 50% near-duplicate cases       7.5%    5.0%     3.4%  OK
+
+FLAG is more than 3 Monte Carlo errors on the bad side (above for false alarms, below for coverage, either way for power).
+Every check's first trial also ran through wai.compare and matched it exactly.
+all 8 checks on target.
+```
+
+The 40-trial run is a smoke test: its Monte Carlo error is 3 to 8 points,
+enough to catch a broken interval, not a small miss. Read the full run for
+the numbers.
+
+## Expected numbers
+
+`wai self-check --full`, seed 0, 400 trials per check, whileai 0.126 plus
+this command, beside what the case study measured by hand on 0.126 with
+300 to 400 trials.
+
+| Check | Measured | Target | MC error | Case study |
+|---|---|---|---|---|
+| False alarm, identical arms, 30 cases | 6.0% | 5.0% | 1.1% | 4.8% to 6.5% |
+| 95% range holds the true gain, 10 cases | 91.8% | 95.0% | 1.1% | 92%, slightly narrow |
+| 95% range holds the true gain, 20 cases | 94.0% | 95.0% | 1.1% | on target from 20 |
+| Detects +10 points, 30 cases | 9.8% | 12.6% | 1.7% | close to theory |
+| Detects +16 points, 30 cases | 32.5% | 27.0% | 2.2% | close to theory |
+| Detects +10 points, 60 cases | 19.2% | 21.0% | 2.0% | close to theory |
+| Detects +16 points, 60 cases | 42.2% | 47.9% | 2.5% | close to theory |
+| False alarm, 50% near-duplicate cases | 3.8% | 5.0% | 1.1% | not inflated |
+
+All eight are within three Monte Carlo errors. Two readings worth keeping:
+
+- **At 10 cases the 95% range is about a 92% range.** 91.8% sits 2.9 errors
+  under target, just inside the flag, and matches the case study. A
+  percentile bootstrap undercovers on small samples (Efron and Tibshirani
+  1993, chapter 13). From 20 cases it is on target. Below 20 cases, read a
+  "moved" as weaker than its 95% says.
+- **Power is low at these sizes, and the formula says so.** A real
+  +10-point gain on 30 cases is caught about one time in ten. Run
+  `holdout_size` before the eval, not after the verdict.
+
+Near-duplicates do not inflate false alarms here because each restated case
+is a fresh try. If your eval copies a case's *outcome* rather than re-running
+it (a cached reply graded twice), the copies are not independent, the
+interval is too narrow, and false alarms rise. `wai.decontaminate` finds
+near-duplicate cases before that happens.
+
+## Reading a flag
+
+The Monte Carlo error is `sqrt(t * (1 - t) / trials)` at the target `t`:
+how far the measured rate moves from trial count alone. A check is flagged
+when it sits more than three of those on its bad side: above target for a
+false alarm, below for coverage, either way for power, where the target is
+a prediction. Three errors keeps a correct check from flagging by its own
+noise about one time in a thousand. A flag at 40 trials says re-run with
+`--full`; a flag at 400 is a finding about the statistics, and we want the
+issue.
+
+`wai self-check` exits 1 when any check is flagged, so it can sit in CI.
+
+## Defaults
+
+Every number has a name in `whileai/simulations/defaults.py`, with the
+reason beside it, and the call takes the ones a user moves.
+
+| Name | Value | Why |
+|---|---|---|
+| `SELF_CHECK_TRIALS` | 40 | The fast run, 10 to 15 seconds. Sized to runtime. |
+| `SELF_CHECK_FULL_TRIALS` | 400 | The top of the case study's 300 to 400. |
+| `SELF_CHECK_SEED` | 0 | Printed on the report, so a run repeats exactly. |
+| `SELF_CHECK_FLAG_ERRORS` | 3.0 | The three-sigma rule: a correct check flags about 0.1% of the time. |
+| `SELF_CHECK_CASES` | 30 | The case study's smaller eval. |
+| `SELF_CHECK_COVERAGE_CASES` | (10, 20) | Where the case study found coverage narrow, then on target. |
+| `SELF_CHECK_POWER_CASES` | (30, 60) | The case study's two sizes. |
+| `SELF_CHECK_EFFECTS` | (0.10, 0.16) | The case study's +10 and +16 points. |
+| `SELF_CHECK_DIFFICULTY` | (0.2, 0.7) | Cases differ in difficulty; a +0.16 gain never clips at 1. |
+| `SELF_CHECK_DUPLICATE_SHARE` | 0.5 | Half the eval restated, the worst plausible case. |
+
+`wai.self_check(trials=, seed=, n_boot=, alpha=, flag_at=)` takes the
+trial count, the seed and the flag rule from this table. `n_boot`
+(`BOOTSTRAP_DRAWS`, 2000) and `alpha` (`ALPHA`, 0.05) go to the comparison
+exactly as a `wai.compare` call passes them, so you can check a setting you
+plan to use.

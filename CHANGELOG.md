@@ -7,6 +7,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai self-check` (`wai.self_check()`): check the statistics behind every verdict by simulation, offline. Scripted
+  agents with known truth run through `stats.compare_runs`, the comparison `wai.compare` calls (the first trial of each
+  check also goes through `wai.compare` and must match exactly), and the report prints false alarms on identical arms,
+  95% coverage at 10 and 20 cases, detection power at 30 and 60 cases for +10 and +16 points against `holdout_size`'s
+  prediction, and false alarms with half the cases restated, each with its Monte Carlo error and OK or FLAG. 40 trials
+  per check by default (10-15 s), `--full` for 400 (the case study's count); seed printed, exit 1 on a flag. Full run,
+  seed 0: false alarm 6.0% (target 5.0%, MC error 1.1), coverage 91.8% at 10 cases and 94.0% at 20; all eight within
+  three errors. Page: [check the math yourself](https://docs.while.ai/concepts/check-the-math).
 - `wai.cheat_probes(cases, scorer)` (and `scored.cheat_probes(scorer)`) plays six degenerate agents over your
   test cases (always refuse, always ask a clarifying question, empty, echo the prompt, long filler, the most
   common reference answer) and grades them with your own scorer, no model call. A probe is flagged when the 95%
