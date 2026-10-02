@@ -34,12 +34,19 @@ MODELS = {
 }
 TRAINED = ["opencode", "claude-code", "codex", "mini-swe-agent"]
 UNSEEN = ["pi", "gemini-cli", "qwen-coder", "vibe", "openhands-sdk", "terminus-2"]
-# FineEnvs' pins for their four; the six unseen are pinned after the smoke records what installs.
+# FineEnvs' pins for their four; the unseen five installable ones from the smoke (amendment 1).
 AGENT_VERSIONS = {
     "opencode": "1.18.31",
     "claude-code": "2.1.270",
     "codex": "0.154.0",
     "mini-swe-agent": "2.4.6",
+    # Amendment 1: the versions the smoke installed, matched to the registries on 2026-10-02.
+    "pi": "1.0.0",
+    "gemini-cli": "0.62.0",
+    "qwen-coder": "0.24.7",
+    "vibe": "2.25.8",
+    "openhands-sdk": "1.50.1",
+    # terminus-2 ships inside Harbor, pinned by the Harbor version below.
 }
 
 app = modal.App("multi-harness-transfer")
@@ -53,7 +60,7 @@ image = (
         "vllm==0.25.1",
         f"transformers @ git+https://github.com/huggingface/transformers.git@{TRANSFORMERS_SHA}",
         f"trl @ git+https://github.com/huggingface/trl.git@{TRL_SHA}",
-        "harbor[modal]>=0.22.0",
+        "harbor[modal]==0.23.0",  # FineEnvs VALIDATION.md
         "fastmcp>=2",
         "uvicorn[standard]",
         "gradio",
@@ -194,7 +201,7 @@ def run_eval(model_key: str, harnesses: list[str], tasks: int, samples: int, con
 
 @app.local_entrypoint()
 def smoke():
-    run_eval.remote("base", TRAINED + UNSEEN, tasks=1, samples=1, concurrency=10, tag="smoke")
+    run_eval.remote("base", TRAINED + UNSEEN, tasks=1, samples=1, concurrency=10, tag="smoke-pinned")
 
 
 @app.local_entrypoint()

@@ -124,3 +124,20 @@ Rough cost: 9 runs x about 16 h x 2 H100s, about 290 H100-hours, plus
 6. ToolRL-DR / RobustBench-TC, arXiv:2605.11928.
 7. HarnessBandit, arXiv:2609.13739.
 8. Zhang et al., "Stop Comparing LLM Agents Without Disclosing the Harness", arXiv:2605.23950.
+
+## Amendment 1 (2026-10-02, after the infrastructure smoke, before any Phase 0 scoring run)
+
+The smoke ran the base model on one test task under all ten harnesses on
+Modal: 10 of 10 cells graded, no infrastructure errors. One task is not a
+result and is not used in any analysis.
+
+Changes, none of which touch the hypotheses, arms or win rule:
+
+- Harbor pinned to 0.23.0, the version FineEnvs' VALIDATION.md records.
+- The five unseen harnesses Harbor installs are pinned to what the smoke
+  installed, matched to the registries on 2026-10-02: pi 1.0.0
+  (`@earendil-works/pi-coding-agent`), gemini-cli 0.62.0, qwen-coder 0.24.7,
+  vibe 2.25.8 (`mistral-vibe`), openhands-sdk 1.50.1. Terminus 2 ships inside
+  Harbor, so the Harbor pin fixes it.
+- FineEnvs' evaluator imports the tokenizer helper from their whitebox
+  package, so the image installs it too. No behavior change.
