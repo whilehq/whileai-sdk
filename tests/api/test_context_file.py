@@ -153,3 +153,14 @@ def test_trainer_hook_rebuilds_one_row_per_step():
     assert out["advantages"].shape == (8 * 3,)  # 8 trajectories x (2 edits + 1 answer)
     assert out["prompt_ids"].shape == (24, 2)
     assert trainer._metrics["train"]["context/cost"]
+
+
+def test_complete_survives_a_dataset_round_trip():
+    """datasets unifies dict schemas: a task's `state` comes back with every
+    other task's keys as None. complete() reads the log, not that dict."""
+    env = wai.methods.KVLog()
+    t = env.task(5)
+    table = "\n".join(f"{k}: {v}" for k, v in t["state"].items())
+    padded = {**t, "state": {**{n: None for n in env.NAMES}, **t["state"]}}
+    assert env.complete(padded, table)
+    assert env.final_state(t) == t["state"]
