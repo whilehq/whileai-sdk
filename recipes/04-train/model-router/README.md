@@ -189,8 +189,8 @@ routers, so it lands on the same line. It gets there without training.
 
 ## Next
 
-Part 2, [`decision-router`](../decision-router), works out what Jev is
-from the outside and trains small models of its shape on this table.
+Part 2, [`decision-router`](../decision-router), works out what a
+decision model like Jev is from the outside and trains small models of its shape on this table.
 
 The plateau says the next gain comes from reading more than the question: the
 start of a model's answer [7], or a small open model's internal activations

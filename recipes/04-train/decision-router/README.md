@@ -1,12 +1,13 @@
-# Train your own Jev router
+# Train your own decision model router
 
-Part 2 of building your own model router. In part 1
-([`model-router`](../model-router)) an untrained decision model, TypeSafe's
-Jev, routed twelve frontier models as well as the routers trained for it.
-This recipe works out what Jev is from the outside, then trains three small
-models of that shape on the same table and puts them, Jev and part 1's best
-router through one test: the same budgets, the same 1,061 held-out
-questions, every pair compared question by question.
+Part 2 of building your own LLM router: what a decision model like
+TypeSafe's Jev is, and whether a small decision model you train yourself
+routes twelve frontier models as well as Jev does. In part 1
+([`model-router`](../model-router)) Jev, untrained, routed them as well as
+the routers trained for it. This recipe works out what Jev is from the
+outside, then trains three small models of that shape on the same table and
+puts them, Jev and part 1's best router through one test: the same budgets,
+the same 1,061 held-out questions, every pair compared question by question.
 
 What you will learn: what is known about how Jev is built and how the
 evidence was gathered; how a decision model reads a question once and
@@ -201,6 +202,19 @@ does on each. A reply to part 1 suggested the next input: let people
 overrule the pick, and train on the overrules. They are a label no
 question-only router has [14].
 
+## Open decision models
+
+Two open decision models shipped while this was being written, both of the
+shape inferred above and both answering TypeSafe's API, so part 1's
+`jev.py` should run against either with only its URL and key changed (not
+tried here). Kev 1.0 [15] is a family of LoRA adapters with a pointer head
+on Qwen3.5 and Qwen3.8 bases. Cloudflare's Clef [16] is a frozen
+Qwen3.8-27B with LoRA adapters that scores the allowed answers without
+generating, trained with cross-entropy and a Brier loss. Both can be
+fine-tuned on your own data, which makes either a better starting point for
+`pointer` than a bare Qwen3-0.6B. We have not measured either. The blog
+post on decision models as judges [17] covers the other use.
+
 ## References
 
 1. TypeSafe AI. *Introducing System One Models & Jev.*
@@ -231,3 +245,10 @@ question-only router has [14].
     arXiv:1706.04599.
 14. Lu et al. 2026. *The Routing Plateau: Understanding the Accuracy Limits
     of LLM Routers.* arXiv:2606.07587.
+15. Palmer, J. 2026. *Kev: open decision models on Qwen3.5 and Qwen3.8.*
+    Apache-2.0. github.com/jaredpalmer/kev, read 2026-10-01.
+16. Chen, M. 2026. *Clef: decision models on Workers AI.* Cloudflare blog.
+    blog.cloudflare.com/clef-decision-models, read 2026-10-01.
+17. While. *Jev and decision models as judges.*
+    while.ai/blog/jev-typesafe-decision-model-as-agent-judge, 2026-09-18,
+    updated 2026-10-01.
