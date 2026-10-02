@@ -1,0 +1,26 @@
+{
+  "a": {
+    "n": 174,
+    "seed": 0,
+    "a-without": {
+      "kept": 184,
+      "trained": 174
+    },
+    "a-with": {
+      "kept": 174,
+      "trained": 174
+    }
+  },
+  "b": {
+    "n": 317,
+    "seed": 0,
+    "b-without": {
+      "kept": 381,
+      "trained": 317
+    },
+    "b-with": {
+      "kept": 317,
+      "trained": 317
+    }
+  }
+}

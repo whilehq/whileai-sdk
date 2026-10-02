@@ -117,3 +117,27 @@ Thinking-on fine-tuning (smithtune drops reasoning by default, so both sides
 train non-thinking models); other models; other agents. Generation beyond
 choosing real tasks: an LLM-written review task has no hidden tests behind it,
 so it has no verdict to train toward.
+
+## Amendment 1 (2026-10-02): fixed epochs
+
+Written after Experiment A was scored under the rules above and before
+Experiment B was scored. The registered A result stands and is published as
+registered; this amendment adds a rerun of both experiments, reported beside
+it.
+
+**What went wrong.** The registered schedule (smithtune's default: stop when
+validation loss does not improve, keep the best epoch) chose epoch 1 on 10 of
+12 runs, on validation losses about 0.001 apart from epoch 2. The two
+checkpoints behave differently: epoch-1 models ran out of steps without a
+verdict on 105 to 175 of 250 SWE-bench Verified reviews, epoch-2 models on 41
+to 44. Seed accuracies within one arm ranged from 22% to 59%. So the A result
+mostly measures which epoch each seed happened to keep, and its interval
+(bootstrap over reviews) does not see that.
+
+**The rerun.** Everything above holds except the schedule: every arm trains
+for exactly 2 epochs and keeps the last (`train_modal.py --epochs 2`), the
+epoch the first result's runs kept. Same data (`keep/`), same three seeds,
+same server, same scoring and analysis. Adapters are named `<arm>-e2-s<seed>`.
+The primary comparison is unchanged: A-with minus A-without, accuracy on
+SWE-bench Verified, from the fixed-epoch runs. The early-stopping B models are
+not scored.

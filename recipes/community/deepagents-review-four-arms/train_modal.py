@@ -14,6 +14,7 @@ convention Loops follows.
     modal run --detach train_modal.py --arm sft-with       # the run
     modal run --detach train_modal.py --arm sft-without
     modal run --detach train_modal.py --arm a-with --seed 43   # a replicate: /a-with-s43/adapter
+    modal run --detach train_modal.py --arm a-with --seed 43 --epochs 2   # fixed: /a-with-e2-s43/adapter
 
 Adapters land on volume `deepagents-review-runs` under /<arm>/adapter, with
 epochs.json beside them.
@@ -83,7 +84,9 @@ TARGETS = r"^(?!.*visual).*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down
     volumes={"/runs": runs, "/hf": hf},
     secrets=[modal.Secret.from_name("hforg")],
 )
-def train(arm: str, smoke: bool = False, seed: int | None = None) -> dict:
+def train(
+    arm: str, smoke: bool = False, seed: int | None = None, fixed_epochs: int | None = None
+) -> dict:
     import math
     import random
     import time
@@ -93,6 +96,11 @@ def train(arm: str, smoke: bool = False, seed: int | None = None) -> dict:
     from transformers import AutoModelForImageTextToText
 
     settings = {**SETTINGS, "seed": SETTINGS["seed"] if seed is None else seed}
+    if fixed_epochs is not None:
+        # PREREGISTRATION.md amendment 1: a fixed number of epochs, no early
+        # stop, keep the last. Early stopping chose epoch 1 or 2 on validation
+        # losses 0.001 apart, and the two checkpoints behave differently.
+        settings.update(max_epochs=fixed_epochs, patience=None)
     torch.manual_seed(settings["seed"])
     data = pathlib.Path("/runs/data") / arm  # `modal volume put` of export_sft.py's output
     train_rows = _read(data / "train.tokens.jsonl")
@@ -150,7 +158,8 @@ def train(arm: str, smoke: bool = False, seed: int | None = None) -> dict:
     if smoke:
         train_rows, val_rows = train_rows[:4], val_rows[:2]
     # A seed other than the default trains a replicate beside the arm: /runs/<arm>-s<seed>.
-    out = pathlib.Path("/runs") / (arm if seed is None else f"{arm}-s{seed}")
+    name = arm if fixed_epochs is None else f"{arm}-e{fixed_epochs}"
+    out = pathlib.Path("/runs") / (name if seed is None else f"{name}-s{seed}")
     out.mkdir(parents=True, exist_ok=True)
     rng = random.Random(settings["seed"])
     epochs, best, bad = [], math.inf, 0
@@ -158,7 +167,7 @@ def train(arm: str, smoke: bool = False, seed: int | None = None) -> dict:
     print(f"epoch 0 val_loss {first:.4f}", flush=True)
     epochs.append({"epoch": 0, "val_loss": first})
     bs = 4 if smoke else SETTINGS["batch_size"]
-    for epoch in range(1, (1 if smoke else SETTINGS["max_epochs"]) + 1):
+    for epoch in range(1, (1 if smoke else settings["max_epochs"]) + 1):
         order = list(range(len(train_rows)))
         rng.shuffle(order)
         t_ep, running, seen_tokens = time.time(), [], 0
@@ -189,7 +198,10 @@ def train(arm: str, smoke: bool = False, seed: int | None = None) -> dict:
             }
         )
         print(f"epoch {epoch} val_loss {v:.4f}", flush=True)
-        if v < best:
+        if settings["patience"] is None:  # fixed epochs: keep the last
+            best = v
+            model.save_pretrained(out / "adapter")
+        elif v < best:
             best, bad = v, 0
             model.save_pretrained(out / "adapter")
         else:
@@ -198,7 +210,7 @@ def train(arm: str, smoke: bool = False, seed: int | None = None) -> dict:
             json.dumps({"settings": settings, "epochs": epochs}, indent=2)
         )
         runs.commit()
-        if bad >= SETTINGS["patience"]:
+        if settings["patience"] is not None and bad >= settings["patience"]:
             break
     return {"arm": out.name, "epochs": epochs, "best_val_loss": best}
 
@@ -247,8 +259,14 @@ def _read(path: pathlib.Path) -> list[dict]:
 
 
 @app.local_entrypoint()
-def main(arm: str, smoke: bool = False, prof: bool = False, seed: int | None = None):
+def main(
+    arm: str,
+    smoke: bool = False,
+    prof: bool = False,
+    seed: int | None = None,
+    epochs: int | None = None,
+):
     if prof:
         profile.remote(arm)
         return
-    print(json.dumps(train.remote(arm, smoke, seed), indent=2))
+    print(json.dumps(train.remote(arm, smoke, seed, epochs), indent=2))

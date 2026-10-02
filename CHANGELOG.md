@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/community/deepagents-review-four-arms/`: the registered fair-rerun result for Experiment A
+  (rows `srv-a-*`, cuts in `keep/`, `equalize.py`) and `PREREGISTRATION.md` amendment 1. smithtune's
+  early-stopping default kept epoch 1 on 10 of 12 runs and those checkpoints run out of steps on most
+  reviews, so both experiments are rerun at a fixed 2 epochs (`train_modal.py --epochs`). `export_sft.py`
+  takes `--also` and `--keep`; `pick.py` takes `--arms`, `--key` and `--out`.
+
 ## 0.127 (2026-10-02)
 
 - `recipes/04-train/decision-router` is titled "Train your own decision model router", opens with a description that
