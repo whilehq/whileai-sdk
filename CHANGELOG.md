@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.129 (2026-10-02)
+
 - `wai.methods.KVLog.complete` reads each key's final value from the log lines (`KVLog.final_state`), not from
   `task["state"]`: a `datasets.Dataset` pads that dict with every other task's keys as `None`, so inside
   `ContextFile.trainer` every file read as incomplete and `gate="complete"` never paid Eq. 6.
