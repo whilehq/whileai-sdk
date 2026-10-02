@@ -43,6 +43,12 @@ trainer's own words.
   right and wrong answers, train on a balanced ``keep`` of them, and take
   the advantage against the pool's pass rate. A rollout rule with a TRL
   hook, ``ReinforceAda().trainer(GRPOTrainer)``.
+* ``ContextFile``, the context-as-file harness of Context Language
+  Models (arXiv:2609.37725): the model rewrites its own context file
+  after every input and is trained with stepwise GRPO plus a
+  success-gated efficiency advantage (Eq. 6) on the edits. ``KVLog`` is
+  a seeded task for it. A harness and credit rule with a TRL hook,
+  ``ContextFile().trainer(GRPOTrainer)``.
 * ``FlashReinforce``, ``SAO`` and ``BPCO``, the single-rollout methods:
   one trajectory per prompt, no group to take a baseline over, so the
   baseline is the batch mean (FlashReinforce, Hu et al. 2026) or a critic
@@ -1879,6 +1885,12 @@ def prime_rl_config(
     )
 
 
+from .context_file import (  # noqa: E402  (wai.methods.ContextFile)
+    ContextFile,
+    ContextReport,
+    Episode,
+    KVLog,
+)
 from .reinforce_ada import (  # noqa: E402  (wai.methods.ReinforceAda)
     AdaGroup,
     AdaResult,
@@ -1900,9 +1912,13 @@ __all__ = [
     "AdaResult",
     "Async",
     "Calibration",
+    "ContextFile",
+    "ContextReport",
+    "Episode",
     "FlashReinforce",
     "GroupwiseGrading",
     "GroupwiseStats",
+    "KVLog",
     "Method",
     "PrimeRLConfig",
     "ReinforceAda",

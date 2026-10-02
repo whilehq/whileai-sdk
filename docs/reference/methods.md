@@ -369,6 +369,67 @@ spend draws on those. Defaults: `keep` = 4, `round_size` = 8,
 `max_rounds` = 4, `threshold` = 0.7, the authors' own, each named in
 `whileai/reinforce_ada.py`.
 
+## Context as a file: `wai.methods.ContextFile`
+
+Context Language Models (arXiv:2609.37725) let the model manage its own
+context. The context is a file the model rewrites, not a transcript that
+only grows. An episode here is $E$ edits and one answer. At edit $t$ the
+model sees the file $F_{t-1}$ and input $x_t$, and replies with $F_t$;
+$x_t$ is then gone. At the end it sees $F_E$ and the question. Training is
+stepwise GRPO: every step of trajectory $i$ gets the outcome advantage
+$r_i - \bar r$. The paper adds a success-gated efficiency advantage on the
+edits (its Eq. 6):
+
+$$
+A^{\text{eff}}_i =
+\begin{cases}
+\operatorname{clip}\!\left(\dfrac{\bar c - c_i}{\bar c}, -1, 1\right) & i \in S,\ |S| \ge 2 \\
+0 & \text{otherwise}
+\end{cases}
+\qquad
+A_{i,t} = r_i - \bar r + w_{\text{eff}}\,A^{\text{eff}}_i\,[t \le E].
+$$
+
+$S$ is the group's successes, and $\bar c$ is the mean cost over $S$.
+$c_i$ is the trajectory's prefix-reuse cost: each step pays for the prompt
+tokens that miss the KV cache and for its reply (`ContextFile.cost`).
+
+`gate` picks $S$. `"paper"` takes every success. `"complete"`, the
+default, also requires that the last file hold the whole state the task
+defines (`env.complete`). In
+[`recipes/papers/context-lm`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/context-lm)
+the paper gate trained Qwen2.5-1.5B two ways. One seed reproduced the
+paper: pass@1 0.91 to 0.96 with 23% fewer tokens. The other learned to
+copy only the latest chunk, which answers about 70% of logs, and fell to
+0.70. A shortcut file is never complete, so under `"complete"` Eq. 6 does
+not pay it for being cheap.
+
+```python
+import whileai as wai
+
+env = wai.methods.KVLog()  # 5 chunks of 8 `set key = value` lines, 8 keys
+clm = wai.methods.ContextFile()  # w_eff 0.25, gate "complete"
+task = env.tasks(1)[0]
+
+table = "\n".join(f"{k}: {v}" for k, v in task["state"].items())
+print(env.complete(task, table))  # True: every current value is kept
+print(env.complete(task, "\n".join(task["chunks"][-1])))  # False: the last chunk alone
+
+# One group of four: two right with complete files, one right with a shortcut, one wrong.
+print(clm.credit([1, 1, 1, 0], [900, 1100, 600, 800], edits=5, complete=[True, True, False, False]))
+```
+
+`clm.play(generate, tasks, env)` runs episodes with any generator that
+maps a list of chats and a token cap to `Reply` objects.
+`clm.report(episodes)` prints the pass rate, tokens per trajectory, file
+size, and the share right with an incomplete file. In TRL,
+`clm.trainer(GRPOTrainer)` is a `GRPOTrainer` whose generation step plays
+the episode and gives each step its credit (trl 0.19, `env=` on
+construction, `num_iterations = 1`, `beta = 0`). Defaults: `w_eff` = 0.25,
+from the paper's BrowseComp-Plus run (the code default is 1.0);
+`file_tokens` = 256; `answer_tokens` = 48. Each is named in
+`whileai/context_file.py`.
+
 ## Rollouts that refine each other: `wai.methods.Swarm`
 
 Particle swarm optimization over rollouts (Kennedy and Eberhart 1995).
