@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/context-lm/` (Context Language Models, arXiv:2609.37725): the model keeps its
+  context as a file it rewrites after every chunk of a seeded key-value log, trained with stepwise GRPO; the
+  recipe arm adds the paper's success-gated efficiency advantage (Eq. 6, `w_eff` 0.25, context edits only)
+  on prefix-reuse token cost. Flat at two seeds: seed 18 matched the paper (0.91 -> 0.96 pass@1, 23% fewer
+  tokens), seed 17 learned to copy only the last chunk (0.70).
 - Recipe `recipes/community/deepagents-review-four-arms/`: the registered fair-rerun result for Experiment A
   (rows `srv-a-*`, cuts in `keep/`, `equalize.py`) and `PREREGISTRATION.md` amendment 1. smithtune's
   early-stopping default kept epoch 1 on 10 of 12 runs and those checkpoints run out of steps on most
