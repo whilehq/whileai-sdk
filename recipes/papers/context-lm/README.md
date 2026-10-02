@@ -1,41 +1,68 @@
-# Context LM: pay for a short context file once the answer is right
+# Context LM: a small model that keeps its own context as a file
 
 **Paper:** Context Language Models, University of Washington, Meta Superintelligence Labs, MIT and Trillium Labs, arXiv:2609.37725, September 2026. https://arxiv.org/abs/2609.37725
 **Book:** GRPO scores each rollout against its own group, so whatever separates rollouts inside a group is what the policy learns; an outcome reward alone cannot tell a cheap success from a dear one [1][2].
-**Claim:** give the model its context as a file it can rewrite, train with stepwise GRPO, and add a success-gated efficiency advantage (Eq. 6): among a group's successes, the cheaper trajectories go up and the dearer ones go down, failures get nothing. On BrowseComp-Plus, Qwen3.5-9B went from 28.8% to 42.5% at 1.34 PFLOPs a question, where a summary harness trained the same way reached 42.1% at 2.19 [1].
-**The change:** the recipe arm adds `0.25 x clip((mean success cost - c_i) / mean success cost, -1, 1)` to the advantage of every context edit of a successful trajectory. Harness, task, reward, model, steps and seeds are the same in both arms.
+**Claim:** give the model its context as a file it can rewrite, train with stepwise GRPO, and add a success-gated efficiency advantage (Eq. 6): among a group's successes, the cheaper trajectories go up and the dearer ones go down; failures get nothing. On BrowseComp-Plus, Qwen3.5-9B went from 28.8% to 42.5% at 1.34 PFLOPs a question [1].
+**The change:** the recipe arm pays Eq. 6 only to successes whose last file still holds the whole state (`ContextFile(gate="complete")`). A third arm runs the paper's rule as written (`gate="paper"`), and the baseline runs neither (`gate="off"`).
 
 ## Recipe
 
-1. Task: a seeded key-value log (ContextBench's KV Store, cut down [1]). 5 chunks of 8 `set key = value` lines over 8 keys; the asked key is set at least twice. Each step the model sees `context.md` and one chunk, then the chunk is gone, and it replies with the whole new `context.md`. The last step shows only `context.md` and the question; the model boxes a number. 512 train logs, 200 held out from a disjoint seed range.
-2. Base: `Qwen/Qwen2.5-1.5B-Instruct`. Cost `c_i`: prefix-reuse tokens, each step's prompt past the prefix it shares with the previous step's prompt and reply, plus the reply (the token count the paper's `kv_cache_flops.py` turns into FLOPs).
-3. Baseline, stepwise GRPO: every step of a trajectory gets reward minus the mean over its group of 8.
-4. Recipe: baseline plus `w_eff = 0.25` times Eq. 6 on the five context edits, not on the answer step (the paper's edit mask). A group with fewer than 2 successes gets no efficiency credit.
-5. Both arms: TRL GRPO machinery + LoRA r=32, 60 steps, 4 logs x 8 trajectories a step, lr 1e-4, on-policy, no KL, seeds 17 and 18.
-6. Eval: 4 trajectories on each of the 200 held-out logs. pass@1 with a paired 95% interval (`wai.compare`), and tokens per trajectory, paired by log.
+1. Task: `wai.methods.KVLog`, a seeded key-value log (ContextBench's KV Store, cut down [1]). It has 5 chunks of 8 `set key = value` lines over 8 keys, and the asked key is set at least twice. Each step the model sees `context.md` and one chunk; then the chunk is gone and it writes the whole new `context.md`. The last step shows only `context.md` and the question, and the model boxes a number. 512 train logs, 200 held out from a disjoint seed range.
+2. Harness and credit: `wai.methods.ContextFile(...).trainer(GRPOTrainer)`. Every step of a trajectory gets reward minus its group's mean (group of 8). The efficiency arms add `0.25 x` Eq. 6 on the five edits, not on the answer step (the paper's edit mask). Cost `c_i` counts prefix-reuse tokens: each step pays for the prompt past what is still cached, plus its reply.
+3. Base: `Qwen/Qwen2.5-1.5B-Instruct`. LoRA r=32, 60 steps, 4 logs x 8 trajectories a step, lr 1e-4, on-policy, no KL. Seeds 17, 18, 19 and 20 on every arm, all run fresh.
+4. Eval: 4 trajectories on each of the 200 held-out logs. pass@1 with a paired 95% interval (`wai.compare`, `train_runs=` all four seeds), and tokens a trajectory, paired by log.
 
 ## Run
 
 ```bash
-python recipe.py --selftest      # the task, the file, the cost and the credit, offline
+python recipe.py --selftest      # the three gates on a stand-in model, offline
 python recipe.py --smoke         # Modal: 2 steps, 16 held-out logs, one seed
-python recipe.py --reuse         # both arms, two seeds, writes results.json
-python recipe.py --w-eff 1.0     # the code default instead of the paper's run
+python recipe.py --reuse         # three arms, four seeds, writes results.json
+```
+
+Without the recipe around it, the training is this (trl 0.19, one GPU):
+
+```python
+import whileai as wai
+from datasets import Dataset
+from trl import GRPOConfig, GRPOTrainer
+
+env = wai.methods.KVLog()
+clm = wai.methods.ContextFile()  # the paper's Eq. 6, w_eff 0.25
+rows = [{**t, "prompt": env.messages(t, 0, "")} for t in env.tasks(512)]
+cfg = GRPOConfig(num_generations=8, num_iterations=1, beta=0.0, max_completion_length=256)
+trainer = clm.trainer(GRPOTrainer)(
+    model="Qwen/Qwen2.5-1.5B-Instruct",
+    reward_funcs=[lambda completions, **_: [0.0] * len(completions)],  # the trainer pays the credit
+    args=cfg,
+    train_dataset=Dataset.from_list(rows),
+    env=env,
+)
+trainer.train()
 ```
 
 ## Result
 
-| Arm | pass@1, both seeds pooled | Per seed (17 / 18) | Tokens a trajectory (17 / 18) | Last context.md, chars (17 / 18) | Steps | GPU min a seed |
-|---|---|---|---|---|---|---|
-| Base, no training | 0.11 [0.08, 0.13] | | 1,219 | 168 | 0 | 0 |
-| Baseline, stepwise GRPO | 0.92 | 0.92 / 0.91 | 1,068 / 1,390 | 132 / 308 | 60 | 35 |
-| Recipe, + Eq. 6 | 0.83 | **0.70** / **0.96** | 1,249 / **1,071** | 154 / **92** | 60 | 38 |
+| Arm | pass@1, 4 seeds pooled | Per seed (17 / 18 / 19 / 20) | Tokens a trajectory | Last `context.md`, chars (17 / 18 / 19 / 20) | GPU min a seed |
+|---|---|---|---|---|---|
+| Untrained | 0.07 [0.05, 0.09] | | 1,209 | 147 | 0 |
+| Baseline, stepwise GRPO (`gate="off"`) | 0.95 [0.94, 0.96] | 0.98 / 0.98 / 0.93 / 0.91 | 1,315 | 79 / 95 / 106 / 758 | 38 |
+| Paper, + Eq. 6 (`gate="paper"`) | **0.97 [0.96, 0.98]** | 0.97 / 0.93 / 0.98 / 0.99 | **1,115** | 85 / 158 / 127 / 93 | 39 |
+| Recipe, + Eq. 6 on complete files (`gate="complete"`) | 0.92 [0.91, 0.94] | 0.84 / 0.94 / 0.95 / 0.97 | 1,050 | 86 / 61 / 147 / 111 | 40 |
 
-Recipe vs baseline on pass@1, seed 17 paired (`wai.compare`, `train_runs=` both seeds): -0.22 [-0.29, -0.16]. Verdict: **flat**. The two recipe seeds land on opposite sides of the baseline, so the training-seed spread swallows the gap.
+| Pair | pass@1 delta | Verdict | Tokens a trajectory |
+|---|---|---|---|
+| Paper vs baseline | +0.019 [+0.007, +0.032] | flat | -200 [-212, -188], -15% |
+| Recipe vs baseline | -0.023 [-0.039, -0.007] | flat | -265 [-277, -253], -20% |
+| Recipe vs paper | -0.042 [-0.057, -0.029] | flat | -65 [-72, -58], -6% |
 
-Tokens a trajectory, recipe minus baseline, paired by held-out log: seed 17 +181 [+172, +189] (+17%), seed 18 -318 [-330, -307] (-23%).
+Training worked on all 12 runs. Stepwise GRPO in the file harness takes a 1.5B model from 0.07 to between 0.84 and 0.99 on held-out logs in 60 steps.
 
-The two seeds learned different files. On seed 18 the recipe did what the paper says: a bare `pearl: 231` table, one line a key, the cheapest file of any arm. Accuracy went up to 0.96 and tokens went down 23%. On seed 17 it locked onto copying the latest chunk verbatim, which answers only when the asked key's last `set` falls in that chunk. That happens on about 70% of logs, and the arm scored 0.70. The baseline seeds also differ, but both still answer: seed 17 folds the log into one line of current values, and seed 18 copies the last two chunks forward at 308 characters.
+The paper's Eq. 6 is the most accurate arm and spends 15% fewer tokens than plain GRPO. Most of that saving comes from seed 20, where the baseline let its file grow to 758 characters of prose. On the other three seeds the token deltas go both ways.
+
+Every verdict is **flat**. The baseline's own seeds span 0.91 to 0.98, which is wider than any gap between arms.
+
+The recipe arm is this recipe's own change, and it lost to the paper's rule. It was built against a shortcut that one seed found in the first two-seed run: copying only the latest chunk, which answers about 70% of logs. That shortcut did not come back in any of the 12 runs here. The completeness check is also stricter than the task needs. Trained files often drop a key that was set once and never asked, and still answer right. So the gate paid few successes, and Eq. 6 mostly went unpaid. `wai.methods.ContextFile` now defaults to `gate="paper"`.
 
 ## Checks
 
@@ -43,27 +70,28 @@ Every number in this section is read from `results.json`.
 
 | Check | Source | Result |
 |---|---|---|
-| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [3] | run_std 0.018 from 3 re-runs (0.11, 0.09, 0.07); noise band 0.076 |
+| Eval noise: the base evaluated 3 times, `eval_variance` run_std | [3] | run_std 0.002 from 3 re-runs (0.07, 0.07, 0.07); the training-seed spread is far wider |
 | Holdout is clean: `decontaminate(train, against=holdout)` | [3] | 0 of 512 train logs dropped; train and holdout come from disjoint seed ranges |
 | Reward is a program, not a judge | [3] | the boxed number against the log's final value for the asked key |
 | Proxy vs target: `wai.compare(proxy=)` | [4] | `proxy=None`: the training reward is the target; over_optimized false |
-| Hack scan on the last training batch: `hack_scan` | [4] | nothing above the floor. It reads the answer step, and the seed-17 shortcut sits in the files, which it does not read |
-| Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | seeds 17, 18, `--seed 0` for the logs; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0; H100, 164 GPU min, $10.95 |
+| Hack scan on the last training batch: `hack_scan` | [4] | nothing above the floor |
+| Pinned: seed, torch, transformers, trl, peft | [the contract](../README.md#the-contract) | seeds 17 to 20, `--seed 0` for the logs; torch 2.7.1, transformers 4.54.0, trl 0.19.1, peft 0.16.0, whileai 0.129; H100, 481 GPU min, $32.03 |
 
 ## Climb
 
-| Round | What changed | pass@1 | vs previous |
+| Round | What changed | pass@1, recipe arm | vs previous |
 |---|---|---|---|
-| 0 | 3 chunks of 5 lines over 5 keys (smoke only) | 0.75 after 2 steps | discarded: the base failed on the box, not the memory, so its file had nothing to shrink |
-| 1 | 5 chunks of 8 lines over 8 keys, as the paper, w_eff 0.25 | 0.83 pooled (0.70 / 0.96) | flat against 0.92 |
+| 0 | 3 chunks of 5 lines over 5 keys (smoke only) | 0.75 after 2 steps | discarded: the base failed on the box, not the memory |
+| 1 | 5 x 8 over 8 keys, paper gate as the recipe, 2 seeds | 0.83 (0.70 / 0.96) | flat against 0.92; one seed copied only the last chunk |
+| 2 | `wai.methods.ContextFile`, complete gate as the recipe, paper gate as a third arm, 4 seeds | 0.92 | flat against 0.95; the paper gate is best at 0.97 |
 
 ## Learned
 
-- Eq. 6 can reach the paper's result at 1.5B. On seed 18 it gave a smaller file, 23% fewer tokens and higher accuracy than the baseline. It did so on one seed of two, though.
-- An efficiency term that only pays successes still rewards a cheap partial success. Copying the last chunk wins about 70% of logs, and a seed that finds it early can keep it. The paper's run had a turn budget, a `shrink` edit gate and an LLM judge; none of those is here to push back.
-- Next: three or more seeds per arm, and a check on the files rather than the answers, such as the share of current values `context.md` still holds after each chunk. That would see the shortcut before the holdout does. `w_eff` 0.1 is the cheap ablation.
+- A small model learns to keep its own context. Qwen2.5-1.5B goes from 0.07 to 0.95 on 40-line logs it never sees whole, on every seed, in under 40 GPU minutes. It learns a `key: value` table rather than a copy of the log.
+- Use the paper's Eq. 6: +0.02 pass@1 and 15% fewer tokens over plain GRPO at four seeds. The saving is uneven across seeds, because the file bloat it prevents is too.
+- A guard built against one seed's failure cost accuracy across four. Next: a harder log (more keys, longer chunks) where the file must be compressed to fit, which is where the paper's 28K budget puts its pressure.
 
-Verified 2026-10-02, whileai 0.127, trl 0.19.1.
+Verified 2026-10-02, whileai 0.129, trl 0.19.1.
 
 ## References
 

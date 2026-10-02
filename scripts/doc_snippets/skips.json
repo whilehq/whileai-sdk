@@ -83,6 +83,16 @@
       "page": "docs/reference/harness.md",
       "contains": "out = coder(\"Make the failing test",
       "reason": "runs the Claude Code CLI on a repository with a failing test; needs the CLI, its login and a repo"
+    },
+    {
+      "page": "docs/context-lm.md",
+      "contains": "trainer.train()",
+      "reason": "a live GRPO training run: a GPU, a model download and trl 0.19"
+    },
+    {
+      "page": "docs/recipes/papers/context-lm.mdx",
+      "contains": "trainer.train()",
+      "reason": "a live GRPO training run: a GPU, a model download and trl 0.19"
     }
   ]
 }
