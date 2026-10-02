@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.127 (2026-10-02)
+
 - `recipes/04-train/decision-router` is titled "Train your own decision model router", opens with a description that
   names decision models and LLM routing, and gains an "Open decision models" section on Kev 1.0 and Cloudflare's Clef
   (cited, not measured).
