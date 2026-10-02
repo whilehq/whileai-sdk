@@ -5443,7 +5443,7 @@ wheels = [
 
 [[package]]
 name = "whileai"
-version = "0.127"
+version = "0.128"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },

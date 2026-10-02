@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.128 (2026-10-02)
+
 - `wai.methods.ContextFile` and `wai.methods.KVLog`: the context-as-file harness of Context Language Models
   (arXiv:2609.37725). The model rewrites its own context file after every input; `credit` is stepwise GRPO plus
   the paper's success-gated efficiency advantage (Eq. 6) on the edits, `cost` is prefix-reuse tokens, `play` runs
