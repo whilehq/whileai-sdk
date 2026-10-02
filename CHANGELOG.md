@@ -7,6 +7,13 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.methods.ContextFile` and `wai.methods.KVLog`: the context-as-file harness of Context Language Models
+  (arXiv:2609.37725). The model rewrites its own context file after every input; `credit` is stepwise GRPO plus
+  the paper's success-gated efficiency advantage (Eq. 6) on the edits, `cost` is prefix-reuse tokens, `play` runs
+  episodes with any generator, `report` prints pass rate, tokens, file size and the shortcut share, and
+  `trainer(GRPOTrainer)` is the trl 0.19 hook. `gate="complete"` (default) pays Eq. 6 only to successes whose last
+  file holds the whole state; `gate="paper"` is the paper's rule, under which one seed of two in
+  `recipes/papers/context-lm` learned to copy only the last chunk.
 - Recipe `recipes/papers/context-lm/` (Context Language Models, arXiv:2609.37725): the model keeps its
   context as a file it rewrites after every chunk of a seeded key-value log, trained with stepwise GRPO; the
   recipe arm adds the paper's success-gated efficiency advantage (Eq. 6, `w_eff` 0.25, context edits only)
