@@ -14,6 +14,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
   GRPO and Reinforce-Ada on MATH levels 3 to 5, Qwen2.5-1.5B, two seeds per arm. PTGS pass@1 +0.004
   [-0.017, +0.025] over GRPO, flat; Reinforce-Ada above both GRPO seeds at 3.7x the training time; no arm
   paid a Sharpening Tax at k = 8. The recipe carries `sharpening_tax` (Tax_S with a paired task bootstrap).
+- Recipe `recipes/papers/context-lm/` v2 on `wai.methods.ContextFile`: three arms (plain stepwise GRPO, the
+  paper's Eq. 6, Eq. 6 on complete files) and four seeds each, all fresh. Qwen2.5-1.5B 0.07 -> 0.95 / 0.97 / 0.92
+  pass@1; Eq. 6 +0.02 [+0.01, +0.03] at 15% fewer tokens, flat. Guide `docs/context-lm.md`.
 
 ## 0.129 (2026-10-02)
 

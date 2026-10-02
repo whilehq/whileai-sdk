@@ -103,7 +103,8 @@
               "safety-evals",
               "character-training",
               "distillation",
-              "groupwise-grading"
+              "groupwise-grading",
+              "context-lm"
             ]
           },
           {
