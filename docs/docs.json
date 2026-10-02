@@ -195,6 +195,7 @@
                   "recipes/papers/hint-distill",
                   "recipes/papers/message-board",
                   "recipes/papers/meta-harness",
+                  "recipes/papers/ptgs",
                   "recipes/papers/reinforce-ada",
                   "recipes/papers/sao-single-rollout",
                   "recipes/papers/talk-methods",

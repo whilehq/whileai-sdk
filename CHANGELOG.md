@@ -7,6 +7,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/ptgs/`: posterior-tempered group sampling (Oh et al., arXiv:2610.01509) against
+  GRPO and Reinforce-Ada on MATH levels 3 to 5, Qwen2.5-1.5B, two seeds per arm. PTGS pass@1 +0.004
+  [-0.017, +0.025] over GRPO, flat; Reinforce-Ada above both GRPO seeds at 3.7x the training time; no arm
+  paid a Sharpening Tax at k = 8. The recipe carries `sharpening_tax` (Tax_S with a paired task bootstrap).
+
 ## 0.129 (2026-10-02)
 
 - `wai.methods.KVLog.complete` reads each key's final value from the log lines (`KVLog.final_state`), not from
