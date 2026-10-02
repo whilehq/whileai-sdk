@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe page `recipes/papers/ptgs/`: figures redrawn at the docs column width (560 px, 13 to 21 px type, panels
+  stacked) and the answer and figures moved above the paper header.
 - Recipe page `recipes/papers/ptgs/` rebuilt around four figures drawn from `results.json` by `figures.py`
   (`docs/figures/ptgs-*.svg`); the prose is cut to one line per figure.
 ## 0.130 (2026-10-02)

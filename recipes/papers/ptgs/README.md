@@ -1,11 +1,6 @@
 # PTGS: heat the prompts the policy keeps failing, cool the ones it has mastered
 
-**Paper:** Sharpening Tax in Post-Training, Changdae Oh et al., arXiv:2610.01509, October 2026. https://arxiv.org/abs/2610.01509
-**Book:** RL learns by comparing attempts at one problem, so a problem whose attempts all pass or all fail teaches nothing [1][2].
-**Claim:** sampling hard problems hotter and easy ones cooler during training raises first-try accuracy without shrinking what the model can solve in many tries [7].
-**The change:** each problem's 4 training attempts are drawn at their own temperature (0.6 to 1.35) instead of 0.9 for all. A third arm, Reinforce-Ada, draws more attempts instead [3].
-
-> **The answer:** the temperature fix tied plain RL. Practicing more won, at almost 4x the compute. No method lost range.
+**The answer:** the temperature fix tied plain RL. Practicing more won, at almost 4x the compute. No method lost range.
 
 ![Three ways to practice: plain RL draws 4 attempts at temperature 0.9, the temperature fix draws 4 attempts hotter on hard problems and cooler on easy ones, practice-more keeps drawing up to 32 and trains on 4](../../../docs/figures/ptgs-idea.svg)
 
@@ -23,6 +18,13 @@
 ![Sharpening Tax at 8 tries with 95% ranges: every arm crosses zero](../../../docs/figures/ptgs-tax.svg)
 
 - **No tax here:** 80 small training steps on a 1.5B model did not sharpen it enough. The paper sees the tax on fully post-trained models at up to 128 tries.
+
+## The paper
+
+**Paper:** Sharpening Tax in Post-Training, Changdae Oh et al., arXiv:2610.01509, October 2026. https://arxiv.org/abs/2610.01509
+**Book:** RL learns by comparing attempts at one problem, so a problem whose attempts all pass or all fail teaches nothing [1][2].
+**Claim:** sampling hard problems hotter and easy ones cooler during training raises first-try accuracy without shrinking what the model can solve in many tries [7].
+**The change:** each problem's 4 training attempts are drawn at their own temperature (0.6 to 1.35) instead of 0.9 for all. A third arm, Reinforce-Ada, draws more attempts instead [3].
 
 ## Recipe
 
