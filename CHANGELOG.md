@@ -11,6 +11,26 @@ to 0.109 releases under the wrong numbers; they are yanked.
   GRPO and Reinforce-Ada on MATH levels 3 to 5, Qwen2.5-1.5B, two seeds per arm. PTGS pass@1 +0.004
   [-0.017, +0.025] over GRPO, flat; Reinforce-Ada above both GRPO seeds at 3.7x the training time; no arm
   paid a Sharpening Tax at k = 8. The recipe carries `sharpening_tax` (Tax_S with a paired task bootstrap).
+
+## 0.129 (2026-10-02)
+
+- `wai.methods.KVLog.complete` reads each key's final value from the log lines (`KVLog.final_state`), not from
+  `task["state"]`: a `datasets.Dataset` pads that dict with every other task's keys as `None`, so inside
+  `ContextFile.trainer` every file read as incomplete and `gate="complete"` never paid Eq. 6.
+## 0.128 (2026-10-02)
+
+- `wai.methods.ContextFile` and `wai.methods.KVLog`: the context-as-file harness of Context Language Models
+  (arXiv:2609.37725). The model rewrites its own context file after every input; `credit` is stepwise GRPO plus
+  the paper's success-gated efficiency advantage (Eq. 6) on the edits, `cost` is prefix-reuse tokens, `play` runs
+  episodes with any generator, `report` prints pass rate, tokens, file size and the shortcut share, and
+  `trainer(GRPOTrainer)` is the trl 0.19 hook. `gate="complete"` (default) pays Eq. 6 only to successes whose last
+  file holds the whole state; `gate="paper"` is the paper's rule, under which one seed of two in
+  `recipes/papers/context-lm` learned to copy only the last chunk.
+- Recipe `recipes/papers/context-lm/` (Context Language Models, arXiv:2609.37725): the model keeps its
+  context as a file it rewrites after every chunk of a seeded key-value log, trained with stepwise GRPO; the
+  recipe arm adds the paper's success-gated efficiency advantage (Eq. 6, `w_eff` 0.25, context edits only)
+  on prefix-reuse token cost. Flat at two seeds: seed 18 matched the paper (0.91 -> 0.96 pass@1, 23% fewer
+  tokens), seed 17 learned to copy only the last chunk (0.70).
 - Recipe `recipes/community/deepagents-review-four-arms/`: the registered fair-rerun result for Experiment A
   (rows `srv-a-*`, cuts in `keep/`, `equalize.py`) and `PREREGISTRATION.md` amendment 1. smithtune's
   early-stopping default kept epoch 1 on 10 of 12 runs and those checkpoints run out of steps on most
