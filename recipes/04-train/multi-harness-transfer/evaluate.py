@@ -10,6 +10,7 @@ retries only ungraded cells.
 import argparse
 import json
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -29,14 +30,31 @@ def write_json(path, value):
     tmp.replace(path)
 
 
+_local = threading.local()
+
+
+def _env(args):
+    """One client per worker thread, reused across rollouts.
+
+    `HarborEnv.close()` in sync mode never awaits its async close (OpenEnv @ 7ee88d5 warns
+    "coroutine 'MCPClientBase._close_async' was never awaited"), so a client per rollout leaks one
+    server-side session per cell; near 4,000 cells that filled 32 GB, and on the SFT runs it turned
+    into every call failing. A thread-local client opens one connection per worker instead.
+    """
+    from harbor_env import HarborEnv
+
+    if getattr(_local, "env", None) is None:
+        _local.env = HarborEnv(args.server, message_timeout_s=1800)
+    return _local.env
+
+
 def episode(args, split, index, task, harness):
     import httpx
-    from harbor_env import HarborEnv
     from harbor_env.harness import HarborSession
 
     session = HarborSession(
-        env=HarborEnv(args.server, message_timeout_s=1800),
-        owns_env=True,
+        env=_env(args),
+        owns_env=False,
         split=split,
         task_index=index,
         instruction=task["instruction"],
@@ -130,6 +148,7 @@ def main():
         try:
             row.update(episode(args, split, index, task, harness))
         except Exception as exc:  # noqa: BLE001 - an ungraded cell is retried on rerun
+            _local.env = None  # a failed call may have broken this thread's connection; reopen
             detail = str(exc)
             for k, v in os.environ.items():
                 if v and any(w in k for w in ("TOKEN", "SECRET", "API_KEY")):

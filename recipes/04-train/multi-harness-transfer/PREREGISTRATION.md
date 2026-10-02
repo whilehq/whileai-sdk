@@ -154,3 +154,15 @@ resume in place: graded cells are kept and only ungraded cells are retried,
 which is FineEnvs' own evaluator rule. The progress log prints a running
 pass rate, so partial numbers were visible; they played no part in these
 changes, which touch only memory and the session cap; coverage per checkpoint and harness is reported as planned.
+
+## Amendment 3 (2026-10-02, infrastructure only)
+
+Root cause of amendment 2's failures: in sync mode `HarborEnv.close()` never
+awaits its async close (OpenEnv @ 7ee88d5 logs "coroutine
+'MCPClientBase._close_async' was never awaited"), so every cell left one
+session open on the env server. OpenEnv's own comment says an unclosed client
+holds an env session until `max_concurrent_envs` is exhausted. `evaluate.py`
+now keeps one client per worker thread, reused across cells and reopened after
+any failed call. The resumed runs were stopped and relaunched with this fix;
+graded cells are kept, ungraded cells are retried. Nothing about sampling,
+tasks, harnesses, grading or the analysis changes.
