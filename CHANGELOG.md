@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/04-train/decision-router` is titled "Train your own decision model router", opens with a description that
+  names decision models and LLM routing, and gains an "Open decision models" section on Kev 1.0 and Cloudflare's Clef
+  (cited, not measured).
 - `recipes/04-train/decision-router` adds `pointer-kind`: the 0.6B pointer plus the kind of question as a prior (Jev's
   answer through part 1's table, leave-one-out on training rows). It ties Jev at every budget (−0.6 [−1.5, +0.2] at $5,
   where the plain pointer trailed by 3.0) and beats Avengers-Pro at $10 (+1.7 [+0.1, +3.3]); the question text adds
