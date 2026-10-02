@@ -1,6 +1,8 @@
 # Benchmarking PTGS against Reinforce-Ada and GRPO
 
-**Result:** on MATH levels 3 to 5 with Qwen2.5-1.5B, PTGS matched GRPO on pass@1 (+0.004 [-0.017, +0.025], flat), Reinforce-Ada exceeded GRPO on both seeds (+0.031 [+0.007, +0.054]) at 3.7x the training time, and no arm paid a Sharpening Tax at k = 8.
+We benchmark PTGS, Reinforce-Ada and GRPO on MATH levels 3 to 5 with Qwen2.5-1.5B, two seeds per arm.
+
+**Result:** PTGS matched GRPO on pass@1 (+0.004 [-0.017, +0.025], flat), Reinforce-Ada exceeded GRPO on both seeds (+0.031 [+0.007, +0.054]) at 3.7x the training time, and no arm paid a Sharpening Tax at k = 8.
 
 ![Rollout sampling per prompt: GRPO draws 4 rollouts at T = 0.9; PTGS draws 4 at a per-prompt temperature from 0.6 to 1.35; Reinforce-Ada draws up to 32 and keeps 4](../../../docs/figures/ptgs-idea.svg)
 
