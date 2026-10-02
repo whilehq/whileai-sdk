@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from ..defaults import MESSAGE_EXAMPLES, RULE_AXIS_CAP_REPORT, TEXT_HEURISTICS
@@ -496,6 +496,27 @@ def format_dataset_report(report: dict[str, Any]) -> str:
 #: A literal shorter than this, or with no space in it, is not an ask.
 _ASK_MIN_CHARS = 15
 
+#: Acts a standing rule forbids or requires that a person can ask for
+#: ("never modify data", "do not share account details"). Such a rule is
+#: about the act, so an ask reaches it when it asks for the act in any of
+#: its usual words, and a shared noun alone ("what data do you hold?") is
+#: only a maybe. Verb-object phrases are the most effective single feature
+#: in IR requirement-to-code link recovery (the R2C study); one family per act
+#: because two people pick the same word for a thing under 20% of the time
+#: (Furnas et al. 1987, CACM 30(11)). Word stems, matched as prefixes.
+#: Convention, untested, and short on purpose: acts the agent commits
+#: unasked ("never invent order details") have no family, and ``match=``
+#: is the route to meaning-level matching.
+_ACTION_FAMILIES: tuple[frozenset[str], ...] = (
+    frozenset({"modif", "chang", "edit", "updat", "alter", "overwrit", "amend"}),
+    frozenset({"delet", "remov", "eras", "wipe", "purg"}),
+    frozenset({"shar", "disclos", "reveal", "leak", "expos", "forward"}),
+    frozenset({"cancel", "void", "terminat"}),
+    frozenset({"transfer", "pay", "charg", "bill"}),
+    frozenset({"approv", "authoriz", "authoris"}),
+    frozenset({"promis", "guarante"}),
+)
+
 #: A rule clause that carries one of these words, or an amount, is a
 #: *branch*: it applies only to asks that match its condition, so it needs
 #: an ask aimed at it. A clause without one is a standing rule: an ask
@@ -685,6 +706,32 @@ def _content_words(text: str) -> set[str]:
     }
 
 
+def _actions(text: str) -> tuple[set[int], set[str]]:
+    """The action families a text names, and the words that named them."""
+    families: set[int] = set()
+    words: set[str] = set()
+    for word in _GAP_WORD.findall(str(text or "").lower()):
+        for index, stems in enumerate(_ACTION_FAMILIES):
+            if any(
+                word.startswith(stem)
+                and len(word) - len(stem) <= TEXT_HEURISTICS.action_suffix_max_chars
+                for stem in stems
+            ):
+                families.add(index)
+                words.add(_stem(word))
+    return families, words
+
+
+def _common_words(asks: Sequence[set[str]]) -> set[str]:
+    """Words in more than ``gap_common_ask_share`` of the asks: too common to
+    count as coverage alone. Empty below ``gap_rarity_min_asks`` asks."""
+    if len(asks) < TEXT_HEURISTICS.gap_rarity_min_asks:
+        return set()
+    counts = Counter(word for words in asks for word in words)
+    limit = TEXT_HEURISTICS.gap_common_ask_share * len(asks)
+    return {word for word, n in counts.items() if n > limit}
+
+
 def _is_branch_rule(rule: str) -> bool:
     text = str(rule or "").lower()
     if _AMOUNT.search(text):
@@ -809,14 +856,15 @@ def coverage_gap(
     system_prompt: str = "",
     rows: Sequence[dict] | None = None,
     rule_cap: int | None = RULE_AXIS_CAP_REPORT,
+    match: Callable[[str, str], bool | None] | None = None,
 ) -> dict[str, Any]:
     """List the parts of an agent's policy that the asks you already send never reach.
 
     Reach for it before writing situations, with the test suite you
     already have: it says which tools and which policy rules no ask
     exercises, in the engine's own vocabulary. It returns a dict:
-    ``untested_rules`` and ``untested_tools`` (the lists worth reading),
-    ``rules`` (the policy clauses found), ``axes`` (each axis with the
+    ``untested_rules``, ``weakly_tested_rules`` and ``untested_tools``
+    (the lists worth reading), ``rules`` (the policy clauses found), ``axes`` (each axis with the
     count per value), ``stances``, ``pressure_asks``, ``single_shot``,
     ``per_ask`` (where each ask landed), ``notes``, ``summary`` and
     ``n_asks``. ``format_coverage_gap(report)`` prints it.
@@ -835,9 +883,22 @@ def coverage_gap(
       (``rules_the_world_never_triggers``, with ``rows_per_rule`` and
       ``rules_with_no_rows``).
 
+    * ``match``: ``(rule, ask) -> True | False | None``, your own test of
+      whether an ask reaches a rule (an embedding similarity, a judge
+      call). ``True`` or ``False`` decides; ``None`` leaves that pair to
+      the word rules below. Matching on meaning finds links that shared
+      words miss (Lin et al., ICSE 2021: +60% MAP over word vectors).
+
     Each ask is placed on the axes it touches with text heuristics, not a
-    model: the tools its words name or imply, the rule clauses it shares
-    words with, and the stance its words show. Two axes (``world_state``,
+    model: the tools its words name or imply, the rule clauses it reaches,
+    and the stance its words show. A rule that forbids an act a person can
+    ask for ("never modify data") is reached by an ask for that act in any
+    of its usual words ("update my address"); an ask that only shares the
+    rule's noun ("what data do you hold?") is a maybe, listed in
+    ``weakly_tested_rules`` and not counted as covered. Other rules are
+    reached by a shared word, and from ``gap_rarity_min_asks`` asks up a
+    word most asks carry does not count alone. The three lists
+    (covered, ``weakly_tested_rules``, ``untested_rules``) do not overlap. Two axes (``world_state``,
     ``tool_condition``) cannot be read from an ask at all: a prompt never
     says the order is missing or the tool timed out, so a hand-written
     suite leaves them at one point and ``notes`` says so.
@@ -873,26 +934,47 @@ def coverage_gap(
     branch = {rule: _is_branch_rule(rule) for rule in rules}
     rule_words = {rule: _content_words(rule) for rule in rules}
     rule_tools = {rule: [n for n in names if _policy_mentions(n, rule)] for rule in rules}
+    rule_acts = {rule: _actions(rule) for rule in rules}
+    ask_words = [_content_words(ask) for ask in ask_list]
+    common = _common_words(ask_words)
 
     touched: dict[str, Counter[str]] = {axis: Counter() for axis in dimensions}
+    maybe_count: Counter[str] = Counter()
     per_ask: list[dict[str, Any]] = []
-    for ask in ask_list:
-        words = _content_words(ask)
+    for ask, words in zip(ask_list, ask_words, strict=True):
         hit_tools = [n for n in names if _ask_names_tool(ask, n)]
+        ask_acts, _ = _actions(ask)
         hit_rules = []
+        maybe_rules = []
         for rule in rules:
-            if branch[rule]:
-                reached = len(words & rule_words[rule]) >= 2  # noqa: PLR2004  # two shared words is the overlap floor (convention)
+            verdict = match(rule, ask) if match is not None else None
+            shared = words & rule_words[rule]
+            acts, act_words = rule_acts[rule]
+            maybe = False
+            if verdict is not None:
+                reached = bool(verdict)
+            elif branch[rule]:
+                reached = len(shared - common) >= 2  # noqa: PLR2004  # two shared words is the overlap floor (convention)
+                maybe = not reached and len(shared) >= 2  # noqa: PLR2004  # same floor
             elif rule_tools[rule]:
                 reached = any(n in hit_tools for n in rule_tools[rule])
+            elif acts:
+                # "Never modify data": the act is the rule. Shared words
+                # alone read "covered" for any ask with "data" in it and
+                # "untested" for "update my address" (outside audit, 0.127).
+                reached = bool(acts & ask_acts)
+                maybe = not reached and bool(shared - act_words)
             else:
-                # A standing rule that names no tool ("never invent order
-                # details") is reached by an ask that shares a word with it.
-                # Counting it reached on every ask read "8 of 8" with no ask
-                # near "never modify data" (case study, whileai 0.126).
-                reached = bool(words & rule_words[rule])
+                # A standing rule that names no act a person asks for
+                # ("never invent order details") is reached by an ask that
+                # shares a word with it, not one every ask carries.
+                reached = bool(shared - common)
+                maybe = not reached and bool(shared)
             if reached:
                 hit_rules.append(rule)
+            elif maybe:
+                maybe_rules.append(rule)
+                maybe_count[rule] += 1
         stance = _ask_stance(ask)
         values = list(hit_tools) or ["unrelated"]
         if len(hit_tools) > 1:
@@ -903,7 +985,15 @@ def coverage_gap(
             touched["rule"][rule] += 1
         touched["stance"][stance] += 1
         touched["history"]["fresh"] += 1
-        per_ask.append({"ask": ask, "tools": hit_tools, "rules": hit_rules, "stance": stance})
+        per_ask.append(
+            {
+                "ask": ask,
+                "tools": hit_tools,
+                "rules": hit_rules,
+                "maybe_rules": maybe_rules,
+                "stance": stance,
+            }
+        )
 
     axes: dict[str, Any] = {}
     for axis, values in dimensions.items():
@@ -912,7 +1002,12 @@ def coverage_gap(
             "counts": counts,
             "untouched": [value for value, n in counts.items() if not n],
         }
-    untested_rules = [rule for rule in rules if not touched["rule"].get(rule)]
+    weakly_tested_rules = [
+        rule for rule in rules if not touched["rule"].get(rule) and maybe_count[rule]
+    ]
+    untested_rules = [
+        rule for rule in rules if not touched["rule"].get(rule) and not maybe_count[rule]
+    ]
     untested_tools = [name for name in names if not touched["tool"].get(name)]
     repeats = Counter(" ".join(ask.lower().split()) for ask in ask_list)
     single_shot = bool(ask_list) and max(repeats.values()) == 1
@@ -928,6 +1023,13 @@ def coverage_gap(
             "per rule, or let the engine write them (simulate(seeds=asks, ...) covers "
             "the rule axis)"
         )
+    if weakly_tested_rules:
+        n = len(weakly_tested_rules)
+        notes.append(
+            f"{n} policy rule{'s' if n != 1 else ''} only maybe reached: an ask shares the "
+            "rule's words but not its act. Read per_ask maybe_rules, add an ask that asks "
+            "for the act, or pass match= to decide by meaning"
+        )
     notes.append(
         "world_state and tool_condition are not readable from an ask: a prompt never "
         "says the record is missing or the tool timed out, so every ask sits on one "
@@ -935,9 +1037,10 @@ def coverage_gap(
         "system_prompt=...) to vary them, or add a fixture case per branch"
     )
     notes.append(
-        "rules are matched on the words an ask shares with the rule, so a branch only "
-        "the fixture data selects (an amount, a date) reads as untested even when an "
-        "ask lands on it: confirm with rows= from a run"
+        "rules are matched on words (the act a rule forbids, else the words an ask "
+        "shares with it), not meaning: a paraphrase outside the built-in act words, or "
+        "a branch only the fixture data selects (an amount, a date), reads as untested "
+        "even when an ask lands on it. Confirm with rows= from a run, or pass match="
     )
     if single_shot:
         notes.append(
@@ -953,8 +1056,10 @@ def coverage_gap(
     of_total = f" (of {n_rules_total} in the prompt)" if cap_note else ""
     summary_bits = [
         f"{len(ask_list)} ask{'s' if len(ask_list) != 1 else ''} cover "
-        f"{len(rules) - len(untested_rules)} of {len(rules)} policy rule"
-        f"{'s' if len(rules) != 1 else ''}{of_total} and "
+        f"{len(rules) - len(untested_rules) - len(weakly_tested_rules)} of {len(rules)} "
+        f"policy rule{'s' if len(rules) != 1 else ''}{of_total}"
+        + (f" ({len(weakly_tested_rules)} more maybe)" if weakly_tested_rules else "")
+        + " and "
         f"{len(names) - len(untested_tools)} of {len(names)} tool"
         f"{'s' if len(names) != 1 else ''}"
     ]
@@ -982,6 +1087,7 @@ def coverage_gap(
         "rules_truncated": bool(cap_note),
         "rule_cap": rule_cap,
         "untested_rules": untested_rules,
+        "weakly_tested_rules": weakly_tested_rules,
         "untested_tools": untested_tools,
         "stances": dict(touched["stance"]),
         "pressure_asks": pressure,
@@ -1052,6 +1158,7 @@ def format_coverage_gap(report: dict[str, Any]) -> str:
     """The gap report as the block a person actually reads."""
     rules = list(report.get("rules") or [])
     untested_rules = list(report.get("untested_rules") or [])
+    weakly_tested_rules = list(report.get("weakly_tested_rules") or [])
     untested_tools = list(report.get("untested_tools") or [])
     tool_counts = ((report.get("axes") or {}).get("tool") or {}).get("counts") or {}
     n_tools = sum(1 for name in tool_counts if name not in {"unrelated", "multi_tool"})
@@ -1060,7 +1167,9 @@ def format_coverage_gap(report: dict[str, Any]) -> str:
         "",
         f"asks                  {report.get('n_asks', 0)}"
         + ("  (each one once)" if report.get("single_shot") else ""),
-        f"policy rules covered  {len(rules) - len(untested_rules)} of {len(rules)}"
+        f"policy rules covered  "
+        f"{len(rules) - len(untested_rules) - len(weakly_tested_rules)} of {len(rules)}"
+        + (f", {len(weakly_tested_rules)} maybe" if weakly_tested_rules else "")
         + (
             f" (of {report['n_rules_total']} in the prompt; rule_cap={report.get('rule_cap')})"
             if report.get("rules_truncated")
@@ -1077,6 +1186,10 @@ def format_coverage_gap(report: dict[str, Any]) -> str:
         lines.append("untested rules")
         for rule in untested_rules:
             lines.append(f"  - {_short_rule(rule, 72)}")
+    if weakly_tested_rules:
+        lines.append("maybe tested rules")
+        for rule in weakly_tested_rules:
+            lines.append(f"  ? {_short_rule(rule, 72)}")
     if untested_tools:
         lines.append("untested tools        " + ", ".join(untested_tools))
     for entry in report.get("rules_the_world_never_triggers") or []:

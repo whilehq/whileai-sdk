@@ -1368,6 +1368,14 @@ class TextHeuristics:
     plural_min_chars: int = 5
     #: a coverage-gap word shorter than this is a stop word
     gap_word_min_chars: int = 3
+    #: an ask word matches an action stem ("modif") with at most this many
+    #: letters after it ("modifying" yes, "modification" no)
+    action_suffix_max_chars: int = 4
+    #: a word in more than this share of a suite's asks is too common to
+    #: count as coverage on its own (inverse document frequency, Sparck Jones 1972)
+    gap_common_ask_share: float = 0.5
+    #: below this many asks the share above is too noisy to read, so no word is common
+    gap_rarity_min_asks: int = 8
     #: a tool-name word shorter than this ("to", "by") is not matched to an ask
     tool_word_min_chars: int = 3
     # --- verify/, run/spec.py, world/sandbox.py ---------------------------

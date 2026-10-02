@@ -149,3 +149,9 @@ def _a_checkout_with_history() -> None:
 
 
 _a_checkout_with_history()
+
+
+def similarity(rule: str, ask: str) -> float:
+    """Stand-in for an embedding similarity: the share of the rule's words in the ask."""
+    rule_words = set(rule.lower().split())
+    return len(rule_words & set(ask.lower().split())) / max(len(rule_words), 1)
