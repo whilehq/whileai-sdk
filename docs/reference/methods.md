@@ -407,12 +407,12 @@ not pay it for being cheap.
 ```python
 import whileai as wai
 
-env = wai.methods.KVLog()                 # 5 chunks of 8 `set key = value` lines, 8 keys
-clm = wai.methods.ContextFile()           # w_eff 0.25, gate "complete"
+env = wai.methods.KVLog()  # 5 chunks of 8 `set key = value` lines, 8 keys
+clm = wai.methods.ContextFile()  # w_eff 0.25, gate "complete"
 task = env.tasks(1)[0]
 
 table = "\n".join(f"{k}: {v}" for k, v in task["state"].items())
-print(env.complete(task, table))                       # True: every current value is kept
+print(env.complete(task, table))  # True: every current value is kept
 print(env.complete(task, "\n".join(task["chunks"][-1])))  # False: the last chunk alone
 
 # One group of four: two right with complete files, one right with a shortcut, one wrong.
