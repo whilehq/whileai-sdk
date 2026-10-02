@@ -861,7 +861,7 @@ def main() -> None:
     results.update(
         {
             "recipe": HERE.name,
-            "title": "PTGS: heat the prompts the policy keeps failing, cool the ones it has mastered",
+            "title": "Benchmarking PTGS against Reinforce-Ada and GRPO",
             "paper": "https://arxiv.org/abs/2610.01509",
             "book": BOOK,
             "base_model": BASE_MODEL,

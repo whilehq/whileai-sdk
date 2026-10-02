@@ -1,41 +1,47 @@
-# PTGS: heat the prompts the policy keeps failing, cool the ones it has mastered
+# Benchmarking PTGS against Reinforce-Ada and GRPO
 
-**The answer:** the temperature fix tied plain RL. Practicing more won, at almost 4x the compute. No method lost range.
+**Result:** on MATH levels 3 to 5 with Qwen2.5-1.5B, PTGS matched GRPO on pass@1 (+0.004 [-0.017, +0.025], flat), Reinforce-Ada exceeded GRPO on both seeds (+0.031 [+0.007, +0.054]) at 3.7x the training time, and no arm paid a Sharpening Tax at k = 8.
 
-![Three ways to practice: plain RL draws 4 attempts at temperature 0.9, the temperature fix draws 4 attempts hotter on hard problems and cooler on easy ones, practice-more keeps drawing up to 32 and trains on 4](../../../docs/figures/ptgs-idea.svg)
+![Rollout sampling per prompt: GRPO draws 4 rollouts at T = 0.9; PTGS draws 4 at a per-prompt temperature from 0.6 to 1.35; Reinforce-Ada draws up to 32 and keeps 4](../../../docs/figures/ptgs-idea.svg)
 
 ## Result
 
-![First-try and 8-try accuracy on 320 held-out MATH problems: plain RL 29% and 56%, temperature fix 31% and 60%, practice more 35% and 64%, untrained 20% and 50%](../../../docs/figures/ptgs-accuracy.svg)
+![pass@1 and pass@8 on 320 MATH-500 problems at levels 3 to 5: base 0.202 and 0.503; GRPO 0.291 and 0.564; PTGS 0.314 and 0.603; Reinforce-Ada 0.352 and 0.636 (seed means)](../../../docs/figures/ptgs-accuracy.svg)
 
-- **Temperature fix vs plain RL:** +0.4 points first try, range -1.7 to +2.5. Not proven.
-- **Practice more vs plain RL:** +3.1 points, range +0.7 to +5.4. Both its runs beat both plain runs.
+| Comparison | Δ pass@1, seed-17 pair [95% CI] | Δ pass@8, seed-averaged [95% CI] | Verdict |
+|---|---|---|---|
+| PTGS - GRPO | +0.004 [-0.017, +0.025] | +0.039 [+0.011, +0.069] | flat |
+| Reinforce-Ada - GRPO | +0.031 [+0.007, +0.054] | +0.072 [+0.036, +0.106] | flat (under the 0.051 re-run band) |
+| PTGS - Reinforce-Ada | -0.027 [-0.048, -0.006] | -0.033 [-0.063, -0.002] | flat |
 
-![Practice that taught nothing: plain RL 68%, temperature fix 71%, practice more 41%. Minutes per run: 52, 52, 196](../../../docs/figures/ptgs-cost.svg)
+pass@1 intervals are `wai.compare` over 320 paired tasks; pass@8 intervals are a task bootstrap on seed-averaged curves and do not include seed variance. A verdict of "moved" needs the interval to exclude zero and the delta to clear the eval's re-run band (t at 2 df x sqrt(2) x run_std = 0.051).
 
-- **Why the fix did not help:** heating a problem the model fails rarely makes it pass, and cooling an easy one makes every attempt pass. Both teach nothing.
+![Zero-advantage groups per step: GRPO 0.68, PTGS 0.71, Reinforce-Ada 0.41. Rollouts generated per prompt: 4, 4, 23.3](../../../docs/figures/ptgs-cost.svg)
 
-![Sharpening Tax at 8 tries with 95% ranges: every arm crosses zero](../../../docs/figures/ptgs-tax.svg)
+- **Mechanism:** PTGS did not reduce zero-advantage groups (0.71 vs 0.68). Heating rarely lifted a failing prompt's pass rate, and cooling turned high-pass-rate groups all-correct, which also zeroes the advantage (the paper's Proposition 5). Reinforce-Ada cut them to 0.41 by sampling 23.3 rollouts per prompt.
 
-- **No tax here:** 80 small training steps on a 1.5B model did not sharpen it enough. The paper sees the tax on fully post-trained models at up to 128 tries.
+![Tax_S(8) vs base with 95% paired bootstrap CIs: GRPO +0.006, PTGS -0.007, Reinforce-Ada -0.013, all including 0](../../../docs/figures/ptgs-tax.svg)
+
+- **No tax at this scale:** every arm raised pass@8 over the base (0.503). The paper reports the tax for fully post-trained checkpoints at k up to 128; 80 LoRA steps on a 1.5B model at k = 8 did not reach it.
 
 ## The paper
 
 **Paper:** Sharpening Tax in Post-Training, Changdae Oh et al., arXiv:2610.01509, October 2026. https://arxiv.org/abs/2610.01509
-**Book:** RL learns by comparing attempts at one problem, so a problem whose attempts all pass or all fail teaches nothing [1][2].
-**Claim:** sampling hard problems hotter and easy ones cooler during training raises first-try accuracy without shrinking what the model can solve in many tries [7].
-**The change:** each problem's 4 training attempts are drawn at their own temperature (0.6 to 1.35) instead of 0.9 for all. A third arm, Reinforce-Ada, draws more attempts instead [3].
+**Book:** GRPO's advantage is a reward minus its group's mean, so a group whose rollouts all scored the same contributes no gradient [1][2].
+**Claim:** RL post-training concentrates per-prompt pass rates at 0 and 1, raising pass@1 and lowering pass@k (the Sharpening Tax); sampling each prompt's group at a temperature set by a Beta posterior over its pass rate reduces the tax and raises both [7].
+**The change:** the rollout temperature. GRPO samples every prompt at T = 0.9; PTGS samples prompt x at T = 0.9 x 1.5^h(p̂), with p̂ drawn from Beta(2p~ + s, 2(1 - p~) + f) and log-probs taken at the same T. Reinforce-Ada keeps T = 0.9 and samples up to 32 rollouts [3].
 
 ## Recipe
 
 | | |
 |---|---|
-| Model | `Qwen/Qwen2.5-1.5B-Instruct`, LoRA r=32, TRL GRPO, 80 steps, 12 problems x 4 attempts |
-| Data | MATH train levels 3 to 5, 192 problems; MATH-500 levels 3 to 5, 320 held out |
-| Reward | right or wrong, checked by `MathEqual` (a program, not a judge) |
-| Temperature fix | tau 1.5, forgetting 0.95, target success 0.25 to 0.5 (the paper's untuned setting) |
-| Practice more | `wai.methods.ReinforceAda`: rounds of 8, at most 32, keep 4 |
-| Eval | 8 attempts per problem at 0.9, two training seeds per arm, paired 95% ranges |
+| Model | `Qwen/Qwen2.5-1.5B-Instruct`, LoRA r = 32, TRL 0.19.1 GRPO, lr 1e-4, no KL, on-policy, no std normalization |
+| Update | 80 steps x 12 prompts x 4 rollouts in every arm (48 per step) |
+| Data | MATH train levels 3 to 5, 192 prompts (5 visits each); MATH-500 levels 3 to 5, 320 held out |
+| Reward | binary, `MathEqual` (Math-Verify) against the reference answer |
+| PTGS | tau 1.5, gamma 0.95, p~ 0.25 to 0.5 geometric, prior mass 2 (the paper's PPO setting, Appendix A.5) |
+| Reinforce-Ada | `wai.methods.ReinforceAda`: balanced exit, rounds of 8, at most 32, keep 4, pool pass-rate baseline |
+| Eval | k = 8 samples per task at T = 0.9, seeds 17 and 18 per arm, base evaluated 3 times |
 
 ## Run
 
@@ -65,9 +71,9 @@ python figures.py             # redraw the figures from results.json
 
 ## Learned
 
-- Hard problems needed more attempts, not hotter ones.
-- The fix costs nothing extra and plugs into TRL in about 40 lines.
-- Next: the paper's GRPO setting (tau 1.4) and 64 attempts per problem, so the tax has room to show.
+- Low-pass-rate prompts needed more samples, not a higher temperature: Reinforce-Ada cut zero-advantage groups from 0.68 to 0.41, PTGS raised them to 0.71. Theorem 3 of the paper assumes heating raises p; at 1.5B on MATH it mostly did not.
+- PTGS adds no generation cost. In TRL 0.19.1 it is a per-row logits processor on `generate` and a per-row temperature divisor in `_get_per_token_logps`.
+- Next: the paper's GRPO setting (tau 1.4, p~ fixed at 0.5) and k = 64 on the holdout, so Tax_S has room to move.
 
 Verified 2026-10-02, whileai 0.127, TRL 0.19.1. 804 GPU minutes, $26.79 on L40S. Run page: https://while.ai/platform/training/run_ef3d2f55c789144d
 

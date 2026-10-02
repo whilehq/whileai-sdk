@@ -1,6 +1,6 @@
 {
   "recipe": "ptgs",
-  "title": "PTGS: heat the prompts the policy keeps failing, cool the ones it has mastered",
+  "title": "Benchmarking PTGS against Reinforce-Ada and GRPO",
   "paper": "https://arxiv.org/abs/2610.01509",
   "book": "Reinforcement Learning",
   "base_model": "Qwen/Qwen2.5-1.5B-Instruct",

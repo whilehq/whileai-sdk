@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe page `recipes/papers/ptgs/` retitled "Benchmarking PTGS against Reinforce-Ada and GRPO"; figures and
+  text use the method names and pass@1, pass@8, zero-advantage groups and Tax_S(8) with their intervals.
 - Recipe page `recipes/papers/ptgs/`: figures redrawn at the docs column width (560 px, 13 to 21 px type, panels
   stacked) and the answer and figures moved above the paper header.
 - Recipe page `recipes/papers/ptgs/` rebuilt around four figures drawn from `results.json` by `figures.py`

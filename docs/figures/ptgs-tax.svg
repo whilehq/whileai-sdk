@@ -1,19 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 290" width="560" height="290">
 <rect x="0.5" y="0.5" width="559" height="289" rx="14" fill="#FFFFFF" stroke="#D1D5DB"/>
-<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">Did training shrink the model's range?</text>
-<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">Sharpening Tax at 8 tries, with its 95% range.</text>
+<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">Sharpening Tax, Tax_S(8), vs base</text>
+<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">Point estimate and 95% paired task-bootstrap CI.</text>
 <rect x="355.0" y="100" width="181.0" height="140" rx="0" fill="#FBEDE3"/>
-<text x="528" y="120" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="700" fill="#B5602A" text-anchor="end">range lost</text>
-<text x="178" y="120" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="700" fill="#3F8F6B" text-anchor="start">range kept</text>
+<text x="528" y="120" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="700" fill="#B5602A" text-anchor="end">coverage lost</text>
+<text x="178" y="120" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="700" fill="#3F8F6B" text-anchor="start">coverage kept</text>
 <line x1="355.0" y1="100" x2="355.0" y2="240" stroke="#0B1220" stroke-width="2" stroke-linecap="round"/>
-<text x="24" y="157" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Plain RL</text>
+<text x="24" y="157" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">GRPO</text>
 <line x1="278.9583133133761" y1="152" x2="483.0553494153334" y2="152" stroke="#9CA3AF" stroke-width="4" stroke-linecap="round"/>
 <circle cx="376.5239991391029" cy="152" r="8" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
-<text x="24" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Temperature fix</text>
+<text x="24" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">PTGS</text>
 <line x1="219.38107396475175" y1="186" x2="436.6124055971201" y2="186" stroke="#B5602A" stroke-width="4" stroke-linecap="round"/>
 <circle cx="331.3365385036871" cy="186" r="8" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
-<text x="24" y="225" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Practice more</text>
+<text x="24" y="225" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Reinforce-Ada</text>
 <line x1="205.01136549900173" y1="220" x2="419.14974457017024" y2="220" stroke="#3F8F6B" stroke-width="4" stroke-linecap="round"/>
 <circle cx="309.563884315676" cy="220" r="8" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
-<text x="280.0" y="268" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#0B1220" text-anchor="middle">Every range crosses zero: no method paid the tax.</text>
+<text x="280.0" y="268" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#0B1220" text-anchor="middle">Every CI includes 0: no arm paid a measurable tax.</text>
 </svg>

@@ -1,38 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 418" width="560" height="418">
 <rect x="0.5" y="0.5" width="559" height="417" rx="14" fill="#FFFFFF" stroke="#D1D5DB"/>
-<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">Three ways to practice</text>
-<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">Training only learns when a problem's tries disagree.</text>
-<text x="238" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">EASY PROBLEM</text>
-<text x="392" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">HARD PROBLEM</text>
+<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">Rollout sampling per prompt</text>
+<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">A GRPO group has nonzero advantage only if its rewards differ.</text>
+<text x="238" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">HIGH PASS RATE</text>
+<text x="392" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">LOW PASS RATE</text>
 <rect x="14" y="130" width="532" height="80" rx="10" fill="#F4F6F9"/>
-<text x="28" y="162" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="16.5" font-weight="700" fill="#0B1220" text-anchor="start">Plain RL</text>
-<text x="28" y="186" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13.5" font-weight="400" fill="#4B5563" text-anchor="start">4 tries, same heat</text>
+<text x="28" y="162" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="16.5" font-weight="700" fill="#0B1220" text-anchor="start">GRPO</text>
+<text x="28" y="186" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13.5" font-weight="400" fill="#4B5563" text-anchor="start">4 rollouts, fixed T</text>
 <circle cx="244" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="262" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="280" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="298" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
-<text x="238" y="196" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">temp 0.9</text>
+<text x="238" y="196" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">T = 0.9</text>
 <circle cx="398" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="416" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="434" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="452" cy="150" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
-<text x="392" y="196" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">temp 0.9</text>
+<text x="392" y="196" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">T = 0.9</text>
 <rect x="14" y="222" width="532" height="80" rx="10" fill="#F4F6F9"/>
-<text x="28" y="254" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="16.5" font-weight="700" fill="#0B1220" text-anchor="start">Temperature fix</text>
-<text x="28" y="278" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13.5" font-weight="400" fill="#4B5563" text-anchor="start">4 tries, hot if it keeps failing</text>
+<text x="28" y="254" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="16.5" font-weight="700" fill="#0B1220" text-anchor="start">PTGS</text>
+<text x="28" y="278" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13.5" font-weight="400" fill="#4B5563" text-anchor="start">4 rollouts, T from posterior</text>
 <circle cx="244" cy="242" r="6.5" fill="#3B6EA8" stroke="none" stroke-width="2"/>
 <circle cx="262" cy="242" r="6.5" fill="#3B6EA8" stroke="none" stroke-width="2"/>
 <circle cx="280" cy="242" r="6.5" fill="#3B6EA8" stroke="none" stroke-width="2"/>
 <circle cx="298" cy="242" r="6.5" fill="#3B6EA8" stroke="none" stroke-width="2"/>
-<text x="238" y="288" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">cooled 0.6</text>
+<text x="238" y="288" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">T = 0.6</text>
 <circle cx="398" cy="242" r="6.5" fill="#B5602A" stroke="none" stroke-width="2"/>
 <circle cx="416" cy="242" r="6.5" fill="#B5602A" stroke="none" stroke-width="2"/>
 <circle cx="434" cy="242" r="6.5" fill="#B5602A" stroke="none" stroke-width="2"/>
 <circle cx="452" cy="242" r="6.5" fill="#B5602A" stroke="none" stroke-width="2"/>
-<text x="392" y="288" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">heated 1.35</text>
+<text x="392" y="288" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="start">T = 1.35</text>
 <rect x="14" y="314" width="532" height="80" rx="10" fill="#F4F6F9"/>
-<text x="28" y="346" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="16.5" font-weight="700" fill="#0B1220" text-anchor="start">Practice more</text>
-<text x="28" y="370" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13.5" font-weight="400" fill="#4B5563" text-anchor="start">up to 32 tries, trains on 4</text>
+<text x="28" y="346" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="16.5" font-weight="700" fill="#0B1220" text-anchor="start">Reinforce-Ada</text>
+<text x="28" y="370" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13.5" font-weight="400" fill="#4B5563" text-anchor="start">up to 32 rollouts, keep 4</text>
 <circle cx="244" cy="334" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="262" cy="334" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
 <circle cx="280" cy="334" r="6.5" fill="#9CA3AF" stroke="none" stroke-width="2"/>
