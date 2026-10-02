@@ -23,6 +23,7 @@ what it claims, the steps, one command, what happened.
 | [harness-and-weights](harness-and-weights) | [2607.03935](https://arxiv.org/abs/2607.03935) | Qwen/Qwen2.5-Coder-1.5B-Instruct | pass@1 | 0.03 -> 0.09 (+0.06 [+0.03, +0.09], unresolved, 1 seed per arm) | 2026-09-21 |
 | [hint-distill](hint-distill) | [learning-from-real-world-experience](https://www.perplexity.ai/hub/blog/learning-from-real-world-experience) | Qwen/Qwen3-4B | pass@1 | 0.53 -> 0.52 (-0.01 [-0.04, +0.02], unresolved, 1 seed per arm) | 2026-09-22 |
 | [message-board](message-board) | [2502.18439](https://arxiv.org/abs/2502.18439) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.65 -> 0.68 (+0.03 [-0.02, +0.09], flat, 2 seeds per arm) | 2026-09-23 |
+| [ptgs](ptgs) | [2610.01509](https://arxiv.org/abs/2610.01509) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.31 -> 0.31 (+0.00 [-0.02, +0.02], flat, 2 seeds per arm) | 2026-10-02 |
 | [reinforce-ada](reinforce-ada) | [2510.04996](https://arxiv.org/abs/2510.04996) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.66 -> 0.70 (+0.04 [-0.01, +0.09], flat, 2 seeds per arm) | 2026-09-22 |
 | [sao-single-rollout](sao-single-rollout) | [2607.07508](https://arxiv.org/abs/2607.07508) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.46 -> 0.46 (-0.00 [-0.04, +0.03], unresolved, 1 seed per arm) | 2026-09-22 |
 | [talk-methods](talk-methods) | [2510.04996](https://arxiv.org/abs/2510.04996) | Qwen/Qwen2.5-1.5B-Instruct | pass@1 | 0.40 -> 0.40 (+0.00 [-0.04, +0.04], flat, 3 seeds per arm) | 2026-09-23 |

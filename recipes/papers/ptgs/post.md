@@ -1,0 +1,1 @@
+PTGS (Oh et al., Sharpening Tax) vs GRPO vs Reinforce-Ada on MATH L3-5, Qwen2.5-1.5B, 2 seeds per arm: PTGS pass@1 +0.004 [-0.017, +0.025] over GRPO, flat, and more zero-gradient groups, not fewer. Reinforce-Ada beat both GRPO seeds at 3.7x the time. No arm paid a Sharpening Tax. https://arxiv.org/abs/2610.01509 https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/ptgs

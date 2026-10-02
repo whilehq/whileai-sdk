@@ -7,6 +7,10 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/papers/ptgs/`: posterior-tempered group sampling (Oh et al., arXiv:2610.01509) against
+  GRPO and Reinforce-Ada on MATH levels 3 to 5, Qwen2.5-1.5B, two seeds per arm. PTGS pass@1 +0.004
+  [-0.017, +0.025] over GRPO, flat; Reinforce-Ada above both GRPO seeds at 3.7x the training time; no arm
+  paid a Sharpening Tax at k = 8. The recipe carries `sharpening_tax` (Tax_S with a paired task bootstrap).
 - Recipe `recipes/community/deepagents-review-four-arms/`: the registered fair-rerun result for Experiment A
   (rows `srv-a-*`, cuts in `keep/`, `equalize.py`) and `PREREGISTRATION.md` amendment 1. smithtune's
   early-stopping default kept epoch 1 on 10 of 12 runs and those checkpoints run out of steps on most
