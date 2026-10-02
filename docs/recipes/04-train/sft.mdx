@@ -105,6 +105,7 @@ after:  pass@1 0.73 [0.63..0.81] | pass^4 (pass_pow_k) 0.41 [0.28..0.55] | pass@
 base passes: 0.246 / 0.248 / 0.244  run_std 0.002
 PASS
 eval noise: run_std 0.002, a delta under 0.011 is noise (t(df=2)=4.30 x run_std x sqrt(1/1 + 1/1); run_std given from 3 re-runs)
+repeated: 1 run, noise from the given run_std (pass_at_1 +0.481, 95% +0.342..+0.616; simulate(tasks=..., runs=3) shows whether the verdict repeats)
 answered: 100.0% before, 100.0% after
   pass_at_1                    0.246 -> 0.728  +0.481 [+0.342..+0.616]  up  (40 paired)  noise<0.011
 ```

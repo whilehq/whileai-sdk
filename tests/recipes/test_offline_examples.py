@@ -41,6 +41,7 @@ CLI_EXAMPLES = [
     "04-train/identity/generate.py",
     "02-measure/pass-at-k/measure.py",
     "02-measure/public-benchmark/run.py",
+    "02-measure/before-and-after/run.py",
     "02-measure/model-router/run.py",
     "02-measure/is-your-eval-any-good/check_eval.py",
     "02-measure/character-to-the-wall/run.py",
@@ -104,6 +105,7 @@ NEEDS_MODAL = {
     "community/judge-aware-hacking/recipe.py",
     "04-train/identity/eval_modal.py",
     "04-train/identity/train_modal.py",
+    "04-train/decision-router/train_modal.py",
     # text-to-sql: the trainer needs modal, the task writer needs anthropic
     "04-train/text-to-sql/author.py",
     "04-train/text-to-sql/train_grpo_modal.py",

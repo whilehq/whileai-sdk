@@ -83,7 +83,7 @@ def test_measure_cli_on_two_holdout_files(before_and_after):
     assert out.returncode == 0, out.stdout[-2000:] + out.stderr[-2000:]
     lines = out.stdout.splitlines()
     assert lines[0].startswith("marker:trait: moved_unreplicated (+")
-    assert lines[1] == "PASS"
+    assert lines[1] == "INCONCLUSIVE (1 eval run a side, rerun to confirm)"
     assert any(line.strip().startswith("marker:on_task ") for line in lines)
     assert any(line.strip().startswith("marker:no_filler ") for line in lines)
 
@@ -92,7 +92,7 @@ def test_measure_demo_cli(tmp_path):
     out = _cli("measure.py", "--demo", cwd=tmp_path)
     assert out.returncode == 0, out.stdout[-2000:] + out.stderr[-2000:]
     assert out.stdout.splitlines()[0].startswith("marker:trait: moved_unreplicated (+")
-    assert "PASS" in out.stdout
+    assert "INCONCLUSIVE (1 eval run a side, rerun to confirm)" in out.stdout
 
 
 def test_measure_cli_needs_two_files_or_demo(tmp_path):

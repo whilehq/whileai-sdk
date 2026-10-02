@@ -104,6 +104,9 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--out", default=str(HERE / "out"))
     p.add_argument("--limit", type=int, default=0, help="ask about the first N questions only")
+    p.add_argument(
+        "--all", action="store_true", help="also the fit questions (part 2 trains on Jev's answers)"
+    )
     args = p.parse_args(argv)
     key = os.environ.get("TYPESAFE_API_KEY", "").strip()
     if not key:
@@ -120,7 +123,9 @@ def main(argv: list[str] | None = None) -> int:
     done = set()
     if cache_path.exists():
         done = {json.loads(line)["id"] for line in cache_path.open(encoding="utf-8")}
-    todo = [r["id"] for r, v, t in zip(rows, val, test) if (v or t) and r["id"] not in done]
+    todo = [
+        r["id"] for r, v, t in zip(rows, val, test) if (v or t or args.all) and r["id"] not in done
+    ]
     if args.limit:
         todo = todo[: args.limit]
     print(f"{len(done)} cached, asking Jev about {len(todo)} questions", file=sys.stderr)

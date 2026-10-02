@@ -4131,6 +4131,19 @@ class Run:
                     data.degraded.append("no_tool_calls")
                 data.warnings.append(note)
                 log.warning(note)
+        # The offline writer knows only the tool names and generic
+        # customer-service phrasing; with nothing real to vary, its asks say
+        # little about the agent's own domain (gentlyventures case study,
+        # whileai 0.126: 41 of 115 code-history asks never named the repo).
+        if rows and self.simulator is False and not self.given_seeds and not c.pinned_tasks:
+            note = (
+                f"simulator=False wrote these {len(rows)} situations from a generic "
+                "template that knows only your tool names, not your domain. Pass "
+                "seeds= with a few real asks your agent gets, or use the hosted "
+                "simulator, before reading anything into the scores."
+            )
+            data.warnings.append(note)
+            log.warning(note)
         # A declared tool the world cannot answer fails exactly like a world
         # fault: the agent reports the miss, an honesty rubric rewards it,
         # and the behaviour behind the tool never happens. Per-tool calls

@@ -13,27 +13,98 @@ to 0.109 releases under the wrong numbers; they are yanked.
   reviews, so both experiments are rerun at a fixed 2 epochs (`train_modal.py --epochs`). `export_sft.py`
   takes `--also` and `--keep`; `pick.py` takes `--arms`, `--key` and `--out`.
 
+## 0.127 (2026-10-02)
+
+- `recipes/04-train/decision-router` is titled "Train your own decision model router", opens with a description that
+  names decision models and LLM routing, and gains an "Open decision models" section on Kev 1.0 and Cloudflare's Clef
+  (cited, not measured).
+- `recipes/04-train/decision-router` adds `pointer-kind`: the 0.6B pointer plus the kind of question as a prior (Jev's
+  answer through part 1's table, leave-one-out on training rows). It ties Jev at every budget (−0.6 [−1.5, +0.2] at $5,
+  where the plain pointer trailed by 3.0) and beats Avengers-Pro at $10 (+1.7 [+0.1, +3.3]); the question text adds
+  under a point on top of the prior. Part 1's `jev.py --all` asks Jev about the training questions too.
+- `wai compare` and `wai.harness.compare(before, after, tasks, reward, model=)`: the before-and-after
+  prompt check. Runs the old and the new prompt (or two `wai.Harness` configs) on the same tasks and the same
+  per-draw seeds on a local model (`ollama:qwen3:4b-instruct`, any spec, or a `(messages, seed) -> str`
+  callable), three eval runs a side by default so the noise floor is measured, grades with `wai.rows`, and
+  prints `wai.compare`'s gain, 95% range and verdict. Seed 0 by
+  default and printed; same seed, same output. `wai compare --demo` runs it offline on a scripted model.
+  Recipe `recipes/02-measure/before-and-after/`; a "First command" section on the Quickstart. Packages the
+  gentlyventures.com case study (whileai 0.126, qwen3:4b-instruct on one laptop, 22 minutes, free).
+- `wai.compare` (`delta_report`) prints a per-slice table by default when rows carry a `category` or `slice`
+  key: before, after, interval and n per slice, weakest first, with `WEAK` on a slice still under 0.5 or with no gain
+  its interval supports, and `low n` on a slice under six paired tasks. The report gains `groups_weak` and
+  `by_source`; rows without a slice key print as before, and `by=False` turns it off. From a case study on 0.126
+  where the overall 0.46 -> 0.76 hid a "missing file" slice at 0.00 -> 0.17.
+- `wai self-check` (`wai.self_check()`): check the statistics behind every verdict by simulation, offline. Scripted
+  agents with known truth run through `stats.compare_runs`, the comparison `wai.compare` calls (the first trial of each
+  check also goes through `wai.compare` and must match exactly), and the report prints false alarms on identical arms,
+  95% coverage at 10 and 20 cases, detection power at 30 and 60 cases for +10 and +16 points against `holdout_size`'s
+  prediction, and false alarms with half the cases restated, each with its Monte Carlo error and OK or FLAG. 40 trials
+  per check by default (10-15 s), `--full` for 400 (the case study's count); seed printed, exit 1 on a flag. Full run,
+  seed 0: false alarm 6.0% (target 5.0%, MC error 1.1), coverage 91.8% at 10 cases and 94.0% at 20; all eight within
+  three errors. Page: [check the math yourself](https://docs.while.ai/concepts/check-the-math).
+- `wai.cheat_probes(cases, scorer)` (and `scored.cheat_probes(scorer)`) plays six degenerate agents over your
+  test cases (always refuse, always ask a clarifying question, empty, echo the prompt, long filler, the most
+  common reference answer) and grades them with your own scorer, no model call. A probe is flagged when the 95%
+  lower bound of its score reaches `CHEAT_PROBE_FLAG` (0.10); the warning names the probe, its score and its
+  interval, so a gameable reward is caught before training on it. Docs: reward-hacking, "Cheat probes".
+- `compare` (`delta_report`) prints a `repeated:` line beside every verdict and returns `report["repeats"]`:
+  how many runs reach the pooled verdict on their own ("3/3 runs agree", each run's `up`/`flat`/`DOWN`),
+  the run-to-run range of each side's score (max minus min of the per-run means), and the pooled 95%
+  interval when no line above prints it. One run a side says "1 run, noise unknown". Runs come from
+  `lineage.eval_run` (`simulate(runs=3)`) or `train_runs=` seeds. Additive: no key or verdict changes.
+  Asked for by an external case study on 0.126, where re-runs that "differed by only 0.01 to 0.02" were
+  what made a 0.46 -> 0.76 gain believable.
+- `coverage_gap` no longer counts a standing rule as covered when no ask touches it. A rule that names no
+  tool and no condition ("Never modify data.") was reached by every ask, so a suite with no ask near it read
+  "8 of 8". It now needs an ask that shares a word with it, and otherwise lands in `untested_rules`.
+- New recipe `recipes/04-train/decision-router`, part 2 of the model router: what TypeSafe's Jev is (its docs, an
+  outside reverse-engineering, and `probe_jev.py`'s seven probes), then a Qwen3-0.6B pointer model and a ModernBERT
+  encoder trained on part 1's table. Both tie Avengers-Pro and trail Jev by 3.0 points [1.5, 4.7] at $5 per 1k; a
+  true-dataset control matches Jev, so Jev's lead is recognising the benchmark.
 - Recipe `recipes/community/deepagents-review-four-arms/`: a pre-registered fair rerun (`PREREGISTRATION.md`).
   The first smithtune arm skipped smithtune's rubric co-design step; the rerun uses `rubric_codesigned.md`
   (written after reading 20 traces, checked on a 20-trace trial), equal training-set sizes, three seeds per
   arm, and a second experiment on aiming 400 new rollouts (`aim.py`) against drawing them at random.
   `smithtune_modal.py` runs the smithtune CLI on Modal where Docker is unavailable; `train_modal.py --seed`
   and `collect.py --tasks` support the new arms.
-
 - `recipes/04-train/model-router` adds an untrained router: `jev.py` asks TypeSafe's Jev what kind of
   question each one is and which model will get it right, and `run.py` scores both against Avengers-Pro at
   equal budgets. Naming the kind of question is enough to match the trained router, and beats it at $5
   per 1k (+1.6 points [+0.2, +3.0]). `prepare.py` now also writes `queries.jsonl`.
+- `wai.seeds` writes `simulate(seeds=)` asks from real material instead of the generic template:
+  `from_repo(path)` (tracked file paths, months with and without commits, a path never in the history; it
+  never reads an author, committer or message), `from_schema(source)` (tables, columns and foreign keys
+  from a SQLite file or DDL, plus an absent table; no row is read) and `from_traces(traces)` (ids the agent
+  really passed to its tools, plus one it never saw; prompts and email-shaped values are never copied).
+  Each returns `Seeds`, a `list[str]` that prints what it read and marks its negative asks; the same
+  material and `seed` give the same list. Asked for by an outside case study on 0.126 (94 of 115 offline
+  cases for a code-history agent carried a ticket id, none named a file).
+  `docs/evals.md` section 3c; `tests/api/test_seeds_from_real_material.py`.
 - Recipe pages on docs.while.ai no longer turn two prices in one paragraph into LaTeX: `scripts/gen_recipe_docs.py`
   writes `$` in prose as `&#36;`. Thirteen pages rendered "$34 ... $91" as italic math.
+- `judge_trust` no longer tells a guessing judge it reads length. The short/long gap and the filler re-judge flag
+  only when the gap is beyond noise (two-proportion z test; sign test on filler flips up versus down), and a kappa
+  under 0.2 now says the judge is guessing. Found by an external case study (gentlyventures.com) where a coin-flip
+  judge (kappa 0.04) got the length warning.
 - `recipes/04-train/model-router/charts.py` draws the recipe's two charts (cost against accuracy, and the
   OpenRouter comparison) into `docs/figures/`, and the recipe page shows them. `scripts/gen_recipe_docs.py`
   now maps a README image under `docs/` to its Mintlify path, so one link renders on GitHub and on the docs.
+- `format_delta_report` no longer prints `PASS` for a gain seen on one eval run. A `moved_unreplicated`
+  headline now reads `INCONCLUSIVE (1 eval run a side, rerun to confirm)` (or names the one side, or
+  "no re-run floor"), so the headline and the "could be noise" warning agree. `PASS` stays for `moved`,
+  a gain past the re-run band. `report["ok"]`, `headline_verdict` and exit codes are unchanged; only the
+  printed headline (`headline_word`) moved. From an external case study on 0.126.
 - Recipe `recipes/04-train/model-router/`: train a model router over twelve frontier models from
   LLMRouterBench's graded answers (kNN, Avengers-Pro clusters, a linear baseline, one cost knob). On 1,061
   held-out questions Avengers-Pro matches Gemini 2.5 Pro's accuracy (+0.1 [-2.7, +2.9] points) at 38% of its
   cost, and beats OpenRouter's auto router by +5.6 [+2.2, +8.7] points at 74% of its cost; every router sits
   about 19 points under the oracle.
+- `holdout_size` reports the noise in a count read off a small pilot: `n_tasks_low` and `n_tasks_high` are a 95%
+  percentile bootstrap over the pilot's tasks (2000 draws, seed 0), and `n_tasks_range_method` says what was
+  resampled. Twelve-task pilots from one distribution gave 30 to 166 for a gain that needs 97. `n_tasks` is unchanged.
+- `decontaminate` without `embedder=` now says, in `notes` and once per process as a `UserWarning`, that reworded
+  copies of eval questions are not caught and that `embedder=` catches them.
 - Recipe `recipes/02-measure/model-router/`: route each request to a cheap model (Gemma 3 12B) or the
   frontier model (Claude Sonnet 5.5) and score every router against random routing at the same frontier
   share. On 418 held-out MMLU-Pro questions a two-draw cascade beats random by +5.4 points [+2.4, +8.4]
@@ -62,6 +133,11 @@ to 0.109 releases under the wrong numbers; they are yanked.
   at 128/256/512 tokens and a 128-token window. The climb is posted to the platform
   (`post_platform.py`). `sdk_findings.md` records eight places the SDK could not express a
   classifier and the one (`execute=` plus a model `simulator=`) that gave it the data.
+- `simulate(simulator=False)` without `seeds=` now warns that the situations come from a generic
+  template that knows only the tool names, and the offline writer no longer invents a support
+  reference (`REF-nnnn`) when the tools name no record ids, take no id parameter and have no read
+  tool. A code-history agent got one in 94 of 115 asks before, 0 after (gentlyventures case study,
+  whileai 0.126).
 
 ## 0.126 (2026-09-25)
 

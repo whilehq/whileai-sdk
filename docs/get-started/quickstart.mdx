@@ -12,6 +12,70 @@ is the two-line version: the model as a string, the key in the
 provider's usual environment variable.
 </Note>
 
+## First command: did my prompt rewrite help?
+
+The question most people arrive with. Run the old prompt and the new one
+on the same questions, on a model on your machine, and get one verdict:
+the gain, its 95% range over tasks, and `PASS` only when the range clears
+zero. `--demo` runs a scripted model, so it needs nothing installed:
+
+```bash
+wai compare --demo
+```
+
+```text
+before-and-after check: 24 tasks x 4 replies x 3 runs per arm, model demo_model, temperature 0.7, seed 0 (same seed, same output)
+  before d9bf2a5cae9d  pass@1 0.55 [0.47..0.63]
+  after  c5bdd38064fb  pass@1 0.85 [0.80..0.90]
+
+pass_at_1: moved (+0.306, 95% +0.253..+0.358, 24 paired tasks)
+PASS
+eval noise: run_std 0.015, a delta under 0.035 is noise (t(df=4)=2.78 x run_std x sqrt(1/3 + 1/3); 3 eval runs before, 3 after)
+answered: 100.0% before, 100.0% after
+  pass_at_1                    0.549 -> 0.854  +0.306 [+0.253..+0.358]  up  (24 paired)  noise<0.035
+```
+
+With your prompts, your test set and a local model it is free: no key,
+no credits.
+
+```bash
+ollama pull qwen3:4b-instruct
+wai compare --model ollama:qwen3:4b-instruct   --before old.txt --after new.txt --tasks tasks.jsonl --reward Numeric
+```
+
+`tasks.jsonl` is one `{"prompt": ..., "reference": ...}` per line, and
+`--reward` is any `wai.verify` class or `module:function`. The seed (0
+unless you pass `--seed`) fixes every sampling draw and the bootstrap, so
+a rerun prints the same report. The same check in Python, here on a
+two-line stand-in so it runs anywhere:
+
+```python
+import whileai as wai
+
+
+def my_model(messages, seed):  # stand-in for wai.Ollama("qwen3:4b-instruct")
+    careful = "final number only" in messages[0]["content"]
+    return "The answer is 42" if careful or seed % 2 else "About forty."
+
+
+report = wai.harness.compare(
+    "You are a helpful assistant.",  # before: the prompt you ship
+    "Work it out, then give the final number only.",  # after: the rewrite
+    tasks=[{"prompt": f"Order {i}: what is 6 * 7?", "reference": "42"} for i in range(12)],
+    reward=wai.verify.Numeric(),
+    model=my_model,
+)
+print(report["verdict"], report["compare"]["metrics"]["pass_at_1"]["ci95"])
+```
+
+Both prompts draw reply `j` of a question on the same seed, the eval runs
+three times a side so the report can measure its own noise (one run reads
+INCONCLUSIVE), and the two row sets go to `wai.compare` unchanged: the
+interval and the verdict are its own. The [before-and-after recipe](/recipes/02-measure/before-and-after)
+has the null check (the old prompt on both arms reads `NO DIFFERENCE`).
+
+## The loop, offline
+
 No key, no network. `seeded_agent` is a stand-in agent. It answers
 honestly most of the time and, on a labeled fraction of rollouts, does one
 thing wrong on purpose: hedges, flatters, or claims success after a tool

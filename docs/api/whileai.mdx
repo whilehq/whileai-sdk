@@ -1055,7 +1055,7 @@ compare(
     must_not_regress: Sequence[str] = (),
     lower_is_better: Sequence[str] | Mapping[str, bool] | None = None,
     markers: Sequence[str] | None = None,
-    by: str | Callable[[dict], Any] | None = None,
+    by: str | Callable[[dict], Any] | bool | None = None,
     run_std: float | Mapping[str, float | None] | None = None,
     run_std_runs: int | None = None,
     train_runs: TrainRuns | None = None,
@@ -1119,7 +1119,11 @@ Arguments that matter:
   group whose target dropped significantly is listed in
   `groups_down` and warned about; it does not flip `ok`, which
   stays the `must_not_regress` contract (name the group's metric
-  there if it should).
+  there if it should). Left out, the split is on by default when the
+  rows carry a slice: the first `SLICE_KEYS` key (`category`,
+  then `slice`) with two or more values on both sides, and
+  `by_source` says `"auto"`. Rows with neither key print exactly
+  as before; `by=False` turns the table off.
 * `run_std` and `run_std_runs`: the evaluation's own re-run
   standard deviation, per metric or as one number, and how many
   re-runs it was computed from. See the noise floor below.
@@ -1144,6 +1148,19 @@ Arguments that matter:
   `answered_gap_points` (`ANSWERED_GAP_POINTS`, 0.1) and
   `answered_alpha` (`ANSWERED_P_MAX`, 0.01): the thresholds of the
   `ceiling` and `answered` flags below.
+
+The slice table. Printed under the metric lines, weakest slice first,
+each with before, after, the delta and its interval, and `n` (paired
+tasks). A slice is WEAK when its after-side rate is still under
+`WEAK_SLICE_SCORE` (0.5) or its interval does not support a gain
+(and it is not already at `CEILING_PASS_RATE`); `groups_weak`
+lists them in print order. A slice with fewer paired tasks than
+`slice_min_tasks(alpha)` (6 at the default `alpha`, the smallest
+n where an exact sign test can clear `alpha` at all) is marked
+`low n` and never called WEAK for want of a gain it could not have
+shown. The headline reads the same either way: an overall 0.46 ->
+0.76 can sit over a "missing file" slice at 0.00 -> 0.17, and the
+table is where that shows.
 
 Direction. A metric is higher-is-better unless `lower_is_better`
 or `LOWER_IS_BETTER_MARKERS` says otherwise, and the direction is
@@ -1409,7 +1426,8 @@ own fix. The rest: `held_out_halves` (agreement on two task-hash
 halves; if they diverge the rubric is fit to its examples),
 `length_sensitivity` (judge pass rate on short versus long replies
 among rows humans agreed on, a length bias the labels rule out as
-real), `perturbation` and `probes` when a judge callable is
+real, flagged only when the gap is beyond noise, so a judge that
+guesses is told it guesses rather than that it reads length), `perturbation` and `probes` when a judge callable is
 given, `disagreements` (the review queue of rows the judge and the
 humans disagree on), `floors`, `n_labeled` and `n_rows`.
 `print(report)` writes the whole thing
@@ -1509,6 +1527,33 @@ agreement(
 ```
 
 Agreement of this run's rewards with a trusted label. See `judge_agreement`.
+
+#### ScoredData.cheat_probes
+
+```python
+cheat_probes(
+    self,
+    scorer: Callable[..., Any],
+    probes: str | Sequence[str] = 'all',
+    flag: float = 0.1,
+    sample: int | None = 40,
+    seed: int = 0,
+)
+```
+
+Score degenerate agents on these rows' cases with `scorer`, and flag any that score well.
+
+An agent that always refuses, always asks a question, says nothing,
+echoes the ask, pads, or always gives the most common reference
+answer is played over the rows' prompts and scored by `scorer`
+(the judge or verifier these rows were graded with). The rows'
+`reward` is the real agent's score the probes are compared to.
+`flag` (`CHEAT_PROBE_FLAG`, 0.10) is the score whose interval a
+probe must clear to be flagged. Returns
+a `CheatProbeReport`; `whileai.simulations.score.cheat_probes`
+has the full account and takes a bare row list.
+
+Reference: Gao et al. 2022, arXiv:2210.10760.
 
 #### ScoredData.compare_judges
 
@@ -1833,7 +1878,11 @@ that say nothing about which question was asked, so any-n-gram flags every
 row of a template-written set; the coverage rule counts a row when one
 eval text accounts for most of it.
 
-Word overlap does not see a paraphrase. A holdout written by
+Word overlap does not see a paraphrase, and the run says so: without
+`embedder` the report's `notes` carry a line that reworded copies
+of eval questions are not caught and that `embedder=` catches them,
+and the first such call in a process raises it as a `UserWarning`
+(once, so many shards do not repeat it). A holdout written by
 re-running the generator on the same briefs was 70% within 0.85
 cosine of the training batch and 5 of 133 byte-identical; the 8-gram
 rule flagged 4 of 101 prompts and the semantic pass 16. With
@@ -2006,7 +2055,8 @@ What the situations come from:
 
 * `simulator`: the situation writer. `"hosted"` is the default
   written out, the same as leaving it unset; `False` is the offline
-  template writer, no key needed. `user_model` plays the simulated
+  template writer, no key needed. It knows only the tool names, so
+  without `seeds=` its asks are generic and `warnings` says so. `user_model` plays the simulated
   person (a backend spec; `None` means the writer's model, the
   agent's own by default).
 * `seeds`: opening asks the writer keeps and varies. Every seed is
