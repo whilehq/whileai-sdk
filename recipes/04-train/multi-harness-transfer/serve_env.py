@@ -32,6 +32,55 @@ class ModalForwarder(forwarding.PortForwarder):
 forwarding._FORWARDERS["modal"] = ModalForwarder
 os.environ["OPENENV_EXPOSE"] = "modal"
 
+
+def install_shuffle() -> None:
+    """Phase 1 arm C only (HARNESS_SHUFFLE=1): rewrite tool spelling per capture session.
+
+    The proxy resolves the session, then calls the module-level `normalise_for_capture` on the
+    chat request and `normalise_response` on the engine's answer. Both are looked up at call time,
+    so wrapping them here is enough; a context variable carries the session between the two.
+    """
+    import contextvars
+
+    from openenv.core.harness.capture import server as cap
+    from openenv.core.harness.capture import sessions
+
+    from harness_shuffle import draw, restore_response, rewrite_request
+
+    current: contextvars.ContextVar = contextvars.ContextVar("shuffle_session", default=None)
+    spellings: dict = {}
+
+    resolve = sessions.SessionRegistry.resolve
+
+    def resolve_and_remember(self, *a, **kw):
+        session = resolve(self, *a, **kw)
+        current.set(getattr(session, "session_id", None))
+        return session
+
+    sessions.SessionRegistry.resolve = resolve_and_remember
+
+    before, after = cap.normalise_for_capture, cap.normalise_response
+
+    def before_engine(chat_request):
+        before(chat_request)
+        sid = current.get()
+        if sid and chat_request.get("tools"):
+            spellings.setdefault(sid, draw(sid, chat_request["tools"]))
+        if sid in spellings:
+            rewrite_request(chat_request, spellings[sid])
+
+    def after_engine(response):
+        after(response)
+        sid = current.get()
+        if sid in spellings:
+            restore_response(response, spellings[sid])
+
+    cap.normalise_for_capture, cap.normalise_response = before_engine, after_engine
+
+
+if os.environ.get("HARNESS_SHUFFLE") == "1":
+    install_shuffle()
+
 if __name__ == "__main__":
     from smoldataenv_harbor.server import app
 

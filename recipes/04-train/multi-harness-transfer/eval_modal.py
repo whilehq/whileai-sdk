@@ -68,7 +68,7 @@ image = (
         f"git clone https://github.com/huggingface/OpenEnv.git /opt/OpenEnv && git -C /opt/OpenEnv checkout {OPENENV_SHA}",
         "pip install -e /opt/OpenEnv",
         f"git clone https://github.com/adithya-s-k/FineEnvs.git /opt/FineEnvs && git -C /opt/FineEnvs checkout {FINEENVS_SHA}",
-        "pip install --no-deps -e /opt/FineEnvs/05-multi-harness-rl/envs/harbor",
+        "pip install --no-deps -e /opt/FineEnvs/05-multi-harness-rl/envs/harbor -e /opt/FineEnvs/05-multi-harness-rl/envs/whitebox",
         "python -c \"import site,pathlib; pathlib.Path(site.getsitepackages()[0],'openenv_examples.pth').write_text('/opt/OpenEnv/envs\\n')\"",
     )
     .env({"HF_HOME": "/hf", "PYTHONUNBUFFERED": "1"})
