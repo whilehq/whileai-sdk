@@ -151,5 +151,6 @@ call client-side after a few hundred cells, consistent with the env server's
 session cap (56) filling with sessions that were never released. Fixes:
 container memory 128 GB, session cap 1,024 (FineEnvs' Space setting). The runs
 resume in place: graded cells are kept and only ungraded cells are retried,
-which is FineEnvs' own evaluator rule. No pass rate was examined to make
-these changes; coverage per checkpoint and harness is reported as planned.
+which is FineEnvs' own evaluator rule. The progress log prints a running
+pass rate, so partial numbers were visible; they played no part in these
+changes, which touch only memory and the session cap; coverage per checkpoint and harness is reported as planned.
