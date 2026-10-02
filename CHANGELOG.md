@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.130 (2026-10-02)
+
 - `wai.methods.ContextFile` defaults to `gate="paper"`, the paper's Eq. 6 on every success. Four seeds an
   arm in `recipes/papers/context-lm`: plain GRPO 0.95 pass@1, paper gate 0.97 at 15% fewer tokens, complete gate
   0.92. `gate="complete"` stays available.
