@@ -211,10 +211,23 @@ class KVLog:
     def reward(self, task: dict, answer: str) -> float:
         return 1.0 if boxed(answer) == task["gold"] else 0.0
 
+    @staticmethod
+    def final_state(task: dict) -> dict[str, str]:
+        """Each key's last value, read from the log lines. Not from
+        ``task["state"]``: a ``datasets.Dataset`` unifies dict schemas across
+        rows and gives every task the keys it never set, as ``None``."""
+        state: dict[str, str] = {}
+        for chunk in task["chunks"]:
+            for line in chunk:
+                key, value = line.removeprefix("set ").split(" = ")
+                state[key] = value
+        return state
+
     def complete(self, task: dict, file: str) -> bool:
         """Every key's final value sits next to its name in the file."""
         return all(
-            re.search(rf"\b{k}\b\W{{0,8}}{v}\b", file) is not None for k, v in task["state"].items()
+            re.search(rf"\b{k}\b\W{{0,8}}{v}\b", file) is not None
+            for k, v in self.final_state(task).items()
         )
 
 
