@@ -11,7 +11,7 @@ from whileai.context_file import Reply, as_file
 
 
 def test_reachable_one_dot_down():
-    assert wai.methods.ContextFile().gate == "complete"
+    assert wai.methods.ContextFile().gate == "paper"
     assert wai.methods.KVLog().chunks == 5
 
 

@@ -7,6 +7,9 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `wai.methods.ContextFile` defaults to `gate="paper"`, the paper's Eq. 6 on every success. Four seeds an
+  arm in `recipes/papers/context-lm`: plain GRPO 0.95 pass@1, paper gate 0.97 at 15% fewer tokens, complete gate
+  0.92. `gate="complete"` stays available.
 - Recipe `recipes/papers/ptgs/`: posterior-tempered group sampling (Oh et al., arXiv:2610.01509) against
   GRPO and Reinforce-Ada on MATH levels 3 to 5, Qwen2.5-1.5B, two seeds per arm. PTGS pass@1 +0.004
   [-0.017, +0.025] over GRPO, flat; Reinforce-Ada above both GRPO seeds at 3.7x the training time; no arm

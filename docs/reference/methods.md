@@ -394,29 +394,38 @@ $S$ is the group's successes, and $\bar c$ is the mean cost over $S$.
 $c_i$ is the trajectory's prefix-reuse cost: each step pays for the prompt
 tokens that miss the KV cache and for its reply (`ContextFile.cost`).
 
-`gate` picks $S$. `"paper"` takes every success. `"complete"`, the
-default, also requires that the last file hold the whole state the task
-defines (`env.complete`). In
-[`recipes/papers/context-lm`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/context-lm)
-the paper gate trained Qwen2.5-1.5B two ways. One seed reproduced the
-paper: pass@1 0.91 to 0.96 with 23% fewer tokens. The other learned to
-copy only the latest chunk, which answers about 70% of logs, and fell to
-0.70. A shortcut file is never complete, so under `"complete"` Eq. 6 does
-not pay it for being cheap.
+`gate` picks $S$. `"paper"`, the default, takes every success.
+`"complete"` also requires that the last file hold the whole state the
+task defines (`env.complete`), and `"off"` is plain stepwise GRPO. In
+[`recipes/papers/context-lm`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/context-lm),
+four seeds an arm on `KVLog` with Qwen2.5-1.5B:
+
+| `gate` | pass@1 | Tokens a trajectory |
+|---|---|---|
+| untrained | 0.07 | 1,209 |
+| `"off"` | 0.95 | 1,315 |
+| `"paper"` | 0.97 | 1,115 |
+| `"complete"` | 0.92 | 1,050 |
+
+The paper's rule adds +0.02 [+0.01, +0.03] over plain GRPO at 15% fewer
+tokens. `"complete"` was built against a shortcut that one seed of an
+earlier two-seed run found (copy only the latest chunk). The shortcut did
+not come back in twelve runs, and the gate cost 0.04 against the paper's
+rule.
 
 ```python
 import whileai as wai
 
 env = wai.methods.KVLog()  # 5 chunks of 8 `set key = value` lines, 8 keys
-clm = wai.methods.ContextFile()  # w_eff 0.25, gate "complete"
+clm = wai.methods.ContextFile()  # w_eff 0.25, gate "paper"
 task = env.tasks(1)[0]
 
 table = "\n".join(f"{k}: {v}" for k, v in task["state"].items())
 print(env.complete(task, table))  # True: every current value is kept
 print(env.complete(task, "\n".join(task["chunks"][-1])))  # False: the last chunk alone
 
-# One group of four: two right with complete files, one right with a shortcut, one wrong.
-print(clm.credit([1, 1, 1, 0], [900, 1100, 600, 800], edits=5, complete=[True, True, False, False]))
+# One group of four: three right at different costs, one wrong.
+print(clm.credit([1, 1, 1, 0], [900, 1100, 600, 800], edits=5))
 ```
 
 `clm.play(generate, tasks, env)` runs episodes with any generator that

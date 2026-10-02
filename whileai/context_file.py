@@ -3,7 +3,7 @@
     import whileai as wai
 
     env = wai.methods.KVLog()                     # 5 chunks of 8 `set key = value` lines, 8 keys
-    clm = wai.methods.ContextFile()               # w_eff 0.25, efficiency credit on complete files
+    clm = wai.methods.ContextFile()               # w_eff 0.25, Eq. 6 on every success
     tasks = env.tasks(512, seed=0)
     episodes = clm.play(generate, tasks, env)     # generate(messages, max_tokens) -> replies
     print(clm.report(episodes))                     # pass rate, tokens a trajectory, file size
@@ -29,12 +29,14 @@ where ``c_i`` is the trajectory's prefix-reuse cost and ``c_bar`` the mean
 over the successes. The step advantage is ``A_out + w_eff * A_eff`` on
 edits, ``A_out`` on the answer.
 
-``gate="complete"`` (the default here) counts a success for Eq. 6 only when
-its last file still holds the whole state the task defines
-(``env.complete``). Replicated in ``recipes/papers/context-lm``: with the
-paper's gate (``gate="paper"``) one Qwen2.5-1.5B seed of two learned to
-copy only the latest chunk, which answers about 70% of key-value logs at
-no saving; the complete gate stops paying that shortcut for being cheap.
+``gate="paper"`` (the default) ranks every success. ``gate="complete"``
+ranks only successes whose last file holds the task's whole state
+(``env.complete``); it was built against a shortcut one early seed found
+(copy only the latest chunk) and lost to the paper's rule over four seeds.
+Replicated in ``recipes/papers/context-lm``: on ``KVLog`` the harness takes
+Qwen2.5-1.5B from 0.07 to 0.95 pass@1 under plain stepwise GRPO, and the
+paper's Eq. 6 adds +0.02 [+0.01, +0.03] at 15% fewer tokens, four seeds an
+arm.
 """
 
 from __future__ import annotations
@@ -269,7 +271,7 @@ class ContextFile:
     ``trainer(GRPOTrainer)`` is a TRL subclass that does both."""
 
     w_eff: float = W_EFF
-    gate: str = "complete"
+    gate: str = "paper"
     file_tokens: int = FILE_TOKENS
     answer_tokens: int = ANSWER_TOKENS
 
