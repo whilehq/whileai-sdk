@@ -1,26 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 430" width="560" height="430">
 <rect x="0.5" y="0.5" width="559" height="429" rx="14" fill="#FFFFFF" stroke="#D1D5DB"/>
-<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">What each method spent</text>
-<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">Wasted practice: every try agreed, so nothing was learned.</text>
-<text x="24" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">WASTED PRACTICE</text>
-<text x="24" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Plain RL</text>
-<rect x="174" y="136" width="186.73125539794563" height="24" rx="5" fill="#9CA3AF"/>
-<text x="370.73125539794563" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">68%</text>
-<text x="24" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Temperature fix</text>
-<rect x="174" y="174" width="194.6375" height="24" rx="5" fill="#B5602A"/>
-<text x="378.6375" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">71%</text>
-<text x="24" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Practice more</text>
-<rect x="174" y="212" width="113.85" height="24" rx="5" fill="#3F8F6B"/>
-<text x="297.85" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">41%</text>
-<text x="24" y="274" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">MINUTES TO TRAIN ONE RUN</text>
-<text x="24" y="313" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Plain RL</text>
-<rect x="174" y="296" width="72.45" height="24" rx="5" fill="#9CA3AF"/>
-<text x="256.45" y="313" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">52 min</text>
-<text x="24" y="351" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Temperature fix</text>
-<rect x="174" y="334" width="72.45" height="24" rx="5" fill="#B5602A"/>
-<text x="256.45" y="351" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">52 min</text>
-<text x="24" y="389" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Practice more</text>
-<rect x="174" y="372" width="270.48" height="24" rx="5" fill="#3F8F6B"/>
-<text x="454.48" y="389" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">196 min</text>
-<text x="24" y="414" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="400" fill="#6B7280" text-anchor="start">Plain RL and the fix both make 4 tries, so they train in the same time.</text>
+<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">Training signal and sampling cost</text>
+<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">Mean over 80 steps and both seeds, 12 prompts per step.</text>
+<text x="24" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">ZERO-ADVANTAGE GROUPS, SHARE OF PROMPTS</text>
+<text x="24" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">GRPO</text>
+<rect x="174" y="136" width="200.2625057891011" height="24" rx="5" fill="#9CA3AF"/>
+<text x="384.2625057891011" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">0.68</text>
+<text x="24" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">PTGS</text>
+<rect x="174" y="174" width="208.74166666666667" height="24" rx="5" fill="#B5602A"/>
+<text x="392.7416666666667" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">0.71</text>
+<text x="24" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Reinforce-Ada</text>
+<rect x="174" y="212" width="122.1" height="24" rx="5" fill="#3F8F6B"/>
+<text x="306.1" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">0.41</text>
+<text x="24" y="274" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">ROLLOUTS GENERATED PER PROMPT</text>
+<text x="24" y="313" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">GRPO</text>
+<rect x="174" y="296" width="45.53846153846154" height="24" rx="5" fill="#9CA3AF"/>
+<text x="229.53846153846155" y="313" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">4.0</text>
+<text x="24" y="351" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">PTGS</text>
+<rect x="174" y="334" width="45.53846153846154" height="24" rx="5" fill="#B5602A"/>
+<text x="229.53846153846155" y="351" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">4.0</text>
+<text x="24" y="389" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Reinforce-Ada</text>
+<rect x="174" y="372" width="264.9769230769231" height="24" rx="5" fill="#3F8F6B"/>
+<text x="448.9769230769231" y="389" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">23.3</text>
+<text x="24" y="414" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="400" fill="#6B7280" text-anchor="start">Training time per seed on L40S: PTGS 52.5 min, Reinforce-Ada 196.0 min.</text>
 </svg>

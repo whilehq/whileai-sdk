@@ -1,41 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 480" width="560" height="480">
 <rect x="0.5" y="0.5" width="559" height="479" rx="14" fill="#FFFFFF" stroke="#D1D5DB"/>
-<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">Math problems solved</text>
-<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">320 held-out problems. Dots are the two runs, bars their average.</text>
-<text x="24" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">ON THE FIRST TRY</text>
-<line x1="239.66875000000002" y1="128" x2="239.66875000000002" y2="250" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 4"/>
-<text x="239.66875000000002" y="270" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="middle">untrained 20%</text>
-<text x="24" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Plain RL</text>
-<rect x="174" y="136" width="178.24374999999998" height="24" rx="5" fill="#9CA3AF40"/>
-<circle cx="373.96875" cy="148" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
-<circle cx="330.51874999999995" cy="148" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
-<text x="387.96875" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">29%</text>
-<text x="24" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Temperature fix</text>
-<rect x="174" y="174" width="206.88125000000002" height="24" rx="5" fill="#B5602A40"/>
-<circle cx="378.90625" cy="186" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
-<circle cx="382.85625000000005" cy="186" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
-<text x="396.85625000000005" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">31%</text>
-<text x="24" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Practice more</text>
-<rect x="174" y="212" width="255.76250000000005" height="24" rx="5" fill="#3F8F6B40"/>
-<circle cx="413.46875" cy="224" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
-<circle cx="446.05625000000003" cy="224" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
-<text x="460.05625000000003" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">35%</text>
-<text x="24" y="304" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">WITHIN 8 TRIES</text>
-<line x1="241.15000000000006" y1="318" x2="241.15000000000006" y2="440" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 4"/>
-<text x="241.15000000000006" y="460" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="middle">untrained 50%</text>
-<text x="24" y="343" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Plain RL</text>
-<rect x="174" y="326" width="144.17500000000007" height="24" rx="5" fill="#9CA3AF40"/>
-<circle cx="335.95000000000005" cy="338" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
-<circle cx="300.4000000000001" cy="338" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
-<text x="349.95000000000005" y="343" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">56%</text>
-<text x="24" y="381" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Temperature fix</text>
-<rect x="174" y="364" width="193.55000000000007" height="24" rx="5" fill="#B5602A40"/>
-<circle cx="335.95000000000005" cy="376" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
-<circle cx="399.1500000000001" cy="376" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
-<text x="413.1500000000001" y="381" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">60%</text>
-<text x="24" y="419" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Practice more</text>
-<rect x="174" y="402" width="235.0250000000001" height="24" rx="5" fill="#3F8F6B40"/>
-<circle cx="395.20000000000005" cy="414" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
-<circle cx="422.85" cy="414" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
-<text x="436.85" y="419" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">64%</text>
+<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">MATH-500 levels 3 to 5, n = 320, k = 8</text>
+<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">Dots: seeds 17, 18. Bar: mean. Whisker: seed-17 95% CI.</text>
+<text x="24" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">PASS@1</text>
+<line x1="238.421875" y1="128" x2="238.421875" y2="250" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 4"/>
+<text x="238.421875" y="270" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="middle">base 0.202</text>
+<text x="24" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">GRPO</text>
+<rect x="174" y="136" width="174.859375" height="24" rx="5" fill="#9CA3AF40"/>
+<line x1="321.734375" y1="148" x2="418.125" y2="148" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"/>
+<circle cx="370.171875" cy="148" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="327.546875" cy="148" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
+<text x="430.125" y="153" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">0.291</text>
+<text x="24" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">PTGS</text>
+<rect x="174" y="174" width="202.95312500000006" height="24" rx="5" fill="#B5602A40"/>
+<line x1="326.578125" y1="186" x2="423.453125" y2="186" stroke="#B5602A" stroke-width="2" stroke-linecap="round"/>
+<circle cx="375.015625" cy="186" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="378.890625" cy="186" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
+<text x="435.453125" y="191" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">0.314</text>
+<text x="24" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Reinforce-Ada</text>
+<rect x="174" y="212" width="250.90625" height="24" rx="5" fill="#3F8F6B40"/>
+<line x1="358.546875" y1="224" x2="460.265625" y2="224" stroke="#3F8F6B" stroke-width="2" stroke-linecap="round"/>
+<circle cx="408.921875" cy="224" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="440.890625" cy="224" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
+<text x="472.265625" y="229" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">0.352</text>
+<text x="24" y="304" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">PASS@8</text>
+<line x1="239.87500000000006" y1="318" x2="239.87500000000006" y2="440" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 4"/>
+<text x="239.87500000000006" y="460" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#6B7280" text-anchor="middle">base 0.503</text>
+<text x="24" y="343" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">GRPO</text>
+<rect x="174" y="326" width="141.43750000000006" height="24" rx="5" fill="#9CA3AF40"/>
+<circle cx="332.875" cy="338" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="298.00000000000006" cy="338" r="7.5" fill="#9CA3AF" stroke="#FFFFFF" stroke-width="2"/>
+<text x="344.875" y="343" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#9CA3AF" text-anchor="start">0.564</text>
+<text x="24" y="381" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">PTGS</text>
+<rect x="174" y="364" width="189.87500000000006" height="24" rx="5" fill="#B5602A40"/>
+<circle cx="332.875" cy="376" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="394.8750000000001" cy="376" r="7.5" fill="#B5602A" stroke="#FFFFFF" stroke-width="2"/>
+<text x="406.8750000000001" y="381" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#B5602A" text-anchor="start">0.603</text>
+<text x="24" y="419" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="600" fill="#0B1220" text-anchor="start">Reinforce-Ada</text>
+<rect x="174" y="402" width="230.5625000000001" height="24" rx="5" fill="#3F8F6B40"/>
+<circle cx="391.0" cy="414" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
+<circle cx="418.125" cy="414" r="7.5" fill="#3F8F6B" stroke="#FFFFFF" stroke-width="2"/>
+<text x="430.125" y="419" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="15" font-weight="700" fill="#3F8F6B" text-anchor="start">0.636</text>
 </svg>
