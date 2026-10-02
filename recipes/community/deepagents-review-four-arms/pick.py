@@ -11,6 +11,10 @@ tool-call signatures so one habit does not fill the set.
 The pick is written back to LangSmith as feedback `while_pick = 1` on each
 chosen run, so smithtune pulls it with an ordinary filter:
     smithtune dataset pull ... --filter 'and(eq(feedback_key, "while_pick"), eq(feedback_score, 1))'
+
+Experiment B of the rerun (PREREGISTRATION.md) picks over the original traces
+plus the aimed rollouts, with the same rule and its own feedback key:
+    python pick.py --arms base,b-aimed --key while_pick_b --out while_pick_b.json --target 1000
 """
 
 from __future__ import annotations
@@ -58,6 +62,9 @@ def main(argv: list[str] | None = None) -> int:
         "--target", type=int, default=150, help="traces to keep; match smithtune's count"
     )
     p.add_argument("--dry-run", action="store_true", help="pick, but write no feedback")
+    p.add_argument("--arms", default="base", help="comma-separated row sets to pool")
+    p.add_argument("--key", default="while_pick", help="the LangSmith feedback key to write")
+    p.add_argument("--out", default=PICK.name, help="where to write the picked run ids")
     args = p.parse_args(argv)
 
     from langsmith import Client
@@ -67,7 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     # review spans two traces and smithtune's thread check rejects it).
     pool = [
         r
-        for r in report.load("base", "train")
+        for arm in args.arms.split(",")
+        for r in report.load(arm, "train")
         if r["run_id"] and not r["error"] and not r.get("nudged")
     ]
     tools = tool_sequences(ls, pool)
@@ -105,12 +113,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
 
-    PICK.write_text(
+    (HERE / args.out).write_text(
         json.dumps({"budget": BUDGET, "run_ids": [r["run_id"] for r in picked]}, indent=2)
     )
     if not args.dry_run:
         for r in picked:
-            ls.create_feedback(r["run_id"], key="while_pick", score=1)
+            ls.create_feedback(r["run_id"], key=args.key, score=1)
     return 0
 
 

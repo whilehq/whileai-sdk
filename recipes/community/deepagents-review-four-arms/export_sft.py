@@ -11,12 +11,17 @@ smithtune would have.
     docker run ... smithtune:0.1.0 python /recipe/export_sft.py while   /work/sft-with
 
 A council directory keeps only trajectories its labels.jsonl marks keep=1.
+The rerun (PREREGISTRATION.md) adds two options: `--also DIR` adds another
+pull (Experiment B's pools span two LangSmith projects), and `--keep FILE`
+keeps only the trace ids listed in FILE (equalize.py's equal-size cut).
+
+    python /recipe/export_sft.py council-v2 /work/a-without --keep /work/keep/a-without.json
 """
 
 from __future__ import annotations
 
+import argparse
 import json
-import sys
 from pathlib import Path
 
 from smithtune.bindings import read_bindings
@@ -29,7 +34,7 @@ from smithtune.rendering import load_training_renderer, render_row_tokens
 MODEL = MODEL_SPECS["qwen3p8-27b"]
 
 
-def load(pull: Path) -> list[dict]:
+def load(pull: Path, only: set[str] | None = None) -> list[dict]:
     keep = None
     labels = pull / "labels.jsonl"
     if labels.exists():
@@ -41,7 +46,8 @@ def load(pull: Path) -> list[dict]:
     examples = []
     for f in sorted((pull / "conversations").glob("*.json")):
         ex = json.loads(f.read_text())["example"]
-        if keep is None or ex["id"] in keep:
+        trace = ex["metadata"].get("source_trace_id")
+        if (keep is None or ex["id"] in keep) and (only is None or trace in only):
             examples.append(ex)
     return examples
 
@@ -53,8 +59,17 @@ def tools_of(example: dict) -> list[dict]:
 
 
 def main() -> int:
-    pull, out = Path(sys.argv[1]), Path(sys.argv[2])
-    examples = load(pull)
+    p = argparse.ArgumentParser()
+    p.add_argument("pull", type=Path)
+    p.add_argument("out", type=Path)
+    p.add_argument("--also", type=Path, action="append", default=[])
+    p.add_argument("--keep", type=Path, help="JSON list of source trace ids to keep")
+    args = p.parse_args()
+    pull, out = args.pull, args.out
+    only = set(json.loads(args.keep.read_text())) if args.keep else None
+    examples = [ex for d in (pull, *args.also) for ex in load(d, only)]
+    if only is not None and len(examples) != len(only):
+        raise SystemExit(f"--keep lists {len(only)} traces but {len(examples)} were found")
     warnings: list[dict] = []
     rows = prepare_sft_rows(
         examples,
@@ -96,7 +111,8 @@ def main() -> int:
         counts[f"{name}_datums"] = n
     summary = {
         **counts,
-        "pull": str(pull),
+        "pull": [str(d) for d in (pull, *args.also)],
+        "keep": str(args.keep) if args.keep else None,
         "examples": len(examples),
         "rows": len(rows),
         "excluded": len(warnings),

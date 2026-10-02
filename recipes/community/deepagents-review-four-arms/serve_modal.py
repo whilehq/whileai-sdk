@@ -58,7 +58,7 @@ app = modal.App("deepagents-review-serve")
     gpu="H200",
     scaledown_window=15 * 60,
     timeout=24 * 60 * 60,
-    max_containers=3,
+    max_containers=6,  # 12 adapters at once in the fixed-epoch rerun
     volumes={"/runs": runs, "/hf": hf},
     secrets=[modal.Secret.from_name("review-server-key")],
 )
