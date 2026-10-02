@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe page `recipes/papers/ptgs/` rebuilt around four figures drawn from `results.json` by `figures.py`
+  (`docs/figures/ptgs-*.svg`); the prose is cut to one line per figure.
 ## 0.130 (2026-10-02)
 
 - `wai.methods.ContextFile` defaults to `gate="paper"`, the paper's Eq. 6 on every success. Four seeds an
