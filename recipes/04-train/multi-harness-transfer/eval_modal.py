@@ -115,7 +115,7 @@ def _chat_template(path):
     image=image,
     gpu="H100",
     cpu=8,
-    memory=32768,
+    memory=131072,  # amendment 2: ~8 MB per rollout is retained; 32 GB died near 4,000 cells
     timeout=24 * 3600,
     volumes={"/vol": vol, "/hf": hf_cache},
     secrets=[modal.Secret.from_name("huggingface-secret")],
@@ -158,7 +158,7 @@ def run_eval(model_key: str, harnesses: list[str], tasks: int, samples: int, con
         "OPENENV_LLM_URL": "http://127.0.0.1:8000",
         "OPENENV_MODEL": BASE,
         "OPENENV_MAX_OUTPUT_TOKENS": "4096",
-        "MAX_CONCURRENT_ENVS": str(max(40, concurrency + 8)),
+        "MAX_CONCURRENT_ENVS": "1024",  # amendment 2: FineEnvs Space setting; 56 filled with leaked sessions
         "OPENENV_HARBOR_REWARD_KEY": "correctness,reward",
         "OPENENV_HARBOR_AGENT_VERSIONS": json.dumps(AGENT_VERSIONS),
     }

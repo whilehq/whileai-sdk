@@ -141,3 +141,15 @@ Changes, none of which touch the hypotheses, arms or win rule:
   Harbor, so the Harbor pin fixes it.
 - FineEnvs' evaluator imports the tokenizer helper from their whitebox
   package, so the image installs it too. No behavior change.
+
+## Amendment 2 (2026-10-02, infrastructure only, no result read)
+
+The first Phase 0 launch stopped at about 3,990 of 7,500 cells per checkpoint:
+the container was killed (exit -9) once about 8 MB per finished rollout had
+filled its 32 GB. Separately, the two SFT runs began failing every rollout
+call client-side after a few hundred cells, consistent with the env server's
+session cap (56) filling with sessions that were never released. Fixes:
+container memory 128 GB, session cap 1,024 (FineEnvs' Space setting). The runs
+resume in place: graded cells are kept and only ungraded cells are retried,
+which is FineEnvs' own evaluator rule. No pass rate was examined to make
+these changes; coverage per checkpoint and harness is reported as planned.
