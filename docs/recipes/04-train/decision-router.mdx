@@ -12,7 +12,7 @@ then `cd recipes/04-train/decision-router` before running the commands below. [B
 Part 2 of building your own model router. In part 1
 ([`model-router`](/recipes/04-train/model-router)) an untrained decision model, TypeSafe's
 Jev, routed twelve frontier models as well as the routers trained for it.
-This recipe works out what Jev is from the outside, then trains two small
+This recipe works out what Jev is from the outside, then trains three small
 models of that shape on the same table and puts them, Jev and part 1's best
 router through one test: the same budgets, the same 1,061 held-out
 questions, every pair compared question by question.
@@ -33,7 +33,7 @@ uv add whileai numpy modal
 cd recipes/04-train/decision-router
 python run.py --dry-run     # offline: seeded stand-in predictions through the scoring, what smoke.sh runs
 python probe_jev.py         # optional: the seven Jev probes below (TYPESAFE_API_KEY, a few cents)
-python run.py --train       # train both shapes, three seeds each, on Modal L40S, then score
+python run.py --train       # train all three, three seeds each, on Modal L40S, then score
 python run.py               # rescore from out/*.json without training
 ```
 
@@ -85,7 +85,7 @@ with a proper scoring rule, the property RLCR proves for a Brier reward [8].
 The size (Hume estimates about 10B active parameters) and whether the
 backbone is a mixture of experts are guesses.
 
-## Two models of that shape
+## Three models of that shape
 
 `train_modal.py` trains both on part 1's split (3,305 questions to fit,
 1,163 to pick the epoch, the temperature and the knob, 1,061 held out). The
@@ -104,8 +104,16 @@ target for each question is twelve numbers: whether each model got it right
   [12], 150M parameters, reads the question; a fixed twelve-way head scores
   the models. It cannot take a model it was not trained on, which the
   pointer can.
+- **`pointer-kind`**, the pointer plus the kind of question. Jev names the
+  kind (part 1's `jev.py --all` asks it about every question, training ones
+  included), and part 1's table turns that into each model's expected
+  accuracy, as `jev-task` does. That prior is added to the pointer's logits
+  with a learned weight; the head starts at zero, so training starts from
+  the prior and learns a correction from the question text. A training
+  question is left out of its own kind's average, so its label never feeds
+  its own input.
 
-Both minimise log loss, a proper scoring rule, so the best answer is the
+All three minimise log loss, a proper scoring rule, so the best answer is the
 true probability. They keep the epoch with the lowest val loss and then fit
 one temperature on val, the standard fix for over-confident networks [13].
 Each runs with three seeds; the seed with the lowest val loss is reported
@@ -115,18 +123,19 @@ model's mean cost.
 
 ## Result
 
-Held out, 1,061 questions. Trained on 2026-10-01: six runs on Modal L40S,
-about 30 minutes and about &#36;5. Jev's rows are part 1's, from the same day.
+Held out, 1,061 questions. Trained on 2026-10-01: nine runs on Modal L40S,
+about an hour and about &#36;8 in all. Jev's rows are part 1's, from the same
+day.
 
-![Accuracy at five budgets for Jev, Avengers-Pro, the two trained models and the true-dataset control](/figures/decision-router-budgets.png)
+![Accuracy at five budgets for Jev, Avengers-Pro, the three trained models and the true-dataset control](/figures/decision-router-budgets.png)
 
-| budget per 1k | `avengers-pro` | `jev-task` | `pointer` (seed 1) | `encoder` (seed 0) | true dataset (control) |
-|---|---|---|---|---|---|
-| &#36;5 | 0.560 (&#36;5.25) | 0.576 (&#36;4.55) | 0.546 (&#36;6.27) | 0.549 (&#36;5.86) | 0.581 (&#36;6.51) |
-| &#36;10 | 0.565 (&#36;5.64) | 0.583 (&#36;7.05) | 0.561 (&#36;11.82) | 0.559 (&#36;12.69) | 0.585 (&#36;6.89) |
-| &#36;20 | 0.595 (&#36;19.48) | 0.615 (&#36;26.47) | 0.599 (&#36;24.07) | 0.581 (&#36;23.83) | 0.585 (&#36;6.89) |
-| &#36;35 | 0.622 (&#36;35.09) | 0.628 (&#36;38.04) | 0.625 (&#36;37.70) | 0.624 (&#36;40.51) | 0.646 (&#36;41.92) |
-| &#36;50 | 0.638 (&#36;53.21) | 0.643 (&#36;56.58) | 0.636 (&#36;54.62) | 0.630 (&#36;48.09) | 0.645 (&#36;43.80) |
+| budget per 1k | `avengers-pro` | `jev-task` | `pointer` (seed 1) | `encoder` (seed 0) | `pointer-kind` (seed 2) | true dataset (control) |
+|---|---|---|---|---|---|---|
+| &#36;5 | 0.560 (&#36;5.25) | 0.576 (&#36;4.55) | 0.546 (&#36;6.27) | 0.549 (&#36;5.86) | 0.570 (&#36;4.33) | 0.581 (&#36;6.51) |
+| &#36;10 | 0.565 (&#36;5.64) | 0.583 (&#36;7.05) | 0.561 (&#36;11.82) | 0.559 (&#36;12.69) | 0.582 (&#36;10.83) | 0.585 (&#36;6.89) |
+| &#36;20 | 0.595 (&#36;19.48) | 0.615 (&#36;26.47) | 0.599 (&#36;24.07) | 0.581 (&#36;23.83) | 0.610 (&#36;21.93) | 0.585 (&#36;6.89) |
+| &#36;35 | 0.622 (&#36;35.09) | 0.628 (&#36;38.04) | 0.625 (&#36;37.70) | 0.624 (&#36;40.51) | 0.630 (&#36;37.15) | 0.646 (&#36;41.92) |
+| &#36;50 | 0.638 (&#36;53.21) | 0.643 (&#36;56.58) | 0.636 (&#36;54.62) | 0.630 (&#36;48.09) | 0.646 (&#36;55.25) | 0.645 (&#36;43.80) |
 
 Each cell is accuracy, with the held-out cost per 1,000 questions in
 brackets. The knob is picked on val, so a router can spend somewhat more or
@@ -158,8 +167,21 @@ least likely to carry over. A 3,305-question training set did not teach our
 models to separate the twelve sources as sharply as a model that reads them
 in plain English.
 
+**Given the kind, our model matches Jev, and the question text adds little
+on top.** `pointer-kind` minus Jev is −0.6 points [−1.5, +0.2] at &#36;5,
+−0.1 [−1.4, +1.3] at &#36;10 and +0.3 [−0.4, +1.0] at &#36;50: a tie at every
+budget, where the plain pointer trailed by 3.0 at &#36;5. Against Avengers-Pro
+it is ahead at every budget, and the interval clears zero at &#36;10 (+1.7
+[+0.1, +3.3]). Its other two seeds score up to 1.5 points lower. But
+matching `jev-task` is what the prior alone already does; the pointer's
+correction from the question text is within a point of nothing at every
+budget. And it needs Jev's answer at inference. On your own traffic the
+kind would come from a classifier over your own categories, and how well
+that works depends on how well your categories separate the models.
+
 **Speed.** One question at a time on an L40S: the encoder takes 14 to 20 ms,
-the pointer 58 to 60 ms (twelve markers, one order). Jev took 0.27 s median
+the pointer 30 to 60 ms (twelve markers, one order; `pointer-kind` adds a
+Jev call or your own classifier). Jev took 0.27 s median
 over the network with eight requests in flight. Either of ours is fast
 enough to update the pick as someone types; Jev is fast enough to update it
 when they pause.
@@ -174,18 +196,18 @@ when they pause.
   very different amounts on different questions) might pick better.
 - **Small, untuned models.** One size each, four epochs, LoRA rank 16, the
   learning rates are conventions. A larger base, or a pointer started from
-  a model that already reads lists of options, might close the gap to Jev;
-  we did not test it.
+  a model that already reads lists of options, might add more on top of the
+  prior; we did not test it.
 - **Jev's architecture is inferred, not known.** The pointer copies the
   shape the evidence supports, not Jev itself.
 
 ## Next
 
-The control row points at the cheapest gain: give the trained model the
-kind of question as an input or a second head (Jev's `task` answer, or a
-classifier over your own traffic's categories) and let the table supply
-the prior. A reply to part 1 suggested the other: let people overrule the
-pick, and train on the overrules. They are a label no
+`pointer-kind` shows where the gain was: the kind of question carries the
+signal, and the question text adds little beyond it. On your own traffic,
+start with the categories you already have and a table of how each model
+does on each. A reply to part 1 suggested the next input: let people
+overrule the pick, and train on the overrules. They are a label no
 question-only router has [14].
 
 ## References

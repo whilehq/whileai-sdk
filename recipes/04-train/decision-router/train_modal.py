@@ -1,6 +1,6 @@
 """Train a small decision model that says, for one question, how likely each of twelve models is to get it right.
 
-Two shapes, both trained on the same table as part 1 (recipes/04-train/model-router):
+Three shapes, all trained on the same table as part 1 (recipes/04-train/model-router):
 
 - `pointer`: the shape the outside evidence points to for TypeSafe's Jev [1, 2].
   A small causal LM (Qwen3-0.6B, LoRA) reads the question once, then the
@@ -10,6 +10,9 @@ Two shapes, both trained on the same table as part 1 (recipes/04-train/model-rou
   later names attend to earlier ones, so the options are read together [2].
 - `encoder`: the fast baseline the open clones use [3]. ModernBERT-base
   reads the question; a fixed twelve-way head gives every model a logit.
+- `pointer-kind`: the pointer plus a prior from the kind of question (Jev's
+  answer through the training table, run.py builds it); the head starts at
+  zero and learns a correction on top of the prior.
 
 Both minimise log loss on "did model m answer correctly" (a proper scoring
 rule, so the probabilities are pushed toward honest [4]), keep the epoch
@@ -46,6 +49,7 @@ LORA_RANK = 16  # convention for a sub-1B LoRA, untested here
 LORA_ALPHA = 32
 LR = {"pointer": 2e-4, "encoder": 5e-5}  # LoRA vs full fine-tune conventions, untested here
 HEAD_LR = 1e-3
+PRIOR_EPS = 0.02  # a prior of 0 or 1 is clipped before the logit; convention, untested
 EVAL_ORDERS = 4  # pointer: average logits over this many shuffled lists at val/test
 LATENCY_REPS = 50
 
@@ -87,14 +91,15 @@ def train(arm: str, seed: int, models: list[str], rows: list[dict]) -> dict:
     rng = random.Random(seed)
     dev = "cuda"
     K = len(models)
-    base = POINTER_BASE if arm == "pointer" else ENCODER_BASE
+    pointer = arm.startswith("pointer")  # "pointer" or "pointer-kind"
+    base = POINTER_BASE if pointer else ENCODER_BASE
     tok = AutoTokenizer.from_pretrained(base)
     # The LM's frozen weights in bf16; anything trained (LoRA, the encoder, the heads) in fp32 under autocast.
-    dtype = torch.bfloat16 if arm == "pointer" else torch.float32
+    dtype = torch.bfloat16 if pointer else torch.float32
     lm = AutoModel.from_pretrained(base, torch_dtype=dtype).to(dev)
     hidden = lm.config.hidden_size
 
-    if arm == "pointer":
+    if pointer:
         from peft import LoraConfig, get_peft_model
 
         lm = get_peft_model(
@@ -162,9 +167,24 @@ def train(arm: str, seed: int, models: list[str], rows: list[dict]) -> dict:
             return z
 
         params = [
-            {"params": [p for p in lm.parameters() if p.requires_grad], "lr": LR[arm]},
+            {"params": [p for p in lm.parameters() if p.requires_grad], "lr": LR["pointer"]},
             {"params": head.parameters(), "lr": HEAD_LR},
         ]
+        if arm == "pointer-kind":
+            # The kind as a prior: each row carries every model's training accuracy on the
+            # kinds Jev says the question could be. The model starts at that prior (head at
+            # zero, weight one) and learns a correction on top of it.
+            prior = torch.tensor([r["prior"] for r in rows], dtype=torch.float32, device=dev)
+            prior_logit = torch.logit(prior.clamp(PRIOR_EPS, 1 - PRIOR_EPS))
+            torch.nn.init.zeros_(head.weight)
+            torch.nn.init.zeros_(head.bias)
+            prior_w = torch.nn.Parameter(torch.ones(1, device=dev))
+            params.append({"params": [prior_w], "lr": HEAD_LR})
+            text_logits = logits_for
+
+            def logits_for(ix, perms):
+                return text_logits(ix, perms) + prior_w * prior_logit[ix]
+
     else:
         head = torch.nn.Linear(hidden, K).to(dev)
         texts = [r["query"] for r in rows]
@@ -182,7 +202,7 @@ def train(arm: str, seed: int, models: list[str], rows: list[dict]) -> dict:
             return head((h * m).sum(1) / m.sum(1))
 
         params = [
-            {"params": lm.parameters(), "lr": LR[arm]},
+            {"params": lm.parameters(), "lr": LR["encoder"]},
             {"params": head.parameters(), "lr": HEAD_LR},
         ]
 
@@ -207,7 +227,7 @@ def train(arm: str, seed: int, models: list[str], rows: list[dict]) -> dict:
         lm.eval()
         zs = []
         for b in batches(ix, 8):
-            if arm == "pointer":
+            if pointer:
                 orng = random.Random(1234)  # the same shuffled lists for every epoch and seed
                 z = (
                     sum(logits_for(b, perms_for(len(b), orng)) for _ in range(EVAL_ORDERS))
@@ -226,11 +246,7 @@ def train(arm: str, seed: int, models: list[str], rows: list[dict]) -> dict:
         for b in batches(split["fit"], BATCH, rng):
             for mb in batches(b, MICRO):
                 with torch.autocast("cuda", dtype=torch.bfloat16):
-                    z = (
-                        logits_for(mb, perms_for(len(mb), rng))
-                        if arm == "pointer"
-                        else logits_for(mb)
-                    )
+                    z = logits_for(mb, perms_for(len(mb), rng)) if pointer else logits_for(mb)
                 loss = F.binary_cross_entropy_with_logits(z.float(), Y[mb]) * len(mb) / len(b)
                 loss.backward()
             torch.nn.utils.clip_grad_norm_([p for g in params for p in g["params"]], 1.0)
@@ -272,7 +288,7 @@ def train(arm: str, seed: int, models: list[str], rows: list[dict]) -> dict:
         for _ in range(LATENCY_REPS):
             torch.cuda.synchronize()
             s = time.perf_counter()
-            logits_for([med], [list(range(K))]) if arm == "pointer" else logits_for([med])
+            logits_for([med], [list(range(K))]) if pointer else logits_for([med])
             torch.cuda.synchronize()
             times.append(time.perf_counter() - s)
     return {

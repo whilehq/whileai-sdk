@@ -1,7 +1,7 @@
-"""Score two small decision models you train yourself against part 1's routers and TypeSafe's Jev.
+"""Score small decision models you train yourself against part 1's routers and TypeSafe's Jev.
 
 Part 1 (recipes/04-train/model-router) trained routers that read a question's
-embedding, and asked Jev to route untrained. This part trains two small
+embedding, and asked Jev to route untrained. This part trains small
 models that read the question itself and give each of the twelve models a
 probability of answering it correctly (train_modal.py), then puts every
 router through the same test: the knob picked on val at a fixed budget, the
@@ -41,7 +41,7 @@ _p1 = _part1()
 KNN, KNOBS, AvengersPro, JevTask = _p1.KNN, _p1.KNOBS, _p1.AvengersPro, _p1.JevTask
 as_rows, jev_features, split, load_table = _p1.as_rows, _p1.jev_features, _p1.split, _p1.load
 
-ARMS = ("pointer", "encoder")
+ARMS = ("pointer", "encoder", "pointer-kind")
 SEEDS = (0, 1, 2)
 BUDGETS = (5, 10, 20, 35, 50)  # USD per 1,000 questions, as in part 1
 ECE_BINS = 10
@@ -92,12 +92,42 @@ def stand_in(seed=0, n=400, k=5):
         np.array([f"q{i}" for i in range(n)]),
         S,
         C,
-        {"pointer": noisy, "encoder": noisy[:, ::-1] * 0 + noisy.mean(0)},
+        {"pointer": noisy, "pointer-kind": noisy, "encoder": noisy[:, ::-1] * 0 + noisy.mean(0)},
     )
 
 
+def kind_prior(rows, fit, models, datasets, out1: Path):
+    """Each question's prior for pointer-kind: every model's fit-split accuracy on each
+    kind, averaged over Jev's probabilities for the kinds (part 1's jev-task). A fit
+    question is left out of its own kind's average, so its label never feeds its input.
+    Needs jev.jsonl over every question (part 1: python jev.py --all)."""
+    task = {}
+    for line in (out1 / "jev.jsonl").open(encoding="utf-8"):
+        rec = json.loads(line)
+        task[rec["id"]] = [rec["task"].get(d, 0.0) for d in datasets]
+    missing = [r["id"] for r in rows if r["id"] not in task]
+    if missing:
+        raise SystemExit(f"jev.jsonl lacks {len(missing)} questions: run part 1's jev.py --all")
+    S = np.array([[r["score"][m] for m in models] for r in rows], dtype=float)
+    kind = np.array([datasets.index(r["dataset"]) for r in rows])
+    total = np.zeros((len(datasets), len(models)))
+    count = np.zeros(len(datasets))
+    for i in np.where(fit)[0]:
+        total[kind[i]] += S[i]
+        count[kind[i]] += 1
+    out = []
+    for i, r in enumerate(rows):
+        t, c = total.copy(), count.copy()
+        if fit[i]:
+            t[kind[i]] -= S[i]
+            c[kind[i]] -= 1
+        acc = t / c.clip(1)[:, None]
+        out.append((np.array(task[r["id"]]) @ acc).tolist())
+    return out
+
+
 def build_rows(out1: Path, dest: Path):
-    from prepare import MODELS
+    from prepare import DATASETS, MODELS
 
     rows, _ = load_table(out1)
     queries = {}
@@ -106,6 +136,7 @@ def build_rows(out1: Path, dest: Path):
         queries[q["id"]] = q["query"]
     fit, val, _ = split(rows)
     tag = np.where(fit, "fit", np.where(val, "val", "test"))
+    prior = kind_prior(rows, fit, list(MODELS), [d for d, _ in DATASETS], out1)
     payload = {
         "models": list(MODELS),
         "rows": [
@@ -114,8 +145,9 @@ def build_rows(out1: Path, dest: Path):
                 "query": queries[r["id"]],
                 "labels": [float(r["score"][m]) for m in MODELS] if t != "test" else None,
                 "split": str(t),
+                "prior": pr,
             }
-            for r, t in zip(rows, tag)
+            for r, t, pr in zip(rows, tag, prior)
         ],
     }
     dest.write_text(json.dumps(payload), encoding="utf-8")

@@ -17,7 +17,8 @@ SERIES = (  # name in results.json, label, color, line style
     ("true-kind", "True dataset label, same table (control)", "#888780", ":"),
     ("jev-task", "Jev names the kind (untrained)", "#8a5cd6", "-"),
     ("avengers-pro", "Avengers-Pro (part 1)", "#2a78d6", "-"),
-    ("pointer", "Our pointer model, Qwen3-0.6B", "#eb6834", "-"),
+    ("pointer-kind", "Our pointer model + the kind as a prior", "#c0392b", "-"),
+    ("pointer", "Our pointer model, Qwen3-0.6B", "#eb6834", "--"),
     ("encoder", "Our encoder, ModernBERT-base", "#1baf7a", "--"),
 )
 
@@ -54,7 +55,7 @@ def main() -> int:
     )
     ax.set_ylabel("Accuracy on 1,061 held-out questions", color=MUTED, fontsize=11)
     ax.set_title(
-        "Two models we trained, Jev and part 1's router, at equal budgets",
+        "Our models, Jev and part 1's router, at equal budgets",
         color=INK,
         fontsize=14,
         loc="left",
