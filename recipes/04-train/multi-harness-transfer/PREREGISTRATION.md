@@ -195,3 +195,29 @@ exploratory and is labeled that way wherever it is reported (`sensitivity.py`,
   implementation with different serving. Every checkpoint here is scored on
   the same current stack, so the comparisons hold; the levels are not the
   article's.
+
+## Amendment 5 (2026-10-02, SFT checkpoints scored; a correction to amendment 4)
+
+The two SFT checkpoints finished. Coverage: Pi grades only 556 and 550 of
+750 cells for oc-sft and mh-sft (other harnesses 719 to 750).
+
+Pre-registered secondary (each model minus base, paired by task):
+
+| Model | Unseen six | Trained four |
+|---|---|---|
+| OpenCode-only RL | +5.2 (+3.6 to +6.8) | +8.1 (+6.1 to +10.0) |
+| Four-harness RL | +4.4 (+3.1 to +5.7) | +13.8 (+11.5 to +16.0) |
+| OpenCode-only SFT | +4.7 (+2.4 to +6.9) | +3.4 (+1.2 to +5.6) |
+| Four-harness SFT | +6.9 (+4.4 to +9.7) | +17.1 (+14.0 to +20.4) |
+
+**Correction.** Amendment 4 called Gemini CLI's failure infrastructure.
+That is only partly right: the base and RL models score near zero there, but
+four-harness SFT reaches about 21% (on the 211 tasks shared by every cell), so
+a model can work inside Gemini CLI's workspace rule. It is a hard harness,
+not a broken one.
+
+Exploratory, decided after seeing the data: four-harness SFT beats
+OpenCode-only SFT on the unseen pool by +2.3 (+0.8 to +3.8), but the gain sits
+in Gemini CLI (+11.6) and Qwen Code (+10.1), and Qwen Code is a fork of Gemini
+CLI. Without Gemini CLI the SFT gap is +0.5 (-1.0 to +2.2). Four-harness SFT
+loses on Mini-SWE-Agent against base (the article reports the same drop).

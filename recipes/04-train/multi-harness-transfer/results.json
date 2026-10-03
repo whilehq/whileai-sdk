@@ -35,6 +35,30 @@
       "vibe": "745/750",
       "openhands-sdk": "746/750",
       "terminus-2": "742/750"
+    },
+    "oc-sft": {
+      "opencode": "736/750",
+      "claude-code": "733/750",
+      "codex": "732/750",
+      "mini-swe-agent": "747/750",
+      "pi": "556/750",
+      "gemini-cli": "726/750",
+      "qwen-coder": "740/750",
+      "vibe": "747/750",
+      "openhands-sdk": "749/750",
+      "terminus-2": "739/750"
+    },
+    "mh-sft": {
+      "opencode": "742/750",
+      "claude-code": "743/750",
+      "codex": "744/750",
+      "mini-swe-agent": "750/750",
+      "pi": "550/750",
+      "gemini-cli": "734/750",
+      "qwen-coder": "719/750",
+      "vibe": "750/750",
+      "openhands-sdk": "750/750",
+      "terminus-2": "749/750"
     }
   },
   "pass": {
@@ -253,6 +277,150 @@
           0.6305220883534136
         ]
       }
+    },
+    "oc-sft": {
+      "opencode": {
+        "pass": 0.3755020080321285,
+        "ci95": [
+          0.32597054886211513,
+          0.42369477911646586
+        ]
+      },
+      "claude-code": {
+        "pass": 0.07429718875502007,
+        "ci95": [
+          0.05287817938420348,
+          0.0970548862115127
+        ]
+      },
+      "codex": {
+        "pass": 0.08736559139784945,
+        "ci95": [
+          0.06586021505376344,
+          0.11088709677419355
+        ]
+      },
+      "mini-swe-agent": {
+        "pass": 0.40829986613119146,
+        "ci95": [
+          0.356091030789826,
+          0.46184738955823296
+        ]
+      },
+      "pi": {
+        "pass": 0.5304347826086957,
+        "ci95": [
+          0.4768115942028986,
+          0.5855072463768115
+        ]
+      },
+      "gemini-cli": {
+        "pass": 0.06266666666666666,
+        "ci95": [
+          0.044,
+          0.084
+        ]
+      },
+      "qwen-coder": {
+        "pass": 0.15261044176706828,
+        "ci95": [
+          0.12382864792503347,
+          0.18206157965194109
+        ]
+      },
+      "vibe": {
+        "pass": 0.3815261044176707,
+        "ci95": [
+          0.3333333333333333,
+          0.43239625167336004
+        ]
+      },
+      "openhands-sdk": {
+        "pass": 0.392,
+        "ci95": [
+          0.3426666666666667,
+          0.4453333333333333
+        ]
+      },
+      "terminus-2": {
+        "pass": 0.5954301075268816,
+        "ci95": [
+          0.5416666666666667,
+          0.6478494623655914
+        ]
+      }
+    },
+    "mh-sft": {
+      "opencode": {
+        "pass": 0.3753333333333333,
+        "ci95": [
+          0.3273333333333333,
+          0.426
+        ]
+      },
+      "claude-code": {
+        "pass": 0.37,
+        "ci95": [
+          0.324,
+          0.41933333333333334
+        ]
+      },
+      "codex": {
+        "pass": 0.388,
+        "ci95": [
+          0.3393333333333333,
+          0.4413333333333333
+        ]
+      },
+      "mini-swe-agent": {
+        "pass": 0.36,
+        "ci95": [
+          0.3133333333333333,
+          0.4106666666666666
+        ]
+      },
+      "pi": {
+        "pass": 0.48180494905385735,
+        "ci95": [
+          0.4264919941775837,
+          0.5363901018922853
+        ]
+      },
+      "gemini-cli": {
+        "pass": 0.17866666666666667,
+        "ci95": [
+          0.14666666666666667,
+          0.21266666666666667
+        ]
+      },
+      "qwen-coder": {
+        "pass": 0.25266666666666665,
+        "ci95": [
+          0.216,
+          0.294
+        ]
+      },
+      "vibe": {
+        "pass": 0.372,
+        "ci95": [
+          0.3226666666666667,
+          0.42133333333333334
+        ]
+      },
+      "openhands-sdk": {
+        "pass": 0.3986666666666666,
+        "ci95": [
+          0.34933333333333333,
+          0.4506666666666666
+        ]
+      },
+      "terminus-2": {
+        "pass": 0.5453333333333333,
+        "ci95": [
+          0.4946666666666667,
+          0.5973333333333334
+        ]
+      }
     }
   },
   "vs_base": {
@@ -339,6 +507,90 @@
         "verdict": "b_better",
         "note": "1 tasks only in a and 0 only in b were dropped; the verdict rests on the 249 shared"
       }
+    },
+    "oc-sft": {
+      "unseen": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 250,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 250,
+        "mean_a": 0.2963692810457516,
+        "mean_b": 0.34297651727357614,
+        "delta": 0.046607236227824464,
+        "ci95": [
+          0.024407889822595705,
+          0.06939771241830066
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "b_better",
+        "note": ""
+      },
+      "trained": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 249,
+        "n_only_a": 1,
+        "n_only_b": 0,
+        "paired_share": 0.996,
+        "n_used": 249,
+        "mean_a": 0.20264848484848486,
+        "mean_b": 0.23769797805942383,
+        "delta": 0.03423564387419809,
+        "ci95": [
+          0.012468054034319095,
+          0.05567725447243519
+        ],
+        "level": 0.95,
+        "p_value": 0.0024987506246876563,
+        "verdict": "b_better",
+        "note": "1 tasks only in a and 0 only in b were dropped; the verdict rests on the 249 shared"
+      }
+    },
+    "mh-sft": {
+      "unseen": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 250,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 250,
+        "mean_a": 0.2963692810457516,
+        "mean_b": 0.36550965309200606,
+        "delta": 0.0691403720462544,
+        "ci95": [
+          0.04418350930115636,
+          0.09654167923579687
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "b_better",
+        "note": ""
+      },
+      "trained": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 250,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 250,
+        "mean_a": 0.20264848484848486,
+        "mean_b": 0.37367272727272727,
+        "delta": 0.17102424242424244,
+        "ci95": [
+          0.1402,
+          0.20408484848484848
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "b_better",
+        "note": ""
+      }
     }
   },
   "h1": {
@@ -381,5 +633,5 @@
     "verdict": "b_better",
     "note": "1 tasks only in a and 0 only in b were dropped; the verdict rests on the 249 shared"
   },
-  "attribution": "attribution on pass_at_1: 10 harnesses x 3 models, 240 tasks each cell\n  harness               base     mh-rl     oc-rl\n  claude-code           12.2      22.3      15.8\n  codex                 13.9      33.6      12.8\n  gemini-cli             0.1       0.0       0.1\n  mini-swe-agent        47.8      54.4      49.2\n  opencode               9.7      30.0      39.9\n  openhands-sdk         40.8      49.6      46.2\n  pi                    39.6      42.8      52.2\n  qwen-coder             7.9      16.0       9.7\n  terminus-2            56.5      59.4      60.1\n  vibe                  37.5      42.9      46.7\n  spread explained: harness 91% [89..92], model 4% [3..5], interaction 6%\n  harness moves the score by up to 58.6 points, the model by up to 8.5\n  model ranking flips across harnesses\n  the harness moved the score more than the model did; the leading model changes with the harness, so a model ranking from one harness does not carry\n  10 task(s) seen in only some cells were left out"
+  "attribution": "attribution on pass_at_1: 10 harnesses x 5 models, 211 tasks each cell\n  harness               base     mh-rl    mh-sft     oc-rl    oc-sft\n  claude-code           13.6      24.6      41.6      17.3       8.0\n  codex                 15.8      36.8      44.6      14.5      10.3\n  gemini-cli             0.2       0.0      20.9       0.2       7.4\n  mini-swe-agent        52.9      58.9      41.5      54.0      46.6\n  opencode              10.5      32.9      43.7      43.5      43.2\n  openhands-sdk         44.5      53.9      45.0      50.6      45.5\n  pi                    42.4      46.1      51.2      56.3      55.6\n  qwen-coder             8.7      17.9      28.8      10.7      16.7\n  terminus-2            60.3      62.8      60.7      63.7      66.0\n  vibe                  41.4      46.3      43.1      51.3      44.1\n  spread explained: harness 81% [79..83], model 5% [4..7], interaction 14%\n  harness moves the score by up to 57.0 points, the model by up to 13.1\n  model ranking flips across harnesses\n  the harness moved the score more than the model did; the leading model changes with the harness, so a model ranking from one harness does not carry\n  39 task(s) seen in only some cells were left out"
 }
