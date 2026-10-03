@@ -1,0 +1,134 @@
+{
+  "per_harness": {
+    "opencode": {
+      "delta": -9.6,
+      "ci95": [
+        -13.3,
+        -5.9
+      ],
+      "verdict": "a_better",
+      "oc": 38.3,
+      "mh": 28.9
+    },
+    "claude-code": {
+      "delta": 6.4,
+      "ci95": [
+        3.1,
+        9.7
+      ],
+      "verdict": "b_better",
+      "oc": 15.1,
+      "mh": 21.6
+    },
+    "codex": {
+      "delta": 20.1,
+      "ci95": [
+        16.3,
+        24.2
+      ],
+      "verdict": "b_better",
+      "oc": 12.5,
+      "mh": 32.7
+    },
+    "mini-swe-agent": {
+      "delta": 5.6,
+      "ci95": [
+        2.3,
+        9.1
+      ],
+      "verdict": "b_better",
+      "oc": 47.3,
+      "mh": 53.4
+    },
+    "pi": {
+      "delta": -9.3,
+      "ci95": [
+        -12.9,
+        -5.5
+      ],
+      "verdict": "a_better",
+      "oc": 51.3,
+      "mh": 41.7
+    },
+    "gemini-cli": {
+      "delta": -0.1,
+      "ci95": [
+        -0.4,
+        0.0
+      ],
+      "verdict": "no_difference_detected",
+      "oc": 0.1,
+      "mh": 0.0
+    },
+    "qwen-coder": {
+      "delta": 6.0,
+      "ci95": [
+        2.8,
+        9.2
+      ],
+      "verdict": "b_better",
+      "oc": 9.5,
+      "mh": 15.5
+    },
+    "vibe": {
+      "delta": -3.7,
+      "ci95": [
+        -7.2,
+        -0.5
+      ],
+      "verdict": "a_better",
+      "oc": 45.5,
+      "mh": 41.9
+    },
+    "openhands-sdk": {
+      "delta": 3.3,
+      "ci95": [
+        0.0,
+        6.5
+      ],
+      "verdict": "b_better",
+      "oc": 45.1,
+      "mh": 48.4
+    },
+    "terminus-2": {
+      "delta": -0.9,
+      "ci95": [
+        -3.8,
+        2.0
+      ],
+      "verdict": "no_difference_detected",
+      "oc": 58.7,
+      "mh": 58.0
+    }
+  },
+  "unseen_without_gemini": {
+    "delta": -0.8,
+    "ci95": [
+      -2.3,
+      0.7
+    ],
+    "verdict": "no_difference_detected",
+    "oc": 41.7,
+    "mh": 40.9
+  },
+  "oc-rl_minus_base_unseen_without_gemini": {
+    "delta": 6.2,
+    "ci95": [
+      4.3,
+      8.1
+    ],
+    "verdict": "b_better",
+    "oc": 35.5,
+    "mh": 41.7
+  },
+  "mh-rl_minus_base_unseen_without_gemini": {
+    "delta": 5.4,
+    "ci95": [
+      3.8,
+      7.0
+    ],
+    "verdict": "b_better",
+    "oc": 35.5,
+    "mh": 40.9
+  }
+}

@@ -166,3 +166,32 @@ now keeps one client per worker thread, reused across cells and reopened after
 any failed call. The resumed runs were stopped and relaunched with this fix;
 graded cells are kept, ungraded cells are retried. Nothing about sampling,
 tasks, harnesses, grading or the analysis changes.
+
+## Amendment 4 (2026-10-02, after the primary result for base, oc-rl and mh-rl)
+
+**Primary result, as pre-registered.** On the six unseen harnesses pooled,
+multi-harness RL minus OpenCode-only RL is -0.8 points, 95% interval -2.0 to
++0.5, 250 tasks paired. No difference. H1 is not supported.
+
+Everything below was decided after seeing per-harness means, so it is
+exploratory and is labeled that way wherever it is reported (`sensitivity.py`,
+`sensitivity.json`):
+
+- **Gemini CLI could not read the task files.** In sampled trajectories it
+  refuses `/home/user/input` as outside its allowed workspace (`/workdir`) and
+  writes "Not Applicable"; every checkpoint scores 0 to 0.1%. Without it the
+  unseen pool reads -0.8 (-2.3 to +0.7): same answer.
+- **Per-harness gaps go both ways** (no multiplicity correction): the
+  OpenCode-only model leads under Pi (-9.3) and Vibe (-3.7); the multi-harness
+  model leads under Qwen Code (+6.0) and OpenHands SDK (+3.3); Terminus 2 is
+  flat. Pi's tools (lower-case read, write, edit, bash) resemble OpenCode's, a
+  post hoc reading that tool-surface similarity predicts transfer. Phase 1 can
+  test that directly.
+- **Absolute levels do not match the article.** The base model scores 20.3%
+  on the four trained harnesses here against the article's 42.2%. FineEnvs'
+  own RESULTS.md reports similar base numbers for the current tutorial
+  pipeline on its 25-task pilot (OpenCode 8-12%, Claude Code 16-20%, Codex
+  8-16%, Mini-SWE-Agent 32-52%) and says the article's runs used an earlier
+  implementation with different serving. Every checkpoint here is scored on
+  the same current stack, so the comparisons hold; the levels are not the
+  article's.

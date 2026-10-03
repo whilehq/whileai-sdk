@@ -1,0 +1,385 @@
+{
+  "coverage": {
+    "base": {
+      "opencode": "743/750",
+      "claude-code": "746/750",
+      "codex": "746/750",
+      "mini-swe-agent": "750/750",
+      "pi": "702/750",
+      "gemini-cli": "735/750",
+      "qwen-coder": "750/750",
+      "vibe": "750/750",
+      "openhands-sdk": "750/750",
+      "terminus-2": "750/750"
+    },
+    "oc-rl": {
+      "opencode": "746/750",
+      "claude-code": "745/750",
+      "codex": "746/750",
+      "mini-swe-agent": "750/750",
+      "pi": "689/750",
+      "gemini-cli": "735/750",
+      "qwen-coder": "750/750",
+      "vibe": "750/750",
+      "openhands-sdk": "750/750",
+      "terminus-2": "750/750"
+    },
+    "mh-rl": {
+      "opencode": "741/750",
+      "claude-code": "743/750",
+      "codex": "741/750",
+      "mini-swe-agent": "744/750",
+      "pi": "709/750",
+      "gemini-cli": "737/750",
+      "qwen-coder": "744/750",
+      "vibe": "745/750",
+      "openhands-sdk": "746/750",
+      "terminus-2": "742/750"
+    }
+  },
+  "pass": {
+    "base": {
+      "opencode": {
+        "pass": 0.09266666666666666,
+        "ci95": [
+          0.072,
+          0.11533333333333333
+        ]
+      },
+      "claude-code": {
+        "pass": 0.11866666666666666,
+        "ci95": [
+          0.08933333333333333,
+          0.15333333333333332
+        ]
+      },
+      "codex": {
+        "pass": 0.1333333333333333,
+        "ci95": [
+          0.10266666666666666,
+          0.164
+        ]
+      },
+      "mini-swe-agent": {
+        "pass": 0.464,
+        "ci95": [
+          0.41333333333333333,
+          0.5173333333333334
+        ]
+      },
+      "pi": {
+        "pass": 0.3864247311827957,
+        "ci95": [
+          0.3413978494623656,
+          0.4314516129032258
+        ]
+      },
+      "gemini-cli": {
+        "pass": 0.0013333333333333333,
+        "ci95": [
+          0.0,
+          0.004
+        ]
+      },
+      "qwen-coder": {
+        "pass": 0.07733333333333332,
+        "ci95": [
+          0.058666666666666666,
+          0.09733333333333333
+        ]
+      },
+      "vibe": {
+        "pass": 0.3653333333333333,
+        "ci95": [
+          0.316,
+          0.416
+        ]
+      },
+      "openhands-sdk": {
+        "pass": 0.3973333333333333,
+        "ci95": [
+          0.3466666666666667,
+          0.44666666666666666
+        ]
+      },
+      "terminus-2": {
+        "pass": 0.5546666666666666,
+        "ci95": [
+          0.504,
+          0.604
+        ]
+      }
+    },
+    "oc-rl": {
+      "opencode": {
+        "pass": 0.3833333333333333,
+        "ci95": [
+          0.336,
+          0.43066666666666664
+        ]
+      },
+      "claude-code": {
+        "pass": 0.15133333333333332,
+        "ci95": [
+          0.12133333333333333,
+          0.18466666666666665
+        ]
+      },
+      "codex": {
+        "pass": 0.12466666666666666,
+        "ci95": [
+          0.09866666666666665,
+          0.15266666666666664
+        ]
+      },
+      "mini-swe-agent": {
+        "pass": 0.47333333333333333,
+        "ci95": [
+          0.42133333333333334,
+          0.5253333333333333
+        ]
+      },
+      "pi": {
+        "pass": 0.5129251700680272,
+        "ci95": [
+          0.46190476190476193,
+          0.5619047619047619
+        ]
+      },
+      "gemini-cli": {
+        "pass": 0.0013440860215053762,
+        "ci95": [
+          0.0,
+          0.004032258064516129
+        ]
+      },
+      "qwen-coder": {
+        "pass": 0.09466666666666666,
+        "ci95": [
+          0.072,
+          0.11866666666666666
+        ]
+      },
+      "vibe": {
+        "pass": 0.4546666666666666,
+        "ci95": [
+          0.4053333333333333,
+          0.5066666666666667
+        ]
+      },
+      "openhands-sdk": {
+        "pass": 0.4506666666666666,
+        "ci95": [
+          0.4013333333333333,
+          0.5013333333333333
+        ]
+      },
+      "terminus-2": {
+        "pass": 0.5866666666666667,
+        "ci95": [
+          0.5346666666666666,
+          0.6386666666666666
+        ]
+      }
+    },
+    "mh-rl": {
+      "opencode": {
+        "pass": 0.2891566265060241,
+        "ci95": [
+          0.24631860776439088,
+          0.3326639892904953
+        ]
+      },
+      "claude-code": {
+        "pass": 0.21619812583668002,
+        "ci95": [
+          0.1760374832663989,
+          0.25769745649263726
+        ]
+      },
+      "codex": {
+        "pass": 0.3266398929049531,
+        "ci95": [
+          0.28112449799196787,
+          0.37349397590361444
+        ]
+      },
+      "mini-swe-agent": {
+        "pass": 0.5336021505376345,
+        "ci95": [
+          0.4825268817204301,
+          0.5860215053763441
+        ]
+      },
+      "pi": {
+        "pass": 0.41700404858299595,
+        "ci95": [
+          0.3690958164642375,
+          0.46693657219973006
+        ]
+      },
+      "gemini-cli": {
+        "pass": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "qwen-coder": {
+        "pass": 0.15461847389558234,
+        "ci95": [
+          0.1258366800535475,
+          0.1854082998661312
+        ]
+      },
+      "vibe": {
+        "pass": 0.4190093708165997,
+        "ci95": [
+          0.3708165997322624,
+          0.46987951807228917
+        ]
+      },
+      "openhands-sdk": {
+        "pass": 0.484,
+        "ci95": [
+          0.432,
+          0.5346666666666666
+        ]
+      },
+      "terminus-2": {
+        "pass": 0.5803212851405622,
+        "ci95": [
+          0.5307898259705488,
+          0.6305220883534136
+        ]
+      }
+    }
+  },
+  "vs_base": {
+    "oc-rl": {
+      "unseen": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 250,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 250,
+        "mean_a": 0.2963692810457516,
+        "mean_b": 0.3484264705882353,
+        "delta": 0.05205718954248366,
+        "ci95": [
+          0.0357718954248366,
+          0.06787385620915033
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "b_better",
+        "note": ""
+      },
+      "trained": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 250,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 250,
+        "mean_a": 0.20264848484848486,
+        "mean_b": 0.28355151515151517,
+        "delta": 0.08090303030303031,
+        "ci95": [
+          0.06052727272727273,
+          0.10043030303030304
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "b_better",
+        "note": ""
+      }
+    },
+    "mh-rl": {
+      "unseen": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 250,
+        "n_only_a": 0,
+        "n_only_b": 0,
+        "paired_share": 1.0,
+        "n_used": 250,
+        "mean_a": 0.2963692810457516,
+        "mean_b": 0.3407839869281046,
+        "delta": 0.04441470588235294,
+        "ci95": [
+          0.031021241830065358,
+          0.05743333333333333
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "b_better",
+        "note": ""
+      },
+      "trained": {
+        "metric": "pass_at_1",
+        "paired": true,
+        "n_paired": 249,
+        "n_only_a": 1,
+        "n_only_b": 0,
+        "paired_share": 0.996,
+        "n_used": 249,
+        "mean_a": 0.20264848484848486,
+        "mean_b": 0.34100036509675064,
+        "delta": 0.1375380309115249,
+        "ci95": [
+          0.11488377753437994,
+          0.1600401606425703
+        ],
+        "level": 0.95,
+        "p_value": 0.0004997501249375312,
+        "verdict": "b_better",
+        "note": "1 tasks only in a and 0 only in b were dropped; the verdict rests on the 249 shared"
+      }
+    }
+  },
+  "h1": {
+    "metric": "pass_at_1",
+    "paired": true,
+    "n_paired": 250,
+    "n_only_a": 0,
+    "n_only_b": 0,
+    "paired_share": 1.0,
+    "n_used": 250,
+    "mean_a": 0.3484264705882353,
+    "mean_b": 0.3407839869281046,
+    "delta": -0.007642483660130719,
+    "ci95": [
+      -0.020146405228758168,
+      0.005188888888888885
+    ],
+    "level": 0.95,
+    "p_value": 0.2433783108445777,
+    "verdict": "no_difference_detected",
+    "note": ""
+  },
+  "h1_trained": {
+    "metric": "pass_at_1",
+    "paired": true,
+    "n_paired": 249,
+    "n_only_a": 1,
+    "n_only_b": 0,
+    "paired_share": 0.996,
+    "n_used": 249,
+    "mean_a": 0.28355151515151517,
+    "mean_b": 0.34100036509675064,
+    "delta": 0.05631008884020932,
+    "ci95": [
+      0.038967993184860654,
+      0.07384081781672143
+    ],
+    "level": 0.95,
+    "p_value": 0.0004997501249375312,
+    "verdict": "b_better",
+    "note": "1 tasks only in a and 0 only in b were dropped; the verdict rests on the 249 shared"
+  },
+  "attribution": "attribution on pass_at_1: 10 harnesses x 3 models, 240 tasks each cell\n  harness               base     mh-rl     oc-rl\n  claude-code           12.2      22.3      15.8\n  codex                 13.9      33.6      12.8\n  gemini-cli             0.1       0.0       0.1\n  mini-swe-agent        47.8      54.4      49.2\n  opencode               9.7      30.0      39.9\n  openhands-sdk         40.8      49.6      46.2\n  pi                    39.6      42.8      52.2\n  qwen-coder             7.9      16.0       9.7\n  terminus-2            56.5      59.4      60.1\n  vibe                  37.5      42.9      46.7\n  spread explained: harness 91% [89..92], model 4% [3..5], interaction 6%\n  harness moves the score by up to 58.6 points, the model by up to 8.5\n  model ranking flips across harnesses\n  the harness moved the score more than the model did; the leading model changes with the harness, so a model ranking from one harness does not carry\n  10 task(s) seen in only some cells were left out"
+}
