@@ -292,6 +292,352 @@
       "noise_band": 0.0782
     }
   },
+  "rerun": {
+    "holdout": {
+      "registered": {
+        "a": {
+          "without": {
+            "accuracy": 0.4986,
+            "calls": 21.12,
+            "seed_accuracy": [
+              0.6057,
+              0.4715,
+              0.4187
+            ],
+            "seed_no_verdict": [
+              45,
+              85,
+              95
+            ]
+          },
+          "with": {
+            "accuracy": 0.5759,
+            "calls": 17.57,
+            "seed_accuracy": [
+              0.5285,
+              0.5244,
+              0.6748
+            ],
+            "seed_no_verdict": [
+              62,
+              61,
+              13
+            ]
+          },
+          "with_vs_without": {
+            "accuracy": {
+              "delta": 0.0772,
+              "ci95": [
+                0.0407,
+                0.1125
+              ],
+              "verdict": "b_better",
+              "n_paired": 246
+            },
+            "calls": {
+              "delta": -3.5542,
+              "ci95": [
+                -4.5176,
+                -2.6003
+              ],
+              "verdict": "a_better",
+              "n_paired": 246
+            }
+          },
+          "seed_pairs_with_ahead": 7
+        }
+      },
+      "fixed": {
+        "a": {
+          "without": {
+            "accuracy": 0.5813,
+            "calls": 17.41,
+            "seed_accuracy": [
+              0.5976,
+              0.4959,
+              0.6504
+            ],
+            "seed_no_verdict": [
+              39,
+              73,
+              21
+            ]
+          },
+          "with": {
+            "accuracy": 0.6789,
+            "calls": 11.17,
+            "seed_accuracy": [
+              0.6911,
+              0.687,
+              0.6585
+            ],
+            "seed_no_verdict": [
+              6,
+              7,
+              11
+            ]
+          },
+          "with_vs_without": {
+            "accuracy": {
+              "delta": 0.0976,
+              "ci95": [
+                0.065,
+                0.1314
+              ],
+              "verdict": "b_better",
+              "n_paired": 246
+            },
+            "calls": {
+              "delta": -6.2466,
+              "ci95": [
+                -7.1816,
+                -5.3347
+              ],
+              "verdict": "a_better",
+              "n_paired": 246
+            }
+          },
+          "seed_pairs_with_ahead": 9
+        },
+        "b": {
+          "without": {
+            "accuracy": 0.5108,
+            "calls": 21.69,
+            "seed_accuracy": [
+              0.4472,
+              0.5163,
+              0.5691
+            ],
+            "seed_no_verdict": [
+              95,
+              68,
+              49
+            ]
+          },
+          "with": {
+            "accuracy": 0.6495,
+            "calls": 13.4,
+            "seed_accuracy": [
+              0.6585,
+              0.7254,
+              0.565
+            ],
+            "seed_no_verdict": [
+              5,
+              2,
+              53
+            ]
+          },
+          "with_vs_without": {
+            "accuracy": {
+              "delta": 0.1375,
+              "ci95": [
+                0.103,
+                0.1741
+              ],
+              "verdict": "b_better",
+              "n_paired": 246
+            },
+            "calls": {
+              "delta": -8.2534,
+              "ci95": [
+                -9.1477,
+                -7.357
+              ],
+              "verdict": "a_better",
+              "n_paired": 246
+            }
+          },
+          "seed_pairs_with_ahead": 8
+        }
+      }
+    },
+    "public": {
+      "registered": {
+        "a": {
+          "without": {
+            "accuracy": 0.2987,
+            "calls": 29.91,
+            "seed_accuracy": [
+              0.408,
+              0.268,
+              0.22
+            ],
+            "seed_no_verdict": [
+              105,
+              161,
+              175
+            ]
+          },
+          "with": {
+            "accuracy": 0.3933,
+            "calls": 26.57,
+            "seed_accuracy": [
+              0.272,
+              0.316,
+              0.592
+            ],
+            "seed_no_verdict": [
+              167,
+              133,
+              41
+            ]
+          },
+          "with_vs_without": {
+            "accuracy": {
+              "delta": 0.0947,
+              "ci95": [
+                0.064,
+                0.128
+              ],
+              "verdict": "b_better",
+              "n_paired": 250
+            },
+            "calls": {
+              "delta": -3.3333,
+              "ci95": [
+                -4.2013,
+                -2.476
+              ],
+              "verdict": "a_better",
+              "n_paired": 250
+            }
+          },
+          "seed_pairs_with_ahead": 7
+        }
+      },
+      "fixed": {
+        "a": {
+          "without": {
+            "accuracy": 0.356,
+            "calls": 27.67,
+            "seed_accuracy": [
+              0.4,
+              0.244,
+              0.424
+            ],
+            "seed_no_verdict": [
+              103,
+              165,
+              96
+            ]
+          },
+          "with": {
+            "accuracy": 0.52,
+            "calls": 20.05,
+            "seed_accuracy": [
+              0.536,
+              0.504,
+              0.52
+            ],
+            "seed_no_verdict": [
+              45,
+              65,
+              55
+            ]
+          },
+          "with_vs_without": {
+            "accuracy": {
+              "delta": 0.164,
+              "ci95": [
+                0.1253,
+                0.2027
+              ],
+              "verdict": "b_better",
+              "n_paired": 250
+            },
+            "calls": {
+              "delta": -7.6187,
+              "ci95": [
+                -8.5907,
+                -6.6787
+              ],
+              "verdict": "a_better",
+              "n_paired": 250
+            }
+          },
+          "seed_pairs_with_ahead": 9
+        },
+        "b": {
+          "without": {
+            "accuracy": 0.3013,
+            "calls": 30.18,
+            "seed_accuracy": [
+              0.272,
+              0.296,
+              0.336
+            ],
+            "seed_no_verdict": [
+              147,
+              154,
+              121
+            ]
+          },
+          "with": {
+            "accuracy": 0.4747,
+            "calls": 21.34,
+            "seed_accuracy": [
+              0.52,
+              0.572,
+              0.332
+            ],
+            "seed_no_verdict": [
+              39,
+              38,
+              143
+            ]
+          },
+          "with_vs_without": {
+            "accuracy": {
+              "delta": 0.1733,
+              "ci95": [
+                0.1387,
+                0.2093
+              ],
+              "verdict": "b_better",
+              "n_paired": 250
+            },
+            "calls": {
+              "delta": -8.8373,
+              "ci95": [
+                -9.7747,
+                -7.848
+              ],
+              "verdict": "a_better",
+              "n_paired": 250
+            }
+          },
+          "seed_pairs_with_ahead": 8
+        }
+      }
+    }
+  },
+  "rerun_selection": {
+    "a": {
+      "n": 174,
+      "seed": 0,
+      "a-without": {
+        "kept": 184,
+        "trained": 174
+      },
+      "a-with": {
+        "kept": 174,
+        "trained": 174
+      }
+    },
+    "b": {
+      "n": 317,
+      "seed": 0,
+      "b-without": {
+        "kept": 381,
+        "trained": 317
+      },
+      "b-with": {
+        "kept": 317,
+        "trained": 317
+      }
+    }
+  },
   "training": {
     "sft-with": {
       "traces": 173,

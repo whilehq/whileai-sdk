@@ -41,6 +41,50 @@ def cmp(a, b, metric):
     }
 
 
+SEEDS = (42, 43, 44)
+# PREREGISTRATION.md: two experiments, two schedules. "registered" is the
+# early-stopping schedule as first registered; "fixed" is amendment 1 (2 epochs).
+RERUN = {"registered": "", "fixed": "-e2"}
+
+
+def rerun(split: str) -> dict:
+    """The fair rerun: each arm's three seeds pooled, paired by review."""
+    out: dict = {}
+    for schedule, tag in RERUN.items():
+        for exp in ("a", "b"):
+            arms = {}
+            for side in ("without", "with"):
+                names = [f"srv-{exp}-{side}{tag}-s{s}" for s in SEEDS]
+                if not all((report.ROWS / f"{n}.{split}.jsonl").exists() for n in names):
+                    break
+                per = [report.load(n, split) for n in names]
+                arms[side] = {
+                    "rows": [r for rows in per for r in rows],
+                    "seeds": [round(sum(r["reward"] for r in rows) / len(rows), 4) for rows in per],
+                    "no_verdict": [sum(r["verdict"] is None for r in rows) for rows in per],
+                }
+            if len(arms) < 2:
+                continue
+            a, b = arms["without"], arms["with"]
+            out.setdefault(schedule, {})[exp] = {
+                side: {
+                    "accuracy": round(sum(r["reward"] for r in v["rows"]) / len(v["rows"]), 4),
+                    "calls": round(sum(r["model_calls"] for r in v["rows"]) / len(v["rows"]), 2),
+                    "seed_accuracy": v["seeds"],
+                    "seed_no_verdict": v["no_verdict"],
+                }
+                for side, v in arms.items()
+            } | {
+                "with_vs_without": {
+                    "accuracy": cmp(a["rows"], b["rows"], "pass_at_1"),
+                    "calls": cmp(a["rows"], b["rows"], "marker:model_calls"),
+                },
+                # Of the nine seed pairs, how many have the with-While seed ahead.
+                "seed_pairs_with_ahead": sum(x > y for x in b["seeds"] for y in a["seeds"]),
+            }
+    return out
+
+
 def main() -> int:
     print(provenance(), file=sys.stderr)
     out = {"splits": SPLITS, "arms": {}, "with_vs_without": {}, "vs_base": {}, "noise": {}}
@@ -73,6 +117,8 @@ def main() -> int:
         passes = [load(a) for a in ("srv-base", "srv-base-r2", "srv-base-r3")]
         ev = wai.eval_variance(*passes)
         out["noise"][split] = {"run_std": ev["run_std"], "noise_band": ev["noise_band"]}
+    out["rerun"] = {split: rerun(split) for split in SPLITS}
+    out["rerun_selection"] = json.loads((HERE / "keep" / "summary.json").read_text())
     tok = {
         a: json.loads((HERE / ".cache" / "st" / a / "summary.json").read_text())
         for a in ("sft-with", "sft-without")

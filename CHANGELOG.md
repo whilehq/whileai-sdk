@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- Recipe `recipes/community/deepagents-review-four-arms/`: the fair rerun's results. At a fixed 2 epochs, three
+  seeds per arm, While's pick beats smithtune's skill path (co-designed rubric, calibrated council) by +16.4
+  points [+12.5, +20.3] on SWE-bench Verified and +9.8 [+6.5, +13.1] on held-out repos, every seed pair. The
+  two picks share 142 of 174 traces. Rows for all twelve adapters, `results.json` `rerun`, README rewritten
+  with every command.
+
 - Recipe page `recipes/papers/ptgs/`: opens with a one-sentence benchmark summary, so the page description is not cut.
 - Recipe page `recipes/papers/ptgs/` retitled "Benchmarking PTGS against Reinforce-Ada and GRPO"; figures and
   text use the method names and pass@1, pass@8, zero-advantage groups and Tax_S(8) with their intervals.
