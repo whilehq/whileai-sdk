@@ -14,6 +14,14 @@ to 0.109 releases under the wrong numbers; they are yanked.
   with every command.
 
 - Recipe page `recipes/papers/ptgs/`: opens with a one-sentence benchmark summary, so the page description is not cut.
+- `coverage_gap` matches a rule that forbids an act on the act, not on any shared word. An outside audit of 0.127
+  found the one-word rule wrong both ways: any ask with "data" in it covered "Never modify data", and "update my
+  address" read as untested. Seven built-in act families (modify, delete, share, cancel, pay, approve, promise;
+  verb-object phrases are the strongest single feature in IR trace recovery) now decide those rules; an ask that only
+  shares the rule's noun lands in a new `weakly_tested_rules` list ("maybe"), not in covered. The three lists do not
+  overlap, and the summary says "cover 7 of 8 policy rules (1 more maybe)". From eight asks up, a word in more than
+  half the asks no longer counts alone (`TEXT_HEURISTICS.gap_common_ask_share`, `gap_rarity_min_asks`). New
+  `match=(rule, ask) -> bool | None` decides by meaning (an embedding or a judge); `None` defers to the word rules.
 - Recipe page `recipes/papers/ptgs/` retitled "Benchmarking PTGS against Reinforce-Ada and GRPO"; figures and
   text use the method names and pass@1, pass@8, zero-advantage groups and Tax_S(8) with their intervals.
 - Recipe page `recipes/papers/ptgs/`: figures redrawn at the docs column width (560 px, 13 to 21 px type, panels
