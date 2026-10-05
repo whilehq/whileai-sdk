@@ -18,36 +18,54 @@ patch review, a benchmark nobody here built, and on 84 repositories the traces n
 What you will learn: that which traces you train on moves a fine-tune as much as the trainer
 does, how to hold a comparison to one variable (same trainer, same server, same sampling), and
 why a single base run is not a baseline. You need `OPENROUTER_API_KEY` and `LANGSMITH_API_KEY`
-for traces, Docker for smithtune (it imports `fcntl`, so Linux or macOS), and a Modal account for
+for traces, Docker or Modal for smithtune (it imports `fcntl`, so Linux or macOS; `smithtune_modal.py`
+runs it on Modal), a Baseten key for its default council, and a Modal account for
 training and serving. `python run.py --dry-run` needs none of it.
-
-> **Rerun in progress.** The smithtune arm below skipped smithtune's central step: we wrote its
-> rubric without reading traces with an agent and did not calibrate it, so its council kept 258 of
-> 260. The arms also trained one seed each on sets of different size. `PREREGISTRATION.md` fixes
-> all three (a co-designed rubric, equal set sizes, three seeds) and adds a generation experiment.
-> Every rule in it was merged before the new arms were trained.
 
 ## Result
 
-SWE-bench Verified patch review, 250 reviews on 125 issues, 50/50 approve/reject, labels from the
-official evaluation. Every arm on one vLLM server, thinking off, same sampling:
+**The fair rerun** (`PREREGISTRATION.md`, merged before training). The smithtune side follows
+smithtune's own skill: read 20 traces, co-write the rubric (`rubric_codesigned.md`), check it on
+a 20-trace trial (`calibration/`), then run the council. Both sides are cut to the same size,
+fine-tuned with smithtune's renderer, split and schedule for exactly 2 epochs, three seeds each,
+and scored on one server. Each arm pools its three seeds; comparisons are paired by review.
 
-| arm | correct | model calls per review |
-|---|---|---|
-| base, three runs | 11.6%, 12.0%, 9.6% | 36.4 |
-| tuned Deep Agents profile, no training | 20.4% | 31.4 |
-| SFT on smithtune's pick (258 traces) | 46.0% | 23.5 |
-| **SFT on While's pick (173 traces)** | **56.8%** | **18.2** |
+**Experiment A: same 262 traces, two ways to pick 174.**
 
-While's pick against smithtune's, paired by review: **+10.8 points [+4.8, +16.8]** and **5.3 fewer
-calls [−6.7, −4.0]**, on 65% fewer training tokens per epoch (3.6M against 10.2M). The noise floor
-from three base runs (`wai.eval_variance`, t at 2 df) is 7.8 points; the gain clears it.
+| | smithtune skill path | While's pick | While minus smithtune |
+|---|---|---|---|
+| SWE-bench Verified (250 reviews) | 35.6% (seeds 40.0, 24.4, 42.4) | **52.0%** (53.6, 50.4, 52.0) | **+16.4 [+12.5, +20.3]** |
+| Held-out repos (246 reviews) | 58.1% (59.8, 49.6, 65.0) | **67.9%** (69.1, 68.7, 65.9) | **+9.8 [+6.5, +13.1]** |
+| Model calls per review, SWE-bench Verified | 27.7 | **20.1** | **-7.6 [-8.6, -6.7]** |
 
-On the 84 held-out repositories (246 reviews): 61.4% against 63.8%, a tie (−2.4 [−7.3, +2.4]),
-and 3.1 fewer calls [−4.3, −2.0] for While's pick. All numbers are in `results.json`
-(`python make_results.py`).
+Every While seed beats every smithtune seed on both benchmarks (9 of 9 pairs). The two picks share
+142 of their 174 traces: the co-designed rubric kept 184 of 260 where the first rubric kept 258,
+so reading traces with an agent moves smithtune most of the way to While's pick. The 32 traces
+that differ are the long correct reviews the council still keeps, and a model trained on them runs
+out of steps without a verdict on 96 to 165 of 250 reviews, against 45 to 65 for While's.
 
-The write-up with charts: [Fine-tune a Deep Agents reviewer from its LangSmith traces](https://while.ai/blog/deepagents-sft-from-traces).
+**Experiment B: 400 more rollouts per side.** smithtune's side drew 400 unused tasks at random
+(it cannot aim); While's drew 400 aimed at the stock agent's weak spots (`aim.py`). Each side added
+its rollouts to the original pool and picked with its own method; both cut to 317 traces.
+While's side is ahead by **+17.3 [+13.9, +20.9]** on SWE-bench Verified (47.5% against 30.1%) and
+**+13.7 [+10.3, +17.4]** on the held-out repos, 8 of 9 seed pairs. Neither side beats its own
+Experiment A version, so the extra 400 rollouts did not help either side; B separates the
+pickers, not the value of aiming.
+
+**The registered schedule.** As first registered, training stopped when validation loss stopped
+improving (smithtune's default). It kept epoch 1 on 10 of 12 runs, on losses about 0.001 apart
+from epoch 2, and epoch-1 checkpoints mostly run out of steps. Experiment A under that schedule:
++9.5 [+6.4, +12.8] for While's pick, with seed accuracies from 22% to 59% inside one arm. It is
+published as registered (`rows/srv-a-*-s*`); amendment 1 moved both experiments to 2 epochs
+before Experiment B was scored.
+
+All numbers are in `results.json` under `rerun` (`python make_results.py`).
+
+**The first result** (2026-09-28, one seed per arm, smithtune rubric written without reading
+traces, council kept 258): SWE-bench Verified 46.0% against **56.8%**, +10.8 [+4.8, +16.8], with 5.3
+fewer calls; held-out repos a tie (63.8% against 61.4%). Base model, three runs: 11.6%, 12.0%, 9.6%.
+
+The write-up with charts: [Deep Agents SFT from traces](https://while.ai/blog/deepagents-sft-from-traces).
 
 ## How it works
 
@@ -93,22 +111,62 @@ python collect.py --arm srv-sft-with --split public --base-url <server>/v1 --mod
 python make_results.py
 ```
 
+### Run the fair rerun
+
+Every step of `PREREGISTRATION.md`, in order. `smithtune_modal.py` runs the smithtune CLI in the
+pinned image on Modal; Docker works the same way with `smithtune.Dockerfile`.
+
+```bash
+ST_PY=/root/.local/share/uv/tools/smithtune/bin/python   # the Python smithtune is installed in
+
+# Experiment A: the smithtune skill path, then the cut, then 2-epoch training
+modal run smithtune_modal.py --cmd "smithtune dataset pull trial-v2 <source> --target-count 20 --max-candidates 20"
+modal run smithtune_modal.py --cmd "smithtune dataset triage trial-v2 --rubric /recipe/rubric_codesigned.md --confirm"
+modal run smithtune_modal.py --cmd "smithtune dataset pull council-v2 <source> --target-count 400 --max-candidates 1000"
+modal run smithtune_modal.py --cmd "smithtune dataset triage council-v2 --rubric /recipe/rubric_codesigned.md --confirm"
+python equalize.py a                       # both sides cut to the same size -> keep/
+modal run smithtune_modal.py --cmd "$ST_PY /recipe/export_sft.py council-v2 a-without --keep keep/a-without.json"
+modal run smithtune_modal.py --cmd "$ST_PY /recipe/export_sft.py while a-with --keep keep/a-with.json"
+modal run --detach train_modal.py --arm a-with --seed 42 --epochs 2      # and 43, 44, and a-without
+
+# Experiment B: 400 aimed and 400 random new rollouts, each side picks its own way
+python aim.py                              # writes aim.json before any rollout
+python collect.py --arm b-random --split train --tasks aim.json:random   # LANGSMITH_PROJECT=deepagents-review-b-random
+python collect.py --arm b-aimed  --split train --tasks aim.json:aimed    # LANGSMITH_PROJECT=deepagents-review-b-aimed
+python pick.py --arms base,b-aimed --key while_pick_b --out while_pick_b.json --target 1000
+# smithtune: pull council-b-random and triage it with the same rubric; pull while-b-aimed
+python equalize.py b                       # then export_sft.py --also, and train as in A
+
+# Score all twelve adapters on one server, then the numbers
+REVIEW_ADAPTERS=a-with-e2-s42,...,b-without-e2-s44 modal deploy serve_modal.py
+python collect.py --arm srv-a-with-e2-s42 --split public --base-url <server>/v1 --model a-with-e2-s42 --api-key-env REVIEW_SERVER_KEY
+# ...the same for each adapter, and again with --split holdout
+python make_results.py
+```
+
+`<source>` is the LangSmith workspace, project, window and correctness filter, written out in
+`PREREGISTRATION.md`.
+
 ## Caveats
 
-- One training seed per arm. The public-benchmark gain clears the three-run noise floor; a second
-  seed per arm is the next run.
-- The two training sets differ in size as well as in which traces they hold (173 against 258). A
-  random 173 from the council's set would separate the pick from the size.
-- smithtune omits reasoning from training rows by default, so both tuned models are non-thinking
-  models and are scored against the base with thinking off. With thinking on, through OpenRouter,
-  the base scored 70.3%, 75.1% and 74.6% on the held-out repositories; that run on SWE-bench
-  Verified is still to do. Re-running the same base once moved it 4.5 points with an interval
-  that excluded zero, which is why every comparison here carries the three-run floor.
+- Three seeds per arm. Seed spread inside one arm is up to 18 points even at a fixed 2 epochs
+  (smithtune skill path on SWE-bench Verified: 24.4% to 42.4%), so the paired intervals, which
+  bootstrap over reviews, understate the full uncertainty. The seed-pair counts (9 of 9 in A) are
+  the check that does not lean on them.
+- The schedule changed after Experiment A was scored (amendment 1, early stopping to 2 epochs).
+  The registered result is published beside it and points the same way, +9.5 [+6.4, +12.8].
+- smithtune's converter dropped one While-pick trace in each experiment for a structural problem,
+  so While's side trained on one fewer trace (173 against 174, 316 against 317).
+- smithtune omits reasoning from training rows by default, so every tuned model is non-thinking
+  and is scored with thinking off. With thinking on, through OpenRouter, the base scored 70.3%,
+  75.1% and 74.6% on the held-out repositories.
 - Training ran on Modal, not Baseten Loops (not enabled for our workspace), with smithtune's
-  renderer, split and schedule.
+  renderer, split and schedule. The council ran on Baseten, smithtune's default.
+- An agent read the 20 traces and drafted `rubric_codesigned.md`; a person approved it from a
+  summary. The LangChain team is invited to send a rubric of their own, and we will run it the
+  same way.
 
 ## Next
 
-`python collect.py --arm base --split public` through OpenRouter for the thinking-on base, then a
-second seed per SFT arm and the size-matched random control. Traces keep flowing to LangSmith, so
-the same `pick.py` picks the next round.
+Run a rubric written by the smithtune team through the same pipeline. Then the thinking-on base
+on SWE-bench Verified. Traces keep flowing to LangSmith, so the same `pick.py` picks the next round.
