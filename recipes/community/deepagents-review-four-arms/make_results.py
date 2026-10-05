@@ -119,24 +119,30 @@ def main() -> int:
         out["noise"][split] = {"run_std": ev["run_std"], "noise_band": ev["noise_band"]}
     out["rerun"] = {split: rerun(split) for split in SPLITS}
     out["rerun_selection"] = json.loads((HERE / "keep" / "summary.json").read_text())
-    tok = {
-        a: json.loads((HERE / ".cache" / "st" / a / "summary.json").read_text())
-        for a in ("sft-with", "sft-without")
-    }
-    out["training"] = {
-        "sft-with": {
-            "traces": 173,
-            "tokens_per_epoch": 3619086,
-            "best_epoch": 2,
-            **tok["sft-with"],
-        },
-        "sft-without": {
-            "traces": 258,
-            "tokens_per_epoch": 10221451,
-            "best_epoch": 2,
-            **tok["sft-without"],
-        },
-    }
+    # Training-set sizes come from the smithtune exports in .cache, which a fresh
+    # clone does not have; it keeps the committed numbers instead.
+    cache = HERE / ".cache" / "st"
+    if all((cache / a / "summary.json").exists() for a in ("sft-with", "sft-without")):
+        tok = {
+            a: json.loads((cache / a / "summary.json").read_text())
+            for a in ("sft-with", "sft-without")
+        }
+        out["training"] = {
+            "sft-with": {
+                "traces": 173,
+                "tokens_per_epoch": 3619086,
+                "best_epoch": 2,
+                **tok["sft-with"],
+            },
+            "sft-without": {
+                "traces": 258,
+                "tokens_per_epoch": 10221451,
+                "best_epoch": 2,
+                **tok["sft-without"],
+            },
+        }
+    else:
+        out["training"] = json.loads((HERE / "results.json").read_text())["training"]
     (HERE / "results.json").write_text(json.dumps(out, indent=2) + "\n")
     print(json.dumps({k: out[k] for k in ("with_vs_without", "noise")}, indent=1))
     return 0
