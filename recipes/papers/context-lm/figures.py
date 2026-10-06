@@ -190,8 +190,117 @@ def tokens() -> None:
     s.save("context-lm-tokens.svg")
 
 
+def before_after() -> None:
+    """The last context.md the untrained model and the trained model (paper
+    arm, seed 17) wrote for the same held-out log, each line checked
+    against the log's true final state."""
+    import whileai as wai
+
+    env = wai.methods.KVLog()
+    base, trained = R["samples"]["base"][0], R["samples"]["paper"][0]
+    assert base["task"] == trained["task"]
+    seed = int(base["task"].rsplit("-", 1)[1])
+    task = env.task(seed)
+    truth = env.final_state(task)
+
+    def lines(sample):
+        out = []
+        for raw in sample["files"][-1].splitlines():
+            ln = raw.strip().strip("|").strip()
+            if ": " not in ln:
+                continue
+            k, v = (x.strip() for x in ln.split(": ", 1))
+            out.append((k, v, truth.get(k) == v, truth.get(k)))
+        return out
+
+    cols = [
+        ("Untrained", lines(base), env.reward(task, base["answer"])),
+        ("Trained, 60 steps", lines(trained), env.reward(task, trained["answer"])),
+    ]
+    n = max(len(c[1]) for c in cols)
+    s = Svg(100 + 40 + n * 26 + 62)
+    y0 = title(
+        s,
+        "Its notes after the last chunk, same held-out log",
+        f"Checked against the log's real final values. Question: final value of {task['ask']}?",
+    )
+    cw = (W - 48 - 16) / 2
+    for c, (head, rows, right) in enumerate(cols):
+        x = 24 + c * (cw + 16)
+        s.text(x, y0 + 14, head.upper(), size=12.5, color="muted", weight=700)
+        s.rect(x, y0 + 26, cw, n * 26 + 18, "surface", rx=8, stroke="line")
+        for i, (k, v, ok, real) in enumerate(rows):
+            y = y0 + 50 + i * 26
+            col = "green" if ok else "warm"
+            s.text(x + 14, y, f"{k}: {v}", size=13.5, mono=True,
+                   weight=700 if k == task["ask"] else 400)  # fmt: skip
+            note = "current" if ok else (f"stale, now {real}" if real else "not in the log")
+            s.text(x + cw - 14, y, note, size=12, color=col, anchor="end", weight=600)
+        y = y0 + 26 + n * 26 + 18 + 32
+        verdict = f"answered {task['gold']}, right" if right else "answered wrong"
+        s.text(x, y, verdict, size=15, weight=700, color="green" if right else "warm")
+        kept = sum(ok for _, _, ok, _ in rows)
+        s.text(x + cw, y, f"{kept} of {len(truth)} current", size=13, color="body", anchor="end")
+    s.save("context-lm-before-after.svg")
+
+
+def learning() -> None:
+    """Right answers during training, paper arm: each seed and their mean,
+    smoothed over 5 steps."""
+    traces = [t["reward"] for t in R["train_trace"]["paper"]]
+    steps = len(traces[0])
+
+    def smooth(xs, k=5):
+        return [
+            sum(xs[max(0, i - k + 1) : i + 1]) / len(xs[max(0, i - k + 1) : i + 1])
+            for i in range(len(xs))
+        ]
+
+    s = Svg(100 + 230)
+    y0 = title(
+        s,
+        "Learning to keep its own notes",
+        "Share of training logs answered right, by step. Thin: 4 seeds. Thick: mean.",
+    )
+    px0, px1, py0, py1 = 70, W - 30, y0 + 10, y0 + 180
+
+    def sx(i):
+        return px0 + i / (steps - 1) * (px1 - px0)
+
+    def sy(v):
+        return py1 - v * (py1 - py0)
+
+    for v in (0.0, 0.25, 0.5, 0.75, 1.0):
+        s.line(px0, sy(v), px1, sy(v), "line", width=1)
+        s.text(px0 - 10, sy(v) + 4, f"{v:.2f}", size=12, color="muted", anchor="end")
+    for i in (0, 20, 40, steps - 1):
+        anchor = "end" if i == steps - 1 else "middle"
+        s.text(sx(i), py1 + 22, f"step {i + 1}", size=12, color="muted", anchor=anchor)
+
+    def path(ys):
+        return " ".join(
+            f"{'M' if i == 0 else 'L'}{sx(i):.1f},{sy(v):.1f}" for i, v in enumerate(ys)
+        )
+
+    for t in traces:
+        s.parts.append(
+            f'<path d="{path(smooth(t))}" fill="none" stroke="{C["green"]}" stroke-opacity="0.35" '
+            f'stroke-width="1.5" stroke-linejoin="round"/>'
+        )
+    mean = [sum(t[i] for t in traces) / len(traces) for i in range(steps)]
+    s.parts.append(
+        f'<path d="{path(smooth(mean))}" fill="none" stroke="{C["green"]}" stroke-width="3.5" '
+        f'stroke-linejoin="round" stroke-linecap="round"/>'
+    )
+    s.text(px1, sy(0.62), "all 4 seeds end near 1.0", size=13, color="green",
+           anchor="end", weight=700)  # fmt: skip
+    s.save("context-lm-learning.svg")
+
+
 if __name__ == "__main__":
     idea()
     accuracy()
     tokens()
-    print(f"wrote {OUT}/context-lm-{{idea,accuracy,tokens}}.svg")
+    before_after()
+    learning()
+    print(f"wrote {OUT}/context-lm-{{idea,accuracy,tokens,before-after,learning}}.svg")
