@@ -7,6 +7,8 @@
 
 ## Recipe
 
+![A normal LLM stacks every chunk of the log in its context; a context LM rewrites one short file of key: value lines after each chunk](../../../docs/figures/context-lm-idea.svg)
+
 1. Task: `wai.methods.KVLog`, a seeded key-value log (ContextBench's KV Store, cut down [1]). It has 5 chunks of 8 `set key = value` lines over 8 keys, and the asked key is set at least twice. Each step the model sees `context.md` and one chunk; then the chunk is gone and it writes the whole new `context.md`. The last step shows only `context.md` and the question, and the model boxes a number. 512 train logs, 200 held out from a disjoint seed range.
 2. Harness and credit: `wai.methods.ContextFile(...).trainer(GRPOTrainer)`. Every step of a trajectory gets reward minus its group's mean (group of 8). The efficiency arms add `0.25 x` Eq. 6 on the five edits, not on the answer step (the paper's edit mask). Cost `c_i` counts prefix-reuse tokens: each step pays for the prompt past what is still cached, plus its reply.
 3. Base: `Qwen/Qwen2.5-1.5B-Instruct`. LoRA r=32, 60 steps, 4 logs x 8 trajectories a step, lr 1e-4, on-policy, no KL. Seeds 17, 18, 19 and 20 on every arm, all run fresh.
@@ -18,6 +20,7 @@
 python recipe.py --selftest      # the three gates on a stand-in model, offline
 python recipe.py --smoke         # Modal: 2 steps, 16 held-out logs, one seed
 python recipe.py --reuse         # three arms, four seeds, writes results.json
+python figures.py                # redraw the three figures from results.json
 ```
 
 Without the recipe around it, the training is this (trl 0.19, one GPU):
@@ -42,6 +45,10 @@ trainer.train()
 ```
 
 ## Result
+
+![Held-out pass@1, four seeds: plain GRPO 0.95, the paper's Eq. 6 0.97, Eq. 6 on complete files 0.92; untrained 0.07](../../../docs/figures/context-lm-accuracy.svg)
+
+![Tokens a trajectory, four seeds: plain GRPO 1,315, the paper's Eq. 6 1,115, Eq. 6 on complete files 1,050; untrained 1,209](../../../docs/figures/context-lm-tokens.svg)
 
 | Arm | pass@1, 4 seeds pooled | Per seed (17 / 18 / 19 / 20) | Tokens a trajectory | Last `context.md`, chars (17 / 18 / 19 / 20) | GPU min a seed |
 |---|---|---|---|---|---|

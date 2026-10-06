@@ -10,6 +10,8 @@ A chat model's context only grows: every message and tool result is appended unt
 
 ## The episode
 
+![A normal LLM stacks every chunk of the log in its context; a context LM rewrites one short file of key: value lines after each chunk](/figures/context-lm-idea.svg)
+
 An episode is $E$ edits and one answer. At edit $t$ the model sees the file and the next input, then writes the whole new file; the input is gone after that turn. At the end it sees only the file and the question. `wai.methods.KVLog` is a seeded task for it: 5 chunks of 8 `set key = value` lines over 8 keys, and a question about one key's final value.
 
 ```python
@@ -62,6 +64,10 @@ trainer.train()
 To evaluate, `clm.play(generate, tasks, env)` runs episodes with any generator that maps a list of chats and a token cap to `Reply` objects. `clm.report(episodes)` prints the pass rate, tokens a trajectory and file size.
 
 ## What it did
+
+![Held-out pass@1, four seeds: plain GRPO 0.95, the paper's Eq. 6 0.97, Eq. 6 on complete files 0.92; untrained 0.07](/figures/context-lm-accuracy.svg)
+
+![Tokens a trajectory, four seeds: plain GRPO 1,315, the paper's Eq. 6 1,115, Eq. 6 on complete files 1,050; untrained 1,209](/figures/context-lm-tokens.svg)
 
 [`recipes/papers/context-lm`](https://github.com/whilehq/whileai-sdk/tree/main/recipes/papers/context-lm) ran Qwen2.5-1.5B-Instruct for 60 steps with LoRA. It evaluated on 200 held-out logs, four seeds an arm, three arms:
 
