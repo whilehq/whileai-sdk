@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 414" width="560" height="414">
+<rect x="0.5" y="0.5" width="559" height="413" rx="14" fill="#FFFFFF" stroke="#D1D5DB"/>
+<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">What the model sees before each answer</text>
+<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">A log in 5 chunks of 8 lines, then: final value of maple? (Illustration.)</text>
+<text x="24" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">NORMAL LLM: THE CONTEXT ONLY GROWS</text>
+<rect x="24.0" y="212" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="72.0" y="226" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 1</text>
+<rect x="128.0" y="212" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="176.0" y="226" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 1</text>
+<rect x="128.0" y="192" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="176.0" y="206" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 2</text>
+<rect x="232.0" y="212" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="280.0" y="226" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 1</text>
+<rect x="232.0" y="192" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="280.0" y="206" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 2</text>
+<rect x="232.0" y="172" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="280.0" y="186" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 3</text>
+<rect x="336.0" y="212" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="384.0" y="226" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 1</text>
+<rect x="336.0" y="192" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="384.0" y="206" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 2</text>
+<rect x="336.0" y="172" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="384.0" y="186" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 3</text>
+<rect x="336.0" y="152" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="384.0" y="166" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 4</text>
+<rect x="440.0" y="212" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="488.0" y="226" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 1</text>
+<rect x="440.0" y="192" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="488.0" y="206" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 2</text>
+<rect x="440.0" y="172" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="488.0" y="186" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 3</text>
+<rect x="440.0" y="152" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="488.0" y="166" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 4</text>
+<rect x="440.0" y="132" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
+<text x="488.0" y="146" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 5</text>
+<text x="24" y="264" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">CONTEXT LM: IT REWRITES ONE FILE</text>
+<rect x="24.0" y="278" width="96.0" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="32.0" y="296" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">maple: 412</text>
+<text x="32.0" y="311" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">river: 935</text>
+<text x="32.0" y="327" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="start">...</text>
+<text x="72.0" y="352" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12" font-weight="400" fill="#6B7280" text-anchor="middle">after chunk 1</text>
+<rect x="128.0" y="278" width="96.0" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="136.0" y="296" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">maple: 412</text>
+<text x="136.0" y="311" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">river: 162</text>
+<text x="136.0" y="327" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="start">...</text>
+<text x="176.0" y="352" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12" font-weight="400" fill="#6B7280" text-anchor="middle">after chunk 2</text>
+<rect x="232.0" y="278" width="96.0" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="240.0" y="296" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">maple: 288</text>
+<text x="240.0" y="311" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">river: 162</text>
+<text x="240.0" y="327" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="start">...</text>
+<text x="280.0" y="352" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12" font-weight="400" fill="#6B7280" text-anchor="middle">after chunk 3</text>
+<rect x="336.0" y="278" width="96.0" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="344.0" y="296" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">maple: 177</text>
+<text x="344.0" y="311" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">river: 162</text>
+<text x="344.0" y="327" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="start">...</text>
+<text x="384.0" y="352" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12" font-weight="400" fill="#6B7280" text-anchor="middle">after chunk 4</text>
+<rect x="440.0" y="278" width="96.0" height="56" rx="6" fill="#F0FAF5" stroke="#3F8F6B"/>
+<text x="448.0" y="296" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">maple: 177</text>
+<text x="448.0" y="311" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">river: 162</text>
+<text x="448.0" y="327" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="start">...</text>
+<text x="488.0" y="352" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12" font-weight="400" fill="#6B7280" text-anchor="middle">after chunk 5</text>
+<text x="24" y="396" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#4B5563" text-anchor="start">Each chunk is gone after its turn. The model keeps only what it wrote.</text>
+</svg>

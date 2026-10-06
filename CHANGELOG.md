@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/context-lm/figures.py`: three figures (what a context LM sees, held-out pass@1, tokens a
+  trajectory) on the recipe page and the `docs/context-lm.md` guide.
 - Recipe `recipes/community/deepagents-review-four-arms/`: the fair rerun's results. At a fixed 2 epochs, three
   seeds per arm, While's pick beats smithtune's skill path (co-designed rubric, calibrated council) by +16.4
   points [+12.5, +20.3] on SWE-bench Verified and +9.8 [+6.5, +13.1] on held-out repos, every seed pair. The
