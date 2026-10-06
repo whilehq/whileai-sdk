@@ -65,6 +65,10 @@ To evaluate, `clm.play(generate, tasks, env)` runs episodes with any generator t
 
 ## What it did
 
+![Share of training logs answered right by step, paper arm: all four seeds rise from near 0 to above 0.9 within about 15 steps and end near 1.0](/figures/context-lm-learning.svg)
+
+![The same held-out log after the last chunk: the untrained model's notes hold 1 of 7 current values and answer wrong; the trained model's notes hold 6 of 7 and answer 177, right](/figures/context-lm-before-after.svg)
+
 ![Held-out pass@1, four seeds: plain GRPO 0.95, the paper's Eq. 6 0.97, Eq. 6 on complete files 0.92; untrained 0.07](/figures/context-lm-accuracy.svg)
 
 ![Tokens a trajectory, four seeds: plain GRPO 1,315, the paper's Eq. 6 1,115, Eq. 6 on complete files 1,050; untrained 1,209](/figures/context-lm-tokens.svg)
