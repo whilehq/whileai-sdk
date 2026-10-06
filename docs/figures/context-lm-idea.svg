@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 414" width="560" height="414">
 <rect x="0.5" y="0.5" width="559" height="413" rx="14" fill="#FFFFFF" stroke="#D1D5DB"/>
-<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">What the model sees before each answer</text>
-<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">A log in 5 chunks of 8 lines, then: final value of maple? (Illustration.)</text>
+<text x="24" y="42" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="21" font-weight="700" fill="#0B1220" text-anchor="start">Normal LLM vs context LM</text>
+<text x="24" y="68" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="14" font-weight="400" fill="#4B5563" text-anchor="start">Same log, read in 5 chunks. One piles it all up. One keeps notes.</text>
 <text x="24" y="114" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12.5" font-weight="700" fill="#6B7280" text-anchor="start">NORMAL LLM: THE CONTEXT ONLY GROWS</text>
 <rect x="24.0" y="212" width="96.0" height="17" rx="4" fill="#F4F6F9" stroke="#D1D5DB"/>
 <text x="72.0" y="226" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="11" font-weight="400" fill="#6B7280" text-anchor="middle">chunk 1</text>
@@ -59,5 +59,5 @@
 <text x="448.0" y="311" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#0B1220" text-anchor="start">river: 162</text>
 <text x="448.0" y="327" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="400" fill="#6B7280" text-anchor="start">...</text>
 <text x="488.0" y="352" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="12" font-weight="400" fill="#6B7280" text-anchor="middle">after chunk 5</text>
-<text x="24" y="396" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#4B5563" text-anchor="start">Each chunk is gone after its turn. The model keeps only what it wrote.</text>
+<text x="24" y="396" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif" font-size="13" font-weight="400" fill="#4B5563" text-anchor="start">Illustration. Once a chunk is read it's gone; only the notes remain.</text>
 </svg>
