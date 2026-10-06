@@ -42,25 +42,25 @@ def dot(ax, y, v, lo, hi, color, label=None):
 
 # 1. Gain over the untrained model, in the agents each model trained in vs agents it never saw.
 gains = [  # model, trained four (v, lo, hi), unseen six (v, lo, hi)
-    ("RL, OpenCode only", (8.1, 6.1, 10.0), (5.2, 3.6, 6.8)),
-    ("RL, four agents", (13.8, 11.5, 16.0), (4.4, 3.1, 5.7)),
-    ("SFT, OpenCode only", (3.4, 1.2, 5.6), (4.7, 2.4, 6.9)),
-    ("SFT, four agents", (17.1, 14.0, 20.4), (6.9, 4.4, 9.7)),
+    ("RL, trained in 1 tool", (8.1, 6.1, 10.0), (5.2, 3.6, 6.8)),
+    ("RL, trained in 4 tools", (13.8, 11.5, 16.0), (4.4, 3.1, 5.7)),
+    ("SFT, trained in 1 tool", (3.4, 1.2, 5.6), (4.7, 2.4, 6.9)),
+    ("SFT, trained in 4 tools", (17.1, 14.0, 20.4), (6.9, 4.4, 9.7)),
 ]
 fig, ax = plt.subplots(figsize=(10, 5.6))
 fig.subplots_adjust(left=0.22, right=0.95, top=0.76, bottom=0.17)
 for i, (name, tr, un) in enumerate(gains):
     y = len(gains) - 1 - i
-    dot(ax, y + 0.15, *tr, BLUE, "Four training agents" if i == 0 else None)
-    dot(ax, y - 0.15, *un, ORANGE, "Six agents it never saw" if i == 0 else None)
+    dot(ax, y + 0.15, *tr, BLUE, "Tools it trained in" if i == 0 else None)
+    dot(ax, y - 0.15, *un, ORANGE, "6 new tools it never saw" if i == 0 else None)
 ax.set_yticks(range(len(gains)), [g[0] for g in reversed(gains)], fontsize=11, color=INK)
 ax.axvline(0, color=MUTED, linewidth=1)
 ax.set_xlim(-1, 23)
-ax.set_xlabel("Points of pass rate gained over the untrained model (95% band)")
+ax.set_xlabel("Points gained over the untrained model (line = 95% range)")
 frame(ax)
 fig.legend(loc="upper left", bbox_to_anchor=(0.215, 0.85), ncol=2, frameon=False, fontsize=10.5, handletextpad=0.3, columnspacing=1.6)
-header(fig, "Training in four agents pays off in those four, not beyond",
-       "Every trained model gains about 5 points in agents it never saw, however many it trained in")
+header(fig, "Training in more coding tools only helps in those tools",
+       "In new coding tools, every trained model improves about 5 points, whether it trained in 1 tool or 4")
 fig.savefig(OUT / "1-gain-trained-vs-unseen.png", dpi=200)
 plt.close(fig)
 
@@ -71,7 +71,7 @@ rows = [  # label, v, lo, hi, group
     ("Qwen Code", 6.0, 2.8, 9.2, "u"), ("OpenHands SDK", 3.3, 0.0, 6.5, "u"),
     ("Gemini CLI", -0.1, -0.4, 0.0, "u"), ("Terminus 2", -0.9, -3.8, 2.0, "u"),
     ("Vibe", -3.7, -7.2, -0.5, "u"), ("Pi", -9.3, -12.9, -5.5, "u"),
-    ("All six never seen", -0.8, -2.0, 0.5, "p"),
+    ("All 6 new tools", -0.8, -2.0, 0.5, "p"),
 ]
 fig, ax = plt.subplots(figsize=(10, 7.2))
 fig.subplots_adjust(left=0.22, right=0.95, top=0.83, bottom=0.12)
@@ -95,19 +95,19 @@ for tick, (_, _, g) in zip(ax.get_yticklabels(), ys):
         tick.set_fontweight("bold")
 ax.axvline(0, color=MUTED, linewidth=1)
 ax.set_xlim(-16, 27)
-ax.set_xlabel("Four-agent model minus OpenCode-only model, points of pass rate (95% band)")
-ax.text(-15.5, tops["t"] + 0.75, "Agents both trained in", color=BLUE, fontsize=10.5, fontweight="bold")
-ax.text(-15.5, tops["u"] + 0.75, "Agents neither trained in", color=ORANGE, fontsize=10.5, fontweight="bold")
+ax.set_xlabel("Score difference in points (line = 95% range)")
+ax.text(-15.5, tops["t"] + 0.75, "Tools both models trained in", color=BLUE, fontsize=10.5, fontweight="bold")
+ax.text(-15.5, tops["u"] + 0.75, "New tools neither model saw", color=ORANGE, fontsize=10.5, fontweight="bold")
 ax.set_ylim(-0.7, tops["t"] + 1.3)
-ax.text(26.5, ys[0][0], "not proven:\nband crosses zero", ha="right", va="center", fontsize=9, color=INK2)
+ax.text(26.5, ys[0][0], "no real difference:\nrange crosses zero", ha="right", va="center", fontsize=9, color=INK2)
 frame(ax)
-header(fig, "In agents it never saw, the four-agent model is no better",
-       "RL checkpoints. Right of zero favors training in four agents, left favors OpenCode only")
+header(fig, "In new coding tools, training in 4 tools is no better than training in 1",
+       "Right of zero: the 4-tool model did better. Left: the 1-tool (OpenCode) model did better")
 fig.savefig(OUT / "2-four-agents-minus-opencode-per-agent.png", dpi=200)
 plt.close(fig)
 
 # 3. The agent moves the score more than the model.
-models = ["Base", "RL OpenCode", "RL four", "SFT OpenCode", "SFT four"]
+models = ["Base", "RL, 1 tool", "RL, 4 tools", "SFT, 1 tool", "SFT, 4 tools"]
 grid = {  # base, oc-rl, mh-rl, oc-sft, mh-sft (211 tasks shared by every cell)
     "Terminus 2": (60.3, 63.7, 62.8, 66.0, 60.7), "Mini-SWE-Agent": (52.9, 54.0, 58.9, 46.6, 41.5),
     "Pi": (42.4, 56.3, 46.1, 55.6, 51.2), "OpenHands SDK": (44.5, 50.6, 53.9, 45.5, 45.0),
@@ -133,8 +133,8 @@ ax.tick_params(length=0)
 ax.set_xticks([x - 0.5 for x in range(1, len(models))], minor=True)
 ax.set_yticks([y - 0.5 for y in range(1, len(names))], minor=True)
 ax.grid(which="minor", color=SURFACE, linewidth=2)
-header(fig, "The agent moves the score more than the model does",
-       "Pass rate (%) on the 211 tasks every cell shares. Agents explain 81% of the spread, models 5%")
+header(fig, "Which coding tool you use matters more than which model",
+       "Percent of tasks solved. The tool explains 81% of the differences, the model only 5%")
 fig.savefig(OUT / "3-agent-vs-model-heatmap.png", dpi=200)
 plt.close(fig)
 print("wrote", sorted(p.name for p in OUT.glob("*.png")))
