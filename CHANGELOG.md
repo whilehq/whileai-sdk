@@ -7,6 +7,7 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `recipes/papers/context-lm/figures.py`: plain-language titles and subtitles on all five figures.
 - `recipes/papers/context-lm/figures.py` adds two figures: right answers by training step, and the untrained vs
   trained model's notes on the same held-out log, each line checked against the log's real final values.
 - `recipes/papers/context-lm/figures.py`: three figures (what a context LM sees, held-out pass@1, tokens a

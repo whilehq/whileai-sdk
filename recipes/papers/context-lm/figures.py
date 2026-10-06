@@ -35,8 +35,8 @@ C = {
 # labeled, so color is never the only cue.
 ARMS = [
     ("baseline", "Plain GRPO", C["muted"]),
-    ("paper", "+ paper's Eq. 6", C["green"]),
-    ("recipe", "+ Eq. 6, complete files", C["warm"]),
+    ("paper", "Paper's bonus", C["green"]),
+    ("recipe", "Our stricter bonus", C["warm"]),
 ]
 LABEL_W = 176
 SEEDS = "17, 18, 19, 20"
@@ -108,8 +108,8 @@ def idea() -> None:
     s = Svg(100 + 150 + 104 + 60)
     y0 = title(
         s,
-        "What the model sees before each answer",
-        "A log in 5 chunks of 8 lines, then: final value of maple? (Illustration.)",
+        "Normal LLM vs context LM",
+        "Same log, read in 5 chunks. One piles it all up. One keeps notes.",
     )
     x0, gap = 24, 8
     cw = (W - 48 - gap * (steps - 1)) / steps
@@ -131,7 +131,7 @@ def idea() -> None:
         s.text(x + 8, top + 77, "...", size=11, color="muted", mono=True)
         s.text(x + cw / 2, top + 102, f"after chunk {t + 1}", size=12, color="muted",
                anchor="middle")  # fmt: skip
-    s.text(24, s.h - 18, "Each chunk is gone after its turn. The model keeps only what it wrote.",
+    s.text(24, s.h - 18, "Illustration. Once a chunk is read it's gone; only the notes remain.",
            size=13, color="body")  # fmt: skip
     s.save("context-lm-idea.svg")
 
@@ -164,8 +164,8 @@ def accuracy() -> None:
     s = Svg(100 + 170)
     y0 = title(
         s,
-        "Answered right on 200 held-out logs",
-        f"Qwen2.5-1.5B, 60 steps. Untrained: {base:.2f}. Dots: 4 seeds. Tick: mean.",
+        "Trained, it gets almost every log right",
+        f"Untrained: {base:.0%} right. Each dot is one training run; the line is the average.",
     )
     dot_panel(
         s, y0, "score", "per_seed", 0.80, 1.00, [0.8, 0.85, 0.9, 0.95, 1.0], lambda v: f"{v:.2f}"
@@ -179,14 +179,14 @@ def tokens() -> None:
     s = Svg(100 + 170 + 26)
     y0 = title(
         s,
-        "Tokens spent per held-out log",
-        f"Prefix-reuse tokens over 6 steps. Untrained: {base:,}. Dots: 4 seeds.",
+        "Tokens used per log (lower is cheaper)",
+        f"Untrained: {base:,}. Each dot is one training run; the line is the average.",
     )
     dot_panel(s, y0, "cost_tokens", "cost_per_seed", 800, 2200, [800, 1200, 1600, 2000],
               lambda v: f"{v:,.0f}")  # fmt: skip
     d = R["deltas"]["paper"]["cost"]["pooled"]["relative"]
-    s.text(24, s.h - 18, f"Eq. 6 spends {abs(d):.0%} less than plain GRPO; most of that is one "
-           "seed whose file bloated.", size=12.5, color="body")  # fmt: skip
+    s.text(24, s.h - 18, f"The paper's bonus uses {abs(d):.0%} fewer tokens, mostly because one "
+           "plain run let its notes bloat.", size=12.5, color="body")  # fmt: skip
     s.save("context-lm-tokens.svg")
 
 
@@ -221,8 +221,8 @@ def before_after() -> None:
     s = Svg(100 + 40 + n * 26 + 62)
     y0 = title(
         s,
-        "Its notes after the last chunk, same held-out log",
-        f"Checked against the log's real final values. Question: final value of {task['ask']}?",
+        "Its notes after reading the whole log",
+        f"Same unseen log, checked against the true values. Asked: what is {task['ask']}?",
     )
     cw = (W - 48 - 16) / 2
     for c, (head, rows, right) in enumerate(cols):
@@ -259,8 +259,8 @@ def learning() -> None:
     s = Svg(100 + 230)
     y0 = title(
         s,
-        "Learning to keep its own notes",
-        "Share of training logs answered right, by step. Thin: 4 seeds. Thick: mean.",
+        "It learns to keep notes in about 15 steps",
+        "Practice logs answered right during training. Faint: each run. Bold: average.",
     )
     px0, px1, py0, py1 = 70, W - 30, y0 + 10, y0 + 180
 
