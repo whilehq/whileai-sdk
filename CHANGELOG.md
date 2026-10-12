@@ -7,6 +7,8 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+## 0.131 (2026-10-12)
+
 - `Selection.trim()`: how many SFT rows your test can see, and which ones. `trim(n)` keeps the first `n` of one
   nested order: seeded random by default (arXiv:2410.09335), `by="diverse"` / `"target"` with `embed=`, or
   `"bigram"`; duplicates last. `trim({n: scores}, base=)` fits rectified (arXiv:2402.02314), power and log-linear
