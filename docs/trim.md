@@ -11,7 +11,7 @@ description: "Selection.trim fits the learning curve you measured on nested subs
 ```python
 import whileai as wai
 
-rows = wai.select(scored, mode="sft")
+rows = wai.select(scored, mode="sft", target=16000)
 base = evaluate(base_model)  # per-item 0/1 scores on your test
 
 scores = {}
@@ -19,18 +19,21 @@ for n in rows.trim_sizes():  # 64, 128, 256, ... len(rows)
     scores[n] = [train_and_eval(rows.trim(n), seed) for seed in (0, 1)]  # per-item scores per seed
 
 kept = rows.trim(scores, base=base)
-print(kept)
+print(kept.report["trim"])
 kept.export("train.jsonl")
 ```
 
 ```text
-verdict: saturated; N* = 5,330 rows (next doubling gains < 0.010)
-  fit: base + (a - base) * n^c / (d + n^c); base 0.272, a 0.699, c 0.92, d 147
-  error predicting n=16384 from the rest: rectified 0.013, power 0.026, logit 0.075
-  N* 90% range 2,551 rows .. 6,607 rows; inside the sizes trained in 100% of draws
+verdict: saturated; N* = 5,208 rows (next doubling gains < 0.010)
+  fit: base + (a - base) * n^c / (d + n^c); base 0.296, a 0.714, c 0.92, d 147
+  error predicting n=16000 from the rest: rectified 0.007, power 0.014, logit 0.064
+  N* 90% range 2,239 rows .. 6,214 rows; inside the sizes trained in 100% of draws
+  last doubling gained +0.007 [+0.000, +0.016]
+  smallest gain this test can detect: 0.021
+  note: min_gain 0.010 is under what this test can detect (0.021): add items or seeds
 ```
 
-That run is a simulation with a known answer: the true N* is 3,716 rows, inside the range. Train every size with the same epochs (or the same steps) and say which; at a fixed step budget, many epochs on few rows can beat one pass on many [16].
+That run is a simulation with a known answer (a 1,000-item test, two seeds): the true N* is about 3,700 rows, inside the range. The note is the honest part: this test cannot see a one-point gain, so "saturated" means "nothing the test can see past here". Train every size with the same epochs (or the same steps) and say which; at a fixed step budget, many epochs on few rows can beat one pass on many [16].
 
 ## Which rows
 
