@@ -17,8 +17,9 @@ and ``tools=`` (#592).
 
 from __future__ import annotations
 
+import math
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .simulations.data import RowList, row_config
@@ -88,6 +89,12 @@ class Selection(RowList):
                 lines.append(f"  {r['note']}")
         for w in r.get("hygiene_warnings") or []:
             lines.append(f"  warning: {w}")
+        if r.get("n_before_trim") is not None:
+            lines.append(
+                f"  trimmed to {len(self)} of {r['n_before_trim']} ({r.get('trim_order', 'random')} order)"
+            )
+        if r.get("trim") is not None:
+            lines.extend("  " + line for line in str(r["trim"]).splitlines())
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
@@ -136,6 +143,77 @@ class Selection(RowList):
             report.setdefault("warnings", []).append(line)
             warnings.warn(line, UserWarning, stacklevel=2)
         return report
+
+    def trim_sizes(self, *, first: int | None = None, growth: float | None = None) -> list[int]:
+        """The nested subset sizes to train at before ``trim(curve)``:
+        64, 128, 256, ... up to ``len(self)``. See ``whileai.trim``."""
+        from . import trim as _trim
+
+        return _trim.trim_sizes(
+            len(self),
+            first=_trim.FIRST_SIZE if first is None else first,
+            growth=_trim.GROWTH if growth is None else growth,
+        )
+
+    def trim(
+        self,
+        n_or_curve: int | Mapping[int, Any],
+        *,
+        by: str = "random",
+        seed: int = 0,
+        embed: Any = None,
+        dev: Sequence[Any] | None = None,
+        base: Any = None,
+        min_gain: float | None = None,
+    ) -> Selection:
+        """The rows worth training on, as few as the test can tell apart.
+
+        * ``trim(n)``: the first ``n`` rows of one fixed order, so
+          ``trim(64)`` sits inside ``trim(128)``. Duplicates go last. The
+          order is seeded random by default: on curated pools, published
+          selectors rarely beat random by more than a point
+          (arXiv:2410.09335, arXiv:2410.15225). ``by="diverse"`` (k-means
+          on ``embed=`` vectors, arXiv:2502.17184), ``by="target"`` with
+          ``dev=`` (closest to your dev examples, arXiv:2503.01807) and
+          ``by="bigram"`` (no embeddings) are opt in.
+        * ``trim({n: scores}, base=...)``: fit the learning curve you
+          measured at ``trim_sizes()`` (one score, one per seed, or per
+          item per seed) and keep ``N*``, the smallest size past which one
+          more doubling gains under ``min_gain`` (0.01 by default). Three
+          forms are fit and the one that best predicts the largest size
+          wins (arXiv:2402.02314, arXiv:2209.06640). Unless the verdict is
+          "saturated", every row is kept.
+
+        Pass the same ``by``, ``seed`` and ``embed`` to every call, so the
+        rows kept are the rows the curve was measured on. The fit is on
+        ``report["trim"]`` and prints with the selection. Method and
+        sources: ``whileai.trim`` and docs/trim.md.
+        """
+        from . import trim as _trim
+
+        idx = _trim.order(self, by, seed=seed, embed=embed, dev=dev)
+        report = dict(self.report)
+        if isinstance(n_or_curve, Mapping):
+            fit = _trim.fit_saturation(
+                n_or_curve,
+                base=base,
+                min_gain=_trim.MIN_GAIN if min_gain is None else min_gain,
+                seed=seed,
+            )
+            n = min(math.ceil(fit.n_saturated), len(self)) if fit.saturated else len(self)
+            report["trim"] = fit
+        else:
+            if isinstance(n_or_curve, bool) or not isinstance(n_or_curve, int) or n_or_curve < 1:
+                raise ValueError(
+                    f"trim({n_or_curve!r}): a row count >= 1, or a {{n_rows: scores}} curve"
+                )
+            n = min(n_or_curve, len(self))
+        report["n_before_trim"] = len(self)
+        report["trim_order"] = by
+        kept = [self[i] for i in idx[:n]]
+        return Selection(
+            kept, report=report, mode=self.mode, system_prompt=self.system_prompt, tools=self.tools
+        )
 
     def push(self, name: str, **kwargs: Any) -> dict:
         """Upload to the platform as a dataset: ``push_rows`` with this

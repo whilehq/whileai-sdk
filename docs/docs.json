@@ -104,7 +104,8 @@
               "character-training",
               "distillation",
               "groupwise-grading",
-              "context-lm"
+              "context-lm",
+              "trim"
             ]
           },
           {
