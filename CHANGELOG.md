@@ -7,6 +7,12 @@ to 0.109 releases under the wrong numbers; they are yanked.
 
 ## Unreleased
 
+- `Selection.trim()`: how many SFT rows your test can see, and which ones. `trim(n)` keeps the first `n` of one
+  nested order: seeded random by default (arXiv:2410.09335), `by="diverse"` / `"target"` with `embed=`, or
+  `"bigram"`; duplicates last. `trim({n: scores}, base=)` fits rectified (arXiv:2402.02314), power and log-linear
+  curves, picks the form that best predicts the largest size (arXiv:2209.06640), and keeps `N*`, the smallest size
+  past which a doubling gains under `min_gain` (0.01). Seeds or per-item scores add a paired bootstrap range on `N*`
+  and a detectable-gain check (arXiv:2411.00640). Functions in `whileai.trim`; guide `docs/trim.md`.
 - `recipes/papers/context-lm/figures.py`: plain-language titles and subtitles on all five figures.
 - `recipes/papers/context-lm/figures.py` adds two figures: right answers by training step, and the untrained vs
   trained model's notes on the same held-out log, each line checked against the log's real final values.
