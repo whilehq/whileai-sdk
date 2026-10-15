@@ -124,7 +124,7 @@ untested rules
   - Tell the customer what you did.
 ! 2 policy rules no ask reaches: write one ask per rule, or let the engine write them (simulate(seeds=asks, ...) covers the rule axis)
 ! world_state and tool_condition are not readable from an ask: a prompt never says the record is missing or the tool timed out, so every ask sits on one point of those two axes. Run the asks through simulate(seeds=asks, tools=..., system_prompt=...) to vary them, or add a fixture case per branch
-! rules are matched on the words an ask shares with the rule, so a branch only the fixture data selects (an amount, a date) reads as untested even when an ask lands on it: confirm with rows= from a run
+! rules are matched on words (the act a rule forbids, else the words an ask shares with it), not meaning: a paraphrase outside the built-in act words, or a branch only the fixture data selects (an amount, a date), reads as untested even when an ask lands on it. Confirm with rows= from a run, or pass match=
 ! every ask appears once: one rollout cannot tell a flake from a failure. Roll each ask k times (repeats=k, repeat_policy='fixed') and read pass^k
 ! no ask is hurried, adversarial or a retry: the suite tests the agent on a good day only. Add pressure asks, or take them from the stance axis
 ```
@@ -133,9 +133,26 @@ untested rules
 `.py` or `.jsonl` file. From a `.py` file the asks are the string literals
 that look like asks, a heuristic, so read `report["asks"]` first.
 
-A standing rule that names no tool and no condition ("Never modify data.")
-counts as covered only when an ask shares a word with it. A rule no ask goes
-near is listed under `untested rules`, not counted as covered.
+A rule that forbids an act a person can ask for ("Never modify data.") counts
+as covered when an ask asks for that act in any of its usual words ("update my
+address", "change the email"). An ask that only shares the rule's noun ("what
+data do you keep?") is a maybe: it is listed under `maybe tested rules`
+(`weakly_tested_rules`) and not counted as covered. Other standing rules count
+when an ask shares a word with them, and from eight asks up a word most of the
+asks carry does not count on its own. A rule no ask goes near is listed under
+`untested rules`.
+
+The act words are a short built-in list, so a paraphrase outside it ("fix the
+typo in my name") still reads as untested. Two people pick the same word for
+the same thing under 20% of the time (Furnas et al. 1987), so for a real
+answer pass your own test of meaning, an embedding or a judge call:
+
+```python
+def by_meaning(rule: str, ask: str) -> bool | None:
+    return similarity(rule, ask) > 0.6  # None leaves the pair to the word rules
+
+report = wai.coverage_gap(old_tests, tools=TOOLS, system_prompt=POLICY, match=by_meaning)
+```
 
 The report is in the engine's words: `untested_rules`, `untested_tools`,
 `single_shot`, and `notes` naming each fix. `world_state` and

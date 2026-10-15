@@ -2216,6 +2216,7 @@ coverage_gap(
     system_prompt: str = '',
     rows: Sequence[dict] | None = None,
     rule_cap: int | None = None,
+    match: Callable[[str, str], bool | None] | None = None,
 ) -> dict[str, Any]
 ```
 
@@ -2226,8 +2227,8 @@ List the parts of an agent's policy that the asks you already send never reach.
 Reach for it before writing situations, with the test suite you
 already have: it says which tools and which policy rules no ask
 exercises, in the engine's own vocabulary. It returns a dict:
-`untested_rules` and `untested_tools` (the lists worth reading),
-`rules` (the policy clauses found), `axes` (each axis with the
+`untested_rules`, `weakly_tested_rules` and `untested_tools`
+(the lists worth reading), `rules` (the policy clauses found), `axes` (each axis with the
 count per value), `stances`, `pressure_asks`, `single_shot`,
 `per_ask` (where each ask landed), `notes`, `summary` and
 `n_asks`. `format_coverage_gap(report)` prints it.
@@ -2246,9 +2247,22 @@ count per value), `stances`, `pressure_asks`, `single_shot`,
   (`rules_the_world_never_triggers`, with `rows_per_rule` and
   `rules_with_no_rows`).
 
+* `match`: `(rule, ask) -> True | False | None`, your own test of
+  whether an ask reaches a rule (an embedding similarity, a judge
+  call). `True` or `False` decides; `None` leaves that pair to
+  the word rules below. Matching on meaning finds links that shared
+  words miss (Lin et al., ICSE 2021: +60% MAP over word vectors).
+
 Each ask is placed on the axes it touches with text heuristics, not a
-model: the tools its words name or imply, the rule clauses it shares
-words with, and the stance its words show. Two axes (`world_state`,
+model: the tools its words name or imply, the rule clauses it reaches,
+and the stance its words show. A rule that forbids an act a person can
+ask for ("never modify data") is reached by an ask for that act in any
+of its usual words ("update my address"); an ask that only shares the
+rule's noun ("what data do you hold?") is a maybe, listed in
+`weakly_tested_rules` and not counted as covered. Other rules are
+reached by a shared word, and from `gap_rarity_min_asks` asks up a
+word most asks carry does not count alone. The three lists
+(covered, `weakly_tested_rules`, `untested_rules`) do not overlap. Two axes (`world_state`,
 `tool_condition`) cannot be read from an ask at all: a prompt never
 says the order is missing or the tool timed out, so a hand-written
 suite leaves them at one point and `notes` says so.

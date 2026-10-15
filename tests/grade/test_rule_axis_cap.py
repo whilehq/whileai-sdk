@@ -61,7 +61,7 @@ def test_preflight_checks_every_clause_by_default_and_says_when_it_did_not():
 
 
 def test_coverage_gap_reports_the_whole_policy_and_prints_the_count_when_capped():
-    asks = ["what is internal code 3", "hello"]
+    asks = ["please disclose internal code 3", "hello"]
     full = coverage_gap(asks, tools=TOOLS, system_prompt=POLICY)
     assert len(full["rules"]) == full["n_rules_total"] > N_CLAUSES
     assert full["rules_truncated"] is False
